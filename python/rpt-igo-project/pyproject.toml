@@ -1,7 +1,8 @@
 [project]
 name = "rpt-igo-project"
 version = "0.1.0"
-description = "Generates IGO project for supplied AOI from athena raw-rme"
+description = "Report Generator - IGO project for supplied AOI from athena raw-rme"
+authors = [{ name = "Lorin Gaertner", email = "info@northarrowresearch.com"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,3 +11,6 @@ dependencies = [
     "geopandas>=1.1.1",
     "rsxml>=2.0.6",
 ]
+
+[project.scripts]
+rpt-igo-project = "main:main"
