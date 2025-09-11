@@ -11,6 +11,9 @@ def get_bounds(
     Union all the polygons in the bounds_gpkg layer named project_bounds
     Simplifies as well. 
     Using spatialite 
+    TODO: Need to reexamine the simplification - maybe parameterize? 
+    I ended up getting with a bounds that was bigger than the original, should not
+    Also it is slow!
 
     Returns: GeoJSOn dictionary, the centroid, the bounding box
 

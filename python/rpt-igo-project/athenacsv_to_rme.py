@@ -307,7 +307,7 @@ def create_igos_project(project_dir: str, project_name: str, spatialite_path: st
                     Dataset(
                         xml_id='LOG',
                         ds_type='LogFile',
-                        name='Lof File',
+                        name='Log File',
                         description='Processing log file',
                         path=os.path.relpath(log_path, project_dir),
                     ),
