@@ -3,10 +3,10 @@ import boto3
 from  rsxml import Logger
 
 def fix_s3_uri(argstr: str) -> str:
-    """the parser is messing up s3 paths this should fix them
+    """the parser is messing up s3 paths. this should fix them
     launch.json value (a valid s3 string): "s3://riverscapes-athena/athena_query_results/d40eac38-0d04-4249-8d55-ad34901fee82.csv" 
     agrstr (input to this function) 's3:\\\\riverscapes-athena\\\\athena_query_results\\\\d40eac38-0d04-4249-8d55-ad34901fee82.csv'
-    ouput: back to a valid s3 string 
+    Returns: a valid s3 string 
     """
     import re
     # Replace all backslashes with slashes
@@ -16,6 +16,8 @@ def fix_s3_uri(argstr: str) -> str:
     return uri
 
 def get_s3_file (s3path: str, localpath: str):
+    """Download a file from S3 to local path, fixing S3 URI if needed.
+    """
     s3_uri = fix_s3_uri(s3path)
     download_file_from_s3(s3_uri, localpath)
 
@@ -51,9 +53,15 @@ def download_file_from_s3(s3_uri: str, local_path: str) -> None:
     s3.download_file(s3_bucket, s3_key, local_path)
     log.info("Download complete.")
 
-
 def parse_athena_results(rows):
-    """Convert Athena result rows to a list of dicts."""
+    """Convert Athena result rows to a list of dicts.
+    
+    Args: 
+        rows (list): Raw Athena result rows.
+    
+    Returns:
+        list[dict]: List of dictionaries representing query results.
+    """
     if not rows or len(rows) < 2:
         return []
     headers = [col['VarCharValue'] for col in rows[0]['Data']]
@@ -64,35 +72,89 @@ def parse_athena_results(rows):
     return data
 
 def athena_query_get_path(s3_bucket: str, query: str, max_wait: int = 600) -> str | None :
-    return ""
-
-def athena_query(s3_bucket: str, query: str, return_output_path: bool = False, max_wait: int = 600) -> list | str | None:
     """
-    Perform an Athena query and return the result rows or the S3 output path.
+    Run an Athena query and return the S3 output path to the CSV result file.
 
     Args:
         s3_bucket (str): S3 bucket for Athena output.
         query (str): SQL query string.
-        return_output_path (bool): If True, return the S3 path to the CSV result file.
-                                   If False (default), return the query results as rows.
-        max_wait # longest want to wait, in seconds, before giving up 600 seconds = 10 minutes
+        max_wait (int): Maximum wait time in seconds.
 
     Returns:
-        list or str or None: Query results (list of rows) or S3 output path (str), or None on failure.
-        the list is not a very friendly output - you have to dig into it.
-        For a single row with one column named (result of query "select count(*) from raw_rme where ...") it looks like:
-            [{'Data': [{'VarCharValue': '_col0'}]}, {'Data': [{'VarCharValue': '21958477'}]}]
-        Suggest to use the parse_athena_results to help
-    
-    Usage: 
-    # For small queries
-    raw_results = athena_query(s3_bucket, query)
-    parsed_results = parse_athena_results(raw_results)
-    print(parsed_results)
+        str | None: S3 path to the CSV result file, or None on failure.
+    """
+    result = _run_athena_query(s3_bucket, query, max_wait)
+    return result[0] if result else None
 
-    # For large queries
-    output_path = athena_query(s3_bucket, query, return_output_path=True)
-    print(f"Results at: {output_path}")
+def athena_query_get_rows(s3_bucket: str, query: str, max_wait: int = 600) -> list | None:
+    """
+    Run an Athena query and return the raw result rows.
+
+    Args:
+        s3_bucket (str): S3 bucket for Athena output.
+        query (str): SQL query string.
+        max_wait (int): Maximum wait time in seconds.
+
+    Returns:
+        list | None: Raw Athena result rows, or None on failure.
+    """
+    result = _run_athena_query(s3_bucket, query, max_wait)
+    if not result:
+        return None
+    _, query_execution_id = result
+
+    log = Logger("Athena query")
+    athena = boto3.client('athena', region_name='us-west-2')
+    results = []
+    next_token = None
+    while True:
+        if next_token:
+            response = athena.get_query_results(QueryExecutionId=query_execution_id, NextToken=next_token)
+        else:
+            response = athena.get_query_results(QueryExecutionId=query_execution_id)
+        results.extend(response['ResultSet']['Rows'])
+        next_token = response.get('NextToken')
+        if not next_token:
+            break
+
+    if results and len(results) > 1:
+        return results
+    return None
+
+def athena_query_get_parsed(s3_bucket: str, query: str, max_wait: int = 600) -> list[dict] | None:
+    """
+    Run an Athena query and return parsed results as a list of dictionaries.
+
+    Args:
+        s3_bucket (str): S3 bucket for Athena output.
+        query (str): SQL query string.
+        max_wait (int): Maximum wait time in seconds.
+
+    Returns:
+        list[dict] | None: Parsed Athena results, or None on failure.
+    """
+    rows = athena_query_get_rows(s3_bucket, query, max_wait)
+    if rows:
+        return parse_athena_results(rows)
+    return None
+
+def _run_athena_query(
+    s3_bucket: str,
+    query: str,
+    max_wait: int = 600
+) -> tuple[str, str] | None:
+    """
+    Run an Athena query and wait for completion.
+
+    Args:
+        s3_bucket (str): S3 bucket for Athena output.
+        query (str): SQL query string.
+        max_wait (int): Maximum wait time in seconds.
+
+    Returns:
+        tuple[str, str] | None: (output_path, query_execution_id) on success, or None on failure.
+
+    This is core function called by `athena_query_get_path` and `athena_query_get_rows`
     """
     log = Logger("Athena query")
     athena = boto3.client('athena', region_name='us-west-2')
@@ -106,11 +168,10 @@ def athena_query(s3_bucket: str, query: str, return_output_path: bool = False, m
             'OutputLocation': f's3://{s3_bucket}/athena_query_results'
         }
     )
-
     query_execution_id = response['QueryExecutionId']
-
     start_time = time.time()
     log.debug(f"Query started at: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
+
     # Poll for completion
     while True:
         status = athena.get_query_execution(QueryExecutionId=query_execution_id)
@@ -121,38 +182,16 @@ def athena_query(s3_bucket: str, query: str, return_output_path: bool = False, m
             log.error(f"Timed out waiting for Athena query to complete. Waited {max_wait} seconds.")
             log.error(f"Check the Athena console for QueryExecutionId {query_execution_id} for more details.")
             log.error(f"Query string (truncated): {query[:500]}{'...' if len(query) > 500 else ''}")
-            output_path = status['QueryExecution']['ResultConfiguration'].get('OutputLocation','')
+            output_path = status['QueryExecution']['ResultConfiguration'].get('OutputLocation', '')
             log.error(f"S3 OutputLocation (may be empty): {output_path}")
             return None
-        time.sleep(2)  # Wait before polling again
+        time.sleep(2)
 
     if state != 'SUCCEEDED':
         reason = status['QueryExecution']['Status'].get('StateChangeReason', '')
         log.error(f"Athena query failed or was cancelled: {state}. Reason: {reason}")
         return None
 
-    log.debug(f'Query completed at: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}')
-    output_path = status['QueryExecution']['ResultConfiguration'].get('OutputLocation','')
-
-    if return_output_path:
-        return output_path
-
-    log.debug('Processing results')
-    results = []
-    next_token = None
-    while True:
-        if next_token:
-            response = athena.get_query_results(QueryExecutionId=query_execution_id, NextToken=next_token)
-        else:
-            response = athena.get_query_results(QueryExecutionId=query_execution_id)
-        results.extend(response['ResultSet']['Rows'])
-        next_token = response.get('NextToken')
-        if not next_token:
-            break
-
-    # Athena returns header row as first row, data as second row
-    rows = results
-    if rows and len(rows) > 1:
-        return results
-
-    return None
+    log.debug(f'Query completed at: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))}')
+    output_path = status['QueryExecution']['ResultConfiguration'].get('OutputLocation', '')
+    return output_path, query_execution_id

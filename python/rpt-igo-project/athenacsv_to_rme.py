@@ -142,7 +142,7 @@ def create_geopackage(gpkg_path: str, table_schema_map: dict, table_col_order: d
 
     return conn
 
-def wkt_from_csv(csv_geom: str) -> str:
+def wkt_from_csv(csv_geom: str) -> str | None:
     """
     Convert geometry string from CSV (with | instead of ,) back to WKT.
     """
@@ -250,7 +250,7 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
     """
     Returns a list of the datasets from the output GeoPackage.
     These are the spatial views that are created from the igos and dgos tables.
-    ***COPIED FROM scrape_rme2.py***
+    ***COPIED FROM scrape_rme2.py*** and then 
     """
 
     conn = apsw.Connection(output_gpkg)
@@ -259,11 +259,16 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
 
     # Get the names of all the tables in the database
     curs.execute("SELECT table_name FROM gpkg_contents WHERE data_type='features'")
-    datasets = [GeopackageLayer(
-        lyr_name=row[0],
-        ds_type=GeoPackageDatasetTypes.VECTOR,
-        name=row[0]
-    ) for row in curs.fetchall()]
+    datasets: list[GeopackageLayer] = []
+    for row in curs.fetchall():
+        table_name = str(row[0])
+        datasets.append (
+            GeopackageLayer(
+                lyr_name=table_name,
+                ds_type=GeoPackageDatasetTypes.VECTOR,
+                name=table_name
+            )
+        ) 
     return datasets
 
 def create_igos_project(project_dir: str, project_name: str, spatialite_path: str, gpkg_path: str, log_path: str):
@@ -354,7 +359,7 @@ def create_views(conn: apsw.Connection, table_col_order: dict):
     for dgo_table in dgo_tables:
         # Get the columns of the dgo side table
         curs.execute(f'PRAGMA table_info({dgo_table})')
-        dgo_table_cols = ['t.' + col[1] for col in curs.fetchall() if col[1] != 'dgoid' and col[1] != 'DGOID']
+        dgo_table_cols = ['t.' + str(col[1]) for col in curs.fetchall() if col[1] != 'dgoid' and col[1] != 'DGOID']
  
         view_name = f'vw_{dgo_table}_metrics'
         new_views.append(view_name)

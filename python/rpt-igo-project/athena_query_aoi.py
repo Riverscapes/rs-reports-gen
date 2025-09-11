@@ -28,7 +28,7 @@ Future enhancements:
 
 import geopandas as gpd
 # from shapely.geometry import box
-from util.athena import athena_query, parse_athena_results
+from util.athena import athena_query_get_parsed, athena_query_get_path
 from rsxml import Logger
 
 # buffer, in decimal degrees, on centroids to capture DGO. 
@@ -122,8 +122,8 @@ def run_aoi_athena_query(path_to_shape: str, s3_bucket: str) -> str | None:
 
     # count the prefiltered records - uncomment for debugging only
     query_str = f'SELECT count(*) AS record_count FROM raw_rme {prefilter_where_clause}'
-    raw_results = (athena_query(s3_bucket, query_str))
-    log.debug (f'Prefiltered records: {parse_athena_results(raw_results)}')
+    results = (athena_query_get_parsed(s3_bucket, query_str))
+    log.debug (f'Prefiltered records: {results}')
 
     # Try with original geometry
     aoi_geom_str = get_aoi_geom_sql_expression(gdf)
@@ -175,7 +175,7 @@ def run_aoi_athena_query(path_to_shape: str, s3_bucket: str) -> str | None:
     # with open("athena_query.sql", "w", encoding="utf-8") as f:
     #     f.write(query_str)
 
-    results = athena_query(s3_bucket, query_str, return_output_path=True)
+    results = athena_query_get_path(s3_bucket, query_str)
     return results
 
 def main():
