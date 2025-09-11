@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+            "name": "Python Debugger: rpt-igo-project",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/rpt-igo-project/main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/python"
+            },            
+            "args": [
+                "/usr/lib/x86_64-linux-gnu/mod_spatialite.so",
+                "{env:DATA_ROOT}/athena_to_rme",
+                "/mnt/c/nardata/work/rme_extraction/Price-riv/pricehuc10s.geojson",
+                "Price River"
+            ]
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}

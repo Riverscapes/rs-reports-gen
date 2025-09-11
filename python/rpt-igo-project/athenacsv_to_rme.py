@@ -24,7 +24,8 @@ import boto3
 import apsw
 import json
 import tempfile
-from pydex.lib.rs_geo_helpers import get_bounds
+from util.rs_geo_helpers import get_bounds
+from util.athena import get_s3_file
 from rsxml import dotenv, Logger, ProgressBar
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
@@ -40,6 +41,7 @@ from rsxml.project_xml import (
     GeoPackageDatasetTypes,
     Dataset
 )
+
 
 GEOMETRY_COL_TYPES = ('MULTIPOLYGON','POINT')
 
@@ -72,37 +74,6 @@ def parse_table_defs(defs_csv_path):
                 table_col_order[table].insert(0, 'dgoid')
     return table_schema_map, table_col_order, fk_tables
 
-def download_file_from_s3(s3_uri: str, local_path: str) -> None:
-    """
-    Download a file from S3 to a local path.
-
-    Args:
-        s3_uri (str): S3 URI of the file, e.g. 's3://bucket/key'.
-        local_path (str): Local filesystem path to save the downloaded file.
-
-    Raises:
-        ValueError: If s3_uri is not a valid S3 URI.
-
-    Example:
-        download_file_from_s3('s3://riverscapes-athena/adhoc/yct_sample4.csv', '/tmp/yct_sample4.csv')
-    """
-    log = Logger('Download File')
-    # Validate and parse S3 URI
-    if not isinstance(s3_uri, str) or not s3_uri.startswith('s3://'):
-        raise ValueError(f"Invalid S3 URI: {s3_uri}. Must start with 's3://'")
-    parts = s3_uri[5:].split('/', 1)
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Invalid S3 URI: {s3_uri}. Must be in format 's3://bucket/key'")
-    s3_bucket, s3_key = parts
-
-    log.info(f"Downloading {s3_key} from bucket {s3_bucket} to {local_path}")
-    s3 = boto3.client('s3')
-    response = s3.head_object(Bucket=s3_bucket, Key=s3_key)
-    size_bytes = response['ContentLength']
-    log.info(f"ContentType: {response['ContentType']}\t File size: {size_bytes} bytes")
-    # TODO if very large, add progress bar
-    s3.download_file(s3_bucket, s3_key, local_path)
-    log.info("Download complete.")
 
 def create_geopackage(gpkg_path: str, table_schema_map: dict, table_col_order: dict, fk_tables: set, spatialite_path: str) -> apsw.Connection:
     """
@@ -408,28 +379,32 @@ def create_views(conn: apsw.Connection, table_col_order: dict):
         ''', [view_name])
     log.info(f"{len(new_views)} views created and registered as spatial layers.")
 
-def fix_s3_uri(argstr: str) -> str:
-    """the parser is messing up s3 paths this should fix them
-    launch.json value (a valid s3 string): "s3://riverscapes-athena/athena_query_results/d40eac38-0d04-4249-8d55-ad34901fee82.csv" 
-    agrstr (input to this function) 's3:\\\\riverscapes-athena\\\\athena_query_results\\\\d40eac38-0d04-4249-8d55-ad34901fee82.csv'
-    ouput: back to a valid s3 string 
+
+def create_rs_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: str, project_name: str, log_path):
+    """ orchestration of all the things we need to do ie 
+        parse table defs, create GeoPackage, and populate tables.
     """
-    import re
-    # Replace all backslashes with slashes
-    uri = argstr.replace("\\", "/")
-    # Ensure exactly two slashes after 's3:'
-    uri = re.sub(r'^s3:/+', 's3://', uri)
-    return uri
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, "rme_table_column_defs.csv")
+    table_schema_map, table_col_order, fk_tables = parse_table_defs(csv_path)
+
+    gpkg_path = os.path.join(project_dir, 'outputs', 'riverscape_metrics.gpkg') 
+    safe_makedirs(os.path.join(project_dir,'outputs'))
+
+    conn = create_geopackage(gpkg_path, table_schema_map, table_col_order, fk_tables, spatialite_path)
+    populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
+    create_views(conn, table_col_order)
+    create_igos_project(project_dir, project_name, spatialite_path, gpkg_path, log_path)
 
 def main():
     """
-    Main entry point: parses arguments, downloads CSV, parses table defs, creates GeoPackage, and populates tables.
+    Main entry point: parses arguments, downloads CSV
+    Requirement rme_table_column_defs.csv in the same path as the python
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('spatialite_path', help='Path to the mod_spatialite library', type=str)
     parser.add_argument('raw_rme_csv_path', help='full path to csv file containing the raw_rme extract (can be s3 URI e.g. s3://riverscapes-athena/adhoc/yct_sample4.csv)')
     parser.add_argument('working_folder', help='top level folder for downloads and output', type=str)
-    parser.add_argument('table_defs_csv', help='Path to rme_table_column_defs.csv', type=str)
     # note rsxml.dotenv screws up s3 paths! we'll need to address that see issue #895 in RiverscapesXML repo - meanwhile we'll fix it 
     args = dotenv.parse_args_env(parser)
     # instead, can use standard parser. However this doesn't handle {env:DATA_ROOT} the way rsxml does
@@ -437,7 +412,7 @@ def main():
 
     # Set up some reasonable folders to store things
     working_folder = args.working_folder
-    download_folder = os.path.join(working_folder, 'downloads')
+    # download_folder = os.path.join(working_folder, 'downloads') # not used - i only download the csv and use temp
     project_dir = os.path.join(working_folder, 'project')  # , 'outputs', 'riverscapes_metrics.gpkg')
     safe_makedirs(project_dir)
     project_name = os.path.basename(args.raw_rme_csv_path)
@@ -446,25 +421,18 @@ def main():
     log_path = os.path.join(project_dir, 'rme-scrape.log')
     log.setup(log_path=log_path, log_level=logging.DEBUG)
 
-    # parser.add_argument('output_gpkg', help='Path to output GeoPackage file', type=str)
-    gpkg_path = os.path.join(project_dir, 'outputs', 'riverscape_metrics.gpkg') 
-    safe_makedirs(os.path.join(project_dir,'outputs'))
-
     # csv can be either a local path or an s3 path. parse and handle accordingly
     # TODO (enhancement) - stream and process file without storing the tempfile
     if args.raw_rme_csv_path.startswith('s3:'):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile:
             local_csv = tmpfile.name
-        s3_uri = fix_s3_uri(args.raw_rme_csv_path)
-        download_file_from_s3(s3_uri, local_csv)
+        get_s3_file (args.raw_rme_csv_path, local_csv)
     else:
         local_csv = args.raw_rme_csv_path   
 
-    table_schema_map, table_col_order, fk_tables = parse_table_defs(args.table_defs_csv)
-    conn = create_geopackage(gpkg_path, table_schema_map, table_col_order, fk_tables, args.spatialite_path)
-    populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
-    create_views(conn, table_col_order)
-    create_igos_project(project_dir, project_name, args.spatialite_path, gpkg_path, log_path)
+    # all processing logic in create_ 
+    create_rs_igos_from_csv(project_dir, args.spatialite_path, local_csv, project_name, log_path)  
+    
     log.info('Process complete.')
 
 if __name__ == '__main__':

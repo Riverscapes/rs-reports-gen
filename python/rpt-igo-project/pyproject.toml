@@ -1,0 +1,12 @@
+[project]
+name = "rpt-igo-project"
+version = "0.1.0"
+description = "Generates IGO project for supplied AOI from athena raw-rme"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "apsw>=3.50.4.0",
+    "boto3>=1.40.28",
+    "geopandas>=1.1.1",
+    "rsxml>=2.0.6",
+]

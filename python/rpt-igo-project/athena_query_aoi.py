@@ -28,7 +28,7 @@ Future enhancements:
 
 import geopandas as gpd
 # from shapely.geometry import box
-from pydex.lib.athena import athena_query, parse_athena_results
+from util.athena import athena_query, parse_athena_results
 from rsxml import Logger
 
 # buffer, in decimal degrees, on centroids to capture DGO. 
