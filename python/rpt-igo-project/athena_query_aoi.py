@@ -29,20 +29,12 @@ Future enhancements:
 import geopandas as gpd
 # from shapely.geometry import box
 from util.athena import athena_query_get_parsed, athena_query_get_path
+from util.rs_geo_helpers import simplify_gdf
 from rsxml import Logger
 
 # buffer, in decimal degrees, on centroids to capture DGO. 
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
 BUFFER_CENTROID_TO_BB_DD = 0.47 
-
-def simplify_aoi_gdf(gdf: gpd.GeoDataFrame, tolerance_meters: float = 11) -> gpd.GeoDataFrame:
-    # Reproject to a projected CRS (EPSG:5070 is good for CONUS)
-    gdf_proj = gdf.to_crs(epsg=5070)
-    # Simplify geometries in projected CRS (tolerance in meters)
-    gdf_proj["geometry"] = gdf_proj.geometry.simplify(tolerance=tolerance_meters, preserve_topology=True)
-    # Reproject back to EPSG:4326 for Athena
-    gdf_simplified = gdf_proj.to_crs(epsg=4326)
-    return gdf_simplified
 
 def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) -> str | None: 
     """check the geometry, union 
@@ -108,17 +100,15 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     bounds_where_clause = f'WHERE (latitude between {bufminy} AND {bufmaxy}) AND (longitude between {bufminx} AND {bufmaxx})'
     return bounds_where_clause
 
-def run_aoi_athena_query(path_to_shape: str, s3_bucket: str) -> str | None:
+def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str) -> str | None:
     """Run Athena query on supplied AOI geojson and return path to results
     returns None if the shape can't be converted to suitably sized geometry sql expression
     """
     log=Logger('Run AOI Query on Athena')
-    # Read the GeoJSON
-    gdf = gpd.read_file(path_to_shape)
 
     # we are going to filter the centroids, but clip to polygon
     # So we need to buffer by the maximum distance between a centroid and its bounding polygon 
-    prefilter_where_clause = generate_sql_where_clause_for_bounds(gdf)
+    prefilter_where_clause = generate_sql_where_clause_for_bounds(aoi_gdf)
 
     # count the prefiltered records - uncomment for debugging only
     query_str = f'SELECT count(*) AS record_count FROM raw_rme {prefilter_where_clause}'
@@ -126,14 +116,14 @@ def run_aoi_athena_query(path_to_shape: str, s3_bucket: str) -> str | None:
     log.debug (f'Prefiltered records: {results}')
 
     # Try with original geometry
-    aoi_geom_str = get_aoi_geom_sql_expression(gdf)
+    aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
     simplified = False
 
     # If too large, try with simplified geometry
     if not aoi_geom_str:
         log.info("AOI geometry too large, simplifying and retrying...")
-        gdf = simplify_aoi_gdf(gdf, tolerance_meters=11)  # Adjust tolerance as needed
-        aoi_geom_str = get_aoi_geom_sql_expression(gdf)
+        aoi_gdf = simplify_gdf(aoi_gdf, tolerance_meters=11)  # Adjust tolerance as needed
+        aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
         simplified = True
 
     if not aoi_geom_str:
@@ -183,8 +173,8 @@ def main():
     # path_to_shape = r"C:\nardata\work\rme_extraction\20250827-rkymtn\physio_rky_mtn_system.geojson"
     path_to_shape = r"C:\nardata\work\rme_extraction\Price-riv\pricehuc10s.geojson"
     s3_bucket = "riverscapes-athena"
-
-    path_to_results = run_aoi_athena_query(path_to_shape, s3_bucket)
+    aoi_gdf = gpd.read_file(path_to_shape)
+    path_to_results = run_aoi_athena_query(aoi_gdf, s3_bucket)
     print(path_to_results)
 
 if __name__ == '__main__':

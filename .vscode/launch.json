@@ -10,10 +10,10 @@
                 "PYTHONPATH": "${workspaceFolder}/python"
             },            
             "args": [
-                "/usr/lib/x86_64-linux-gnu/mod_spatialite.so",
+                "{env:SPATIALITE_PATH}",
                 "{env:DATA_ROOT}/athena_to_rme",
-                "/mnt/c/nardata/work/rme_extraction/Price-riv/pricehuc10s.geojson",
-                "Price River"
+                "/mnt/c/nardata/work/rme_extraction/20250827-rkymtn/physio_rky_mtn_system_4326.geojson",
+                "Physio Rky Mtn System"
             ]
         },
         {
@@ -21,7 +21,10 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/python"
+            },           
         }
     ]
 }

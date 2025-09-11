@@ -24,8 +24,10 @@ import boto3
 import apsw
 import json
 import tempfile
-from util.rs_geo_helpers import get_bounds
+import geopandas as gpd
+from util.rs_geo_helpers import get_bounds_from_gdf
 from util.athena import get_s3_file
+from util.csvhelper import est_rows_for_csv_file
 from rsxml import dotenv, Logger, ProgressBar
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
@@ -158,6 +160,8 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
     """
     log = Logger('Populate Tables')
     log.info(f"Populating tables from {csv_path}")
+    rows = est_rows_for_csv_file(csv_path)
+    prog_bar = ProgressBar(rows, text="Transfer from csv to database table")
     curs = conn.cursor()
     with open(csv_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -169,7 +173,7 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
                 for table, columns in table_schema_map.items():
                     insert_cols = []
                     insert_values = []
-                    geom_col_idx = None
+                    # geom_col_idx = None
                     for col in table_col_order[table]:
                         coltype = columns[col]                        
                         if col == 'dgoid':
@@ -208,12 +212,12 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
                     #     log.debug(sqlstatement)
                     #     log.debug(insert_values)
                     curs.execute(sqlstatement, insert_values)
-                # TODO (enhance) use progress bar instead of this status message
-                # thought to use file size and tell() but that doesn't work - would have to read the number of rows first
-                # need to check if that slows things down much - probably not
-                if idx % 10000 == 0:
-                    log.info(f"Inserted {idx} rows.")
+                # two ways of updating user
+                prog_bar.update(idx)
+                if idx % 25000 == 0:
+                    print(f"Inserted {idx} rows.")
             conn.execute('COMMIT')
+            prog_bar.finish()
             log.info(f"Inserted {idx} rows.")    
         except Exception as e:
             log.error(f"Error at row {idx}: {e}\nRow data: {row}\nSQL: {sqlstatement}")
@@ -271,18 +275,16 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
         ) 
     return datasets
 
-def create_igos_project(project_dir: str, project_name: str, spatialite_path: str, gpkg_path: str, log_path: str):
+def create_igos_project(project_dir: str, project_name: str, spatialite_path: str, gpkg_path: str, log_path: str, bounds_gdf: gpd.GeoDataFrame):
     """
-    Create a Riverscapes project of type 
-    Modelled after scrape_rme2.py 
-
-    
+    Create a Riverscapes project of type IGOS
+    Modelled after scrape_rme2.py in data-exchange-scripts
     """
     log = Logger ('Create IGOS project')
     # Build the bounds for the new RME scrape project
-    # dgos table has point geom but buffering them works
+    # dgos table has point geom; using that and buffering them didn't work well
     # Alternate approach : we could use the AOI that was used to select the dgos to begin with
-    bounds, centroid, bounding_rect = get_bounds(gpkg_path, spatialite_path, bounds_layer='dgos')
+    bounds, centroid, bounding_rect = get_bounds_from_gdf(bounds_gdf)
     output_bounds_path = os.path.join(project_dir, 'project_bounds.geojson')
     with open(output_bounds_path, "w", encoding='utf8') as f:
         json.dump(bounds, f, indent=2)
@@ -385,9 +387,10 @@ def create_views(conn: apsw.Connection, table_col_order: dict):
     log.info(f"{len(new_views)} views created and registered as spatial layers.")
 
 
-def create_rs_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: str, project_name: str, log_path):
+def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: str)-> str : 
     """ orchestration of all the things we need to do ie 
         parse table defs, create GeoPackage, and populate tables.
+        return path to the geopackage
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(current_dir, "rme_table_column_defs.csv")
@@ -399,7 +402,7 @@ def create_rs_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: s
     conn = create_geopackage(gpkg_path, table_schema_map, table_col_order, fk_tables, spatialite_path)
     populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
     create_views(conn, table_col_order)
-    create_igos_project(project_dir, project_name, spatialite_path, gpkg_path, log_path)
+    return gpkg_path
 
 def main():
     """
@@ -435,8 +438,11 @@ def main():
     else:
         local_csv = args.raw_rme_csv_path   
 
-    # all processing logic in create_ 
-    create_rs_igos_from_csv(project_dir, args.spatialite_path, local_csv, project_name, log_path)  
+    # 2 steps - make geopackage, then make riverscapes project
+    gpkg_path = create_gpkg_igos_from_csv(project_dir, args.spatialite_path, local_csv)
+    # TODO: if you don't have a bounds gdf, create one from gpkg_path 
+    bounds_gdf = pt_gpkg_to_poly_gdf(gpkg_path) 
+    create_igos_project(project_dir, project_name, args.spatialite_path, gpkg_path, log_path, bounds_gdf)
     
     log.info('Process complete.')
 
