@@ -161,6 +161,7 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
     log = Logger('Populate Tables')
     log.info(f"Populating tables from {csv_path}")
     rows = est_rows_for_csv_file(csv_path)
+    log.debug(f"Estimated number of rows: {rows}")
     prog_bar = ProgressBar(rows, text="Transfer from csv to database table")
     curs = conn.cursor()
     with open(csv_path, newline='', encoding='utf-8') as csvfile:
@@ -214,8 +215,8 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
                     curs.execute(sqlstatement, insert_values)
                 # two ways of updating user
                 prog_bar.update(idx)
-                if idx % 25000 == 0:
-                    print(f"Inserted {idx} rows.")
+                # if idx % 25000 == 0:
+                #     print(f"Inserted {idx} rows.")
             conn.execute('COMMIT')
             prog_bar.finish()
             log.info(f"Inserted {idx} rows.")    
@@ -426,7 +427,7 @@ def main():
     project_name = os.path.basename(args.raw_rme_csv_path)
 
     log = Logger('Setup')
-    log_path = os.path.join(project_dir, 'rme-scrape.log')
+    log_path = os.path.join(project_dir, 'athenacsv-to-rme-scrape.log')
     log.setup(log_path=log_path, log_level=logging.DEBUG)
 
     # csv can be either a local path or an s3 path. parse and handle accordingly
@@ -439,9 +440,11 @@ def main():
         local_csv = args.raw_rme_csv_path   
 
     # 2 steps - make geopackage, then make riverscapes project
-    gpkg_path = create_gpkg_igos_from_csv(project_dir, args.spatialite_path, local_csv)
+    # gpkg_path = create_gpkg_igos_from_csv(project_dir, args.spatialite_path, local_csv) 
+    gpkg_path = r"/home/narlorin/udata/pydataroot/athena_to_rme/project/outputs/riverscape_metrics.gpkg"
     # TODO: if you don't have a bounds gdf, create one from gpkg_path 
-    bounds_gdf = pt_gpkg_to_poly_gdf(gpkg_path) 
+    # bounds_gdf = pt_gpkg_to_poly_gdf(gpkg_path) 
+    bounds_gdf = gpd.read_file("/mnt/c/nardata/work/rme_extraction/20250827-rkymtn/physio_rky_mtn_system_4326.geojson")
     create_igos_project(project_dir, project_name, args.spatialite_path, gpkg_path, log_path, bounds_gdf)
     
     log.info('Process complete.')

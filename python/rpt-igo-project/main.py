@@ -20,9 +20,12 @@ def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, 
     if not isinstance(path_to_results,str) :
         log.error('Did not get result from run_aoi_athena_query that we were expecting')
         raise ValueError ("No valid S3 path returned from Athena query; cannot download file.")
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile: # change to True after dubgging
+    log.info('Athena query to extract data for AOI completed successfully.')
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile: # could change to True for production?
         local_csv_path = tmpfile.name
-        get_s3_file(path_to_results, local_csv_path)
+        get_s3_file(path_to_results, local_csv_path) # SKIP FOR TESTING
+        log.info('Downloaded results csv from s3 successfully.')
+        # local_csv_path = "/tmp/tmpyweftx8_.csv" # FOR TESTING ONLY USE THIS"
         gpkg_path = create_gpkg_igos_from_csv (project_dir, spatialite_path, local_csv_path)
         create_igos_project(project_dir, project_name, spatialite_path, gpkg_path, log_path, aoi_gdf)
 

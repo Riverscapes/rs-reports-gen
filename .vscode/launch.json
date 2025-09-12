@@ -25,6 +25,22 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/python"
             },           
-        }
+        },
+                {
+            "name": "Python Debugger: rpt-igo-project - athenacsv_to_rme",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/rpt-igo-project/athenacsv_to_rme.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/python"
+            },            
+            "args": [
+                "{env:SPATIALITE_PATH}",
+                "/tmp/tmpyweftx8_.csv",
+                "{env:DATA_ROOT}/athena_to_rme"
+            ]
+        },
+
     ]
 }

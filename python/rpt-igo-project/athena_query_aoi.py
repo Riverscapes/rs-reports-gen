@@ -101,7 +101,7 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     return bounds_where_clause
 
 def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str) -> str | None:
-    """Run Athena query on supplied AOI geojson and return path to results
+    """Run Athena query on supplied AOI geojson and return path to results on S3
     returns None if the shape can't be converted to suitably sized geometry sql expression
     """
     log=Logger('Run AOI Query on Athena')
@@ -110,7 +110,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str) -> str | Non
     # So we need to buffer by the maximum distance between a centroid and its bounding polygon 
     prefilter_where_clause = generate_sql_where_clause_for_bounds(aoi_gdf)
 
-    # count the prefiltered records - uncomment for debugging only
+    # count the prefiltered records - comment 3 lines for better performance/ keep for debugging only
     query_str = f'SELECT count(*) AS record_count FROM raw_rme {prefilter_where_clause}'
     results = (athena_query_get_parsed(s3_bucket, query_str))
     log.debug (f'Prefiltered records: {results}')
@@ -130,7 +130,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str) -> str | Non
         log.error('Could not create suitable geometry from supplied value, even after simplification.')
         return
 
-    log.debug(f'aoi_geo_str is {len(aoi_geom_str)} long ({"simplified" if simplified else "original"})')
+    log.info(f'Built AOI geometry string for query. Length {len(aoi_geom_str):,} bytes ({"simplified" if simplified else "did not need to simplify"})')
 
     # For a query to pull just the lat/lon of DGOs that intersect, use this instead
     # fields_str = "longitude, latitude"
@@ -158,8 +158,8 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str) -> str | Non
 
     # Debugging output
     log.debug(f'Query is {len(query_str.encode('utf-8'))} bytes')
-    log.debug(f"Query starts with: {query_str[:50]}")
-    log.debug(f"Query ends with: {query_str[-30:]}")
+    log.debug(f"Query starts with: {repr(query_str[:75])}")
+    log.debug(f"Query ends with: {repr(query_str[-40:])}")
     # print("Full query:")
     # print(query_str)
     # with open("athena_query.sql", "w", encoding="utf-8") as f:
