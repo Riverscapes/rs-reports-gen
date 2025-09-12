@@ -4,9 +4,16 @@
             "path": "python/rpt-rivers-need-space"
         },
         {
+            "name": "util",
+            "path": "python/util"
+        },
+        {
             "name": "🏠 Git Root",
             "path": "."
         },
+        {
+            "path": "../../udata/pydataroot"
+        }
     ],
     "settings": {
         "terminal.integrated.defaultProfile.linux": "zsh",

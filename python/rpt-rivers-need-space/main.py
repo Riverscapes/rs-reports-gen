@@ -9,8 +9,8 @@ from shapely import wkt
 from datetime import datetime
 from rsxml import dotenv, Logger
 from rsxml.util import safe_makedirs
-from util.athena_query_aoi import run_aoi_athena_query
-from util.athena import get_s3_file
+from util_athena_query_aoi import run_aoi_athena_query # FIX should be in util
+from util_athena import get_s3_file # FIX should be in util
 
 S3_BUCKET = "riverscapes-athena"
 

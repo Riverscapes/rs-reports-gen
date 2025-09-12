@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "altair>=5.5.0",
+    "apsw>=3.50.4.0",
+    "boto3>=1.40.30",
     "branca>=0.8.1",
     "folium>=0.20.0",
     "geopandas>=1.1.1",
