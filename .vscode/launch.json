@@ -27,7 +27,7 @@
             },           
         },
                 {
-            "name": "Python Debugger: rpt-igo-project - athenacsv_to_rme",
+            "name": "Python Debugger: rpt-igo-project - athenacsv_to_rme portion",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/python/rpt-igo-project/athenacsv_to_rme.py",
@@ -39,6 +39,21 @@
                 "{env:SPATIALITE_PATH}",
                 "/tmp/tmpyweftx8_.csv",
                 "{env:DATA_ROOT}/athena_to_rme"
+            ]
+        },
+                {
+            "name": "Python Debugger: rpt-rivers-need-space",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/rpt-rivers-need-space/main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/python"
+            },            
+            "args": [
+                "{env:DATA_ROOT}/rpt-rivers-need-space",
+                "/mnt/c/nardata/work/reporting/sample_gis/sample_geojsons/althouse_small_selection_1.geojson",
+                "Althouse Creek 1"
             ]
         },
 
