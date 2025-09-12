@@ -5,12 +5,11 @@ column-to-table-and-type mapping extracted from rme geopackage pragma
 into rme_table_column_defs.csv. All tables will include a sequentially generated dgoid column.
 
 Lorin Gaertner (with copilot)
-August 2025
+August/Sept 2025
 
 IMPLEMENTED: Sequential dgoid (integer), geometry handling for dgo_geom (SRID 4326, WKT conversion), foreign key syntax in table creation, error handling (throws on missing/malformed required columns), debug output for skipped/invalid rows.
 Actual column names/types must be supplied in rme_table_column_defs.csv. 
-Geometry column creation and spatialite extension loading are stubbed (see TODOs). 
-No batching/optimization for very large CSVs - but it handled 1.5 M records okay as is.
+No batching/optimization for very large CSVs - but it handled 1.5 M records okay and managed 7M too.
 No advanced validation or transformation beyond geometry and required columns.
 Foreign key constraints are defined but not enforced unless PRAGMA foreign_keys=ON is set.
 """
@@ -270,7 +269,7 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
         datasets.append (
             GeopackageLayer(
                 lyr_name=table_name,
-                ds_type=GeoPackageDatasetTypes.VECTOR,
+                ds_type=GeoPackageDatasetTypes.VECTOR, # pyright: ignore[reportArgumentType]
                 name=table_name
             )
         ) 
@@ -339,9 +338,9 @@ def create_views(conn: apsw.Connection, table_col_order: dict):
     dgo_tables = [t for t in table_col_order.keys() if t != 'dgos']
     log.debug(f'Attribute tables to create views for: {dgo_tables}')
 
-    # Get the columns from the dgos table
+    # Get the columns from the dgos table, but not the dgoid or geom because we'll add them manually
     curs.execute('PRAGMA table_info(dgos)')
-    dgo_cols = [f"dgos.{col[1]}" for col in curs.fetchall() if col[1] != 'dgoid' and col[1] != 'DGOID']
+    dgo_cols = [f"dgos.{col[1]}" for col in curs.fetchall() if col[1] not in ('dgoid' , 'DGOID' , 'geom', 'GEOM')]
 
     new_views = ['vw_dgo_metrics']
     # we don't have IGO table but we put the point geom in the DGO geom - same idea
@@ -387,6 +386,18 @@ def create_views(conn: apsw.Connection, table_col_order: dict):
         ''', [view_name])
     log.info(f"{len(new_views)} views created and registered as spatial layers.")
 
+def create_indexes(conn: apsw.Connection, table_col_order: dict):
+    """
+    Create indexes on dgoid columns for all tables except 'dgos'.
+    """
+    log = Logger('Create Indexes')
+    curs = conn.cursor()
+    for table in table_col_order:
+        if table != 'dgos':
+            index_name = f"idx_{table}_dgoid"
+            log.debug(f"Creating index {index_name} on {table}(dgoid)")
+            curs.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table}(dgoid)")
+    log.info("Indexes created for dgoids.")
 
 def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: str)-> str : 
     """ orchestration of all the things we need to do ie 
@@ -402,12 +413,13 @@ def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv:
 
     conn = create_geopackage(gpkg_path, table_schema_map, table_col_order, fk_tables, spatialite_path)
     populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
+    create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
     return gpkg_path
 
 def main():
     """
-    Main entry point: parses arguments, downloads CSV
+    Main entry point for the second part: parses arguments, downloads CSV. Normally just used for testing otherwise functions are called from main.py
     Requirement rme_table_column_defs.csv in the same path as the python
     """
     parser = argparse.ArgumentParser()
@@ -440,8 +452,7 @@ def main():
         local_csv = args.raw_rme_csv_path   
 
     # 2 steps - make geopackage, then make riverscapes project
-    # gpkg_path = create_gpkg_igos_from_csv(project_dir, args.spatialite_path, local_csv) 
-    gpkg_path = r"/home/narlorin/udata/pydataroot/athena_to_rme/project/outputs/riverscape_metrics.gpkg"
+    gpkg_path = create_gpkg_igos_from_csv(project_dir, args.spatialite_path, local_csv) 
     # TODO: if you don't have a bounds gdf, create one from gpkg_path 
     # bounds_gdf = pt_gpkg_to_poly_gdf(gpkg_path) 
     bounds_gdf = gpd.read_file("/mnt/c/nardata/work/rme_extraction/20250827-rkymtn/physio_rky_mtn_system_4326.geojson")
