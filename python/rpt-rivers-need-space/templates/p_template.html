@@ -1,0 +1,14 @@
+<html>
+    <head>
+        <title>{{ report_name }}</title>
+        <meta charset='utf-8'>
+        <style>body { font-family: Arial, sans-serif; margin: 2em; }</style>
+    </head>
+    <body>
+        <h1>{{ report_name }}</h1>
+        <h2>Map of Polygons</h2>
+        {{ map_html|safe }}
+        <h2>Segment Area by Ownership</h2>
+        {{ bar_html|safe }}
+    </body>
+</html>

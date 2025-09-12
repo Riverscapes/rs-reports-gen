@@ -18,78 +18,86 @@ def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name):
     """
     Generates a simple HTML report in report_dir containing:
     - The report_name as a title
-    - A map of the polygons in dgo_polygon_geom using Folium
-    - A bar chart showing the sum of segment_area by ownership using Altair
+    - A map of the polygons in dgo_polygon_geom using Plotly
+    - A horizontal bar chart showing the sum of segment_area by ownership using Plotly
     """
-    import folium
-    import altair as alt
-    from branca.element import MacroElement
+    import plotly.express as px
+    import plotly.graph_objects as go
+    import plotly.io as pio
+    import pandas as pd
+    import geopandas as gpd
     from jinja2 import Template
-    import json
 
-    # 1. Create Folium map
+    # Ensure geometry column is correct and reset index for mapping
+    gdf = gdf.copy()
+    gdf = gdf.reset_index(drop=True)
+    gdf["id"] = gdf.index  # unique id for each row
+
+    # 1. Create Plotly map (GeoJSON polygons)
+    geojson = gdf.set_geometry("dgo_polygon_geom").__geo_interface__
+    # Compute extent and center
     if gdf.empty:
-        center = [0, 0]
+        center = {"lat": 0, "lon": 0}
+        zoom = 2
     else:
-        center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
-    m = folium.Map(location=center, zoom_start=8, tiles='cartodbpositron')
-    folium.GeoJson(gdf[['dgo_polygon_geom', 'ownership']],
-                   name="Polygons",
-                   tooltip=folium.GeoJsonTooltip(fields=["ownership"]))\
-        .add_to(m)
+        bounds = gdf["dgo_polygon_geom"].total_bounds  # [minx, miny, maxx, maxy]
+        center = {"lat": (bounds[1] + bounds[3]) / 2, "lon": (bounds[0] + bounds[2]) / 2}
+        # Estimate zoom: smaller area = higher zoom
+        # This is a rough heuristic for zoom based on longitude span
+        lon_span = bounds[2] - bounds[0]
+        if lon_span < 0.01:
+            zoom = 14
+        elif lon_span < 0.1:
+            zoom = 12
+        elif lon_span < 1:
+            zoom = 10
+        elif lon_span < 5:
+            zoom = 8
+        elif lon_span < 20:
+            zoom = 6
+        else:
+            zoom = 4
 
-    # Extract only the map <div> and required scripts/styles from Folium
-    folium_html = m.get_root().render()
-    # Extract the map <div> (id starts with 'map_')
-    import re
-    map_div_match = re.search(r'(<div class="folium-map".*?</div>)', folium_html, re.DOTALL)
-    map_div = map_div_match.group(1) if map_div_match else ''
-    # Extract all <script> and <link> tags for Folium
-    folium_scripts = '\n'.join(re.findall(r'(<script.*?</script>)', folium_html, re.DOTALL))
-    folium_links = '\n'.join(re.findall(r'(<link.*?>)', folium_html, re.DOTALL))
-    folium_styles = '\n'.join(re.findall(r'(<style.*?</style>)', folium_html, re.DOTALL))
-
-    # 2. Create Altair horizontal bar chart (sum of segment_area by ownership)
-    chart_data = gdf.groupby('ownership', as_index=False)['segment_area'].sum()
-    chart = alt.Chart(chart_data).mark_bar().encode(
-        y=alt.Y('ownership:N', title='Ownership'),
-        x=alt.X('segment_area:Q', title='Total Segment Area'),
-        tooltip=['ownership', 'segment_area']
-    ).properties(
-        width=600,
-        height=400,
-        title='Total Segment Area by Ownership'
+    map_fig = px.choropleth_mapbox(
+        gdf,
+        geojson=geojson,
+        locations="id",
+        color="fcode",
+        featureidkey="properties.id",
+        center=center,
+        mapbox_style="carto-positron",
+        zoom=zoom,
+        opacity=0.5,
+        hover_name="fcode",
+        hover_data={"segment_area": True, "ownership": True}
     )
-    # Get only the chart fragment (no <html>/<head>/<body>)
-    chart_html = chart.to_html()
+    map_fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=500)
 
-    # 3. Use Jinja2 template to combine fragments into a valid HTML doc
-    template = Template("""
-    <html>
-    <head>
-        <title>{{ report_name }}</title>
-        <meta charset='utf-8'>
-        <style>body { font-family: Arial, sans-serif; margin: 2em; }</style>
-        {{ folium_links|safe }}
-        {{ folium_styles|safe }}
-    </head>
-    <body>
-        <h1>{{ report_name }}</h1>
-        <h2>Map of Polygons</h2>
-        {{ map_div|safe }}
-        {{ folium_scripts|safe }}
-        <h2>Segment Area by Ownership</h2>
-        {{ chart_html|safe }}
-    </body>
-    </html>
-    """)
+    # 2. Create horizontal bar chart (sum of segment_area by ownership)
+    chart_data = gdf.groupby('ownership', as_index=False)['segment_area'].sum()
+    bar_fig = px.bar(
+        chart_data,
+        y="ownership",
+        x="segment_area",
+        orientation="h",
+        title="Total Segment Area by Ownership",
+        labels={"segment_area": "Total Segment Area", "ownership": "Ownership"},
+        height=400
+    )
+    bar_fig.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
+
+    # 3. Export both figures to HTML divs
+    # Enable mode bar for interactivity (zoom, pan, etc.)
+    map_html = pio.to_html(map_fig, include_plotlyjs=True, full_html=False, config={"displayModeBar": True})
+    bar_html = pio.to_html(bar_fig, include_plotlyjs=False, full_html=False, config={"displayModeBar": False})
+
+    # 4. Combine into a single HTML page using Jinja2
+    with open('templates/p_template.html', encoding='utf8') as t:
+        template = Template(t.read())
     html = template.render(
         report_name=report_name,
-        map_div=map_div,
-        folium_links=folium_links,
-        folium_styles=folium_styles,
-        folium_scripts=folium_scripts,
-        chart_html=chart_html
+        map_html=map_html,
+        bar_html=bar_html
     )
     out_path = os.path.join(report_dir, "report.html")
     with open(out_path, "w", encoding="utf-8") as f:
@@ -101,7 +109,7 @@ def load_gdf_from_csv(csv_path):
     df.describe() # outputs some info for debugging
     df['dgo_polygon_geom'] = df['dgo_geom_obj'].apply(wkt.loads)
     gdf = gpd.GeoDataFrame(df, geometry='dgo_polygon_geom', crs='EPSG:4326')
-    print(gdf)
+    # print(gdf)
     return gdf
 
 def get_data(gdf: gpd.GeoDataFrame) -> str:
