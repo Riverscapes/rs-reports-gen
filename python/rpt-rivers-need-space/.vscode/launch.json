@@ -22,7 +22,9 @@
             "args": [
                 "{env:DATA_ROOT}/rpt-rivers-need-space",
                 "/mnt/c/nardata/work/reporting/sample_gis/sample_geojsons/althouse_small_selection_1.geojson",
-                "Althouse Creek 1"
+                "Althouse Creek 1",
+                "--csv",
+                "/tmp/tmphcfn8l6q.csv",
             ]
         },
     ]
