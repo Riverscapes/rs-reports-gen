@@ -5,7 +5,7 @@
         },
         {
             "name": "🏠 Git Root",
-            "path": ".."
+            "path": "."
         },
     ],
     "settings": {
