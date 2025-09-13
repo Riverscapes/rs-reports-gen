@@ -1,14 +1,42 @@
 <html>
-    <head>
-        <title>{{ report_name }}</title>
-        <meta charset='utf-8'>
-        <style>body { font-family: Arial, sans-serif; margin: 2em; }</style>
-    </head>
-    <body>
-        <h1>{{ report_name }}</h1>
-        <h2>Map of Polygons</h2>
-        {{ map_html|safe }}
-        <h2>Segment Area by Ownership</h2>
-        {{ bar_html|safe }}
-    </body>
+
+<head>
+    <title>{{ report_name }}</title>
+    <meta charset='utf-8'>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2em;
+        }
+    </style>
+    {{ report.head }}
+</head>
+
+<body>
+    <header id="HeaderBar">
+        <div id="HeaderInner">
+            <div id="RiverscapesLogo">&nbsp;</div>
+            <div id="HeaderRight">
+                <div id="HeaderTop">
+                    <div class="date">Report Created: {{report.date}}</div>
+                    <div class="projectType">Report Type: {{report.ReportType}}</div>
+                </div>
+                <h1 id="title">{{report.title}}</h1>
+            </div>
+        </div>
+    </header>
+
+    <div id="ReportContainer">
+        <div id="ReportInner">
+            <h2>Map of Polygons</h2>
+            {{ figures['map']|safe }}
+            <h2>Segment Area by Ownership</h2>
+            {{ figures['bar']|safe }}
+        </div>
+    </div>
+    <footer>
+        <div id="FooterRight"></div>
+    </footer>
+</body>
+
 </html>

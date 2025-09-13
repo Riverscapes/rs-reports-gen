@@ -5,8 +5,15 @@ import geopandas as gpd
 import pandas as pd
 import tempfile
 import sys
+import weasyprint
 from shapely import wkt
 from datetime import datetime
+
+import plotly.graph_objects as go
+import plotly.io as pio
+from jinja2 import Template
+
+from figures import make_map, make_rs_area_by_owner
 from rsxml import dotenv, Logger
 from rsxml.util import safe_makedirs
 from util_athena_query_aoi import run_aoi_athena_query # FIX should be in util
@@ -14,95 +21,88 @@ from util_athena import get_s3_file # FIX should be in util
 
 S3_BUCKET = "riverscapes-athena"
 
-def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name):
+# not specific to this report... can go in another file
+def export_figure (fig: go.Figure, out_dir: str, name: str, mode: str, include_plotlyjs=False, report_dir=None):
+    """export plotly figure html
+    either interactive, or with path to static image
     """
-    Generates a simple HTML report in report_dir containing:
-    - The report_name as a title
-    - A map of the polygons in dgo_polygon_geom using Plotly
-    - A horizontal bar chart showing the sum of segment_area by ownership using Plotly
-    """
-    import plotly.express as px
-    import plotly.graph_objects as go
-    import plotly.io as pio
-    import pandas as pd
-    import geopandas as gpd
-    from jinja2 import Template
-
-    # Ensure geometry column is correct and reset index for mapping
-    gdf = gdf.copy()
-    gdf = gdf.reset_index(drop=True)
-    gdf["id"] = gdf.index  # unique id for each row
-
-    # 1. Create Plotly map (GeoJSON polygons)
-    geojson = gdf.set_geometry("dgo_polygon_geom").__geo_interface__
-    # Compute extent and center
-    if gdf.empty:
-        center = {"lat": 0, "lon": 0}
-        zoom = 2
-    else:
-        bounds = gdf["dgo_polygon_geom"].total_bounds  # [minx, miny, maxx, maxy]
-        center = {"lat": (bounds[1] + bounds[3]) / 2, "lon": (bounds[0] + bounds[2]) / 2}
-        # Estimate zoom: smaller area = higher zoom
-        # This is a rough heuristic for zoom based on longitude span
-        lon_span = bounds[2] - bounds[0]
-        if lon_span < 0.01:
-            zoom = 14
-        elif lon_span < 0.1:
-            zoom = 12
-        elif lon_span < 1:
-            zoom = 10
-        elif lon_span < 5:
-            zoom = 8
-        elif lon_span < 20:
-            zoom = 6
+    # what is the return signature? Can the mode signature list the options? 
+    if mode == "interactive":
+        # Enable mode bar for interactivity (zoom, pan, etc.)
+        return pio.to_html(
+            fig,
+            include_plotlyjs=include_plotlyjs,
+            full_html=False,
+            config={"displayModeBar": True}
+        )
+    # will this work? make case insensitive 
+    elif mode in ('png','jpeg','svg','pdf', 'webp'):
+        img_filename = f"{name}.{mode}"
+        img_path = os.path.join(out_dir, img_filename)
+        # requires kaleido (python packge) to be installed 
+        # and that requires Google Chrome to be installed - plotly_get_chrome or kaleido.get_chrome() or kaleido.get_chrome_sync()
+        if report_dir:
+            rel_path = os.path.relpath(img_path, start=report_dir)
         else:
-            zoom = 4
+            rel_path = img_filename
+        fig.write_image(img_path)
+        html_fragment = f'<img src="{rel_path}">'
+        return html_fragment
+    else:
+        raise NotImplementedError # is there a better error? 
 
-    map_fig = px.choropleth_mapbox(
-        gdf,
-        geojson=geojson,
-        locations="id",
-        color="fcode",
-        featureidkey="properties.id",
-        center=center,
-        mapbox_style="carto-positron",
-        zoom=zoom,
-        opacity=0.5,
-        hover_name="fcode",
-        hover_data={"segment_area": True, "ownership": True}
-    )
-    map_fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=500)
+def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
+    """
+    Generates HTML report(s) in report_dir.
+    mode: "interactive", "static", or "both"
+    Returns path(s) to the generated html file(s).
+    """
+    log = Logger('make report')
 
-    # 2. Create horizontal bar chart (sum of segment_area by ownership)
-    chart_data = gdf.groupby('ownership', as_index=False)['segment_area'].sum()
-    bar_fig = px.bar(
-        chart_data,
-        y="ownership",
-        x="segment_area",
-        orientation="h",
-        title="Total Segment Area by Ownership",
-        labels={"segment_area": "Total Segment Area", "ownership": "Ownership"},
-        height=400
-    )
-    bar_fig.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
+    figures = {
+        "map": make_map(gdf),
+        "bar": make_rs_area_by_owner(gdf),
+    }
+    figure_dir = os.path.join(report_dir, 'figures')
+    safe_makedirs(figure_dir)
 
-    # 3. Export both figures to HTML divs
-    # Enable mode bar for interactivity (zoom, pan, etc.)
-    map_html = pio.to_html(map_fig, include_plotlyjs=True, full_html=False, config={"displayModeBar": True})
-    bar_html = pio.to_html(bar_fig, include_plotlyjs=False, full_html=False, config={"displayModeBar": False})
+    def render_report(fig_mode, suffix=""):
+        figure_exports = {}
+        for i, (name, fig) in enumerate(figures.items()):
+            include_js = (i == 0) if fig_mode == "interactive" else False
+            figure_exports[name] = export_figure(
+                fig, figure_dir, name, mode=fig_mode, include_plotlyjs=include_js, report_dir=report_dir
+            )
+        with open('templates/p_template.html', encoding='utf8') as t:
+            template = Template(t.read())
+        with open('templates/report.css', encoding='utf8') as css_file:
+            css = css_file.read()
+        style_tag = f"<style>{css}</style"
+        now = datetime.now()
+        html = template.render(
+            report={
+                'head': style_tag,
+                'title': report_name,
+                'date': now.strftime('%B %d, %Y - %I:%M%p'),
+                'ReportType': "Rivers Need Space"
+            },
+            report_name=report_name,
+            figures=figure_exports
+        )
+        out_path = os.path.join(report_dir, f"report{suffix}.html")
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(html)
+        log.info(f"Report written to {out_path}")
+        return out_path
 
-    # 4. Combine into a single HTML page using Jinja2
-    with open('templates/p_template.html', encoding='utf8') as t:
-        template = Template(t.read())
-    html = template.render(
-        report_name=report_name,
-        map_html=map_html,
-        bar_html=bar_html
-    )
-    out_path = os.path.join(report_dir, "report.html")
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"Report written to {out_path}")
+    if mode == "both":
+        interactive_path = render_report("interactive", "")
+        static_path = render_report("png", "_static")
+        return {"interactive": interactive_path, "static": static_path}
+    elif mode == "static":
+        return render_report("png", "_static")
+    else:
+        return render_report("interactive", "")
 
 def load_gdf_from_csv(csv_path):
     df = pd.read_csv(csv_path)
@@ -121,12 +121,21 @@ def get_data(gdf: gpd.GeoDataFrame) -> str:
     s3_csv_path = run_aoi_athena_query(gdf, S3_BUCKET, fields_str=fields_str)
     if s3_csv_path is None:
         log.error("Didn't get a result from athena")
-        raise NotImplementedError()
+        raise NotImplementedError
     with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile:
         local_csv_path = tmpfile.name
         get_s3_file (s3_csv_path, local_csv_path)
     # local_csv_path = r"/tmp/tmphcfn8l6q.csv" # FOR TESTING ONLY 
     return local_csv_path
+
+def make_pdf_from_html(html_path: str) -> str:
+    """
+    Generate a PDF from an HTML file using WeasyPrint.
+    Returns the path to the generated PDF.
+    """
+    pdf_path = os.path.splitext(html_path)[0] + ".pdf"
+    weasyprint.HTML(html_path).write_pdf(pdf_path)
+    return pdf_path
 
 def make_report_orchestrator (report_name: str, report_dir: str, path_to_shape: str):
     log = Logger ('Make report orchestrator')
@@ -137,8 +146,14 @@ def make_report_orchestrator (report_name: str, report_dir: str, path_to_shape: 
     csv_data_path = get_data(aoi_gdf)
     data_gdf = load_gdf_from_csv(csv_data_path)
     # make html report
-    make_report(data_gdf, report_dir, report_name)
+    report_paths = make_report(data_gdf, report_dir, report_name, mode="both")
+    html_path = report_paths["interactive"]
+    static_path = report_paths["static"]
+    log.info (f'Interactive HTML report built at {html_path}')
+    log.info (f'Static HTML report built at {static_path}')
     # make pdf 
+    pdf_path = make_pdf_from_html(static_path)
+    log.info (f'PDF report built from static at {pdf_path}')
     return
 
 
@@ -153,8 +168,9 @@ def main():
 
     # Set up some reasonable folders to store things
     working_folder = args.working_folder
-    # so I don't have to delete it every time I run a test, add datetimestamp
-    dt_str = datetime.now().strftime("%y%m%d%H%M")
+    # if want each iteration to be saved add datetimestamp to path
+    dt_str = datetime.now().strftime("%y%m%d_%H%M") 
+    # dt_str = ""
     report_dir = os.path.join(working_folder, dt_str, 'report')  # , 'outputs', 'riverscapes_metrics.gpkg')
     safe_makedirs(report_dir)
 
@@ -163,10 +179,13 @@ def main():
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rs-rpt-rivers-need-space')
 
-    if args.csv:
+    if args.csv: # skip the generation of csv
         data_gdf = load_gdf_from_csv(args.csv)
-        make_report(data_gdf, report_dir, args.report_name)
-        print("Report generated from CSV.")
+        html_path = make_report(data_gdf, report_dir, args.report_name, mode="static")
+        log.info (f'HTML report built at {html_path}')
+        # make pdf 
+        pdf_path = make_pdf_from_html(html_path)
+        log.info (f'PDF report built at {pdf_path}')
         sys.exit(0)
 
     # TODO add try /catch after testing
