@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/graphql-config@3.3.0/config-schema.json",
+  "schema": "./src/graphsrc/api/graphql/rs_reports.schema.gql",
+  "documents": [
+    "./src/api/graphql/queries/**/*.gql",
+    "./src/api/graphql/mutations/**/*.gql"
+  ]
+}

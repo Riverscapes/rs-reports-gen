@@ -1,0 +1,11 @@
+fragment ReportTypeDetail on RSReportType {
+  id
+  name
+  shortName
+  subHeader
+  description
+  version
+  ccScript
+  # For now parameters can be pretty freeform
+  parameters
+}

@@ -1,0 +1,10 @@
+query GetReportTypes {
+  reportTypes {
+    limit
+    offset
+    total
+    items {
+      ...ReportTypeDetail
+    }
+  }
+}

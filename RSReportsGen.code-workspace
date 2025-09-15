@@ -1,0 +1,56 @@
+{
+    "folders": [
+        {
+            "name": "🏠 Git Root",
+            "path": "."
+        },
+    ],
+    "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "workbench.colorCustomizations": {
+          "titleBar.activeBackground": "#00684c",
+          "sideBar.background": "#21322e",
+          "editor.background": "#111a19"
+        },
+        "[python]": {
+            "editor.tabSize": 4,
+            "editor.formatOnSave": true,
+        },
+        "autopep8.args": [
+            "--max-line-length=240",
+        ],
+        "pylint.args": [
+            "--disable=C0301,C0114,C0103,W0719,W0718",
+            "--max-line-length=240"
+        ],
+        "files.watcherExclude": {
+          "**/*.egg-info/**": true,
+          "**/docs/**": true,
+          "**/*.pytest_cache/**": true,
+          "**/.venv/**": true,
+          "**/__pycache__/**": true
+        },
+        "search.exclude": {
+          "**/*.egg-info/**": true,
+          "**/*.pytest_cache/**": true,
+          "**/.venv/**": true,
+          "**/__pycache__/**": true
+        },
+        "files.exclude": {
+          "**/*.egg-info/**": true,
+          "**/*.pytest_cache/**": true,
+          // "**/.venv/**": true,
+          "**/__pycache__/**": true
+        },
+      },
+      "extensions": {
+        "recommendations": [
+          "ms-python.python",
+          "ms-python.vscode-pylance",
+          "njpwerner.autodocstring",
+          "mhutchie.git-graph",
+          "graphql.vscode-graphql-syntax",
+          "graphql.vscode-graphql",
+        ]
+      }
+}

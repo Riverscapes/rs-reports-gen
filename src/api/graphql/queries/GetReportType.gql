@@ -1,0 +1,5 @@
+query GetReportType($id: ID!) {
+  reportType(id: $id) {
+    ...ReportTypeDetail
+  }
+}

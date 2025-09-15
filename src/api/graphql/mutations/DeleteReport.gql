@@ -1,0 +1,6 @@
+mutation DeleteReport($userId: ID, $reportId: ID!) {
+  deleteReport(userId: $userId, reportId: $reportId) {
+    id
+    status
+  }
+}

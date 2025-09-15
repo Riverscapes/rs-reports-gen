@@ -1,0 +1,5 @@
+query GetReport($userId: ID, $reportId: ID!) {
+  report(userId: $userId, reportId: $reportId) {
+    ...ReportDetail
+  }
+}

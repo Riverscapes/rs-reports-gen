@@ -1,61 +1,25 @@
 {
     "configurations": [
         {
-            "name": "Python Debugger: rpt-igo-project",
+            "name": "📋 Report Launcher",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/python/rpt-igo-project/main.py",
+            "program": "${workspaceFolder}/scripts/report_launcher.py",
             "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/python"
-            },            
-            "args": [
-                "{env:SPATIALITE_PATH}",
-                "{env:DATA_ROOT}/athena_to_rme",
-                "/mnt/c/nardata/work/rme_extraction/20250827-rkymtn/physio_rky_mtn_system_4326.geojson",
-                "Physio Rky Mtn System"
-            ]
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
         },
         {
-            "name": "Python Debugger: Current File",
+            "name": "🐍 Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/python"
-            },           
-        },
-                {
-            "name": "Python Debugger: rpt-igo-project - athenacsv_to_rme portion",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/python/rpt-igo-project/athenacsv_to_rme.py",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/python"
-            },            
-            "args": [
-                "{env:SPATIALITE_PATH}",
-                "/tmp/tmpyweftx8_.csv",
-                "{env:DATA_ROOT}/athena_to_rme"
-            ]
-        },
-                {
-            "name": "Python Debugger: rpt-rivers-need-space",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/python/rpt-rivers-need-space/main.py",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/python"
-            },            
-            "args": [
-                "{env:DATA_ROOT}/rpt-rivers-need-space",
-                "/mnt/c/nardata/work/reporting/sample_gis/sample_geojsons/althouse_small_selection_1.geojson",
-                "Althouse Creek 1"
-            ]
-        },
-
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        }
     ]
 }

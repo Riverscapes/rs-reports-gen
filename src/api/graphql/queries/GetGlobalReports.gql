@@ -1,0 +1,10 @@
+query GetGlobalReports($limit: Int!, $offset: Int!) {
+  globalReports(limit: $limit, offset: $offset) {
+    limit
+    offset
+    total
+    items {
+      ...ReportDetail
+    }
+  }
+}

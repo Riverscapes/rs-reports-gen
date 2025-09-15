@@ -1,0 +1,5 @@
+mutation CreateReport($userId: ID, $project: RSReportInput!) {
+  createReport(userId: $userId, project: $project) {
+    ...ReportDetail
+  }
+}
