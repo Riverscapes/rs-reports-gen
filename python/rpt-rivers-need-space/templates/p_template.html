@@ -28,10 +28,19 @@
 
     <div id="ReportContainer">
         <div id="ReportInner">
+            <div id="ReportHeader">
+                Report available as: 
+                <ul><li><a href="report.html">interactive html</a></li>
+                <li><a href="report_static.html">static html</a></li>
+                <li><a href="report_static.pdf">pdf</a></li>
+            </ul>
+            </div>
+            <main>
             <h2>Map of Polygons</h2>
             {{ figures['map']|safe }}
             <h2>Segment Area by Ownership</h2>
             {{ figures['bar']|safe }}
+            </main>
         </div>
     </div>
     <footer>
