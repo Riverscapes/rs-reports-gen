@@ -98,17 +98,19 @@ def upload_outputs(
         uploaded.append(remote_path)
 
     # Now call StartUpload mutation
-    log.info("Notifying API of completed uploads")
-    with RSReportsAPI(api_token=api_key, stage=stage) as api_client:
-        mutation = api_client.load_mutation("StartUpload")
-        variables = {
-            "userId": user_id,
-            "reportId": report_id,
-        }
-        start_res = api_client.run_query(mutation, variables)
-        if not start_res or "errors" in start_res:
-            raise RuntimeError(f"API StartUpload mutation failed: {start_res}")
-        log.info("API StartUpload mutation successful")
+    # NOTE: We can get fancier with messaging but for now the Cybercastor task completion should 
+    # signal the completion of the report
+    # log.info("Notifying API of completed uploads")
+    # with RSReportsAPI(api_token=api_key, stage=stage) as api_client:
+    #     mutation = api_client.load_mutation("StartUpload")
+    #     variables = {
+    #         "userId": user_id,
+    #         "reportId": report_id,
+    #     }
+    #     start_res = api_client.run_query(mutation, variables)
+    #     if not start_res or "errors" in start_res:
+    #         raise RuntimeError(f"API StartUpload mutation failed: {start_res}")
+    #     log.info("API StartUpload mutation successful")
 
 
 def main() -> None:

@@ -34,10 +34,8 @@ df -h
 
 WORK_ROOT="/usr/local/data"
 INPUTS_DIR="$WORK_ROOT/inputs"
-RUN_ROOT="$WORK_ROOT/work"
+OUTPUTS_DIR="$WORK_ROOT/output"
 PYTHONPATH="/usr/local/rs-reports-gen/src:${PYTHONPATH:-}"
-
-mkdir -p "$INPUTS_DIR" "$RUN_ROOT"
 
 uv sync
 source /usr/local/rs-reports-gen/.venv/bin/activate
@@ -52,7 +50,7 @@ try() {
   if [[ $? != 0 ]]; then return 1; fi
 
   # Extract the "name" property from the $INPUTS_DIR/inputs/index.json file
-  REPORT_NAME = $(jq -r '.name' "$INPUTS_DIR/index.json")
+  REPORT_NAME=$(python3 -c "import json,sys; print(json.load(sys.stdin).get('name',None))" < "$INPUTS_DIR/index.json")
   if [[ -z "$REPORT_NAME" || "$REPORT_NAME" == "null" ]]; then
     echo "Error: Report name not found in $INPUTS_DIR/index.json"
     return 1
@@ -60,14 +58,14 @@ try() {
 
   echo "======================  Running rpt-rivers-need-space ======================="
   python -m reports.rpt_rivers_need_space.main \
-    "$RUN_ROOT" \
+    "$OUTPUTS_DIR" \
     "$INPUTS_DIR/input.geojson" \
     "$REPORT_NAME"
   if [[ $? != 0 ]]; then return 1; fi
 
   echo "======================  Uploading outputs ======================="
   python -m api.uploadOutputs \
-    "$LATEST_REPORT_DIR" \
+    "$OUTPUTS_DIR" \
     --user-id "$USER_ID" \
     --report-id "$REPORT_ID" \
     --stage "$STAGE"

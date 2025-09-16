@@ -18,6 +18,7 @@ from jinja2 import Template
 
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
+
 from util.athena import get_s3_file, run_aoi_athena_query
 # Local imports
 from .figures import make_map, make_rs_area_by_owner
@@ -185,28 +186,27 @@ def main():
     """ Main function to parse arguments and generate the report
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('working_folder', help='top level folder for downloads and output', type=str)
+    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--csv', help='Path to a local CSV to use instead of querying Athena', type=str, default=None)
     args = dotenv.parse_args_env(parser)
 
     # Set up some reasonable folders to store things
-    working_folder = args.working_folder
+    output_path = args.output_path
     # if want each iteration to be saved add datetimestamp to path
     dt_str = datetime.now().strftime("%y%m%d_%H%M")
     # dt_str = ""
-    report_dir = os.path.join(working_folder, dt_str, 'report')  # , 'outputs', 'riverscapes_metrics.gpkg')
-    safe_makedirs(report_dir)
+    safe_makedirs(output_path)
 
     log = Logger('Setup')
-    log_path = os.path.join(report_dir, 'rpt-gen.log')
+    log_path = os.path.join(output_path, 'rpt-gen.log')
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rs-rpt-rivers-need-space')
 
     if args.csv:  # skip the generation of csv
         data_gdf = load_gdf_from_csv(args.csv)
-        html_path = make_report(data_gdf, report_dir, args.report_name, mode="static")
+        html_path = make_report(data_gdf, output_path, args.report_name, mode="static")
         log.info(f'HTML report built at {html_path}')
         # make pdf
         pdf_path = make_pdf_from_html(html_path)
@@ -214,7 +214,7 @@ def main():
         sys.exit(0)
 
     # TODO add try /catch after testing
-    make_report_orchestrator(args.report_name, report_dir, args.path_to_shape)
+    make_report_orchestrator(args.report_name, output_path, args.path_to_shape)
     log.info("all done")
     sys.exit(0)
 
