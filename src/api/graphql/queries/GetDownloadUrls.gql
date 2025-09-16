@@ -1,4 +1,4 @@
-query GetDownloadUrls($userId: ID!, $reportId: ID!, $fileTypes: [FileTypeEnum!]) {
+query GetDownloadUrls($userId: ID, $reportId: ID!, $fileTypes: [FileTypeEnum!]) {
   downloadUrls(userId: $userId, reportId: $reportId, fileTypes: $fileTypes) {
     fileType
     url

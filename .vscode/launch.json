@@ -1,25 +1,42 @@
 {
-    "configurations": [
-        {
-            "name": "📋 Report Launcher",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/scripts/report_launcher.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/src"
-            }
-        },
-        {
-            "name": "🐍 Python Debugger: Current File",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/src"
-            }
-        }
-    ]
+  "configurations": [
+    {
+      "name": "📋 Report Launcher",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/report_launcher.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      }
+    },
+    {
+      "name": "⬇️ Download Report Inputs",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/api/downloadInputs.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": [
+        "{env:DATA_ROOT}/build/inputs",
+        "--stage",
+        "staging"
+      ]
+    },
+    {
+      "name": "🐍 Python Debugger: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      }
+    }
+  ]
 }

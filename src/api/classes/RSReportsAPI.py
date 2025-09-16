@@ -1,6 +1,7 @@
 import os
 from typing import Dict
 import webbrowser
+import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlencode, urlparse, urlunparse
 import threading
@@ -290,7 +291,7 @@ class RSReportsAPI:
         Returns:
             str: _description_
         """
-        with open(os.path.join(os.path.dirname(__file__), '..', 'graphql', 'queries', f'{query_name}.graphql'), 'r', encoding='utf-8') as queryFile:
+        with open(os.path.join(os.path.dirname(__file__), '..', '..', 'graphql', 'queries', f'{query_name}.graphql'), 'r', encoding='utf-8') as queryFile:
             return queryFile.read()
 
     def load_mutation(self, mutation_name: str) -> str:
@@ -302,8 +303,44 @@ class RSReportsAPI:
         Returns:
             str: _description_
         """
-        with open(os.path.join(os.path.dirname(__file__), '..',  'graphql', 'mutations', f'{mutation_name}.graphql'), 'r', encoding='utf-8') as queryFile:
+        with open(os.path.join(os.path.dirname(__file__), '..', '..', 'graphql', 'mutations', f'{mutation_name}.graphql'), 'r', encoding='utf-8') as queryFile:
             return queryFile.read()
+
+    def run_query(self, query, variables):
+        """ A simple function to use requests.post to make the API call. Note the json= section.
+
+        Args:
+            query (_type_): _description_
+            variables (_type_): _description_
+
+        Raises:
+            Exception: _description_
+
+        Returns:
+            _type_: _description_
+        """
+        headers = {"authorization": "Bearer " + self.access_token} if self.access_token else {}
+        request = requests.post(self.uri, json={
+            'query': query,
+            'variables': variables
+        }, headers=headers, timeout=30)
+
+        if request.status_code == 200:
+            resp_json = request.json()
+            if 'errors' in resp_json and len(resp_json['errors']) > 0:
+                # Authentication timeout: re-login and retry the query
+                if len(list(filter(lambda err: 'You must be authenticated' in err['message'], resp_json['errors']))) > 0:
+                    self.log.debug("Authentication timed out. Fetching new token...")
+                    self.refresh_token()
+                    self.log.debug("   done. Re-trying query...")
+                    return self.run_query(query, variables)
+
+            else:
+                # self.last_pass = True
+                # self.retry = 0
+                return request.json()
+        else:
+            raise RSReportsAPIException(f"Query failed to run by returning code of {request.status_code}. {query} {json.dumps(variables)}")
 
 
 if __name__ == '__main__':
