@@ -10,9 +10,6 @@ IFS=$'\n\t'
 
 STAGE=${STAGE:-STAGING}
 
-# Put back optional vars
-set +u
-
 cat <<'EOF'
  _ __                      _ __               __,                 
 ( /  ) o                  ( /  )         /   (                    
@@ -21,8 +18,6 @@ cat <<'EOF'
                                                   /|              
                                         
 EOF
-
-set -u
 
 echo "REPORT_ID: $REPORT_ID"
 echo "USER_ID: $USER_ID"

@@ -53,7 +53,7 @@ def main():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('spatialite_path', help='Path to the mod_spatialite library', type=str)
-    parser.add_argument('working_folder', help='top level folder for downloads and output', type=str)
+    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('project_name', help='name for the new project')
 
@@ -62,17 +62,16 @@ def main():
     s3_bucket = "riverscapes-athena"
 
     # Set up some reasonable folders to store things
-    working_folder = args.working_folder
-    project_dir = os.path.join(working_folder, 'project')  # , 'outputs', 'riverscapes_metrics.gpkg')
-    safe_makedirs(project_dir)
+    output_path = args.output_path
+    safe_makedirs(output_path)
 
     log = Logger('Setup')
-    log_path = os.path.join(project_dir, 'athena-rme-scrape.log')
+    log_path = os.path.join(output_path, 'athena-rme-scrape.log')
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rpt-igo-project')
 
     try:
-        get_and_process_aoi(args.path_to_shape, s3_bucket, args.spatialite_path, project_dir, args.project_name, log_path)
+        get_and_process_aoi(args.path_to_shape, s3_bucket, args.spatialite_path, output_path, args.project_name, log_path)
         # print(path_to_results)
         print("done")
         sys.exit(0)
