@@ -58,13 +58,18 @@ try() {
     "$REPORT_NAME"
   if [[ $? != 0 ]]; then return 1; fi
 
+  echo "======================  Zipping up ======================="
+  # Add everything in the outputs directory to a zip file inside the outputs directory
+  ZIP_FILE="$OUTPUTS_DIR/report.zip"
+  zip -r "$ZIP_FILE" "$OUTPUTS_DIR"
+  if [[ $? != 0 ]]; then return 1; fi
+  
   echo "======================  Uploading outputs ======================="
   python -m api.uploadOutputs \
     "$OUTPUTS_DIR" \
     --user-id "$USER_ID" \
     --report-id "$REPORT_ID" \
     --stage "$STAGE"
-
   if [[ $? != 0 ]]; then return 1; fi
 
   echo "======================  Final Disk space usage ======================="
