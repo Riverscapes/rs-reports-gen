@@ -29,6 +29,23 @@
       ]
     },
     {
+      "name": "⬆️ Upload Report Outputs",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "api.uploadOutputs",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": [
+        "{env:DATA_ROOT}/build/outputs",
+        "--stage",
+        "local"
+      ]
+    },
+    {
       "name": "🐍 Python Debugger: Current File",
       "type": "debugpy",
       "request": "launch",

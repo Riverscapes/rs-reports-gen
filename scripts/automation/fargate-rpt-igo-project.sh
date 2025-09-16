@@ -1,19 +1,26 @@
 #!/bin/bash
-# Set -e will cause the script to exit if any command fails
-# Set -u will cause the script to exit if any variable is not set
+# Abort on error (-e) and unset variables (-u)
 set -eu
-# Set IFS to newline and tab to prevent word splitting issues and improve script safety
+# Restrict word splitting to safe characters
 IFS=$'\n\t'
 
-# Environment variables 
+# Mandatory environment variables
+(: "${DATA_ROOT?}")
 (: "${REPORT_ID?}")
 (: "${USER_ID?}")
+(: "${API_TOKEN?}")
 (: "${SPATIALITE_PATH?}")
+(: "${AOI_GEOJSON_PATH?}")
+(: "${PROJECT_NAME?}")
 
-# Turn off the set -u option once we've checked all the mandatory variables
+# Optional stage defaults to STAGING
+STAGE=${STAGE:-STAGING}
+STAGE=${STAGE^^}
+
+# Allow optional vars below to be empty without exiting
 set +u
 
-cat<<EOF
+cat <<'EOF'
 
  ▄▀▀▄▀▀▀▄  ▄▀▀▀▀▄      ▄▀▀▄▀▀▀▄  ▄▀▀█▄▄▄▄  ▄▀▀▄▀▀▀▄      ▄▀▀▀▀▄   ▄▀▀█▄▄▄▄  ▄▀▀▄ ▀▄ 
 █   █   █ █ █   ▐     █   █   █ ▐  ▄▀   ▐ █   █   █     █        ▐  ▄▀   ▐ █  █ █ █ 
@@ -25,35 +32,69 @@ cat<<EOF
                                                    
 EOF
 
+set -u
+
 echo "REPORT_ID: $REPORT_ID"
 echo "USER_ID: $USER_ID"
 echo "SPATIALITE_PATH: $SPATIALITE_PATH"
+echo "STAGE: $STAGE"
 
+if [[ ! -f "$SPATIALITE_PATH" ]]; then
+  echo "mod_spatialite not found: $SPATIALITE_PATH" >&2
+  exit 1
+fi
+
+if [[ ! -f "$AOI_GEOJSON_PATH" ]]; then
+  echo "AOI file not found: $AOI_GEOJSON_PATH" >&2
+  exit 1
+fi
 
 echo "======================  Initial Disk space usage ======================="
 df -h
 
-try() {
+# Derived paths
+WORK_ROOT="${DATA_ROOT%/}/rpt-igo-project"
+INPUTS_DIR="$WORK_ROOT/inputs"
+WORKING_FOLDER="$WORK_ROOT/work"
+PROJECT_DIR="$WORKING_FOLDER/project"
 
-  # Activate venv (assumes it was created in Docker build or earlier)
-  uv sync
-  source /app/.venv/bin/activate 
+mkdir -p "$INPUTS_DIR" "$WORKING_FOLDER"
 
-  # TODO: download inputs 
+# Ensure dependencies are present and virtualenv is active
+uv sync
+source /app/.venv/bin/activate
+if [[ -d /app/src ]]; then
+  export PYTHONPATH="/app/src:${PYTHONPATH:-}"
+fi
 
-  rpt-igo-project \
-     $SPATIALITE_PATH \
-     "{env:DATA_ROOT}/athena_to_rme2" \
-     "/mnt/c/nardata/work/rme_extraction/20250827-rkymtn/physio_rky_mtn_system_4326.geojson" \
-     "Physio Rky Mtn System"
+python -m api.downloadInputs \
+  "$INPUTS_DIR" \
+  --api-key "$API_TOKEN" \
+  --user-id "$USER_ID" \
+  --report-id "$REPORT_ID" \
+  --stage "$STAGE"
 
-  # Future Enhancement - upload incomplete reports to a debug service instead
-  if [[ $? != 0 ]]; then return 1; fi
+echo "======================  Running rpt-igo-project ======================="
+python -m reports.rpt_igo_project.main \
+  "$SPATIALITE_PATH" \
+  "$WORKING_FOLDER" \
+  "$AOI_GEOJSON_PATH" \
+  "$PROJECT_NAME"
 
-  echo "======================  Final Disk space usage ======================="
-  df -h
+echo "======================  Final Disk space usage ======================="
+df -h
 
-  echo "======================  Upload to the report server (S3) ======================"
-  # TODO: upload outputs
+echo "======================  Uploading outputs ======================="
+if [[ -d "$PROJECT_DIR" ]]; then
+  python -m api.uploadOutputs \
+    "$PROJECT_DIR" \
+    --api-key "$API_TOKEN" \
+    --user-id "$USER_ID" \
+    --report-id "$REPORT_ID" \
+    --stage "$STAGE" \
+    --file-type OUTPUTS
+else
+  echo "Project directory not found: $PROJECT_DIR" >&2
+  exit 1
+fi
 
-}
