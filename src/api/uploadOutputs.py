@@ -85,7 +85,7 @@ def upload_outputs(
             log.warning("Missing upload URL in API response for %s", remote_path)
             continue
 
-        log.info(f"Uploading {local_path} -> {url}")
+        log.info(f"Uploading {local_path} -> {url.split('?')[0]}")
         with open(local_path, "rb") as data_stream:
             if isinstance(fields, dict) and fields:
                 # S3 pre-signed POST upload.

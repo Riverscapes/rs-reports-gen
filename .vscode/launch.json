@@ -1,4 +1,17 @@
 {
+  "inputs": [
+        {
+      "id": "environment",
+      "type": "pickString",
+      "description": "Choose the environment file you want to use",
+      "default": "local",
+      "options": [
+        "local",
+        "staging",
+        "production",
+      ]
+    },
+  ],
   "configurations": [
     {
       "name": "📋 Report Launcher",
@@ -25,7 +38,7 @@
       "args": [
         "{env:DATA_ROOT}/build/inputs",
         "--stage",
-        "local"
+        "${input:environment}",
       ]
     },
     {
@@ -42,7 +55,7 @@
       "args": [
         "{env:DATA_ROOT}/build/outputs",
         "--stage",
-        "local"
+        "${input:environment}"
       ]
     },
     {

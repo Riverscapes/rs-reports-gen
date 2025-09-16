@@ -23,20 +23,18 @@ def download_inputs(inputs_dir: str, api_key: str, user_id: str, report_id: str,
     log = Logger('Download Inputs')
     log.title('API Download Inputs')
 
-    downloaded_files = []
-
     with RSReportsAPI(api_token=api_key, stage=stage) as api_client:
         qry = api_client.load_query('GetDownloadUrls')
         results = api_client.run_query(
             qry,
-            variables={'userId': user_id, 'reportId': report_id, 'fileTypes': ['INPUTS']}
+            variables={'userId': user_id, 'reportId': report_id, 'fileTypes': ['INPUTS', 'INDEX']}
         )
 
     download_urls = results.get('data', {}).get('downloadUrls', []) if results else []
 
     if not download_urls:
         log.warning('No input files available for download.')
-        return downloaded_files
+        return
 
     for file_meta in download_urls:
         url = file_meta.get('url')
@@ -67,17 +65,16 @@ def download_inputs(inputs_dir: str, api_key: str, user_id: str, report_id: str,
         if parent_dir:
             safe_makedirs(parent_dir)
 
-        log.info(f'Downloading {url} -> {local_path}')
+        log.info(f'Downloading {url.split("?")[0]} -> {local_path}')
         response = requests.get(url, stream=True, timeout=120)
         response.raise_for_status()
         with open(local_path, 'wb') as output_file:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     output_file.write(chunk)
+        log.debug(f'Downloaded {local_path} ({os.path.getsize(local_path)} bytes)')
 
-        downloaded_files.append(local_path)
-
-    return downloaded_files
+    return
 
 
 def main():

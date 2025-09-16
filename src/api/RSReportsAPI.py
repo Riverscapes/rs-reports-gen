@@ -59,6 +59,9 @@ class RSReportsAPI:
         self.stage = stage.upper() if stage else self._get_stage_interactive()
 
         self.api_token = api_token
+        if self.api_token and len(self.api_token) > 0:
+            masked_token = self.api_token[:4] + "..." + self.api_token[-4:]
+            self.log.warning(f"Using API token: {masked_token}. This is appropriate for development and administration tasks only.")
         self.dev_headers = dev_headers
         self.access_token = None
         self.token_timeout = None
