@@ -26,10 +26,8 @@ dependencies = [
 ]
 
 [project.scripts]
-rpt-igo-project = "reports.igo_project.main:main"
-rpt-rivers-need-space = "reports.rivers_need_space.main:main"
-rs-reports-api = "scripts.report_launcher:main"
-
+rpt-igo-project = "reports.rpt_igo_project.main:main"
+rpt-rivers-need-space = "reports.rpt_rivers_need_space.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

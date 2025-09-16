@@ -71,6 +71,8 @@ class RSReportsAPI:
             self.uri = 'https://api.reports.riverscapes.net'
         elif self.stage.upper() == 'STAGING':
             self.uri = 'https://api.reports.riverscapes.net/staging'
+        elif self.stage.upper() == 'LOCAL':
+            self.uri = 'http://127.0.0.1:7016'
         else:
             raise RSReportsAPIException(f'Unknown stage: {stage}')
 
@@ -291,7 +293,8 @@ class RSReportsAPI:
         Returns:
             str: _description_
         """
-        with open(os.path.join(os.path.dirname(__file__), '..', '..', 'graphql', 'queries', f'{query_name}.graphql'), 'r', encoding='utf-8') as queryFile:
+        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__),  'graphql', 'queries', f'{query_name}.gql'))
+        with open(qry_path, 'r', encoding='utf-8') as queryFile:
             return queryFile.read()
 
     def load_mutation(self, mutation_name: str) -> str:
@@ -303,7 +306,8 @@ class RSReportsAPI:
         Returns:
             str: _description_
         """
-        with open(os.path.join(os.path.dirname(__file__), '..', '..', 'graphql', 'mutations', f'{mutation_name}.graphql'), 'r', encoding='utf-8') as queryFile:
+        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__),  'graphql', 'mutations', f'{mutation_name}.gql'))
+        with open(qry_path, 'r', encoding='utf-8') as queryFile:
             return queryFile.read()
 
     def run_query(self, query, variables):
@@ -319,7 +323,7 @@ class RSReportsAPI:
         Returns:
             _type_: _description_
         """
-        headers = {"authorization": "Bearer " + self.access_token} if self.access_token else {}
+        headers = {"authorization": "Bearer " + self.access_token} if self.access_token else {"x-api-key": self.api_token}
         request = requests.post(self.uri, json={
             'query': query,
             'variables': variables

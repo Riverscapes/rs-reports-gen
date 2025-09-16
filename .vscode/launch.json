@@ -15,7 +15,7 @@
       "name": "⬇️ Download Report Inputs",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/src/api/downloadInputs.py",
+      "module": "api.downloadInputs",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
@@ -25,7 +25,7 @@
       "args": [
         "{env:DATA_ROOT}/build/inputs",
         "--stage",
-        "staging"
+        "local"
       ]
     },
     {

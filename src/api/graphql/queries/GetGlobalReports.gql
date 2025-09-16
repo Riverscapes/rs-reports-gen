@@ -8,3 +8,26 @@ query GetGlobalReports($limit: Int!, $offset: Int!) {
     }
   }
 }
+fragment ReportDetail on RSReport {
+  id
+  name
+
+  reportType {
+    ...ReportTypeDetail
+  }
+  description
+  createdAt
+  updatedAt
+
+  createdBy {
+    ...DEProfileSummary
+  }
+
+  status
+  progress
+
+  parameters
+  errorMessage
+  centroid
+  extent
+}

@@ -1,5 +1,0 @@
-fragment DEProfileSummary on DEProfile {
-  id
-  name
-  avatar
-}
