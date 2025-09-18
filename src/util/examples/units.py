@@ -1,0 +1,59 @@
+import pint
+from rsxml import Logger
+
+
+# Initialize a UnitRegistry
+# DO THIS ONLY ONCE
+UREG = pint.UnitRegistry()
+
+
+def pint_example():
+    """
+    Example function demonstrating basic usage of Pint for unit handling.
+    https://pint.readthedocs.io/
+    """
+    logger = Logger("PintExample")
+    logger.title("Pint Unit Conversion example")
+
+    # Lengths
+    length = 5 * UREG.meter
+    time = 10 * UREG.second
+    speed = length / time
+    logger.info(f"Length: {length.to(UREG.centimeter)}")
+    # [INFO] [PintExample] Length: 500.0 centimeter
+    logger.info(f"Time: {time.to(UREG.minute)}")
+    # [INFO] [PintExample] Time: 0.16666666666666666 minute
+    logger.info(f"Speed: from {speed.to(UREG.meter / UREG.second)} to {speed.to(UREG.kilometer / UREG.hour)} to {speed.to(UREG.mile / UREG.hour)}")
+    # [INFO] [PintExample] Speed: from 0.5 meter / second to 1.8 kilometer / hour to 1.1184681460272012 mile / hour
+
+    # Volumes
+    volume = 3 * UREG.liter
+    logger.info(f"Volume: {volume.to(UREG.milliliter)}")
+    # [INFO] [PintExample] Volume: 3000.0 milliliter
+
+    volume2 = 3.234 * UREG.meters ** 3
+    # Formatting: https://pint.readthedocs.io/en/stable/user/formatting.html
+    logger.info(f"Volume: {volume2:2f}")
+    # [INFO] [PintExample] Volume: 3.234000 meter ** 3
+    logger.info(f"Volume: {volume2:~P}")  # Pretty print
+    # [INFO] [PintExample] Volume: 3.234 m³
+    logger.info(f"Volume: {volume2:~L}")  # LaTeX format
+    # [INFO] [PintExample] Volume: 3.234\ \mathrm{m}^{3}
+    logger.info(f"Volume: {volume2:~H}")  # HTML format
+    # [INFO] [PintExample] Volume: 3.234 m<sup>3</sup>
+
+    # Masses
+    mass = 70 * UREG.kilogram
+    logger.info(f"Mass: {mass.to(UREG.gram)}")
+    # [INFO] [PintExample] Mass: 70000.0 gram
+
+    # Areas
+    area = 50 * UREG.kilometer ** 2
+    logger.info(f"Area: {area}")
+    # [INFO] [PintExample] Area: 50 kilometer ** 2
+    logger.info(f"Area: {area.to(UREG.hectometer ** 2)}")
+    # [INFO] [PintExample] Area: 5000.0 hectometer ** 2
+
+
+if __name__ == "__main__":
+    pint_example()
