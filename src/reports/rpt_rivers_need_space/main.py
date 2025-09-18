@@ -5,6 +5,7 @@ import os
 import tempfile
 import sys
 from datetime import datetime
+from typing import Optional
 from importlib import resources
 # 3rd party imports
 import geopandas as gpd
@@ -76,9 +77,9 @@ def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name, mode="interactiv
     def render_report(fig_mode, suffix=""):
         figure_exports = {}
         for i, (name, fig) in enumerate(figures.items()):
-            include_js = (i == 0) if fig_mode == "interactive" else False
+            # include_js = (i == 0) if fig_mode == "interactive" else False
             figure_exports[name] = export_figure(
-                fig, figure_dir, name, mode=fig_mode, include_plotlyjs=include_js, report_dir=report_dir
+                fig, figure_dir, name, mode=fig_mode, include_plotlyjs=False, report_dir=report_dir
             )
         templates_pkg = resources.files(__package__).joinpath('templates')
         template = Template(templates_pkg.joinpath('p_template.html').read_text(encoding='utf-8'))
@@ -128,7 +129,7 @@ def load_gdf_from_csv(csv_path):
     return gdf
 
 
-def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path:str):
+def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
     """given aoi in gdf format (assume 4326), just get all the raw_rme (for now)
     returns: local path to the data"""
     log = Logger('Run AOI query on Athena')
@@ -139,16 +140,46 @@ def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path:str):
         log.error("Didn't get a result from athena")
         raise NotImplementedError
     get_s3_file(s3_csv_path, output_path)
-    return 
+    return
 
 
-def make_pdf_from_html(html_path: str) -> str:
-    """
-    Generate a PDF from an HTML file using WeasyPrint.
-    Returns the path to the generated PDF.
+def make_pdf_from_html(
+    html_path: str,
+    *,
+    page_margin: str = "0.5in",
+    zoom: float = 1.0,
+    extra_styles: Optional[list[weasyprint.CSS]] = None,
+) -> str:
+    """Generate a PDF from an HTML file using WeasyPrint with layout controls.
+
+    Args:
+        html_path: Path to the source HTML document.
+        page_margin: CSS margin value injected into the `@page` rule.
+        zoom: Zoom factor passed to WeasyPrint's renderer (1.0 = 100%).
+
+    Returns:
+        Path to the generated PDF file.
     """
     pdf_path = os.path.splitext(html_path)[0] + ".pdf"
-    weasyprint.HTML(html_path).write_pdf(pdf_path)
+    margin_css = weasyprint.CSS(
+        string=(
+            "@page { margin: %s; } "
+            "body { margin: 0 !important; padding: 0 !important; }"
+        ) % page_margin,
+        media_type="print",
+    )
+
+    stylesheets = [margin_css]
+
+    if extra_styles:
+        stylesheets.extend(extra_styles)
+
+    weasyprint.HTML(filename=html_path, base_url=os.path.dirname(html_path)).write_pdf(
+        pdf_path,
+        stylesheets=stylesheets,
+        zoom=zoom,
+        presentational_hints=True,
+    )
     return pdf_path
 
 
@@ -165,8 +196,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
     # get data first as csv
-    safe_makedirs (os.path.join(report_dir,'data'))
-    csv_data_path = os.path.join(report_dir,'data','data.csv')
+    safe_makedirs(os.path.join(report_dir, 'data'))
+    csv_data_path = os.path.join(report_dir, 'data', 'data.csv')
     get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     # make html report
