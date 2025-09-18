@@ -128,7 +128,7 @@ def load_gdf_from_csv(csv_path):
     return gdf
 
 
-def get_data(gdf: gpd.GeoDataFrame) -> str:
+def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path:str):
     """given aoi in gdf format (assume 4326), just get all the raw_rme (for now)
     returns: local path to the data"""
     log = Logger('Run AOI query on Athena')
@@ -138,11 +138,8 @@ def get_data(gdf: gpd.GeoDataFrame) -> str:
     if s3_csv_path is None:
         log.error("Didn't get a result from athena")
         raise NotImplementedError
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile:
-        local_csv_path = tmpfile.name
-        get_s3_file(s3_csv_path, local_csv_path)
-    # local_csv_path = r"/tmp/tmphcfn8l6q.csv" # FOR TESTING ONLY
-    return local_csv_path
+    get_s3_file(s3_csv_path, output_path)
+    return 
 
 
 def make_pdf_from_html(html_path: str) -> str:
@@ -168,7 +165,9 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
     # get data first as csv
-    csv_data_path = get_data(aoi_gdf)
+    safe_makedirs (os.path.join(report_dir,'data'))
+    csv_data_path = os.path.join(report_dir,'data','data.csv')
+    get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     # make html report
     report_paths = make_report(data_gdf, report_dir, report_name, mode="both")
