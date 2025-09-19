@@ -123,6 +123,26 @@ def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
     get_s3_file(s3_csv_path, output_path)
     return
 
+def get_metadata()->pd.DataFrame:
+    """
+    Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
+
+    Returns:
+        pd.DataFrame - DataFrame of metadata
+
+    Example:
+        metadata_df = get_metadata_df()
+    """
+    from util.athena.athena import athena_query_get_parsed
+
+    query = """
+        SELECT table_name, name, type, friendly_name, unit, description
+        FROM rme_table_column_defs
+    """
+    result = athena_query_get_parsed(S3_BUCKET, query)
+    if result is not None:
+        return pd.DataFrame(result)
+    raise RuntimeError("Railed to retrieve metadata from Athena.")
 
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str):
     """ Orchestrates the report generation process:
@@ -139,6 +159,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     # get data first as csv
     safe_makedirs(os.path.join(report_dir, 'data'))
     csv_data_path = os.path.join(report_dir, 'data', 'data.csv')
+    df_meta = get_metadata()
+    df_meta.describe()
     get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     # make html report

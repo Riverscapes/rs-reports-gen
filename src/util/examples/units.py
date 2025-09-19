@@ -53,7 +53,11 @@ def pint_example():
     # [INFO] [PintExample] Area: 50 kilometer ** 2
     logger.info(f"Area: {area.to(UREG.hectometer ** 2)}")
     # [INFO] [PintExample] Area: 5000.0 hectometer ** 2
+    area = Q_(34,"km^2")
+    logger.info(f"Area: {area} is {area.to("ha")} or {area.to("sq_mi"):~P}")
 
+    # conversion, but return the magnitude only, then format it with commas and zero decimal places. 
+    logger.info (f"There are {Q_(1,"mile").to("feet").magnitude:,.0f} feet in a mile.")
 
 if __name__ == "__main__":
     pint_example()

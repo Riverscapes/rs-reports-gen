@@ -1,0 +1,66 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "http://xml.riverscapes.net/schemas/table_def_schema.json",
+    "title": "Data Table Column Definitions",
+    "description": "A list of enhanced metadata objects for data table columns, including units and friendly names. NOT USED - FOR NOW GOING FROM GOOGLE SHEETS TO CSV TO S3 TO ATHENA. LATER MAY USE THIS. ",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "table_name": {
+                "description": "Source table name",
+                "type": "string"
+            },
+            "cid": {
+                "description": "Column index (if applicable)",
+                "type": "integer"
+            },
+            "name": {
+                "description": "Column name (as in the data table)",
+                "type": "string"
+            },
+            "type": {
+                "description": "SQL or data type",
+                "type": "string"
+            },
+            "notnull": {
+                "description": "Whether the column is NOT NULL",
+                "type": "boolean"
+            },
+            "dflt_value": {
+                "description": "Default value",
+                "type": ["string", "number", "null"]
+            },
+            "pk": {
+                "description": "Is this column a primary key?",
+                "type": "boolean"
+            },
+            "friendly_name": {
+                "description": "Human-friendly column name for display",
+                "type": "string"
+            },
+            "unit": {
+                "description": "Pint-compatible unit string (e.g., 'm', 'km^2', '%')",
+                "comment": "See https://pint.readthedocs.io/en/stable/ and https://github.com/hgrecco/pint/blob/master/pint/default_en.txt",
+                "type": "string"
+            },
+            "description": {
+                "description": "Detailed description of the column",
+                "type": "string"
+            },
+            "category": {
+                "description": "Category or group for presentation (optional)",
+                "type": "string"
+            },
+            "bins": {
+                "comment": "this is just an idea, not implemented.",
+                "description": "Bin edges or labels for categorical/quantized columns (optional)",
+                "type": ["array", "null"],
+                "items": {
+                    "type": ["string", "number"]
+                }
+            }
+        },
+        "required": ["table_name", "name", "type"]
+    }
+}
