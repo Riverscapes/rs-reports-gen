@@ -5,7 +5,7 @@ from rsxml import Logger
 # Initialize a UnitRegistry
 # DO THIS ONLY ONCE
 UREG = pint.UnitRegistry()
-
+Q_ = UREG.Quantity
 
 def pint_example():
     """
@@ -15,9 +15,9 @@ def pint_example():
     logger = Logger("PintExample")
     logger.title("Pint Unit Conversion example")
 
-    # Lengths
-    length = 5 * UREG.meter
-    time = 10 * UREG.second
+    # Multiple ways to define a pint Quantity
+    length = Q_(5, UREG.meter) # using constructor
+    time = 10 * UREG.second # by multiplying a scalar by a Unit
     speed = length / time
     logger.info(f"Length: {length.to(UREG.centimeter)}")
     # [INFO] [PintExample] Length: 500.0 centimeter
