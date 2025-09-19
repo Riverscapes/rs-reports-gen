@@ -21,18 +21,18 @@ from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query
 # Local imports
-from .figures import make_map, make_rs_area_by_owner
+from .figures import make_map, make_rs_area_by_owner, make_rs_area_by_featcode
 
 S3_BUCKET = "riverscapes-athena"
 
 # not specific to this report... can go in another file
 
 
-def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_plotlyjs=False, report_dir=None):
+def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_plotlyjs=False, report_dir=None) -> str:
     """export plotly figure html
-    either interactive, or with path to static image
+    either interactive, or with path to static image created at out_dir
+    either way returns html fragment
     """
-    # what is the return signature? Can the mode signature list the options?
     if mode == "interactive":
         # Enable mode bar for interactivity (zoom, pan, etc.)
         return pio.to_html(
@@ -69,6 +69,7 @@ def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name, mode="interactiv
     figures = {
         "map": make_map(gdf),
         "bar": make_rs_area_by_owner(gdf),
+        "pie": make_rs_area_by_featcode(gdf)
     }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
@@ -130,11 +131,11 @@ def load_gdf_from_csv(csv_path):
 
 def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path:str):
     """given aoi in gdf format (assume 4326), just get all the raw_rme (for now)
-    returns: local path to the data"""
+    returns: local path to the data csv file"""
     log = Logger('Run AOI query on Athena')
     # temporary approach -- later try using report-type specific CTAS and report-specific UNLOAD statement
-    fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent"
-    s3_csv_path = run_aoi_athena_query(gdf, S3_BUCKET, fields_str=fields_str)
+    fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent"
+    s3_csv_path = run_aoi_athena_query(gdf, S3_BUCKET, fields_str=fields_str, source_table="rpt_rme")
     if s3_csv_path is None:
         log.error("Didn't get a result from athena")
         raise NotImplementedError
@@ -194,7 +195,7 @@ def main():
     # Set up some reasonable folders to store things
     output_path = args.output_path
     # if want each iteration to be saved add datetimestamp to path
-    dt_str = datetime.now().strftime("%y%m%d_%H%M")
+    # dt_str = datetime.now().strftime("%y%m%d_%H%M")
     # dt_str = ""
     safe_makedirs(output_path)
 
@@ -205,11 +206,15 @@ def main():
 
     if args.csv:  # skip the generation of csv
         data_gdf = load_gdf_from_csv(args.csv)
-        html_path = make_report(data_gdf, output_path, args.report_name, mode="static")
-        log.info(f'HTML report built at {html_path}')
+        # make html report
+        report_paths = make_report(data_gdf, output_path, args.report_name, mode="both")
+        html_path = report_paths["interactive"]
+        static_path = report_paths["static"]
+        log.info(f'Interactive HTML report built at {html_path}')
+        log.info(f'Static HTML report built at {static_path}')
         # make pdf
-        pdf_path = make_pdf_from_html(html_path)
-        log.info(f'PDF report built at {pdf_path}')
+        pdf_path = make_pdf_from_html(static_path)
+        log.info(f'PDF report built from static at {pdf_path}')
         sys.exit(0)
 
     # TODO add try /catch after testing
@@ -229,8 +234,8 @@ def env_launch_params():
         "{env:DATA_ROOT}/rpt-rivers-need-space",
         os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
         "Althouse Creek 2",
-        # "--csv",
-        # "/tmp/tmphcfn8l6q.csv",
+        "--csv",
+        "{env:DATA_ROOT}/tmp/data.csv",
     ]
 
 

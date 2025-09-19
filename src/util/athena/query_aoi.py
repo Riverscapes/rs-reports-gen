@@ -42,6 +42,8 @@ def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) ->
     maximum size of athena query is 256 kb or 262144 bytes
     the default max_size assumes we need just under 5000 bytes for the rest of the query so this part needs to be under
     if it is too big returns None 
+    returns a SQL expression for the geometry
+    future improvement - check but i think it's almost *always* shorter as WKB so we don't really need to do both every time
     """
     log = Logger('check aoi')
     # Get the union of all geometries in the GeoDataFrame
@@ -80,8 +82,8 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     Assumes the geojson is in decimal degrees 
     Todo: check the assumption 
 
-    Note tried buffering the bounding box with buffer but 
-    this produces rounded corners and smooth edges - no longer a straightforward box
+    Previously: tried buffering the bounding box with buffer, but 
+    that produces rounded corners and smooth edges - no longer a straightforward box
     # from shapely.geometry import box
     # Create a bounding box geometry
     # bbox = box(minx, miny, maxx, maxy)
@@ -102,11 +104,33 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     bounds_where_clause = f'WHERE (latitude between {bufminy} AND {bufmaxy}) AND (longitude between {bufminx} AND {bufmaxx})'
     return bounds_where_clause
 
+def run_athena_aoi_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, select_fields: str, select_from:str, geometry_field_str:str):
+    """return results of 
+    
+    SELECT {select_fields} FROM {select_from} WHERE {ST_Intersects(<union of everything in aoi_gdf>,{geometry_field_str})} 
 
-def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: str = "") -> str | None:
-    """Run Athena query on supplied AOI geojson and return path to results on S3
-    returns None if the shape can't be converted to suitably sized geometry sql expression
-    fields 
+    but in a performant way - using prefilter on bounding box of aoi first
+
+    the source table must have fields: 
+     * latitude, longitude 
+    
+
+    """
+    raise NotImplementedError
+
+
+def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: str = "", source_table: str = "raw_rme") -> str | None:
+    """Run Athena query `select (field_str) from raw_rme` on supplied AOI geojson
+    also includes the dgo geometry (polygon) 
+    the source table must have fields: 
+     * latitude, longitude 
+     * dgo_geom (which is WKT but with , replaced by |)
+    return path to results on S3
+    returns None if the shape can't be converted to suitably sized geometry sql expression. 
+    Future Enhancements: 
+    - change to using a WKB field instead of dgo_geom
+    - note there is a copy of this function (whole module) in `src\reports\rpt_igo_project\athena_query_aoi.py`
+    - use the same multiple-resizing strategy from simplify_to_size in `rs_geo_helpers.py`
     """
     log = Logger('Run AOI Query on Athena')
 
@@ -114,8 +138,8 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: 
     # So we need to buffer by the maximum distance between a centroid and its bounding polygon
     prefilter_where_clause = generate_sql_where_clause_for_bounds(aoi_gdf)
 
-    # count the prefiltered records - comment 3 lines for better performance/ keep for debugging only
-    query_str = f'SELECT count(*) AS record_count FROM raw_rme {prefilter_where_clause}'
+    # count the prefiltered records - these 3 lines are only needed for debugging -- comment out for better performance
+    query_str = f'SELECT count(*) AS record_count FROM {source_table} {prefilter_where_clause}'
     results = (athena_query_get_parsed(s3_bucket, query_str))
     log.debug(f'Prefiltered records: {results}')
 
@@ -145,9 +169,9 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: 
 WITH pre_filtered_rme AS (
     SELECT
         {fields_str}
-        , ST_GeometryFromText(REPLACE(raw_rme.dgo_geom, '|', ',')) AS dgo_geom_obj
+        , ST_GeometryFromText(REPLACE({source_table}.dgo_geom, '|', ',')) AS dgo_geom_obj
     FROM
-        raw_rme
+        {source_table}
     {prefilter_where_clause}
     )
 SELECT
@@ -175,7 +199,9 @@ WHERE
 
 
 def main():
-    """get an AOI geometry and query athena raw_rme for data within"""
+    """get an AOI geometry and query athena raw_rme for data within
+    not intended to be called except for isolated testing these functions
+    """
     # path_to_shape = r"C:\nardata\work\rme_extraction\20250827-rkymtn\physio_rky_mtn_system.geojson"
     path_to_shape = r"C:\nardata\work\rme_extraction\Price-riv\pricehuc10s.geojson"
     s3_bucket = "riverscapes-athena"
