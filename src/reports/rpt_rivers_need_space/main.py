@@ -22,7 +22,15 @@ from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query
 # Local imports
-from reports.rpt_rivers_need_space.figures import make_map, make_rs_area_by_owner, make_rs_area_by_featcode, make_map_with_aoi, statistics
+from reports.rpt_rivers_need_space.figures import (make_map, 
+    make_rs_area_by_owner, 
+    make_rs_area_by_featcode, 
+    make_map_with_aoi, 
+    statistics,
+    table_of_river_names,
+    table_of_ownership,
+)
+
 
 S3_BUCKET = "riverscapes-athena"
 
@@ -72,13 +80,16 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "bar": make_rs_area_by_owner(gdf),
         "pie": make_rs_area_by_featcode(gdf)
     }
+    tables = {
+        "river_names": table_of_river_names(gdf),
+        "owners": table_of_ownership(gdf)
+    }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
 
     def render_report(fig_mode, suffix=""):
         figure_exports = {}
-        for i, (name, fig) in enumerate(figures.items()):
-            # include_js = (i == 0) if fig_mode == "interactive" else False
+        for (name, fig) in figures.items():
             figure_exports[name] = export_figure(
                 fig, figure_dir, name, mode=fig_mode, include_plotlyjs=False, report_dir=report_dir
             )
@@ -96,7 +107,8 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
             },
             report_name=report_name,
             figures=figure_exports,
-            kpis=statistics(gdf)
+            kpis=statistics(gdf),
+            tables = tables
         )
         out_path = os.path.join(report_dir, f"report{suffix}.html")
         with open(out_path, "w", encoding="utf-8") as f:

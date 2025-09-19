@@ -4,6 +4,7 @@ all of these take a geodataframe and return a plotly graph object
 import geopandas as gpd
 import plotly.express as px
 import plotly.graph_objects as go
+import pandas as pd
 
 def make_map_with_aoi(gdf, aoi_gdf):
     # Create the base map
@@ -75,6 +76,49 @@ def statistics(gdf):
     return {"total_riverscapes_area":gdf["segment_area"].sum(),
             "total_centerline":gdf["centerline_length"].sum(),
             }
+
+def table_of_river_names(gdf) -> str:
+    df = gdf[["stream_name", "stream_length"]].copy()
+    df['stream_name'] = df['stream_name'].fillna("unnamed")
+    df = df.groupby('stream_name', as_index=False)['stream_length'].sum()
+    if df.empty:
+        df.loc[0] = ["no named streams", 0.0]
+    total = df['stream_length'].sum()
+    df['Percent of Total'] = (df['stream_length'] / total * 100).round(2)
+    # Add a total row
+    total_row = pd.DataFrame({
+        'stream_name': ['Total'],
+        'stream_length': [total],
+        'Percent of Total': [100.0]
+    })
+    df = pd.concat([df, total_row], ignore_index=True)
+    return df.to_html(index=False, float_format=_floatformat2)
+
+def _floatformat2(inval:float)->str:
+    """2 decimals, commas for thousands, no units"""
+    return f"{inval:,.2f}"
+
+def table_of_ownership(gdf) -> str:
+    df = gdf.groupby(['ownership','ownership_desc'], as_index=False)['stream_length'].sum()
+    total = df['stream_length'].sum()
+    df['Percent of Total'] = (df['stream_length'] / total * 100).round(2)
+    # Add a total row
+    total_row = pd.DataFrame({
+        'ownership': ['Total'],
+        'ownership_desc' : [''],
+        'stream_length': [total],
+        'Percent of Total': [100.0]
+    })
+    df = pd.concat([df, total_row], ignore_index=True)
+    styled = df.style.format({
+    "stream_length": "{:,.2f}",
+    "Percent of Total": "{:.1f}%",
+    # Add more columns as needed
+    })
+    # unstyled way
+    # df.to_html(index=False, float_format=_floatformat2)
+    html = styled.to_html(index=False)
+    return html
 
 def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     """ Create bar chart of total segment area by ownership

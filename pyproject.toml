@@ -35,6 +35,7 @@ dev = [
     "ipython",
     "nbformat",
     "pytest",
+    "ipykernel",
     # add any other dev-only packages here
 ]
 
