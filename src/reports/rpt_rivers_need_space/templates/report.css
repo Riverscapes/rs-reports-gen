@@ -49,6 +49,15 @@ table,
   margin-bottom: 1.25rem;
 }
 
+.page-break,
+.page-break-before,
+.page-break-after {
+  display: none;
+  height: 0;
+  margin: 0;
+  border: 0;
+}
+
 a {
   color: var(--accent-color);
   text-underline-offset: 0.2em;
@@ -62,7 +71,7 @@ a:focus {
 /**
   * Header Bar
   */
-#HeaderBar {
+.site-header {
   background-color: var(--accent-color);
   background-image: url(https://data.riverscapes.net/banner.jpg);
   background-repeat: no-repeat;
@@ -76,8 +85,11 @@ a:focus {
   width: 100%;
   padding: 1.5rem 0;
 }
+.site-header * {
+  color: inherit;
+}
 
-#HeaderInner {
+.header-inner {
   max-width: var(--page-width, 66rem);
   margin: 0 auto;
   display: flex;
@@ -87,7 +99,7 @@ a:focus {
   gap: 1.25rem;
 }
 
-#RiverscapesLogo {
+.riverscapes-logo {
   background-image: url(https://data.riverscapes.net/riverscapes.png);
   background-size: contain;
   background-repeat: no-repeat;
@@ -97,14 +109,14 @@ a:focus {
   min-height: 72px;
 }
 
-#HeaderRight {
+.header-content {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-#HeaderTop {
+.header-meta {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -113,16 +125,23 @@ a:focus {
   flex-wrap: wrap;
 }
 
-#HeaderTop .date,
-#HeaderTop .projectType {
+.meta-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
   font-size: 0.95rem;
-  font-weight: 500;
   letter-spacing: 0.04em;
+  font-weight: 500;
+  margin: 0;
+}
+
+.meta-label {
+  font-weight: 600;
   text-transform: uppercase;
 }
 
-#HeaderBar h1,
-#HeaderBar h4 {
+.site-header h1,
+.site-header h4 {
   clear: both;
   color: #fffffaff;
   padding: 0.2rem 0;
@@ -133,11 +152,11 @@ a:focus {
   * Report Inner Layout
   */
 
-#ReportContainer {
+.report-container {
   width: 100%;
 }
 
-#ReportInner {
+.report-inner {
   max-width: var(--page-width);
   width: 100%;
   margin: 0 auto;
@@ -147,14 +166,21 @@ a:focus {
   box-shadow: 0 18px 40px rgba(0, 26, 58, 0.08);
 }
 
-#ReportHeader {
+.report-formats {
   margin-bottom: 1.5rem;
 }
 
-#kpi-container {
+.report-formats__title {
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
+  margin: 0;
+  padding: 0;
 }
 
 .kpi {
@@ -162,6 +188,32 @@ a:focus {
   border: 1px solid var(--muted-border);
   padding: 0.75rem 1rem;
   font-size: 0.95rem;
+}
+
+.kpi dt,
+.kpi dd {
+  margin: 0;
+}
+
+.kpi dt {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+}
+
+.kpi dd {
+  font-size: 1.25rem;
+}
+
+.report-figure {
+  margin: 0 0 1.5rem;
+}
+
+.report-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #4a5764;
 }
 
 
@@ -198,11 +250,11 @@ footer {
     font-size: 12pt;
   }
 
-  #ReportContainer {
+  .report-container {
     padding: 0;
   }
 
-  #ReportInner {
+  .report-inner {
     box-shadow: none;
     margin: 0;
     padding: 0.6in;
@@ -216,6 +268,30 @@ footer {
   a[href^="http"]::after {
     content: " (" attr(href) ")";
     font-size: 0.85em;
+  }
+
+  .page-break,
+  .page-break-before,
+  .page-break-after {
+    display: block;
+  }
+
+  .page-break,
+  .page-break-after {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .page-break-before {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  table,
+  .kpi,
+  .plotly-graph-div {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
 }

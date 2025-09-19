@@ -278,8 +278,8 @@ def env_launch_params():
     base_dir = os.path.dirname(__file__)
     return [
         "{env:DATA_ROOT}/rpt-rivers-need-space",
-        # os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
-        "{env:DATA_ROOT}/tmp/rock_cr_miss_247dgos.geojson",
+        os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
+        # "{env:DATA_ROOT}/tmp/rock_cr_miss_247dgos.geojson",
         "Rock Cr 247",
         # "Althouse Creek 2",
         # "--csv",
