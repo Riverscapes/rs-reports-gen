@@ -5,6 +5,24 @@ import geopandas as gpd
 import plotly.express as px
 import plotly.graph_objects as go
 
+def make_map_with_aoi(gdf, aoi_gdf):
+    # Create the base map
+    base_map = make_map(gdf)
+
+    # Add AOI polygons as an outline (no fill)
+    for _, row in aoi_gdf.iterrows():
+        x, y = row['geometry'].exterior.xy
+        lon = list(x)
+        lat = list(y)
+        base_map.add_trace(go.Scattermapbox(
+            lon=lon,
+            lat=lat,
+            mode='lines',
+            line=dict(color='red', width=3),
+            name='AOI'
+        ))
+    base_map.update_layout(mapbox_style="open-street-map")
+    return base_map
 
 def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
     """Create Plotly map (GeoJSON polygons)"""
@@ -42,17 +60,21 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
         gdf,
         geojson=geojson,
         locations="id",
-        color="fcode",
+        color="fcode_desc",
         featureidkey="properties.id",
         center=center,
         zoom=zoom,
         opacity=0.5,
-        hover_name="fcode",
-        hover_data={"segment_area": True, "ownership": True}
+        hover_name="fcode_desc",
+        hover_data={"segment_area": True, "ownership_desc": True}
     )
     map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
     return map_fig
 
+def statistics(gdf):
+    return {"total_riverscapes_area":gdf["segment_area"].sum(),
+            "total_centerline":gdf["centerline_length"].sum(),
+            }
 
 def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     """ Create bar chart of total segment area by ownership

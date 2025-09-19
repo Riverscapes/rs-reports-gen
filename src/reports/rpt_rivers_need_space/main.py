@@ -22,7 +22,7 @@ from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query
 # Local imports
-from .figures import make_map, make_rs_area_by_owner, make_rs_area_by_featcode
+from reports.rpt_rivers_need_space.figures import make_map, make_rs_area_by_owner, make_rs_area_by_featcode, make_map_with_aoi, statistics
 
 S3_BUCKET = "riverscapes-athena"
 
@@ -59,7 +59,7 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_pl
         raise NotImplementedError  # is there a better error?
 
 
-def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
+def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
     """
     Generates HTML report(s) in report_dir.
     mode: "interactive", "static", or "both"
@@ -68,7 +68,7 @@ def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name, mode="interactiv
     log = Logger('make report')
 
     figures = {
-        "map": make_map(gdf),
+        "map": make_map_with_aoi(gdf, aoi_df),
         "bar": make_rs_area_by_owner(gdf),
         "pie": make_rs_area_by_featcode(gdf)
     }
@@ -95,7 +95,8 @@ def make_report(gdf: gpd.GeoDataFrame, report_dir, report_name, mode="interactiv
                 'ReportType': "Rivers Need Space"
             },
             report_name=report_name,
-            figures=figure_exports
+            figures=figure_exports,
+            kpis=statistics(gdf)
         )
         out_path = os.path.join(report_dir, f"report{suffix}.html")
         with open(out_path, "w", encoding="utf-8") as f:
@@ -202,7 +203,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     # make html report
-    report_paths = make_report(data_gdf, report_dir, report_name, mode="both")
+    report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]
     static_path = report_paths["static"]
     log.info(f'Interactive HTML report built at {html_path}')
@@ -237,8 +238,10 @@ def main():
 
     if args.csv:  # skip the generation of csv
         data_gdf = load_gdf_from_csv(args.csv)
+        # load shape as gdf
+        aoi_gdf = gpd.read_file(args.path_to_shape)
         # make html report
-        report_paths = make_report(data_gdf, output_path, args.report_name, mode="both")
+        report_paths = make_report(data_gdf, aoi_gdf, output_path, args.report_name, mode="both")
         html_path = report_paths["interactive"]
         static_path = report_paths["static"]
         log.info(f'Interactive HTML report built at {html_path}')
@@ -263,10 +266,12 @@ def env_launch_params():
     base_dir = os.path.dirname(__file__)
     return [
         "{env:DATA_ROOT}/rpt-rivers-need-space",
-        os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
-        "Althouse Creek 2",
-        "--csv",
-        "{env:DATA_ROOT}/tmp/data.csv",
+        # os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
+        "{env:DATA_ROOT}/tmp/rock_cr_miss_247dgos.geojson",
+        "Rock Cr 247",
+        # "Althouse Creek 2",
+        # "--csv",
+        # "{env:DATA_ROOT}/tmp/rock247_data.csv",
     ]
 
 

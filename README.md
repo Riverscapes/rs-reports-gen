@@ -8,6 +8,6 @@ Code to maintain the web UI that allows users to trigger report generation with 
 
 ## Setting up & running your own instance
 
-Use `uv sync`.
+Use `uv sync`. If you want additional libraries used for development, run `uv sync --extra dev` instead.
 
 You may need to [install WeasyPrint following these instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation).

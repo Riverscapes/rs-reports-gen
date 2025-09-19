@@ -30,6 +30,14 @@ dependencies = [
 rpt-igo-project = "reports.rpt_igo_project.main:main"
 rpt-rivers-need-space = "reports.rpt_rivers_need_space.main:main"
 
+[project.optional-dependencies]
+dev = [
+    "ipython",
+    "nbformat",
+    "pytest",
+    # add any other dev-only packages here
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

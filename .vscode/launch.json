@@ -1,6 +1,6 @@
 {
   "inputs": [
-        {
+    {
       "id": "environment",
       "type": "pickString",
       "description": "Choose the environment file you want to use",
@@ -13,6 +13,14 @@
     },
   ],
   "configurations": [
+    {
+      "name": "🐍➕Python Debugger: Current File with Arguments",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "args": "${command:pickArgs}"
+    },
     {
       "name": "📋 Report Launcher",
       "type": "debugpy",
