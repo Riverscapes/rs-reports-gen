@@ -54,25 +54,40 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
     return map_fig
 
 
-def make_rs_area_by_owner(gdf):
+def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     """ Create bar chart of total segment area by ownership
 
     Args:
-        gdf (_type_): _geodataframe with 'ownership' and 'segment_area' columns_
+        gdf (GeoDataFrame): _geodataframe with 'ownership' and 'segment_area' columns_
 
     Returns:
         _type_: _plotly figure object_
     """
-    # 2. Create horizontal bar chart (sum of segment_area by ownership)
+    # Create horizontal bar chart (sum of segment_area by ownership)
     chart_data = gdf.groupby('ownership', as_index=False)['segment_area'].sum()
     bar_fig = px.bar(
         chart_data,
         y="ownership",
         x="segment_area",
         orientation="h",
-        title="Total Segment Area by Ownership",
+        title="Total Riverscape Area (units) by Ownership",
         labels={"segment_area": "Total Segment Area", "ownership": "Ownership"},
         height=400
     )
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return bar_fig
+
+def make_rs_area_by_featcode(gdf) -> go.Figure:
+    """Create pie chart of total segment area by NHD feature code type
+    Args: 
+        gdf with fcode_desc and segment_area
+    """
+    chart_data = gdf.groupby('fcode_desc', as_index=False)['segment_area'].sum()
+    print(chart_data)
+    fig = px.pie(
+        chart_data,
+        names = 'fcode_desc',
+        values='segment_area',
+        title='Total Riverscape Area (units) by Feature Code'
+    )
+    return fig
