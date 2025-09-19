@@ -2,25 +2,22 @@
 import argparse
 import logging
 import os
-import tempfile
 import sys
 from datetime import datetime
-from typing import Optional
 from importlib import resources
 # 3rd party imports
 import geopandas as gpd
 import pandas as pd
-import weasyprint
 from shapely import wkt
 
-import plotly.graph_objects as go
-import plotly.io as pio
 from jinja2 import Template
 
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query
+from util.pdf.create_pdf import make_pdf_from_html
+from util.plotly.export_figure import export_figure
 # Local imports
 from reports.rpt_rivers_need_space.figures import (make_map,
                                                    make_rs_area_by_owner,
@@ -35,36 +32,6 @@ from reports.rpt_rivers_need_space.figures import (make_map,
 S3_BUCKET = "riverscapes-athena"
 
 # not specific to this report... can go in another file
-
-
-def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_plotlyjs=False, report_dir=None) -> str:
-    """export plotly figure html
-    either interactive, or with path to static image created at out_dir
-    either way returns html fragment
-    """
-    if mode == "interactive":
-        # Enable mode bar for interactivity (zoom, pan, etc.)
-        return pio.to_html(
-            fig,
-            include_plotlyjs=include_plotlyjs,
-            full_html=False,
-            config={"displayModeBar": True}
-        )
-    # will this work? make case insensitive
-    elif mode in ('png', 'jpeg', 'svg', 'pdf', 'webp'):
-        img_filename = f"{name}.{mode}"
-        img_path = os.path.join(out_dir, img_filename)
-        # requires kaleido (python packge) to be installed
-        # and that requires Google Chrome to be installed - plotly_get_chrome or kaleido.get_chrome() or kaleido.get_chrome_sync()
-        if report_dir:
-            rel_path = os.path.relpath(img_path, start=report_dir)
-        else:
-            rel_path = img_filename
-        fig.write_image(img_path)
-        html_fragment = f'<img src="{rel_path}">'
-        return html_fragment
-    else:
-        raise NotImplementedError  # is there a better error?
 
 
 def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
@@ -155,46 +122,6 @@ def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
         raise NotImplementedError
     get_s3_file(s3_csv_path, output_path)
     return
-
-
-def make_pdf_from_html(
-    html_path: str,
-    *,
-    page_margin: str = "0.1in",
-    zoom: float = 1.0,
-    extra_styles: Optional[list[weasyprint.CSS]] = None,
-) -> str:
-    """Generate a PDF from an HTML file using WeasyPrint with layout controls.
-
-    Args:
-        html_path: Path to the source HTML document.
-        page_margin: CSS margin value injected into the `@page` rule.
-        zoom: Zoom factor passed to WeasyPrint's renderer (1.0 = 100%).
-
-    Returns:
-        Path to the generated PDF file.
-    """
-    pdf_path = os.path.splitext(html_path)[0] + ".pdf"
-    margin_css = weasyprint.CSS(
-        string=(
-            "@page { margin: %s; } "
-            "body { margin: 0 !important; padding: 0 !important; }"
-        ) % page_margin,
-        media_type="print",
-    )
-
-    stylesheets = [margin_css]
-
-    if extra_styles:
-        stylesheets.extend(extra_styles)
-
-    weasyprint.HTML(filename=html_path, base_url=os.path.dirname(html_path)).write_pdf(
-        pdf_path,
-        stylesheets=stylesheets,
-        zoom=zoom,
-        presentational_hints=True,
-    )
-    return pdf_path
 
 
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str):
