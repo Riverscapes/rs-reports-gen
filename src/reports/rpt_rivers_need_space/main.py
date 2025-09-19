@@ -22,14 +22,14 @@ from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query
 # Local imports
-from reports.rpt_rivers_need_space.figures import (make_map, 
-    make_rs_area_by_owner, 
-    make_rs_area_by_featcode, 
-    make_map_with_aoi, 
-    statistics,
-    table_of_river_names,
-    table_of_ownership,
-)
+from reports.rpt_rivers_need_space.figures import (make_map,
+                                                   make_rs_area_by_owner,
+                                                   make_rs_area_by_featcode,
+                                                   make_map_with_aoi,
+                                                   statistics,
+                                                   table_of_river_names,
+                                                   table_of_ownership,
+                                                   )
 
 
 S3_BUCKET = "riverscapes-athena"
@@ -94,7 +94,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
                 fig, figure_dir, name, mode=fig_mode, include_plotlyjs=False, report_dir=report_dir
             )
         templates_pkg = resources.files(__package__).joinpath('templates')
-        template = Template(templates_pkg.joinpath('p_template.html').read_text(encoding='utf-8'))
+        template = Template(templates_pkg.joinpath('template.html').read_text(encoding='utf-8'))
         css = templates_pkg.joinpath('report.css').read_text(encoding='utf-8')
         style_tag = f"<style>{css}</style>"
         now = datetime.now()
@@ -108,7 +108,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
             report_name=report_name,
             figures=figure_exports,
             kpis=statistics(gdf),
-            tables = tables
+            tables=tables
         )
         out_path = os.path.join(report_dir, f"report{suffix}.html")
         with open(out_path, "w", encoding="utf-8") as f:
@@ -160,7 +160,7 @@ def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
 def make_pdf_from_html(
     html_path: str,
     *,
-    page_margin: str = "0.5in",
+    page_margin: str = "0.1in",
     zoom: float = 1.0,
     extra_styles: Optional[list[weasyprint.CSS]] = None,
 ) -> str:

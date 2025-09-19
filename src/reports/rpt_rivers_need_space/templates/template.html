@@ -1,68 +1,79 @@
-<!DOCTYPE html>
 <html>
-  <head>
-    <title>{{report.title}}</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    {{report.head}}
-  </head>
-  <body>
+
+<head>
+    <title>{{ report_name }}</title>
+    <meta charset='utf-8'>
+    <meta name="color-scheme" content="light">
+
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&display=swap" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Space+Mono&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Karla&display=swap" rel="stylesheet">
+
+    <!-- We're adding icons because icons are sometimes useful -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- We're using PICO CSS: https://picocss.com/ -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@latest/css/pico.min.css" />
+    <!-- Now we apply any additional styling from report.css -->
+
+    <!-- Let's import plotly from a CDN. Make sure the version number matches what we use locally-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.1.0/plotly.min.js"></script>
+
+    {{ report.head }}
+</head>
+
+<body>
     <header id="HeaderBar">
-      <div id="HeaderInner">
-        <div id="RiverscapesLogo">&nbsp;</div>
-        <div id="HeaderRight">
-          <div id="HeaderTop">
-            <div class="date">Report Created: {{report.date}}</div>
-            <div class="projectType">Project Type: {{report.ProjectType}}</div>
-          </div>
-          <h1 id="title">{{report.title}}</h1>
+        <div id="HeaderInner">
+            <div id="RiverscapesLogo">&nbsp;</div>
+            <div id="HeaderRight">
+                <div id="HeaderTop">
+                    <div class="date">Report Created: {{report.date}}</div>
+                    <div class="projectType">Report Type: {{report.ReportType}}</div>
+                </div>
+                <h1 id="title">{{report.title}}<span class="material-icons md-24">face</span></h1>
+            </div>
         </div>
-      </div>
-    </header>    
+    </header>
+
     <div id="ReportContainer">
-      <div id="ReportInner">
-        <!-- The Metadata and the TOC are at the top -->
-        <div id="ReportHeader">
-          {{report.toc}}
-          <!-- This is the section for metadata -->
-          <section id="ProjectMeta">
-            {% if report.MetaData %}
-            <h3>Project Meta</h3>
-            <ul class="project-meta">
-              {% for iname, idata in report.MetaData.items() -%}
-              <li>
-                <span class="key">{{iname}}</span>
-                <span class="value">
-                  {% if idata.startswith('http') %}
-                    <a href="{{idata}}">{{idata}}</a>
-                  {% else %}
-                    {{idata}}
-                  {% endif %}
-                </span>
-              </li>
-              {% endfor %}
-            </ul>
-            {% endif %}
-            {% if report.Warehouse %}
-            <h3>Warehouse Meta:</h3>
-            <ul class="project-warehouse">
-              {% for iname, idata in report.Warehouse.items() -%}
-              <li><span class="key">{{iname}}:</span><span class="value">{{idata}}</span></li>
-              {% endfor %}
-            </ul>
-            {% endif %}            
-          </section>
+        <div id="ReportInner">
+            <div id="ReportHeader">
+                Report available as:
+                <ul>
+                    <li><a href="report.html">interactive html</a></li>
+                    <li><a href="report_static.html">static html</a></li>
+                    <li><a href="report_static.pdf">pdf</a></li>
+                </ul>
+            </div>
+            <main>
+                <h2>Some KPIs</h2>
+                <div id="kpi-container">
+                    {% for key, value in kpis.items() %}
+                    <div class="kpi">
+                        <strong>{{ key.replace('_', ' ').title() }}:</strong> {{ value }}
+                    </div>
+                    {% endfor %}
+                </div>
+                <h2>Map of Polygons</h2>
+                {{ figures['map']|safe }}
+                <h2>Segment Area by Ownership</h2>
+                {{ figures['bar']|safe }}
+                <br />
+                {{ tables['owners']|safe}}
+                <h2>Segment Area by feature code</h2>
+                {{ figures['pie']|safe }}
+                <h2>Table of Stream Names and lengths</h2>
+                {{ tables['river_names']|safe}}
+            </main>
         </div>
-        <main>{{report.body}}</main>
-        <footer>
-          <div id="FooterLeft">
-            {{report.footer}}
-          </div>
-          <div id="FooterRight">
-            &nbsp;
-          </div>
-        </footer>
-      </div>
     </div>
-  </body>
+    <footer>
+        <div id="FooterRight"></div>
+    </footer>
+</body>
+
 </html>

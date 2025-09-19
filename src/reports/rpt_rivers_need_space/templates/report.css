@@ -1,71 +1,221 @@
 :root {
-  --header-font-family: JetBrains Mono, Courier New, Courier, Lucida Sans Typewriter, Lucida Typewriter, monospace;
+  --header-font-family: "JetBrains Mono", "Courier New", Courier, "Lucida Sans Typewriter", "Lucida Typewriter", monospace;
+  --body-font-family: "Roboto", Arial, sans-serif;
+  --page-width: 66rem;
+  --page-gutter: clamp(1.25rem, 2vw + 1rem, 2.5rem);
+  --accent-color: #004793;
+  --text-color: #080705;
+  --muted-bg: #f1f4f9;
+  --muted-border: #d5deeb;
+}
+
+html {
+  box-sizing: border-box;
+  font-size: 16px;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
 }
 
 body {
-  font-family: Roboto, Arial, sans-serif;
-  margin: 2em;
+  margin: 0;
+  font-family: var(--body-font-family);
+  width: 100%;
+  min-height: 100vh;
+  line-height: 1.6;
+  color: var(--text-color);
+  background: var(--muted-bg);
 }
 
-h1,h2,h3,h4,h5 {
-  /* margin: 0.5rem 0 1rem 0; */
+h1,
+h2,
+h3,
+h4,
+h5 {
   font-family: var(--header-font-family);
   clear: both;
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+  font-weight: 600;
 }
 
-#HeaderBar .date{ float: right}
-#HeaderBar .projectType{ float: left}
-#HeaderBar .projectType{ float: left}
+p,
+ul,
+ol,
+table,
+.kpi,
+.plotly-graph-div {
+  margin-bottom: 1.25rem;
+}
+
+a {
+  color: var(--accent-color);
+  text-underline-offset: 0.2em;
+}
+
+a:hover,
+a:focus {
+  text-decoration-thickness: 3px;
+}
+
+/**
+  * Header Bar
+  */
+#HeaderBar {
+  background-color: var(--accent-color);
+  background-image: url(https://data.riverscapes.net/banner.jpg);
+  background-repeat: no-repeat;
+  background-position: 0% 50%;
+  background-size: cover;
+  color: #fffffaff;
+  text-shadow: 3px 3px 3px rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 1.5rem 0;
+}
+
+#HeaderInner {
+  max-width: var(--page-width, 66rem);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 1.5rem;
+  gap: 1.25rem;
+}
+
 #RiverscapesLogo {
   background-image: url(https://data.riverscapes.net/riverscapes.png);
   background-size: contain;
   background-repeat: no-repeat;
-  flex: 0 0 6%;
-  background-position: center center;
-}
-#HeaderInner {
-  max-width: 66rem;
-  margin: 0 auto;
-  display: flex;
-  padding: 0px 8px;
-}
-#HeaderBar {
-  color: #fffffaff;
-  text-shadow: 3px 3px 3px rgba(0,0,0,0.7);
-  background-size: cover;
-  background-color: #004793;
-  background-image: url(https://data.riverscapes.net/banner.jpg);
-  background-repeat: no-repeat;
-  background-position: 0% 50%;
-}
-#HeaderRight {
-  flex: 1 1;
-  padding: 1rem;
+  background-position: center;
+  flex: 0 0 72px;
+  min-width: 72px;
+  min-height: 72px;
 }
 
-#HeaderBar h1, #HeaderBar h4{
+#HeaderRight {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#HeaderTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+#HeaderTop .date,
+#HeaderTop .projectType {
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#HeaderBar h1,
+#HeaderBar h4 {
   clear: both;
   color: #fffffaff;
-  padding: 5px 0px;
+  padding: 0.2rem 0;
+  margin: 0;
 }
 
-#ReportInner{ 
-  max-width: 66rem;
+/**
+  * Report Inner Layout
+  */
+
+#ReportContainer {
+  width: 100%;
+}
+
+#ReportInner {
+  max-width: var(--page-width);
+  width: 100%;
   margin: 0 auto;
-  background: #ffffffff;
-  color: #080705ff;
+  background: #fff;
+  color: var(--text-color);
+  padding: clamp(1.5rem, 1.5vw + 1.5rem, 2.5rem);
+  box-shadow: 0 18px 40px rgba(0, 26, 58, 0.08);
 }
 
-/* Some little tweaks to make sure plotly renders correctly */
+#ReportHeader {
+  margin-bottom: 1.5rem;
+}
+
+#kpi-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.kpi {
+  background: var(--muted-bg);
+  border: 1px solid var(--muted-border);
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+}
+
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+footer {
+  margin-top: 2.5rem;
+}
+
+/* Ensure Plotly outputs keep their spacing and avoid awkward page breaks */
 .plotly-graph-div {
-  margin-bottom: 10px;
+  margin-bottom: 1.5rem;
+  break-inside: avoid;
 }
 
-.gridExample {
-  margin-top: 10px;
-  margin-bottom: 10px;
-}
-.gridExample>div>* {
-  background-color: red;
-}
+@media print {
+  :root {
+    --page-width: 6.5in;
+    --page-gutter: 0;
+  }
 
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000;
+  }
+
+  body {
+    font-size: 12pt;
+  }
+
+  #ReportContainer {
+    padding: 0;
+  }
+
+  #ReportInner {
+    box-shadow: none;
+    margin: 0;
+    padding: 0.6in;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+  }
+
+}
