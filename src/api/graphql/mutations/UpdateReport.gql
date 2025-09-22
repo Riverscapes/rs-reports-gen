@@ -1,5 +1,25 @@
-mutation UpdateReport($userId: ID, $projectId: ID, $project: RSReportInput!) {
-  updateReport(userId: $userId, projectId: $projectId, project: $project) {
+mutation UpdateReport($userId: ID, $reportId: ID!, $report: RSReportUpdateInput!) {
+  updateReport(userId: $userId, reportId: $reportId, report: $report) {
     ...ReportDetail
   }
+}
+fragment ReportDetail on RSReport {
+  id
+  name
+
+  reportType {
+    id
+    name
+    shortName
+    version
+  }
+  description
+  createdAt
+  updatedAt
+
+  createdBy {
+    id
+  }
+  status
+  progress
 }

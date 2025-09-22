@@ -67,6 +67,21 @@
       ]
     },
     {
+      "name": "⬆️ Upload PUBLIC REPORT",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "api.uploadPublic",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": [
+        "--stage",
+        "${input:environment}"
+      ]
+    },
+    {
       "name": "🐍 Python Debugger: Current File",
       "type": "debugpy",
       "request": "launch",

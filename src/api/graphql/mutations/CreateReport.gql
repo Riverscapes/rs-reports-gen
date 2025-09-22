@@ -3,3 +3,23 @@ mutation CreateReport($userId: ID, $project: RSReportInput!) {
     ...ReportDetail
   }
 }
+fragment ReportDetail on RSReport {
+  id
+  name
+
+  reportType {
+    id
+    name
+    shortName
+    version
+  }
+  description
+  createdAt
+  updatedAt
+
+  createdBy {
+    id
+  }
+  status
+  progress
+}

@@ -71,8 +71,12 @@ input GeoLocationInput {
 scalar JSONObject
 
 type Mutation {
+  """
+  Create a new report. This just creates the record and sets the status to CREATED.
+  You must then upload any input files and then call startReport to actually start the report.
+  """
   createReport(
-    project: RSReportInput!
+    report: RSReportInput!
     """
     (optional) The ID of the user creating the report. If not provided, the logged in user is used.
     """
@@ -90,6 +94,26 @@ type Mutation {
     userId: ID
   ): RSReport! @logged_in
   """
+  Start a report. This sets the status to QUEUED or RUNNING depending on the current system load.
+  """
+  startReport(
+    """The ID of the report to start"""
+    reportId: ID!
+    """
+    (optional and ADMIN ONLY) The ID of the user starting the report. If not provided, the logged in user is used.
+    """
+    userId: ID
+  ): RSReport! @logged_in @api_key
+  """Stop a running report."""
+  stopReport(
+    """The ID of the report to stop"""
+    reportId: ID!
+    """
+    (optional and ADMIN ONLY) The ID of the user stopping the report. If not provided, the logged in user is used.
+    """
+    userId: ID
+  ): RSReport! @logged_in @api_key
+  """
   Update a report. Only certain fields can be updated.
   This is what we use to signal the status of an in-progress report or that it has completed or errored.
   """
@@ -97,30 +121,20 @@ type Mutation {
     """
     The fields to update in the report. Only certain fields can be updated.
     """
-    project: RSReportUpdateInput!
+    report: RSReportUpdateInput!
     """The ID of the report to update"""
-    projectId: ID!
+    reportId: ID!
     """
     (optional and ADMIN ONLY) The ID of the user updating the report. If not provided, the logged in user is used.
     """
     userId: ID
-  ): RSReport! @logged_in @api_key
+  ): RSReport! @api_key
 }
 
 interface Pagination {
   limit: Int!
   offset: Int!
   total: Int!
-}
-
-enum ProjectStatusEnum {
-  COMPLETE
-  CREATED
-  DELETED
-  ERROR
-  QUEUED
-  RUNNING
-  UNKNOWN
 }
 
 type Query {
@@ -132,7 +146,7 @@ type Query {
     """The ID of the report to which the file belongs"""
     reportId: ID!
     """The ID of the user downloading the file"""
-    userId: ID!
+    userId: ID
   ): [FileTypeURL!]! @logged_in @api_key
   """Get a paginated list of globally-owned reports"""
   globalReports(limit: Int!, offset: Int!): RSReportPagination! @logged_in
@@ -170,7 +184,7 @@ type Query {
     """The ID of the report to which the file belongs"""
     reportId: ID!
     """The ID of the user uploading the file"""
-    userId: ID!
+    userId: ID
   ): [FileTypeURL!]! @api_key
 }
 
@@ -179,14 +193,15 @@ type RSReport {
   createdAt: DateTime!
   createdBy: DEProfile!
   description: String
-  errorMessage: String
   extent: GeoJSONObject
   id: ID!
   name: String!
+  outputs: [ReportOutputsEnum!]!
   parameters: JSONObject
   progress: Int!
   reportType: RSReportType!
-  status: ProjectStatusEnum!
+  status: ReportStatusEnum!
+  statusMessage: String
   updatedAt: DateTime!
 }
 
@@ -209,7 +224,6 @@ type RSReportPagination implements Pagination {
 }
 
 type RSReportType {
-  ccScript: String
   description: String
   id: ID!
   name: String!
@@ -226,11 +240,31 @@ type RSReportTypePagination implements Pagination {
   total: Int!
 }
 
-"""There is nothing to update except the status/progress/errorMessage"""
+"""There is nothing to update except the status/statusMessage"""
 input RSReportUpdateInput {
-  errorMessage: String
   progress: Int
-  status: ProjectStatusEnum
+  """Only admins can set the status directly."""
+  status: ReportStatusEnum!
+  """This will show a progress message. It doubles as the error message"""
+  statusMessage: String
+}
+
+enum ReportOutputsEnum {
+  CSV
+  HTML
+  PDF
+  ZIP
+}
+
+enum ReportStatusEnum {
+  COMPLETE
+  CREATED
+  DELETED
+  ERROR
+  QUEUED
+  RUNNING
+  STOPPED
+  UNKNOWN
 }
 
 scalar URL

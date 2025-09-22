@@ -184,7 +184,7 @@ class RSReportsAPI:
             code_verifier = self._generate_random(128)
             code_challenge = self._generate_challenge(code_verifier)
             state = self._generate_random(32)
-            redirect_url = f"http://localhost:{self.auth_port}/rscli/"
+            redirect_url = f"http://localhost:{self.auth_port}/rs-reports"
             login_url = urlparse(f"https://{AUTH_DETAILS['domain']}/authorize")
             query_params = {
                 "client_id": AUTH_DETAILS["clientId"],
@@ -341,11 +341,13 @@ class RSReportsAPI:
                     self.refresh_token()
                     self.log.debug("   done. Re-trying query...")
                     return self.run_query(query, variables)
+                else:
+                    raise RSReportsAPIException(f"Query failed to run by returning errors: {resp_json['errors']}. {query} {json.dumps(variables)}")
 
             else:
                 # self.last_pass = True
                 # self.retry = 0
-                return request.json()
+                return resp_json
         else:
             raise RSReportsAPIException(f"Query failed to run by returning code of {request.status_code}. {query} {json.dumps(variables)}")
 
