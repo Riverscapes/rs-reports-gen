@@ -1,3 +1,38 @@
+import pint
+
+ureg = pint.UnitRegistry()
+
+# Custom DataFrame accessor for metadata
+import pandas as pd
+@pd.api.extensions.register_dataframe_accessor("meta")
+class MetaAccessor:
+    def __init__(self, pandas_obj):
+        self._obj = pandas_obj
+        self._meta = None
+
+    def set_metadata(self, meta_df):
+        """Attach a metadata DataFrame (with 'name', 'unit', 'friendly_name')."""
+        self._meta = meta_df.set_index("name")
+
+    def apply_units(self):
+        """Apply Pint units to columns based on metadata."""
+        if self._meta is None:
+            raise RuntimeError("No metadata set. Use .meta.set_metadata(meta_df)")
+        for col, row in self._meta.iterrows():
+            if col in self._obj.columns and pd.notnull(row["unit"]):
+                self._obj[col] = self._obj[col].astype(f"pint[{row['unit']}]")
+
+    def friendly(self, col):
+        """Get the friendly name for a column."""
+        if self._meta is None:
+            return col
+        return self._meta.loc[col, "friendly_name"] if col in self._meta.index else col
+
+    def unit(self, col):
+        """Get the unit for a column."""
+        if self._meta is None:
+            return ""
+        return self._meta.loc[col, "unit"] if col in self._meta.index else ""
 """generate specific figures
 all of these take a geodataframe and return a plotly graph object
 """
@@ -110,13 +145,21 @@ def table_of_ownership(gdf) -> str:
         'Percent of Total': [100.0]
     })
     df = pd.concat([df, total_row], ignore_index=True)
+    # Use metadata for friendly names and units if available
+    friendly_area = gdf.meta.friendly('stream_length')
+    unit_area = gdf.meta.unit('stream_length')
+    friendly_owner = gdf.meta.friendly('ownership')
+    friendly_owner_desc = gdf.meta.friendly('ownership_desc')
+    df.columns = [
+        friendly_owner,
+        friendly_owner_desc,
+        f"{friendly_area} ({unit_area})" if unit_area else friendly_area,
+        "Percent of Total (%)"
+    ]
     styled = df.style.format({
-    "stream_length": "{:,.2f}",
-    "Percent of Total": "{:.1f}%",
-    # Add more columns as needed
+        df.columns[2]: "{:,.2f}",
+        df.columns[3]: "{:.1f}%"
     })
-    # unstyled way
-    # df.to_html(index=False, float_format=_floatformat2)
     html = styled.to_html(index=False)
     return html
 
