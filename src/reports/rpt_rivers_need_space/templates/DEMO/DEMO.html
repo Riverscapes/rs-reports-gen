@@ -39,21 +39,21 @@
           <p class="meta-item">
             <span class="meta-label">Report Created:</span>
             <time datetime="2025-09-16T23:56:00Z">September 16, 2025 - 11:56PM</time>
-            <span class="material-icons md-24" aria-hidden="true">face</span>
+
           </p>
           <p class="meta-item">
             <span class="meta-label">Report Type:</span>
             <span>Rivers Need Space</span>
           </p>
         </div>
-        <h1>Rivers Need Space Report -- 9/16/2025 4:54:13 PM</h1>
+        <h1 class="report-title">Rivers Need Space Report</h1>
       </div>
     </div>
   </header>
 
   <main class="report-container">
     <div class="report-inner">
-      <nav class="report-formats" aria-label="Report formats">
+      <nav class="report-formats pdf-hide" aria-label="Report formats">
         <p class="report-formats__title">Report available as:</p>
         <ul>
           <li><a href="report.html">interactive html</a></li>
@@ -64,20 +64,20 @@
 
       <section>
         <h2>Some KPIs</h2>
-        <dl class="kpi-grid">
-          <div class="kpi">
+        <dl class="metric-grid">
+          <div class="metric">
             <dt>Total Riverscapes Area</dt>
-            <dd>34817.604300000006</dd>
+            <dd>34817.6</dd>
           </div>
-          <div class="kpi">
+          <div class="metric">
             <dt>Total Centerline</dt>
             <dd>2556.7792</dd>
           </div>
-          <div class="kpi">
+          <div class="metric">
             <dt>Total Floodplain Area</dt>
-            <dd>34817.604300000006</dd>
+            <dd>34817.6</dd>
           </div>
-          <div class="kpi">
+          <div class="metric">
             <dt>Average Floodplain Width</dt>
             <dd>13.6121</dd>
           </div>
@@ -304,9 +304,39 @@
     </div>
   </main>
 
-  <footer class="site-footer">
-    <div class="footer-meta">THIS IS FOOTER STUFF</div>
-  </footer>
+<footer class="site-footer" aria-labelledby="site-footer-title">
+  <!-- Decorative background (wave) -->
+  <div class="footer-inner">
+    <div class="grid">
+      <!-- Logo -->
+      <div class="footer-logo">
+        <a
+          class="riverscapes-footer-logo"
+          href="https://riverscapes.net"
+          target="_blank"
+          rel="noopener"
+          aria-label="Riverscapes Consortium"
+        ></a>
+      </div>
+
+      <!-- Column 1 -->
+      <nav class="footer-col" aria-labelledby="footer-connect">
+        <h3 id="footer-connect" class="footer-heading">Connect with Riverscapes Consortium</h3>
+        <ul class="footer-links">
+          <li><a href="https://data.riverscapes.net" target="_blank" rel="noopener">Explore the Data Exchange</a></li>
+          <li><a href="https://riverscapes.net" target="_blank" rel="noopener">Connect with Riverscapes Communities</a></li>
+          <li><a href="https://riverscapes.freshdesk.com/support/tickets/new" target="_blank" rel="noopener">Submit a Support Ticket</a></li>
+          <li><a href="mailto:support@riverscapes.freshdesk.com">support@riverscapes.freshdesk.com</a></li>
+        </ul>
+      </nav>
+    </div>
+
+    <div class="footer-bottom">
+      <p id="site-footer-title" class="sr-only">Site Footer</p>
+      <small class="footer-copy">© <span data-year></span> Riverscapes Consortium. All rights reserved.</small>
+    </div>
+  </div>
+</footer>
 
 </body>
 

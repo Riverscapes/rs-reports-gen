@@ -3,7 +3,9 @@
   --body-font-family: "Roboto", Arial, sans-serif;
   --page-width: 66rem;
   --page-gutter: clamp(1.25rem, 2vw + 1rem, 2.5rem);
+  --header-color: #003166;
   --accent-color: #004793;
+  --border-bg: #0661c1;
   --text-color: #080705;
   --muted-bg: #f1f4f9;
   --muted-border: #d5deeb;
@@ -18,33 +20,34 @@ html {
   box-sizing: inherit;
 }
 
-body {
-  margin: 0;
-  font-family: var(--body-font-family);
-  width: 100%;
-  min-height: 100vh;
-  line-height: 1.6;
-  color: var(--text-color);
-  background: var(--muted-bg);
-}
+  h1,
+  h2{
+    font-family: var(--header-font-family);
+    color: var( --header-color);
+    clear: both;
+    line-height: 1.25;
+    margin: 0 0 0.75rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-bg);
+  }
+  h3,
+  h4,
+  h5{
+    font-family: var(--header-font-family);
+    color: var( --accent-color);
+    clear: both;
+    line-height: 1.25;
+    margin: 0 0 0.75rem;
+    font-weight: 600;
+    border-bottom: none;
 
-h1,
-h2,
-h3,
-h4,
-h5 {
-  font-family: var(--header-font-family);
-  clear: both;
-  line-height: 1.25;
-  margin: 0 0 0.75rem;
-  font-weight: 600;
-}
+  }
 
 p,
 ul,
 ol,
 table,
-.kpi,
+.metric,
 .plotly-graph-div {
   margin-bottom: 1.25rem;
 }
@@ -146,6 +149,7 @@ a:focus {
   color: #fffffaff;
   padding: 0.2rem 0;
   margin: 0;
+  border-bottom: none;
 }
 
 /**
@@ -175,7 +179,7 @@ a:focus {
   font-weight: 600;
 }
 
-.kpi-grid {
+.metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
@@ -183,26 +187,26 @@ a:focus {
   padding: 0;
 }
 
-.kpi {
+.metric {
   background: var(--muted-bg);
   border: 1px solid var(--muted-border);
   padding: 0.75rem 1rem;
   font-size: 0.95rem;
 }
 
-.kpi dt,
-.kpi dd {
+.metric dt,
+.metric dd {
   margin: 0;
 }
 
-.kpi dt {
+.metric dt {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.85rem;
 }
 
-.kpi dd {
+.metric dd {
   font-size: 1.25rem;
 }
 
@@ -224,42 +228,234 @@ canvas {
   height: auto;
 }
 
-footer {
-  margin-top: 2.5rem;
-}
-
 /* Ensure Plotly outputs keep their spacing and avoid awkward page breaks */
 .plotly-graph-div {
   margin-bottom: 1.5rem;
   break-inside: avoid;
 }
 
+.footer-col{
+  margin-left: auto !important;  
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 260px;                   
+  min-width: 240px;                
+}
+.riverscapes-footer-logo {
+  display: block;
+  width: 100%;
+  height: 72px; 
+  padding-right: 2rem;
+  background-image: url("https://pbr.riverscapes.net/footer/riverscapes.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.site-footer {
+  
+  position: relative;
+  color: #fff;
+  background: 
+    rgb(0,18,88) 
+    url("https://pbr.riverscapes.net/footer/background.jpg")
+    center / cover no-repeat;
+  border-top: 1px solid var(--accent-color);
+  overflow: clip;
+}
+
+.site-footer__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  filter: brightness(.95) saturate(1.05);
+  pointer-events: none;
+}
+
+.footer-inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--page-width); 
+  margin: 0 auto;
+  padding: clamp(1.25rem, 1.5vw + 1rem, 2rem);
+}
+
+
+
+@media (min-width: 600px) {                 /* ~MUI sm */
+  .footer-grid {
+    grid-template-columns: auto 1fr 1fr;    /* logo + 2 columns */
+    column-gap: 2rem;
+  }
+}
+
+.footer-logo { width: 200px; }
+.footer-logo img { width: 100%; height: auto; display: block; }
+
+.footer-heading {
+  font-family: var(--header-font-family);
+  color: #fff;
+  font-weight: 600;
+  margin: 0 0 .5rem;
+  font-size: clamp(1rem, 0.6vw + 0.95rem, 1.2rem);
+  border-bottom: none;                       /* keep headings clean in footer */
+}
+
+.footer-links {
+  list-style: none;
+  padding-left: .5rem;
+  display: grid;
+  line-height: 0.2rem;
+  gap: .2rem;
+}
+
+.footer-links a {
+  color: #fff;
+  text-decoration: none;
+  font-family: var(--body-font-family);
+  font-size: clamp(.8rem, .4vw + .75rem, 1rem);
+}
+.footer-links a:hover,
+.footer-links a:focus {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid rgba(255,255,255,.25);
+  padding-top: .75rem;
+}
+
+.footer-copy {
+  margin: 0;
+  opacity: .9;
+  font-size: .875rem;
+  color: #fff;
+}
+
+/* Visually-hidden utility */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 @media print {
+    @page {
+    size: Letter;   /* 8.5in × 11in */
+    margin: 0.5in;
+  }
   :root {
-    --page-width: 6.5in;
+    --page-width: 66rem;
     --page-gutter: 0;
   }
 
-  html,
+  html {
+    font-size: 10.909px; /* (8.5 - 1.0)in * 96 / 66 = 10.909px */
+  }
   body {
+    /* outline: 8px solid magenta !important; */
     background: #ffffff !important;
     color: #000;
-  }
-
-  body {
     font-size: 12pt;
   }
-
-  .report-container {
-    padding: 0;
-  }
-
+  .report-container { padding: 0; }
   .report-inner {
-    box-shadow: none;
-    margin: 0;
-    padding: 0.6in;
+    margin: 0 auto;
+    padding: 0.35in;    
+    box-shadow: none;    
+  }
+  h1,
+  h2 {
+    font-family: var(--header-font-family);
+    color: var(--header-color);
+    clear: both;
+    line-height: 1.25;
+    margin: 0 0 0.75rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-bg);
+  }
+  h3,
+  h4,
+  h5 {
+    font-family: var(--header-font-family);
+    color: var(--accent-color);
+    clear: both;
+    line-height: 1.25;
+    margin: 0 0 0.75rem;
+    font-weight: 600;
+    border-bottom: none !important;
   }
 
+  .riverscapes-logo {
+  background-image: url(https://data.riverscapes.net/riverscapes.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex: 0 0 55px;
+  min-width: 55px;
+  min-height: 55px;
+}
+  .header-content {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .header-meta {
+    display: flex;
+    justify-content: space-between;
+    flex-direction: row !important;
+    gap: 0.1in !important;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .header-meta .meta-item {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .meta-item {
+    display: flex;
+    /* align-items: baseline; */
+    gap: 0.2rem;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .meta-label {
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .site-header h1{
+    font-size: 1.8rem;
+    font-weight: 800;
+    border-bottom: none;
+  }
+
+  .site-header h1,
+  .site-header h4 {
+    clear: both;
+    color: #fffffaff;
+    padding: 0.2rem 0;
+    margin: 0;
+  }
+  .pdf-hide{ 
+    display: none;
+  }
   a {
     color: inherit;
     text-decoration: underline;
@@ -275,23 +471,149 @@ footer {
   .page-break-after {
     display: block;
   }
+  .metric-grid {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;   /* center last row */
+    margin: 0.1in 0 0.3in 0 !important; /* add space above and below grid */
+    padding: 0  !important;
+    gap: 0 !important; 
+  }
+   .metric-grid > * {
+    flex: 1 1 100px !important; 
+    margin: 0.03in !important; 
+    box-sizing: border-box;
+  }
 
   .page-break,
-  .page-break-after {
-    break-after: page;
-    page-break-after: always;
-  }
+  .page-break-before,
+  .page-break-after { display: block; }
+  .page-break,
+  .page-break-after { break-after: page; page-break-after: always; }
+  .page-break-before { break-before: page; page-break-before: always; }
 
-  .page-break-before {
-    break-before: page;
-    page-break-before: always;
-  }
 
   table,
-  .kpi,
+  .metric,
   .plotly-graph-div {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+   .site-footer{
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #fff !important;
+    background:
+      rgb(0,18,88)
+      url("https://pbr.riverscapes.net/footer/background.jpg")
+      center / cover no-repeat !important;
+    break-inside: avoid;
+  }
+
+  .footer-inner{
+    max-width: var(--page-width);
+    margin: 0 auto;
+    padding: 0.35in;      
+  }
+
+  /* Pico .grid → flex for WeasyPrint (keeps one row: logo | column) */
+  .footer-inner .grid{
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.3in !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Logo (fixed width) */
+  .footer-logo{
+    flex: 0 0 200px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    margin: 0 !important;
+  }
+  .riverscapes-footer-logo{
+    width: 200px !important;
+    height: 60px !important;
+    background-image: url("https://pbr.riverscapes.net/footer/riverscapes.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  /* Right column: show heading + list; align right */
+  .footer-col{
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    text-align: left !important;
+  }
+  .footer-heading{
+    color: #fff !important;
+    margin: 0 0 .1in 0 !important;
+  }
+
+  /* SHOW list text in print */
+  .footer-links{
+    display: grid !important;     /* or block */
+    gap: .12in !important;        /* nicer vertical rhythm on paper */
+    line-height: 1.4 !important;
+    padding-left: 0 !important;   /* remove the .5rem indent for a cleaner rule */
+    margin: 0 !important;
+  }
+  .footer-links a{
+    color: #fff !important;
+    text-decoration: underline;
+  }
+  .site-footer .footer-links a,
+  .site-footer .footer-links a:link,
+  .site-footer .footer-links a:visited,
+  .site-footer .footer-links a:hover,
+  .site-footer .footer-links a:focus,
+  .site-footer .footer-links a:active {
+    /* nuke Pico decorations that create the gray pill */
+    background: none !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    text-shadow: none !important;
+
+    /* keep them readable on dark bg */
+    color: #fff !important;
+    text-decoration: underline !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* HIDE only the auto-appended URLs in the footer */
+  .site-footer a[href]::after{ content: none !important; }
+
+  /* Bottom bar */
+  .footer-bottom{
+    border-top: 1px solid rgba(255,255,255,.35) !important;
+    padding-top: 0.12in !important;
+    margin-top: 0.12in !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+  .footer-copy{
+    color: #fff !important;
+    opacity: .9 !important;
+    margin: 0 !important;
+  }
+
+  body, .footer-inner, .footer-col, .footer-bottom, .footer-copy {
+    font-family: var(--body-font-family) !important;
   }
 
 }
