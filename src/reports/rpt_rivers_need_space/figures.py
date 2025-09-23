@@ -1,4 +1,5 @@
 import pint
+import pint_pandas # this is needed 
 
 ureg = pint.UnitRegistry()
 
@@ -10,17 +11,22 @@ class MetaAccessor:
         self._obj = pandas_obj
         self._meta = None
 
-    def set_metadata(self, meta_df):
-        """Attach a metadata DataFrame (with 'name', 'unit', 'friendly_name')."""
+    def attach_metadata(self, meta_df, apply_units=True):
+        """Attach a metadata DataFrame (with 'name', 'unit', 'friendly_name').
+        If apply_units is True, also apply Pint units to columns.
+        Usually call apply_units after this, unless you want to keep columns as plain floats/ints"""
         self._meta = meta_df.set_index("name")
+        if apply_units:
+            self.apply_units()
 
     def apply_units(self):
-        """Apply Pint units to columns based on metadata."""
+        """Apply Pint units to columns based on metadata. Need to set_metadata first"""
         if self._meta is None:
-            raise RuntimeError("No metadata set. Use .meta.set_metadata(meta_df)")
+            raise RuntimeError("No metadata set. Use .meta.attach_metadata(meta_df)")
         for col, row in self._meta.iterrows():
-            if col in self._obj.columns and pd.notnull(row["unit"]):
-                self._obj[col] = self._obj[col].astype(f"pint[{row['unit']}]")
+            unit = row["unit"]
+            if col in self._obj.columns and pd.notnull(unit) and str(unit).strip() != "":
+                self._obj[col] = self._obj[col].astype(f"pint[{unit}]")
 
     def friendly(self, col):
         """Get the friendly name for a column."""
@@ -33,13 +39,36 @@ class MetaAccessor:
         if self._meta is None:
             return ""
         return self._meta.loc[col, "unit"] if col in self._meta.index else ""
+
+    def set_friendly(self, col, friendly_name):
+        """Set the friendly name for a column in the metadata."""
+        if self._meta is None:
+            # Initialize with just this column if needed
+            self._meta = pd.DataFrame(index=[col], columns=["friendly_name", "unit"])
+        if col not in self._meta.index:
+            self._meta.loc[col, "unit"] = ""
+        self._meta.loc[col, "friendly_name"] = friendly_name
+
+    def set_unit(self, col, unit):
+        """Set the unit for a column in the metadata."""
+        if self._meta is None:
+            self._meta = pd.DataFrame(index=[col], columns=["friendly_name", "unit"])
+        if col not in self._meta.index:
+            self._meta.loc[col, "friendly_name"] = col
+        self._meta.loc[col, "unit"] = unit
+
 """generate specific figures
-all of these take a geodataframe and return a plotly graph object
+many of these take a geodataframe and return a plotly graph object
+some an html table as string 
 """
 import geopandas as gpd
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+
+def _floatformat2(inval:float)->str:
+    """2 decimals, commas for thousands, no units"""
+    return f"{inval:,.2f}"
 
 def make_map_with_aoi(gdf, aoi_gdf):
     # Create the base map
@@ -63,21 +92,26 @@ def make_map_with_aoi(gdf, aoi_gdf):
 def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
     """Create Plotly map (GeoJSON polygons)"""
 
-    # Ensure geometry column is correct and reset index for mapping
-    gdf = gdf.copy()
-    gdf = gdf.reset_index(drop=True)
-    gdf["id"] = gdf.index  # unique id for each row
+    # Create a plotting-safe DataFrame with only needed columns, convert PintArray to float
+    plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
+    plot_gdf = gdf.reset_index(drop=True).copy()
+    plot_gdf["id"] = plot_gdf.index  # unique id for each row
+    # Only keep necessary columns for plotting
+    plot_gdf = plot_gdf[["id"] + plot_cols]
+    # Convert PintArray columns to float (magnitude)
+    for col in plot_gdf.columns:
+        if hasattr(plot_gdf[col], "pint"):
+            plot_gdf[col] = plot_gdf[col].pint.magnitude
 
-    geojson = gdf.set_geometry("dgo_polygon_geom").__geo_interface__
+    geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
     # Compute extent and center
-    if gdf.empty:
+    if plot_gdf.empty:
         center = {"lat": 0, "lon": 0}
         zoom = 2
     else:
-        bounds = gdf["dgo_polygon_geom"].total_bounds  # [minx, miny, maxx, maxy]
+        bounds = plot_gdf["dgo_polygon_geom"].total_bounds  # [minx, miny, maxx, maxy]
         center = {"lat": (bounds[1] + bounds[3]) / 2, "lon": (bounds[0] + bounds[2]) / 2}
         # Estimate zoom: smaller area = higher zoom
-        # This is a rough heuristic for zoom based on longitude span
         lon_span = bounds[2] - bounds[0]
         if lon_span < 0.01:
             zoom = 14
@@ -93,7 +127,7 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
             zoom = 4
 
     map_fig = px.choropleth_map(
-        gdf,
+        plot_gdf,
         geojson=geojson,
         locations="id",
         color="fcode_desc",
@@ -107,61 +141,99 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
     map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
     return map_fig
 
-def statistics(gdf):
+def statistics(gdf) -> dict:
     return {"total_riverscapes_area":gdf["segment_area"].sum(),
             "total_centerline":gdf["centerline_length"].sum(),
             }
 
 def table_of_river_names(gdf) -> str:
+    # Pint-enabled DataFrame for calculation
     df = gdf[["stream_name", "stream_length"]].copy()
-    df['stream_name'] = df['stream_name'].fillna("unnamed")
+    # Copy metadata so .meta.friendly/unit still works
+    df.meta._meta = gdf.meta._meta.copy() if gdf.meta._meta is not None else None # is this copying the entire _meta dataframe? we only need the part that goes with the fields we have -- make a 'sub-set' function
+    df['stream_name'] = df['stream_name'].fillna("unnamed") # this should be done in the upstream view so that it is always the same for anything that uses stream_name
     df = df.groupby('stream_name', as_index=False)['stream_length'].sum()
     if df.empty:
         df.loc[0] = ["no named streams", 0.0]
-    total = df['stream_length'].sum()
-    df['Percent of Total'] = (df['stream_length'] / total * 100).round(2)
-    # Add a total row
+    total = df['stream_length'].sum() # this is a Quantity 
+    percent = (df['stream_length'] / total * 100) # this is a Series. Values are a PintArray 
+    df['Percent of Total'] = percent
+    # Add friendly name for Percent of Total to metadata if not present
+    df.meta.set_friendly('Percent of Total', 'Percent of Total')
+    df.meta.set_unit('Percent of Total', '%')
+    
+    # Prepare display DataFrame (df_t) with formatted strings
+    df_t = df.copy()
+    # Convert PintArray to float for display # move this to a function that will do it for *all* columns
+    if hasattr(df_t['stream_length'], 'pint'):
+        df_t['stream_length'] = df_t['stream_length'].pint.magnitude
+    # Format all values as strings for display
+    df_t['stream_length'] = df_t['stream_length'].map(_floatformat2)
+    df_t['Percent of Total'] = df_t['Percent of Total'].map(lambda x: f"{x:.1f}%")
+    # Add a total row (as formatted strings)
     total_row = pd.DataFrame({
         'stream_name': ['Total'],
-        'stream_length': [total],
-        'Percent of Total': [100.0]
+        'stream_length': [f"{_floatformat2(total.magnitude)}"],
+        'Percent of Total': ["100.0%"]
     })
-    df = pd.concat([df, total_row], ignore_index=True)
-    return df.to_html(index=False, float_format=_floatformat2)
-
-def _floatformat2(inval:float)->str:
-    """2 decimals, commas for thousands, no units"""
-    return f"{inval:,.2f}"
+    df_t = pd.concat([df_t, total_row], ignore_index=True)
+    # Use metadata for friendly names and units in headings # change this to a function that does it for all columns - no need to name each variable
+    friendly_name = df.meta.friendly('stream_name')
+    friendly_length = df.meta.friendly('stream_length')
+    unit_length = df.meta.unit('stream_length')
+    percent_friendly = df.meta.friendly('Percent of Total')
+    percent_unit = df.meta.unit('Percent of Total')
+    df_t.columns = [
+        friendly_name,
+        f"{friendly_length} ({unit_length})" if unit_length else friendly_length,
+        f"{percent_friendly} ({percent_unit})" if percent_unit else percent_friendly
+    ]
+    return df_t.to_html(index=False, escape=False)
 
 def table_of_ownership(gdf) -> str:
-    df = gdf.groupby(['ownership','ownership_desc'], as_index=False)['stream_length'].sum()
-    total = df['stream_length'].sum()
-    df['Percent of Total'] = (df['stream_length'] / total * 100).round(2)
-    # Add a total row
+    # common elements with table_of_river_names to be separated out 
+    # Pint-enabled DataFrame for calculation
+    # Start from a copy with metadata
+    df = gdf[["ownership", "ownership_desc", "stream_length"]].copy()
+    df.meta._meta = gdf.meta._meta.copy() if gdf.meta._meta is not None else None
+    df = df.groupby(['ownership','ownership_desc'], as_index=False)['stream_length'].sum()
+    total = df['stream_length'].sum() # Quantity
+    percent = (df['stream_length'] / total * 100)
+    df['Percent of Total'] = percent
+    # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
+    df.meta._meta.loc['Percent of Total', 'friendly_name'] = 'Percent of Total'
+    df.meta._meta.loc['Percent of Total', 'unit'] = '%'
+
+    # Prepare display DataFrame (df_t) with formatted strings
+    df_t = df.copy()
+    # Convert PintArray to float for display
+    if hasattr(df_t['stream_length'], 'pint'):
+        df_t['stream_length'] = df_t['stream_length'].pint.magnitude
+    # Format all values as strings for display
+    df_t['stream_length'] = df_t['stream_length'].map(_floatformat2)
+    df_t['Percent of Total'] = df_t['Percent of Total'].map(lambda x: f"{x:.1f}%")
+    # Add a total row (as formatted strings)
     total_row = pd.DataFrame({
         'ownership': ['Total'],
         'ownership_desc' : [''],
-        'stream_length': [total],
-        'Percent of Total': [100.0]
+        'stream_length': [f"{_floatformat2(total.magnitude)}"],
+        'Percent of Total': ["100.0%"]
     })
-    df = pd.concat([df, total_row], ignore_index=True)
-    # Use metadata for friendly names and units if available
-    friendly_area = gdf.meta.friendly('stream_length')
-    unit_area = gdf.meta.unit('stream_length')
-    friendly_owner = gdf.meta.friendly('ownership')
-    friendly_owner_desc = gdf.meta.friendly('ownership_desc')
-    df.columns = [
+    df_t = pd.concat([df_t, total_row], ignore_index=True)
+    # Use metadata for friendly names and units in headings
+    friendly_area = df.meta.friendly('stream_length')
+    unit_area = df.meta.unit('stream_length')
+    friendly_owner = df.meta.friendly('ownership')
+    friendly_owner_desc = df.meta.friendly('ownership_desc')
+    percent_friendly = df.meta.friendly('Percent of Total')
+    percent_unit = df.meta.unit('Percent of Total')
+    df_t.columns = [
         friendly_owner,
         friendly_owner_desc,
         f"{friendly_area} ({unit_area})" if unit_area else friendly_area,
-        "Percent of Total (%)"
+        f"{percent_friendly} ({percent_unit})" if percent_unit else percent_friendly
     ]
-    styled = df.style.format({
-        df.columns[2]: "{:,.2f}",
-        df.columns[3]: "{:.1f}%"
-    })
-    html = styled.to_html(index=False)
-    return html
+    return df_t.to_html(index=False, escape=False)
 
 def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     """ Create bar chart of total segment area by ownership

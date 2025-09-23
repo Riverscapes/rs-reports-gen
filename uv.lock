@@ -1143,6 +1143,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pint-pandas"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pandas" },
+    { name = "pint" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3e/d4/1623f45236859c88d196c5f7307b675f59e17a7a7d7a70114dba4a422af2/pint_pandas-0.7.1.tar.gz", hash = "sha256:f1106215a682593f535a89696688fec88a6fac3b32ffa9fe94c307e252bcb588", size = 60693, upload-time = "2025-01-06T22:30:51.499Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/19/5af93cae70c2e42f3ac568906f8f3909174450bdbf4d70ec420e1daef816/Pint_Pandas-0.7.1-py3-none-any.whl", hash = "sha256:785312752eba35cbc55f4fa788c9f3d315839157d94254c5c79b91c5690ba11e", size = 28675, upload-time = "2025-01-06T22:30:49.974Z" },
+]
+
+[[package]]
 name = "platformdirs"
 version = "4.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1577,6 +1590,7 @@ dependencies = [
     { name = "kaleido" },
     { name = "pandas" },
     { name = "pint" },
+    { name = "pint-pandas" },
     { name = "plotly" },
     { name = "rsxml" },
     { name = "shapely" },
@@ -1606,6 +1620,7 @@ requires-dist = [
     { name = "nbformat", marker = "extra == 'dev'" },
     { name = "pandas", specifier = ">=2.3.2" },
     { name = "pint", specifier = ">=0.25" },
+    { name = "pint-pandas", specifier = ">=0.7.1" },
     { name = "plotly", specifier = ">=6.3.0" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "rsxml", specifier = ">=2.0.6" },

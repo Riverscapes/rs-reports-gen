@@ -49,7 +49,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
     }
     tables = {
         "river_names": table_of_river_names(gdf),
-        "owners": table_of_ownership(gdf)
+        # "owners": table_of_ownership(gdf)
     }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
@@ -163,7 +163,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     df_meta.describe()
     get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
-    data_gdf.meta.set_metadata(df_meta)
+    data_gdf.meta.attach_metadata(df_meta)
     # make html report
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]

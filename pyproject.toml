@@ -19,6 +19,7 @@ dependencies = [
     "kaleido>=1.1.0",
     "pandas>=2.3.2",
     "pint>=0.25",
+    "pint-pandas>=0.7.1",
     "plotly>=6.3.0",
     "rsxml>=2.0.6",
     "shapely>=2.1.1",
