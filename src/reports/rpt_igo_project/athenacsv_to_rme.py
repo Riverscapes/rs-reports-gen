@@ -29,8 +29,8 @@ from rsxml import Logger, ProgressBar, dotenv
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
     Project,
-    # MetaData,
-    # Meta,
+    MetaData,
+    Meta,
     ProjectBounds,
     Coords,
     BoundingBox,
@@ -302,6 +302,7 @@ def create_igos_project(project_dir: str, project_name: str, spatialite_path: st
         description="""This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data Exchange produced as part of the 2025 CONUS run of Riverscapes tools. See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative. 
         At the time of extraction this dataset has *not* yet been thoroughly quality controlled and may contain errors or gaps. 
         """,
+        meta_data=MetaData(values=[]),
         bounds=ProjectBounds(
             Coords(centroid[0], centroid[1]),
             BoundingBox(bounding_rect[0], bounding_rect[1], bounding_rect[2], bounding_rect[3]),
