@@ -28,14 +28,17 @@ from reports.rpt_rivers_need_space.figures import (make_map,
                                                    statistics,
                                                    table_of_river_names,
                                                    table_of_ownership,
+                                                   low_lying_ratio_bins,
+                                                   prop_riparian_bins,
+                                                   floodplain_access,
+                                                   land_use_intensity,
+                                                   prop_ag_dev,
+                                                   dens_road_rail,
                                                    )
 
 
 S3_BUCKET = "riverscapes-athena"
 ureg = pint.UnitRegistry()
-
-# not specific to this report... can go in another file
-
 
 def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
     """
@@ -48,7 +51,13 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "bar": make_rs_area_by_owner(gdf),
-        "pie": make_rs_area_by_featcode(gdf)
+        "pie": make_rs_area_by_featcode(gdf),
+        "low_lying": low_lying_ratio_bins(gdf),
+        "prop_riparian" : prop_riparian_bins(gdf),
+        "floodplain_access" : floodplain_access(gdf),
+        "land_use_intensity" : land_use_intensity(gdf),
+        "prop_ag_dev" : prop_ag_dev(gdf),
+        # "dens_road_rail" : dens_road_rail(gdf)
     }
     tables = {
         "river_names": table_of_river_names(gdf),
@@ -154,9 +163,14 @@ def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system:str="US"):
     ureg.default_system = unit_system
     for col in gdf.columns:
         if hasattr(gdf[col], 'pint'):
-            # convert each unit
+            # convert each unit DOES NOT WORK this way
+            # pint.to_unit(foot) etc. would work -- we'll need to know which units
             gdf[col] = gdf[col].pint.to_base_units()
     return gdf
+
+def add_calculated_cols(df:pd.DataFrame)->pd.DataFrame:
+    df['channel_length']=df['rel_flow_length']*df['centerline_length']
+    return df
 
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str, existing_csv_path:str|None=None):
     """ Orchestrates the report generation process:
@@ -185,6 +199,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf.meta.attach_metadata(df_meta)
     data_gdf = convert_gdf_units (data_gdf, 'US')
+    data_gdf = add_calculated_cols(data_gdf)
 
     # make html report
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
@@ -193,8 +208,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     log.info(f'Interactive HTML report built at {html_path}')
     log.info(f'Static HTML report built at {static_path}')
     # make pdf COMMENT FOR TESTING ONLY LSG
-    pdf_path = make_pdf_from_html(static_path)
-    log.info(f'PDF report built from static at {pdf_path}')
+    # pdf_path = make_pdf_from_html(static_path)
+    # log.info(f'PDF report built from static at {pdf_path}')
     return
 
 

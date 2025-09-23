@@ -1,14 +1,16 @@
 import pint
 import pint_pandas # this is needed !?
+import json
 from rsxml import Logger
 
 # assume pint registry has been set up already
 
 # Custom DataFrame accessor for metadata - to be moved to util
-log = Logger('MetaAccessor')
 import pandas as pd
 @pd.api.extensions.register_dataframe_accessor("meta")
 class MetaAccessor:
+    log = Logger('MetaAccessor')
+
     def __init__(self, pandas_obj):
         self._obj = pandas_obj
         self._meta = None
@@ -35,8 +37,8 @@ class MetaAccessor:
             unit = row["unit"]
             if col in self._obj.columns and pd.notnull(unit) and str(unit).strip() != "":
                 self._obj[col] = self._obj[col].astype(f"pint[{unit}]")
-                log.debug(f'Applied {unit} to {col}')
-        log.debug('Applied units to dataframe using meta info')
+                self.log.debug(f'Applied {unit} to {col}')
+        self.log.debug('Applied units to dataframe using meta info')
 
     def friendly(self, col):
         """Get the friendly name for a column."""
@@ -165,10 +167,215 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
     map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
     return map_fig
 
+def extract_labels_from_legend(bins_legend_json:str)->list[str]:
+    x = json.loads(bins_legend_json)
+    labels = [item[1] for item in x]
+    return labels
+
+def extract_colours_from_legend(bins_legend_json:str)->list[str]:
+    x = json.loads(bins_legend_json)
+    colours = [item[0] for item in x]
+    return colours
+
+def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
+    # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Low_Lying_Ratio.json
+    bins_json = """[
+    ["rgb(247, 252, 245)", "< 2%"],
+    ["rgb(226, 244, 221)", "2% to 5%"],
+    ["rgb(192, 230, 185)", "5% to 10%"],
+    ["rgb(148, 211, 144)", "10% to 15%"],
+    ["rgb(96, 186, 108)", "15% to 25%"],
+    ["rgb(50, 155, 81)", "25% to 50%"],
+    ["rgb(12, 120, 53)", "50% to 75%"],
+    ["rgb(0, 68, 27)", "> 75%"]
+    ]"""
+
+    # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/qgis/Shared/Low_Lying_Ratio.qml
+    bins_xml = """<rules key="{74b18146-02e2-4bd4-ad4c-996748046586}">
+      <rule label="&lt; 2%" symbol="0" key="{4e2991cc-a65b-4213-9cbe-900c7018ca7a}" filter="&quot;vbet_igo_low_lying_ratio&quot; &lt; 0.02"/>
+      <rule label="2% to 5%" symbol="1" key="{b25eaed3-e38a-49d6-b8b5-c151647e9852}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.02 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.05"/>
+      <rule label="5% to 10%" symbol="2" key="{d1d038ba-632f-42de-b195-7d14d7db2b75}" filter="&quot;vbet_igo_low_lying_ratio&quot;>= 0.05 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.1"/>
+      <rule label="10% to 15%" symbol="3" key="{d7d5b108-b27e-43ea-8b09-70ac500cf74f}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.1 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.15"/>
+      <rule label="15% to 25%" symbol="4" key="{5dcf0a4e-c077-4839-b96f-8f5a04376f10}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.15 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.25"/>
+      <rule label="25% to 50% " symbol="5" key="{87131111-33cf-4724-b94c-a6e70b5d456a}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.25 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.5"/>
+      <rule label="50% to 75% " symbol="6" key="{c6db9e10-6619-439e-bf60-bb1e885b2b4c}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.5 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.75"/>
+      <rule label="> 75%" symbol="7" key="{3c29e498-5ded-4e5b-a89d-0ae78e081e85}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.75"/>
+    </rules>
+    """
+    chart_data = df[['low_lying_ratio','segment_area']].copy()
+    bins = [0,0.02,0.05,0.10,0.15,0.25,0.50,0.75,1]
+    labels = extract_labels_from_legend(bins_json)
+    colours = extract_colours_from_legend(bins_json)
+    # Bin the low_lying_ratio values
+    chart_data['bin'] = pd.cut(chart_data['low_lying_ratio'], bins=bins, labels=labels, include_lowest=True)
+    # Aggregate segment_area by bin
+    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    # Plot bar chart
+    fig = px.bar(
+        agg_data,
+        x='bin',
+        y='segment_area',
+        color='bin',
+        color_discrete_sequence=colours,
+        title='Total Segment Area by Low Lying Ratio Bin',
+        labels={'bin': 'Low Lying Ratio', 'segment_area': 'Total Segment Area'},
+        height=400
+    )
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
+    # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Prop_Rip.json
+    bins_json = """[
+    ["rgb(67, 41, 0)", "0%"],
+    ["rgb(98, 73, 0)", "0 - 5%"],
+    ["rgb(89, 83, 0)", "5 - 15%"],
+    ["rgb(76, 93, 0)", "15 - 30%"],
+    ["rgb(53, 103, 0)", "30 - 60%"],
+    ["rgb(9, 112, 0)", "> 60%"]
+    ]"""
+
+    chart_data = df[['lf_riparian_prop','segment_area']].copy()
+    bins = [0,0.000000001,0.05,0.15,0.3,0.6,1]
+    labels = extract_labels_from_legend(bins_json)
+    colours = extract_colours_from_legend(bins_json)
+    # Bin the low_lying_ratio values
+    chart_data['bin'] = pd.cut(chart_data['lf_riparian_prop'], bins=bins, labels=labels, include_lowest=True)
+    # Aggregate segment_area by bin
+    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    # Plot bar chart
+    fig = px.bar(
+        agg_data,
+        x='bin',
+        y='segment_area',
+        color='bin',
+        color_discrete_sequence=colours,
+        title='Total Segment Area by Proportion Riparian Bin',
+        labels={'bin': 'Riparian Proportion', 'segment_area': 'Total Segment Area'},
+        height=400
+    )
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+def floodplain_access(df: pd.DataFrame) -> go.Figure:
+    # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Fldpln_Access.json
+    bins_json = """[
+    ["rgb(242, 0, 0)", "< 50%"],
+    ["rgb(255, 0, 106)", "50 - 75%"],
+    ["rgb(230, 57, 185)", "75 - 90%"],
+    ["rgb(161, 114, 239)", "90 - 95%"],
+    ["rgb(31, 147, 255)", "> 95%"]
+  ]"""
+
+    chart_data = df[['fldpln_access','segment_area']].copy()
+    bins = [0,0.50,0.75,0.90,0.95,1]
+    labels = extract_labels_from_legend(bins_json)
+    colours = extract_colours_from_legend(bins_json)
+    # Bin the low_lying_ratio values
+    chart_data['bin'] = pd.cut(chart_data['fldpln_access'], bins=bins, labels=labels, include_lowest=True)
+    # Aggregate segment_area by bin
+    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    # Plot bar chart
+    fig = px.bar(
+        agg_data,
+        x='bin',
+        y='segment_area',
+        color='bin',
+        color_discrete_sequence=colours,
+        title='Total Riverscapes Area by Floodplain Access',
+        labels={'bin': 'Floodplain Access', 'segment_area': 'Total Riverscapes Area (units)'},
+        height=400
+    )
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+
+def land_use_intensity(df: pd.DataFrame) -> go.Figure:
+    # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Land_Use.json
+    bins_json = """[
+    ["rgb(38, 115, 0)", "Very Low"],
+    ["rgb(164, 196, 0)", "Low"],
+    ["rgb(255, 187, 0)", "Moderate"],
+    ["rgb(245, 0, 0)", "High"]
+  ]"""
+
+    chart_data = df[['land_use_intens','segment_area']].copy()
+    bins = [0,0.00001,33.0001,66.001,100]
+    labels = extract_labels_from_legend(bins_json)
+    colours = extract_colours_from_legend(bins_json)
+    # Bin the values
+    chart_data['bin'] = pd.cut(chart_data['land_use_intens'], bins=bins, labels=labels, include_lowest=True)
+    # Aggregate segment_area by bin
+    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    # Plot bar chart
+    fig = px.bar(
+        agg_data,
+        x='bin',
+        y='segment_area',
+        color='bin',
+        color_discrete_sequence=colours,
+        title='Total Riverscapes Area by Land Use Intensity',
+        labels={'bin': 'Land Use Intensity', 'segment_area': 'Total Riverscapes Area (units)'},
+        height=400
+    )
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+def prop_ag_dev(df: pd.DataFrame) -> go.Figure: 
+    """example of figure with two measures"""
+    # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/lf_ag_rme3.json
+    # lf_dev_rme3.json has the same ones
+    bins_json = """[
+        ["rgb(255, 255, 212)", "0%"],
+        ["rgb(254, 227, 145)", "0 - 5%"],
+        ["rgb(254, 196, 79)", "5 - 15%"],
+        ["rgb(254, 153, 41)", "15 - 30%"],
+        ["rgb(217, 95, 14)", "30 - 60%"],
+        ["rgb(153, 52, 4)", "> 60%"]
+        ]"""
+    # make a copy and work with that
+    df = df[['lf_agriculture_prop','lf_developed_prop','segment_area']].copy()
+    bins = [0,0.00001,0.05,0.15,0.30,0.60,1.0]
+    labels = extract_labels_from_legend(bins_json)
+    colours = extract_colours_from_legend(bins_json)
+    # Bin each metric separately
+    df['ag_bin'] = pd.cut(df['lf_agriculture_prop'], bins=bins, labels=labels, include_lowest=True)
+    df['dev_bin'] = pd.cut(df['lf_developed_prop'], bins=bins, labels=labels, include_lowest=True)
+
+    # Aggregate segment_area by each bin
+    ag_data = df.groupby('ag_bin')['segment_area'].sum().reset_index()
+    ag_data = ag_data.rename(columns={'ag_bin': 'bin', 'segment_area': 'ag_segment_area'})
+
+    dev_data = df.groupby('dev_bin')['segment_area'].sum().reset_index()
+    dev_data = dev_data.rename(columns={'dev_bin': 'bin', 'segment_area': 'dev_segment_area'})
+
+    # Merge for grouped bar chart
+    agg_data = pd.merge(ag_data, dev_data, on='bin', how='outer')
+
+    fig = px.bar(
+        agg_data,
+        x='bin',
+        y=['ag_segment_area', 'dev_segment_area'],
+        barmode='group',
+        color='bin',
+        color_discrete_sequence=colours,
+        title='Agriculture and Development Proportion by Bin',
+        labels={'value': 'Metric Value', 'bin': 'Bin', 'variable': 'Metric'},
+        height=400
+    )
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+def dens_road_rail (df: pd.DataFrame) -> go.Figure: 
+    return None
+
 def statistics(gdf) -> dict:
-    return {"total_riverscapes_area":gdf["segment_area"].sum(),
+    stats = {"total_riverscapes_area":gdf["segment_area"].sum(),
             "total_centerline":gdf["centerline_length"].sum(),
-            }
+    }
+    stats['integrated_valley_bottom_width']=stats['total_riverscapes_area']/stats['total_centerline']
+    stats['total_channel_length']=gdf["channel_length"].sum()
+    return stats
 
 def table_of_river_names(gdf) -> str:
     # Pint-enabled DataFrame for calculation
