@@ -123,7 +123,8 @@ def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
     get_s3_file(s3_csv_path, output_path)
     return
 
-def get_metadata()->pd.DataFrame:
+
+def get_metadata() -> pd.DataFrame:
     """
     Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
 
@@ -143,6 +144,7 @@ def get_metadata()->pd.DataFrame:
     if result is not None:
         return pd.DataFrame(result)
     raise RuntimeError("Railed to retrieve metadata from Athena.")
+
 
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str):
     """ Orchestrates the report generation process:
@@ -194,7 +196,7 @@ def main():
     safe_makedirs(output_path)
 
     log = Logger('Setup')
-    log_path = os.path.join(output_path, 'rpt-gen.log')
+    log_path = os.path.join(output_path, 'report.log')
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rs-rpt-rivers-need-space')
 

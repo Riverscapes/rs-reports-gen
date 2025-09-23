@@ -90,7 +90,14 @@ try() {
 
 }
 try || {
+  # On error, upload logs only
+  python -m api.uploadOutputs \
+    "$OUTPUTS_DIR" \
+    --user-id "$USER_ID" \
+    --report-id "$REPORT_ID" \
+    --stage "$STAGE" \
+    --log-only  
   # Emergency Cleanup
-  echo "<<ENDED WITH AN ERROR>>\n\n"
+  echo "<<REPORT ENDED WITH AN ERROR>>\n\n"
   exit 1
 }

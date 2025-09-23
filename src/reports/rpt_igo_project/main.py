@@ -66,7 +66,7 @@ def main():
     safe_makedirs(output_path)
 
     log = Logger('Setup')
-    log_path = os.path.join(output_path, 'athena-rme-scrape.log')
+    log_path = os.path.join(output_path, 'report.log')
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rpt-igo-project')
 

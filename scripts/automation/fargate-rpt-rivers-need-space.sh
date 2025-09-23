@@ -80,7 +80,14 @@ try() {
 
 }
 try || {
+  # On error, upload logs only
+  python -m api.uploadOutputs \
+    "$OUTPUTS_DIR" \
+    --user-id "$USER_ID" \
+    --report-id "$REPORT_ID" \
+    --stage "$STAGE" \
+    --log-only  
   # Emergency Cleanup
-  echo "<<BRAT PROCESS ENDED WITH AN ERROR>>\n\n"
+  echo "<<REPORT PROCESS ENDED WITH AN ERROR>>\n\n"
   exit 1
 }

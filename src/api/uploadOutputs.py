@@ -15,7 +15,7 @@ from rsxml import Logger, dotenv
 from .RSReportsAPI import RSReportsAPI
 
 
-def _collect_output_files(outputs_dir: str) -> List[Tuple[str, str]]:
+def _collect_output_files(outputs_dir: str, log_only: bool = False) -> List[Tuple[str, str]]:
     """Return a list of ``(local_path, s3_path)`` tuples for files in ``outputs_dir``."""
 
     collected: List[Tuple[str, str]] = []
@@ -24,6 +24,8 @@ def _collect_output_files(outputs_dir: str) -> List[Tuple[str, str]]:
             local_path = os.path.join(root, filename)
             relative_path = os.path.relpath(local_path, outputs_dir)
             s3_path = relative_path.replace(os.sep, "/")
+            if log_only and not filename.lower().endswith((".log")):
+                continue
             collected.append((local_path, s3_path))
     return collected
 
@@ -33,14 +35,16 @@ def upload_outputs(
     api_key: str,
     user_id: str,
     report_id: str,
-    stage: str
+    stage: str,
+    log_only: bool = False,
 ) -> List[str]:
     """Upload all files in ``outputs_dir`` as ``file_type`` for ``report_id``."""
 
     log = Logger("Upload Outputs")
     log.title("API Upload Outputs")
 
-    files_to_upload = _collect_output_files(outputs_dir)
+    files_to_upload = _collect_output_files(outputs_dir, log_only=log_only)
+
     if not files_to_upload:
         log.warning("No output files found to upload.")
         return []
@@ -98,7 +102,7 @@ def upload_outputs(
         uploaded.append(remote_path)
 
     # Now call StartUpload mutation
-    # NOTE: We can get fancier with messaging but for now the Cybercastor task completion should 
+    # NOTE: We can get fancier with messaging but for now the Cybercastor task completion should
     # signal the completion of the report
     # log.info("Notifying API of completed uploads")
     # with RSReportsAPI(api_token=api_key, stage=stage) as api_client:
@@ -121,6 +125,7 @@ def main() -> None:
     parser.add_argument("--api-key", help="API token (falls back to API_TOKEN in environment).", type=str)
     parser.add_argument("--user-id", help="User ID (falls back to USER_ID in environment).", type=str)
     parser.add_argument("--report-id", help="Report ID (falls back to REPORT_ID in environment).", type=str)
+    parser.add_argument("--log-only", help="Just upload logs.", action="store_true", default=False)
     parser.add_argument(
         "--stage",
         help="API stage (falls back to STAGE in environment).",
@@ -162,6 +167,7 @@ def main() -> None:
             user_id=user_id,
             report_id=report_id,
             stage=stage,
+            log_only=args.log_only
         )
         sys.exit(0)
     except Exception as exc:  # pragma: no cover - CLI safety net
