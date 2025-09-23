@@ -3,11 +3,13 @@ import argparse
 import logging
 import os
 import sys
+import shutil
 from datetime import datetime
 from importlib import resources
 # 3rd party imports
 import geopandas as gpd
 import pandas as pd
+import pint
 from shapely import wkt
 
 from jinja2 import Template
@@ -30,6 +32,7 @@ from reports.rpt_rivers_need_space.figures import (make_map,
 
 
 S3_BUCKET = "riverscapes-athena"
+ureg = pint.UnitRegistry()
 
 # not specific to this report... can go in another file
 
@@ -49,7 +52,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
     }
     tables = {
         "river_names": table_of_river_names(gdf),
-        # "owners": table_of_ownership(gdf)
+        "owners": table_of_ownership(gdf)
     }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
@@ -134,6 +137,8 @@ def get_metadata() -> pd.DataFrame:
     Example:
         metadata_df = get_metadata_df()
     """
+    log = Logger('Get metadata')
+    log.info ("Getting metadata from athena")
     from util.athena.athena import athena_query_get_parsed
 
     query = """
@@ -145,8 +150,15 @@ def get_metadata() -> pd.DataFrame:
         return pd.DataFrame(result)
     raise RuntimeError("Railed to retrieve metadata from Athena.")
 
+def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system:str="US"):
+    ureg.default_system = unit_system
+    for col in gdf.columns:
+        if hasattr(gdf[col], 'pint'):
+            # convert each unit
+            gdf[col] = gdf[col].pint.to_base_units()
+    return gdf
 
-def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str):
+def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str, existing_csv_path:str|None=None):
     """ Orchestrates the report generation process:
 
     Args:
@@ -161,18 +173,26 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     # get data first as csv
     safe_makedirs(os.path.join(report_dir, 'data'))
     csv_data_path = os.path.join(report_dir, 'data', 'data.csv')
+
     df_meta = get_metadata()
     df_meta.describe()
-    get_data_for_aoi(aoi_gdf, csv_data_path)
+    if existing_csv_path:
+        log.info(f"Using supplied csv file at {csv_data_path}")
+        shutil.copyfile(existing_csv_path, csv_data_path)
+    else:
+        log.info(f"Querying athena for data for AOI")
+        get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf.meta.attach_metadata(df_meta)
+    data_gdf = convert_gdf_units (data_gdf, 'US')
+
     # make html report
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]
     static_path = report_paths["static"]
     log.info(f'Interactive HTML report built at {html_path}')
     log.info(f'Static HTML report built at {static_path}')
-    # make pdf
+    # make pdf COMMENT FOR TESTING ONLY LSG
     pdf_path = make_pdf_from_html(static_path)
     log.info(f'PDF report built from static at {pdf_path}')
     return
@@ -185,7 +205,7 @@ def main():
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
-    parser.add_argument('--csv', help='Path to a local CSV to use instead of querying Athena', type=str, default=None)
+    parser.add_argument('--csv', help='Path to a local CSV of AOI data to use instead of querying Athena', type=str, default=None)
     args = dotenv.parse_args_env(parser)
 
     # Set up some reasonable folders to store things
@@ -200,23 +220,8 @@ def main():
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rs-rpt-rivers-need-space')
 
-    if args.csv:  # skip the generation of csv
-        data_gdf = load_gdf_from_csv(args.csv)
-        # load shape as gdf
-        aoi_gdf = gpd.read_file(args.path_to_shape)
-        # make html report
-        report_paths = make_report(data_gdf, aoi_gdf, output_path, args.report_name, mode="both")
-        html_path = report_paths["interactive"]
-        static_path = report_paths["static"]
-        log.info(f'Interactive HTML report built at {html_path}')
-        log.info(f'Static HTML report built at {static_path}')
-        # make pdf
-        pdf_path = make_pdf_from_html(static_path)
-        log.info(f'PDF report built from static at {pdf_path}')
-        sys.exit(0)
-
     # TODO add try /catch after testing
-    make_report_orchestrator(args.report_name, output_path, args.path_to_shape)
+    make_report_orchestrator(args.report_name, output_path, args.path_to_shape, args.csv)
     log.info("all done")
     sys.exit(0)
 
@@ -232,10 +237,10 @@ def env_launch_params():
         "{env:DATA_ROOT}/rpt-rivers-need-space",
         os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
         # "{env:DATA_ROOT}/tmp/rock_cr_miss_247dgos.geojson",
-        "Rock Cr 247",
-        # "Althouse Creek 2",
-        # "--csv",
-        # "{env:DATA_ROOT}/tmp/rock247_data.csv",
+        # "Rock Cr 247",
+        "Althouse Creek 2",
+        "--csv",
+        "{env:DATA_ROOT}/tmp/althousecreek2.csv",
     ]
 
 

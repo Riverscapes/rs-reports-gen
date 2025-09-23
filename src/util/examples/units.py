@@ -59,5 +59,18 @@ def pint_example():
     # conversion, but return the magnitude only, then format it with commas and zero decimal places. 
     logger.info (f"There are {Q_(1,"mile").to("feet").magnitude:,.0f} feet in a mile.")
 
+    # Unit Systems
+    # List all available systems
+    print("Available systems:", list(UREG._systems.keys()))
+
+    print("Imperial units:")
+    print(dir(UREG.sys.imperial))
+
+    print("\nSI units:")
+    print(dir(UREG.sys.SI))
+
+    print("\nUS units:")
+    print(dir(UREG.sys.US))
+  
 if __name__ == "__main__":
     pint_example()

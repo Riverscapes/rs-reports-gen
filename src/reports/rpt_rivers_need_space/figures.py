@@ -1,9 +1,11 @@
 import pint
-import pint_pandas # this is needed 
+import pint_pandas # this is needed !?
+from rsxml import Logger
 
-ureg = pint.UnitRegistry()
+# assume pint registry has been set up already
 
-# Custom DataFrame accessor for metadata
+# Custom DataFrame accessor for metadata - to be moved to util
+log = Logger('MetaAccessor')
 import pandas as pd
 @pd.api.extensions.register_dataframe_accessor("meta")
 class MetaAccessor:
@@ -15,7 +17,13 @@ class MetaAccessor:
         """Attach a metadata DataFrame (with 'name', 'unit', 'friendly_name').
         If apply_units is True, also apply Pint units to columns.
         Usually call apply_units after this, unless you want to keep columns as plain floats/ints"""
-        self._meta = meta_df.set_index("name")
+        df_columns = self._obj.columns
+        if 'name' in meta_df.columns:
+            filtered_meta = meta_df[meta_df['name'].isin(df_columns)]
+            self._meta = filtered_meta.set_index("name")
+        else:
+            filtered_meta = meta_df.loc[meta_df.index.intersection(df_columns)]
+            self._meta = filtered_meta
         if apply_units:
             self.apply_units()
 
@@ -27,6 +35,8 @@ class MetaAccessor:
             unit = row["unit"]
             if col in self._obj.columns and pd.notnull(unit) and str(unit).strip() != "":
                 self._obj[col] = self._obj[col].astype(f"pint[{unit}]")
+                log.debug(f'Applied {unit} to {col}')
+        log.debug('Applied units to dataframe using meta info')
 
     def friendly(self, col):
         """Get the friendly name for a column."""
@@ -69,6 +79,20 @@ import pandas as pd
 def _floatformat2(inval:float)->str:
     """2 decimals, commas for thousands, no units"""
     return f"{inval:,.2f}"
+
+def subset_with_meta(idf: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """
+    Return a DataFrame with only the specified columns and the corresponding subset of metadata.
+    """
+    # Create the new DataFrame with a copy of the specified columns
+    df = idf[columns].copy()
+
+    # Attach only relevant metadata for the selected columns
+    if hasattr(idf, 'meta') and hasattr(idf.meta, '_meta') and idf.meta._meta is not None:
+        # Use attach_metadata to filter metadata to only columns present in df
+        df.meta.attach_metadata(idf.meta._meta, apply_units=False)
+
+    return df
 
 def make_map_with_aoi(gdf, aoi_gdf):
     # Create the base map
@@ -165,6 +189,7 @@ def table_of_river_names(gdf) -> str:
     # Prepare display DataFrame (df_t) with formatted strings
     df_t = df.copy()
     # Convert PintArray to float for display # move this to a function that will do it for *all* columns
+    # try the dequantify() function -- it is purpose built to retrieve the units information as a header row 
     if hasattr(df_t['stream_length'], 'pint'):
         df_t['stream_length'] = df_t['stream_length'].pint.magnitude
     # Format all values as strings for display
@@ -193,16 +218,15 @@ def table_of_river_names(gdf) -> str:
 def table_of_ownership(gdf) -> str:
     # common elements with table_of_river_names to be separated out 
     # Pint-enabled DataFrame for calculation
-    # Start from a copy with metadata
-    df = gdf[["ownership", "ownership_desc", "stream_length"]].copy()
-    df.meta._meta = gdf.meta._meta.copy() if gdf.meta._meta is not None else None
+    # Start from a copy with metadata. this isn't working df.meta.friendly <> gdf.meta.friendly
+    df = subset_with_meta(gdf, ["ownership", "ownership_desc", "stream_length"])
     df = df.groupby(['ownership','ownership_desc'], as_index=False)['stream_length'].sum()
     total = df['stream_length'].sum() # Quantity
     percent = (df['stream_length'] / total * 100)
     df['Percent of Total'] = percent
     # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
-    df.meta._meta.loc['Percent of Total', 'friendly_name'] = 'Percent of Total'
-    df.meta._meta.loc['Percent of Total', 'unit'] = '%'
+    df.meta.set_friendly('Percent of Total', 'Percent of Total')
+    df.meta.set_unit('Percent of Total', '%')
 
     # Prepare display DataFrame (df_t) with formatted strings
     df_t = df.copy()

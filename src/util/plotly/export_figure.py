@@ -2,7 +2,7 @@
 import os
 import plotly.graph_objects as go
 import plotly.io as pio
-
+from kaleido._kaleido_tab import KaleidoError
 
 def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_plotlyjs=False, report_dir=None) -> str:
     """export plotly figure html
@@ -27,7 +27,11 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_pl
             rel_path = os.path.relpath(img_path, start=report_dir)
         else:
             rel_path = img_filename
-        fig.write_image(img_path, scale=4)  # scale of 4 is equivalent to about dpi of 300 for 800x600 image. This should keep the image snappy on print and big screens
+        # I've seen this transiently fail - probably network connection issue - 
+        try: 
+            fig.write_image(img_path, scale=4)  # scale of 4 is equivalent to about dpi of 300 for 800x600 image. This should keep the image snappy on print and big screens
+        except KaleidoError as e:
+            print(f"KaleidoError: {e}. May be due to network and we should add retrying ability...")
         html_fragment = f'<img src="{rel_path}">'
         return html_fragment
     else:
