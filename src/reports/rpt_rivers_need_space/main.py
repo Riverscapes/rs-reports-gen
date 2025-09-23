@@ -176,7 +176,8 @@ def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str, existing_csv_path: str | None = None):
+def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str,
+                             existing_csv_path: str | None = None, include_pdf: bool = True):
     """ Orchestrates the report generation process:
 
     Args:
@@ -206,14 +207,16 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     data_gdf = add_calculated_cols(data_gdf)
 
     # make html report
+
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]
     static_path = report_paths["static"]
     log.info(f'Interactive HTML report built at {html_path}')
     log.info(f'Static HTML report built at {static_path}')
-    # make pdf COMMENT FOR TESTING ONLY LSG
-    pdf_path = make_pdf_from_html(static_path)
-    log.info(f'PDF report built from static at {pdf_path}')
+
+    if include_pdf:
+        pdf_path = make_pdf_from_html(static_path)
+        log.info(f'PDF report built from static at {pdf_path}')
     return
 
 

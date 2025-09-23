@@ -97,23 +97,100 @@ def subset_with_meta(idf: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     return df
 
 def make_map_with_aoi(gdf, aoi_gdf):
+    log = Logger('Make map')
+    # Prepare plotting DataFrame and geojson
+    plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
+    plot_gdf = gdf.reset_index(drop=True).copy()
+    plot_gdf["id"] = plot_gdf.index
+    plot_gdf = plot_gdf[["id"] + plot_cols]
+    for col in plot_gdf.columns:
+        if hasattr(plot_gdf[col], "pint"):
+            plot_gdf[col] = plot_gdf[col].pint.magnitude
+    geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
+
+    # Calculate zoom and center once, using the main polygons
+    zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
+
+    fig = go.Figure()
+
+    # Add choropleth polygons
+    fig.add_trace(go.Choroplethmap(
+        geojson=geojson,
+        locations=plot_gdf['id'],
+        z=plot_gdf['segment_area'],
+        featureidkey="properties.id",
+        colorscale="Viridis",
+        marker_opacity=0.5,
+        marker_line_width=0,
+        hovertext=plot_gdf['fcode_desc'],
+        hoverinfo="text"
+    ))
+
+    # Add AOI outlines
+    for _, row in aoi_gdf.iterrows():
+        x, y = row['geometry'].exterior.xy
+        fig.add_trace(go.Scattermap(
+            lon=list(x),
+            lat=list(y),
+            mode='lines',
+            line=dict(color='red', width=3),
+            name='AOI',
+            showlegend=False
+        ))
+
+    # Set map layout once
+    fig.update_maps(
+        center=center,
+        zoom=zoom,
+        style="open-street-map"
+    )
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
+    return fig
+
+def make_aoi_map(gdf, aoi_gdf):
     # Create the base map
-    base_map = make_map(gdf)
+    base_map = go.Figure()
 
     # Add AOI polygons as an outline (no fill)
     for _, row in aoi_gdf.iterrows():
         x, y = row['geometry'].exterior.xy
-        lon = list(x)
-        lat = list(y)
         base_map.add_trace(go.Scattermapbox(
-            lon=lon,
-            lat=lat,
+            lon=list(x),
+            lat=list(y),
             mode='lines',
             line=dict(color='red', width=3),
             name='AOI'
         ))
-    base_map.update_layout(mapbox_style="open-street-map")
+    base_map.update_maps(
+        style="open-street-map"
+    )
+
     return base_map
+
+def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm:str) -> tuple[int,dict[str,float]]:
+    """return the zoom level and lat, lon of the center"""
+    # Compute extent and center
+    if gdf.empty:
+        center = {"lat": 0.0, "lon": 0.0}
+        zoom = 2
+    else:
+        bounds = gdf[geom_field_nm].total_bounds  # [minx, miny, maxx, maxy]
+        center = {"lat": (bounds[1] + bounds[3]) / 2, "lon": (bounds[0] + bounds[2]) / 2}
+        # Estimate zoom: smaller area = higher zoom
+        lon_span = bounds[2] - bounds[0]
+        if lon_span < 0.01:
+            zoom = 14
+        elif lon_span < 0.1:
+            zoom = 12
+        elif lon_span < 1:
+            zoom = 10
+        elif lon_span < 5:
+            zoom = 8
+        elif lon_span < 20:
+            zoom = 6
+        else:
+            zoom = 4
+    return (zoom, center)
 
 def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
     """Create Plotly map (GeoJSON polygons)"""
@@ -130,27 +207,7 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
             plot_gdf[col] = plot_gdf[col].pint.magnitude
 
     geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
-    # Compute extent and center
-    if plot_gdf.empty:
-        center = {"lat": 0, "lon": 0}
-        zoom = 2
-    else:
-        bounds = plot_gdf["dgo_polygon_geom"].total_bounds  # [minx, miny, maxx, maxy]
-        center = {"lat": (bounds[1] + bounds[3]) / 2, "lon": (bounds[0] + bounds[2]) / 2}
-        # Estimate zoom: smaller area = higher zoom
-        lon_span = bounds[2] - bounds[0]
-        if lon_span < 0.01:
-            zoom = 14
-        elif lon_span < 0.1:
-            zoom = 12
-        elif lon_span < 1:
-            zoom = 10
-        elif lon_span < 5:
-            zoom = 8
-        elif lon_span < 20:
-            zoom = 6
-        else:
-            zoom = 4
+    zoom, center = get_zoom_and_center(plot_gdf,"dgo_polygon_geom")
 
     map_fig = px.choropleth_map(
         plot_gdf,
@@ -164,6 +221,8 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
         hover_name="fcode_desc",
         hover_data={"segment_area": True, "ownership_desc": True}
     )
+    # conus bounds 
+    map_fig.update_layout(map_bounds={"west": -150, "east": -50, "south": 20, "north": 50})
     map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
     return map_fig
 
