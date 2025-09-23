@@ -208,8 +208,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     log.info(f'Interactive HTML report built at {html_path}')
     log.info(f'Static HTML report built at {static_path}')
     # make pdf COMMENT FOR TESTING ONLY LSG
-    # pdf_path = make_pdf_from_html(static_path)
-    # log.info(f'PDF report built from static at {pdf_path}')
+    pdf_path = make_pdf_from_html(static_path)
+    log.info(f'PDF report built from static at {pdf_path}')
     return
 
 
