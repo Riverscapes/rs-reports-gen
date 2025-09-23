@@ -351,19 +351,25 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
 
     # Merge for grouped bar chart
     agg_data = pd.merge(ag_data, dev_data, on='bin', how='outer')
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=agg_data['bin'],y=agg_data['ag_segment_area'],name='Agriculture'))
+    fig.add_trace(go.Bar(x=agg_data['bin'],y=agg_data['dev_segment_area'],name='Development'))
 
-    fig = px.bar(
-        agg_data,
-        x='bin',
-        y=['ag_segment_area', 'dev_segment_area'],
+    # fig = px.bar(
+    #     agg_data,
+    #     x='bin',
+    #     y=['ag_segment_area', 'dev_segment_area'],
+    #     barmode='group',
+    #     color='bin',
+    #     color_discrete_sequence=colours,
+    #     title='Agriculture and Development Proportion by Bin',
+    #     labels={'value': 'Metric Value', 'bin': 'Bin', 'variable': 'Metric'},
+    #     height=400
+    # )
+    fig.update_layout(
+        title = 'Agriculature and Development Proportion by Bin',
         barmode='group',
-        color='bin',
-        color_discrete_sequence=colours,
-        title='Agriculture and Development Proportion by Bin',
-        labels={'value': 'Metric Value', 'bin': 'Bin', 'variable': 'Metric'},
-        height=400
-    )
-    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+        margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
 
 def dens_road_rail (df: pd.DataFrame) -> go.Figure: 
