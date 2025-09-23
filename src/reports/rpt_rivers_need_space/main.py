@@ -40,6 +40,7 @@ from reports.rpt_rivers_need_space.figures import (make_map,
 S3_BUCKET = "riverscapes-athena"
 ureg = pint.UnitRegistry()
 
+
 def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
     """
     Generates HTML report(s) in report_dir.
@@ -53,10 +54,10 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "bar": make_rs_area_by_owner(gdf),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying": low_lying_ratio_bins(gdf),
-        "prop_riparian" : prop_riparian_bins(gdf),
-        "floodplain_access" : floodplain_access(gdf),
-        "land_use_intensity" : land_use_intensity(gdf),
-        "prop_ag_dev" : prop_ag_dev(gdf),
+        "prop_riparian": prop_riparian_bins(gdf),
+        "floodplain_access": floodplain_access(gdf),
+        "land_use_intensity": land_use_intensity(gdf),
+        "prop_ag_dev": prop_ag_dev(gdf),
         # "dens_road_rail" : dens_road_rail(gdf)
     }
     tables = {
@@ -147,7 +148,7 @@ def get_metadata() -> pd.DataFrame:
         metadata_df = get_metadata_df()
     """
     log = Logger('Get metadata')
-    log.info ("Getting metadata from athena")
+    log.info("Getting metadata from athena")
     from util.athena.athena import athena_query_get_parsed
 
     query = """
@@ -159,7 +160,8 @@ def get_metadata() -> pd.DataFrame:
         return pd.DataFrame(result)
     raise RuntimeError("Railed to retrieve metadata from Athena.")
 
-def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system:str="US"):
+
+def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system: str = "US"):
     ureg.default_system = unit_system
     for col in gdf.columns:
         if hasattr(gdf[col], 'pint'):
@@ -168,11 +170,13 @@ def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system:str="US"):
             gdf[col] = gdf[col].pint.to_base_units()
     return gdf
 
-def add_calculated_cols(df:pd.DataFrame)->pd.DataFrame:
-    df['channel_length']=df['rel_flow_length']*df['centerline_length']
+
+def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
+    df['channel_length'] = df['rel_flow_length']*df['centerline_length']
     return df
 
-def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str, existing_csv_path:str|None=None):
+
+def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str, existing_csv_path: str | None = None):
     """ Orchestrates the report generation process:
 
     Args:
@@ -198,7 +202,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf.meta.attach_metadata(df_meta)
-    data_gdf = convert_gdf_units (data_gdf, 'US')
+    data_gdf = convert_gdf_units(data_gdf, 'US')
     data_gdf = add_calculated_cols(data_gdf)
 
     # make html report

@@ -50,7 +50,7 @@
 
     <main class="report-container">
         <div class="report-inner">
-            <nav class="report-formats" aria-label="Report formats">
+            <nav class="report-formats pdf-hide" aria-label="Report formats">
                 <p class="report-formats__title">Report available as:</p>
                 <ul>
                     <li><a href="report.html">interactive html</a></li>
@@ -61,10 +61,10 @@
 
             <!-- We can think of sections as "pages" in the PDF -->
             <section>
-                <h2>Some KPIs</h2>
-                <dl class="kpi-grid">
+                <h2>KPIs</h2>
+                <dl class="metric-grid">
                     {% for key, value in kpis.items() %}
-                    <div class="kpi">
+                    <div class="metric">
                         <dt>{{ key.replace('_', ' ').title() }}</dt>
                         <dd>{{ value }}</dd>
                     </div>
@@ -128,7 +128,39 @@
 
         </div>
     </main>
-    <footer class="site-footer"></footer>
+    <footer class="site-footer" aria-labelledby="site-footer-title">
+      <!-- Decorative background (wave) -->
+      <div class="footer-inner">
+        <div class="grid">
+          <!-- Logo -->
+          <div class="footer-logo">
+            <a
+              class="riverscapes-footer-logo"
+              href="https://riverscapes.net"
+              target="_blank"
+              rel="noopener"
+              aria-label="Riverscapes Consortium"
+            ></a>
+          </div>
+
+          <!-- Column 1 -->
+          <nav class="footer-col" aria-labelledby="footer-connect">
+            <h3 id="footer-connect" class="footer-heading">Connect with Riverscapes Consortium</h3>
+            <ul class="footer-links">
+              <li><a href="https://data.riverscapes.net" target="_blank" rel="noopener">Explore the Data Exchange</a></li>
+              <li><a href="https://riverscapes.net" target="_blank" rel="noopener">Connect with Riverscapes Communities</a></li>
+              <li><a href="https://riverscapes.freshdesk.com/support/tickets/new" target="_blank" rel="noopener">Submit a Support Ticket</a></li>
+              <li><a href="mailto:support@riverscapes.freshdesk.com">support@riverscapes.freshdesk.com</a></li>
+            </ul>
+          </nav>
+        </div>
+
+        <div class="footer-bottom">
+          <p id="site-footer-title" class="sr-only">Site Footer</p>
+          <small class="footer-copy">© <span data-year></span> Riverscapes Consortium. All rights reserved.</small>
+        </div>
+      </div>
+    </footer>
 </body>
 
 </html>
