@@ -259,7 +259,7 @@ a:focus {
   display: flex; 
   align-items: flex-start; 
   font-weight: 700;
-  color: var(--accent-color);
+  color: var(--header-color);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.85rem;
@@ -476,7 +476,7 @@ canvas {
   h4,
   h5 {
     font-family: var(--header-font-family);
-    color: var(--accent-color);
+    color: var(--header-color);
     clear: both;
     line-height: 1.25;
     margin: 0 0 0.75rem;
@@ -544,7 +544,7 @@ canvas {
     display: none;
   }
   a {
-    color: inherit;
+    color: var(--header-color);
     text-decoration: underline;
   }
 
@@ -558,6 +558,7 @@ canvas {
   .page-break-after {
     display: block;
   }
+
   .metric-grid {
     display: flex !important;
     flex-wrap: wrap !important;
@@ -567,10 +568,16 @@ canvas {
     gap: 0 !important; 
   }
    .metric-grid > * {
-    flex: 1 1 100px !important; 
-    margin: 0.03in !important; 
-    box-sizing: border-box;
+  flex: 1 1 130px !important;
+  min-height: 130px !important;
+  line-height: 1.5 !important;
+  margin: 0.03in !important;
+  box-sizing: border-box;
   }
+  .metric dt { 
+    margin-bottom: 1.3em;
+  }
+
 
   .page-break,
   .page-break-before,
