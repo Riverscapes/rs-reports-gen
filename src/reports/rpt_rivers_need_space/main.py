@@ -172,6 +172,7 @@ def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system: str = "US"):
 
 
 def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
+    # TODO: add metadata for any added columns
     df['channel_length'] = df['rel_flow_length']*df['centerline_length']
     return df
 
@@ -195,6 +196,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     df_meta = get_metadata()
     df_meta.describe()
+
     if existing_csv_path:
         log.info(f"Using supplied csv file at {csv_data_path}")
         shutil.copyfile(existing_csv_path, csv_data_path)
@@ -205,6 +207,11 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     data_gdf.meta.attach_metadata(df_meta)
     data_gdf = convert_gdf_units(data_gdf, 'US')
     data_gdf = add_calculated_cols(data_gdf)
+
+    # excel version
+    with pd.ExcelWriter(os.path.join(report_dir, 'data', 'data.xlsx')) as writer:
+        data_gdf.to_excel(writer, sheet_name="data")
+        df_meta.to_excel(writer, sheet_name="metadata")
 
     # make html report
 
