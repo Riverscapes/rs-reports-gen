@@ -21,8 +21,7 @@ from util.athena import get_s3_file, run_aoi_athena_query
 from util.pdf.create_pdf import make_pdf_from_html
 from util.plotly.export_figure import export_figure
 # Local imports
-from reports.rpt_rivers_need_space.figures import (make_map,
-                                                   make_rs_area_by_owner,
+from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
                                                    make_map_with_aoi,
                                                    statistics,
@@ -34,6 +33,7 @@ from reports.rpt_rivers_need_space.figures import (make_map,
                                                    land_use_intensity,
                                                    prop_ag_dev,
                                                    dens_road_rail,
+                                                   project_id_table,
                                                    )
 
 
@@ -58,11 +58,12 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "floodplain_access": floodplain_access(gdf),
         "land_use_intensity": land_use_intensity(gdf),
         "prop_ag_dev": prop_ag_dev(gdf),
-        "dens_road_rail": dens_road_rail(gdf)
+        "dens_road_rail": dens_road_rail(gdf),
     }
     tables = {
         "river_names": table_of_river_names(gdf),
-        "owners": table_of_ownership(gdf)
+        "owners": table_of_ownership(gdf),
+        "project_id_table": project_id_table(gdf),
     }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
@@ -128,7 +129,7 @@ def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
     returns: local path to the data csv file"""
     log = Logger('Run AOI query on Athena')
     # temporary approach -- later try using report-type specific CTAS and report-specific UNLOAD statement
-    fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent"
+    fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, rme_project_id, rme_project_name"
     s3_csv_path = run_aoi_athena_query(gdf, S3_BUCKET, fields_str=fields_str, source_table="rpt_rme")
     if s3_csv_path is None:
         log.error("Didn't get a result from athena")
@@ -162,11 +163,21 @@ def get_metadata() -> pd.DataFrame:
 
 
 def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system: str = "US"):
+    """convert all measures according to unit system 
+    does not work yet
+
+    Args:
+        gdf (gpd.GeoDataFrame): data_gpd
+        unit_system (str, optional): Unit system. Defaults to "US".
+
+    Returns:
+        same data frame but with units converted
+    """
     ureg.default_system = unit_system
     for col in gdf.columns:
         if hasattr(gdf[col], 'pint'):
             # convert each unit DOES NOT WORK this way
-            # pint.to_unit(foot) etc. would work -- we'll need to know which units
+            # pint.to_unit(foot) etc. does work -- we'll need to know which units
             gdf[col] = gdf[col].pint.to_base_units()
     return gdf
 
