@@ -183,6 +183,24 @@ a:focus {
   margin-bottom: 0.25rem;
   font-weight: 600;
 }
+.report-formats a{
+  position: relative;
+  padding-left: 1.4em;
+  line-height: 1.3;                 /* ensure consistent line box */
+}
+
+.report-formats a::before{
+  content: "🔗";                    /* default */
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-45%);      /* nudge to optical middle */
+  font-size: 1em;                   /* same as text size */
+  line-height: 1;
+}
+
+.report-formats a[href$=".html"]::before { content: "🌐"; }
+.report-formats a[href$=".pdf"]::before  { content: "📄"; }
 
 .metric-grid {
   display: grid;
@@ -215,7 +233,7 @@ a:focus {
   min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
   display: flex; 
   align-items: flex-start; 
-  font-weight: 800;
+  font-weight: 700;
   font-family: var(--header-font-family);
   color: var(--accent-color);
   text-transform: uppercase;
