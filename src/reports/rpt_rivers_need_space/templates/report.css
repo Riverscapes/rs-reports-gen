@@ -209,14 +209,14 @@ a:focus {
   color: inherit;
   font-weight: 600;
 }
-#report-nav .report-formats button{
+#report-nav .report-formats a{
   color: inherit;
   position: relative;
   display: flex;
   align-items: center;
 }
 
-#report-nav .report-formats button span.material-icons{
+#report-nav .report-formats a span.material-icons{
   font-size: 1.2rem;
   margin-right: 0.25rem;
 }
