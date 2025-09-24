@@ -80,7 +80,7 @@
           {% for key, value in kpis.items() %}
           <div class="metric">
             <dt>{{ key.replace('_', ' ').title() }}</dt>
-            <dd>{{ "{:,.0f}".format(value) }}</dd>
+            <dd>{{ "{:~P,.0f}".format(value) }}</dd>
           </div>
           {% endfor %}
         </dl>
@@ -141,9 +141,9 @@
       </section>
 
       <section class="appendix">
-          <h1>Appendices</h1>
-          <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
-          {{tables['project_id_table']|safe}}
+        <h1>Appendices</h1>
+        <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
+        {{tables['project_id_table']|safe}}
       </section>
 
     </div>

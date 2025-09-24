@@ -273,15 +273,21 @@ def project_id_table(df: pd.DataFrame) -> str:
     return html_table
 
 
-def table_of_river_names(gdf) -> str:
+def table_of_river_names(gdf: pd.DataFrame) -> str:
+    """generate table summary of stream names and lengths
+
+    Args:
+        gdf (pd.DataFrame): data_gdf
+
+    Returns:
+        str: html fragment
+    """
     # Pint-enabled DataFrame for calculation
     df = gdf[["stream_name", "stream_length"]].copy()
     # Copy metadata so .meta.friendly/unit still works
     df.meta._meta = gdf.meta._meta.copy() if gdf.meta._meta is not None else None  # is this copying the entire _meta dataframe? we only need the part that goes with the fields we have -- make a 'sub-set' function
     df['stream_name'] = df['stream_name'].fillna("unnamed")  # this should be done in the upstream view so that it is always the same for anything that uses stream_name
     df = df.groupby('stream_name', as_index=False)['stream_length'].sum()
-    if df.empty:
-        df.loc[0] = ["no named streams", 0.0]
     total = df['stream_length'].sum()  # this is a Quantity
     percent = (df['stream_length'] / total * 100)  # this is a Series. Values are a PintArray
     df['Percent of Total'] = percent
@@ -611,19 +617,6 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     )
     return fig
 
-# =========================
-# Stats
-# =========================
-
-
-def statistics(gdf) -> dict:
-    stats = {"total_riverscapes_area": gdf["segment_area"].sum(),
-             "total_centerline": gdf["centerline_length"].sum(),
-             }
-    stats['integrated_valley_bottom_width'] = stats['total_riverscapes_area']/stats['total_centerline']
-    stats['total_channel_length'] = gdf["channel_length"].sum()
-    return stats
-
 
 def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     """ Create bar chart of total segment area by ownership
@@ -642,7 +635,7 @@ def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
         x="segment_area",
         orientation="h",
         title="Total Riverscape Area (units) by Ownership",
-        labels={"segment_area": "Total Segment Area", "ownership": "Ownership"},
+        labels={"segment_area": "Total Segment Area (m²)", "ownership": "Ownership"},
         height=400
     )
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
@@ -663,3 +656,16 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
         title='Total Riverscape Area (units) by Feature Code'
     )
     return fig
+
+# =========================
+# Stats
+# =========================
+
+
+def statistics(gdf) -> dict[str, pint.Quantity]:
+    stats = {}
+    stats["total_riverscapes_area"] = pint.Quantity(gdf["segment_area"].sum(), "m^2")
+    stats["total_centerline"] = gdf["centerline_length"].sum()
+    stats['integrated_valley_bottom_width'] = stats['total_riverscapes_area']/stats['total_centerline']
+    stats['total_channel_length'] = gdf["channel_length"].sum()
+    return stats
