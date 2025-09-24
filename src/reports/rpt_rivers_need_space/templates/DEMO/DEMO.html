@@ -31,7 +31,33 @@
 </head>
 
 <body>
-    <header class="site-header">
+    <header id="report-nav" class="pdf-hide">
+      <nav class="report-formats"  aria-label="Report formats">
+        <span class="report-formats__title">This report is also available as:</span>
+        <button href="report.html"
+          data-tooltip="Report with dynamic maps, charts and figures"
+          data-placement="bottom"
+          >
+          <span class="material-icons" aria-hidden="true">web</span>
+          Dynamic HTML
+        </button>
+        <button href="report_static.html" 
+          data-tooltip="Flat, non-interactive diagrams, maps and charts. Good for printing"
+          data-placement="bottom"
+          >
+          <span class="material-icons" aria-hidden="true">web</span>
+          Static HTML
+        </button>
+        <button href="report_static.pdf" 
+          data-tooltip="This report as a PDF file"
+          data-placement="bottom"
+          >
+          <span class="material-icons" aria-hidden="true">picture_as_pdf</span>
+          PDF</button>
+      </nav>
+    </header>
+
+    <header id="site-header">
         <div class="header-inner">
             <div class="riverscapes-logo" aria-hidden="true"></div>
             <div class="header-content">
@@ -52,15 +78,6 @@
 
   <main class="report-container">
     <div class="report-inner">
-      <nav class="report-formats pdf-hide" aria-label="Report formats">
-        <p class="report-formats__title">Report available as:</p>
-        <ul>
-          <li><a href="report.html">interactive html</a></li>
-          <li><a href="report_static.html">static html</a></li>
-          <li><a href="report_static.pdf">pdf</a></li>
-        </ul>
-      </nav>
-
       <!-- We can think of sections as "pages" in the PDF -->
             <section>
                 <h2>KPIs</h2>
@@ -69,6 +86,7 @@
                     <div class="metric">
                         <dt>Total Riverscapes Area</dt>
                         <dd>20,910,907</dd>
+                        <dd class="metric-details">Details about the total riverscapes area</dd>
                     </div>
                     
                     <div class="metric">

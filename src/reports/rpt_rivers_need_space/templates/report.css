@@ -1,3 +1,11 @@
+[data-theme=light],
+:root:not([data-theme=dark]),
+:host(:not([data-theme=dark])) {
+  --pico-color: #004793;
+  --pico-background-color: #fff;
+  --pico-text-selection-color: rgb(255, 251, 0);
+}
+
 :root {
   --header-font-family: "JetBrains Mono", "Courier New", Courier, "Lucida Sans Typewriter", "Lucida Typewriter", monospace;
   --body-font-family: "Roboto", Arial, sans-serif;
@@ -9,6 +17,10 @@
   --text-color: #080705;
   --muted-bg: #f1f4f9;
   --muted-border: #d5deeb;
+  --elev-1: 0 2px 8px rgba(0, 26, 58, 0.08);
+  --elev-6: 0 8px 24px rgba(0, 26, 58, 0.18);
+  --metric-title-line-height: 1.3;
+  --metric-title-min-lines: 2;
 }
 
 html {
@@ -52,6 +64,10 @@ table,
   margin-bottom: 1.25rem;
 }
 
+text.legendtitletext {
+    visibility: hidden;
+}
+
 .page-break,
 .page-break-before,
 .page-break-after {
@@ -74,7 +90,7 @@ a:focus {
 /**
   * Header Bar
   */
-.site-header {
+#site-header {
   background-color: var(--accent-color);
   background-image: url(https://data.riverscapes.net/banner.jpg);
   background-repeat: no-repeat;
@@ -88,7 +104,7 @@ a:focus {
   width: 100%;
   padding: 1.5rem 0;
 }
-.site-header * {
+#site-header * {
   color: inherit;
 }
 
@@ -143,8 +159,8 @@ a:focus {
   text-transform: uppercase;
 }
 
-.site-header h1,
-.site-header h4 {
+#site-header h1,
+#site-header h4 {
   clear: both;
   color: #fffffaff;
   padding: 0.2rem 0;
@@ -170,28 +186,64 @@ a:focus {
   box-shadow: 0 18px 40px rgba(0, 26, 58, 0.08);
 }
 
-.report-formats {
-  margin-bottom: 1.5rem;
-}
 
-.report-formats__title {
-  margin-bottom: 0.25rem;
+/**
+  * Report Formats Navigation
+  */
+#report-nav {
+  background-color: var(--header-color);
+}
+#report-nav .report-formats {
+  max-width: var(--page-width);
+  color: white;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center; /* This ensures vertical centering */
+  gap: 0.5rem;         /* Optional: adds space between title and buttons */
+}
+#report-nav .report-formats__title {
+  color: inherit;
   font-weight: 600;
 }
+#report-nav .report-formats button{
+  color: inherit;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 
+#report-nav .report-formats button span.material-icons{
+  font-size: 1.2rem;
+  margin-right: 0.25rem;
+}
+
+
+
+/**
+  * Metrics Grid: This is for displaying things like KPIs etc.
+  */
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
-  margin: 0;
+  margin: 3rem 0;
   padding: 0;
 }
 
 .metric {
+  display: flex;
+  flex-direction: column;
+  height: 100%; 
   background: var(--muted-bg);
   border: 1px solid var(--muted-border);
-  padding: 0.75rem 1rem;
+  padding: 1.3rem .8rem;
   font-size: 0.95rem;
+  border-radius: 8px;
+  box-shadow: var(--elev-1);               
+  transition: box-shadow 0.3s ease;        
 }
 
 .metric dt,
@@ -200,15 +252,37 @@ a:focus {
 }
 
 .metric dt {
-  font-weight: 600;
+  font-size: 1.05rem !important;
+  line-height: var(--metric-title-line-height);
+  min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
+  display: flex; 
+  align-items: flex-start; 
+  font-weight: 700;
+  color: var(--accent-color);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.85rem;
 }
 
 .metric dd {
+  line-height: var(--metric-title-line-height);
+  min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
+  display: flex; 
+  align-items: flex-start; 
   font-size: 1.25rem;
+  margin-top: 0.45rem;
 }
+
+.metric .metric-details {
+  display: block;
+  margin-top: 0.5rem;
+  color: #6b7280;                   
+  font-size: 1.1rem;                 
+  line-height: 1.35;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 
 .report-figure {
   margin: 0 0 1.5rem;
@@ -440,14 +514,14 @@ canvas {
     font-weight: 600;
     text-transform: uppercase;
   }
-  .site-header h1{
+  #site-header h1{
     font-size: 1.8rem;
     font-weight: 800;
     border-bottom: none;
   }
 
-  .site-header h1,
-  .site-header h4 {
+  #site-header h1,
+  #site-header h4 {
     clear: both;
     color: #fffffaff;
     padding: 0.2rem 0;
