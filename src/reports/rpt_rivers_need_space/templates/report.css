@@ -229,6 +229,7 @@ a:focus {
 }
 
 .metric dt {
+  font-size: 1.05rem !important;
   line-height: var(--metric-title-line-height);
   min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
   display: flex; 
@@ -254,7 +255,7 @@ a:focus {
   display: block;
   margin-top: 0.5rem;
   color: #6b7280;                   
-  font-size: 0.9rem;                 
+  font-size: 1.1rem;                 
   line-height: 1.35;
   font-weight: 400;
   letter-spacing: 0.01em;
