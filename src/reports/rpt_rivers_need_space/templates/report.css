@@ -190,7 +190,8 @@ a:focus {
 }
 
 .report-formats a::before{
-  content: "🔗";                    /* default */
+  content: "link";                    /* default */
+  font-family: "Material Icons", sans-serif;
   position: absolute;
   left: 0;
   top: 50%;
@@ -199,9 +200,8 @@ a:focus {
   line-height: 1;
 }
 
-.report-formats a[href$=".html"]::before { content: "🌐"; }
-.report-formats a[href$=".pdf"]::before  { content: "📄"; }
-
+.report-formats a[href$=".html"]::before { content: "web"; }
+.report-formats a[href$=".pdf"]::before  { content: "picture_as_pdf"; }
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
