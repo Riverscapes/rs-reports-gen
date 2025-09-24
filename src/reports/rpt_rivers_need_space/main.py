@@ -58,7 +58,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "floodplain_access": floodplain_access(gdf),
         "land_use_intensity": land_use_intensity(gdf),
         "prop_ag_dev": prop_ag_dev(gdf),
-        # "dens_road_rail" : dens_road_rail(gdf)
+        "dens_road_rail": dens_road_rail(gdf)
     }
     tables = {
         "river_names": table_of_river_names(gdf),
@@ -117,7 +117,7 @@ def load_gdf_from_csv(csv_path):
     """
     df = pd.read_csv(csv_path)
     df.describe()  # outputs some info for debugging
-    df['dgo_polygon_geom'] = df['dgo_geom_obj'].apply(wkt.loads)
+    df['dgo_polygon_geom'] = df['dgo_geom_obj'].apply(wkt.loads)  # pyright: ignore[reportArgumentType, reportCallIssue]
     gdf = gpd.GeoDataFrame(df, geometry='dgo_polygon_geom', crs='EPSG:4326')
     # print(gdf)
     return gdf
@@ -257,12 +257,12 @@ def env_launch_params():
     base_dir = os.path.dirname(__file__)
     return [
         "{env:DATA_ROOT}/rpt-rivers-need-space",
-        os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
-        # "{env:DATA_ROOT}/tmp/rock_cr_miss_247dgos.geojson",
-        # "Rock Cr 247",
-        "Althouse Creek 2",
-        "--csv",
-        "{env:DATA_ROOT}/tmp/althousecreek2.csv",
+        # os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
+        "{env:DATA_ROOT}/tmp/rock_cr_miss_247dgos.geojson",
+        "Rock Cr 247",
+        # "Althouse Creek 2",
+        # "--csv",
+        # "{env:DATA_ROOT}/tmp/althousecreek2.csv",
     ]
 
 

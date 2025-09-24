@@ -412,17 +412,6 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Bar(x=agg_data['bin'],y=agg_data['ag_segment_area'],name='Agriculture'))
     fig.add_trace(go.Bar(x=agg_data['bin'],y=agg_data['dev_segment_area'],name='Development'))
 
-    # fig = px.bar(
-    #     agg_data,
-    #     x='bin',
-    #     y=['ag_segment_area', 'dev_segment_area'],
-    #     barmode='group',
-    #     color='bin',
-    #     color_discrete_sequence=colours,
-    #     title='Agriculture and Development Proportion by Bin',
-    #     labels={'value': 'Metric Value', 'bin': 'Bin', 'variable': 'Metric'},
-    #     height=400
-    # )
     fig.update_layout(
         title = 'Agriculature and Development Proportion by Bin',
         barmode='group',
@@ -430,7 +419,57 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
     return fig
 
 def dens_road_rail (df: pd.DataFrame) -> go.Figure: 
-    return None
+    """riverscape area by road and rail density bins"""
+    bins_json = """[
+    ["#ffffff", "0"],
+    ["#4fac24", "0 - 0.01"],
+    ["#93d31d", "0.01 - 0.025"],
+    ["#ffef39", "0.025 - 0.1"],
+    ["#fb9820", "0.1 - 1"],
+    ["#ed2024", "> 1"]
+    ]"""
+
+    # Example: horizontal grouped bar chart for road and rail density
+    chart_data = df[['road_dens', 'rail_dens', 'segment_area']].copy()
+    # Bin each metric (customize bins as needed)
+    bins = [0, 0.1, 0.5, 1, 2, 5, 10, 100]
+    labels = ["<0.1", "0.1-0.5", "0.5-1", "1-2", "2-5", "5-10", ">10"]
+    chart_data['road_bin'] = pd.cut(chart_data['road_dens'], bins=bins, labels=labels, include_lowest=True)
+    chart_data['rail_bin'] = pd.cut(chart_data['rail_dens'], bins=bins, labels=labels, include_lowest=True)
+
+    # Aggregate segment_area by each bin
+    road_data = chart_data.groupby('road_bin')['segment_area'].sum().reset_index()
+    road_data = road_data.rename(columns={'road_bin': 'bin', 'segment_area': 'road_segment_area'})
+
+    rail_data = chart_data.groupby('rail_bin')['segment_area'].sum().reset_index()
+    rail_data = rail_data.rename(columns={'rail_bin': 'bin', 'segment_area': 'rail_segment_area'})
+
+    # Merge for grouped bar chart
+    agg_data = pd.merge(road_data, rail_data, on='bin', how='outer')
+
+    import plotly.graph_objects as go
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=agg_data['bin'],
+        x=agg_data['road_segment_area'],
+        name='Road Density',
+        orientation='h'
+    ))
+    fig.add_trace(go.Bar(
+        y=agg_data['bin'],
+        x=agg_data['rail_segment_area'],
+        name='Rail Density',
+        orientation='h'
+    ))
+    fig.update_layout(
+        barmode='group',
+        title='Segment Area by Road and Rail Density Bin',
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        height=400,
+        yaxis_title='Density Bin',
+        xaxis_title='Total Segment Area'
+    )
+    return fig
 
 def statistics(gdf) -> dict:
     stats = {"total_riverscapes_area":gdf["segment_area"].sum(),
