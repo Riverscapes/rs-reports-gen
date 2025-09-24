@@ -586,6 +586,19 @@ canvas {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  table.striped {
+    border: 0 !important;
+  }
+  table.striped th,
+  table.striped td {
+    border: 0 !important;
+  }
+
+  table.striped thead th,
+  table.striped tbody tr:nth-child(even) > td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
    .site-footer{
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
