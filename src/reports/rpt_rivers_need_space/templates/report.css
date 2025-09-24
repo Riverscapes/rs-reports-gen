@@ -274,26 +274,26 @@ a:focus {
   margin-top: 0.45rem;
 }
 
-table.striped thead th {
+table.dataframe thead th {
   background-color: var(--accent-color);
   color: #fff;            
 }
 
-table.striped thead th a {
+   thead th a {
   color: #fff;
   text-decoration: underline;
 }
 
-table.striped,
-table.striped th,
-table.striped td {
+table.dataframe,
+table.dataframe th,
+table.dataframe td {
   border-color: var(--border-bg);
 }
 
-table.striped tbody tr:nth-child(even) > td {
+table.dataframe tbody tr:nth-child(even) > td {
   background-color: var(--table-bg) !important;
 }
-table.striped tbody tr:nth-child(odd) > td {
+table.dataframe tbody tr:nth-child(odd) > td {
   background-color: transparent; /* keep odd rows plain */
 }
 
@@ -586,16 +586,16 @@ canvas {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  table.striped {
+  table.dataframe {
     border: 0 !important;
   }
-  table.striped th,
-  table.striped td {
+  table.dataframe th,
+  table.dataframe td {
     border: 0 !important;
   }
 
-  table.striped thead th,
-  table.striped tbody tr:nth-child(even) > td {
+  table.dataframe thead th,
+  table.dataframe tbody tr:nth-child(even) > td {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
