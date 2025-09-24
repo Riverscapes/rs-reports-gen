@@ -1,5 +1,8 @@
+import plotly.graph_objects as go
+import plotly.express as px
+import geopandas as gpd
 import pint
-import pint_pandas # this is needed !?
+import pint_pandas  # this is needed !?
 import json
 from rsxml import Logger
 
@@ -7,6 +10,8 @@ from rsxml import Logger
 
 # Custom DataFrame accessor for metadata - to be moved to util
 import pandas as pd
+
+
 @pd.api.extensions.register_dataframe_accessor("meta")
 class MetaAccessor:
     log = Logger('MetaAccessor')
@@ -69,18 +74,17 @@ class MetaAccessor:
             self._meta.loc[col, "friendly_name"] = col
         self._meta.loc[col, "unit"] = unit
 
+
 """generate specific figures
 many of these take a geodataframe and return a plotly graph object
 some an html table as string 
 """
-import geopandas as gpd
-import plotly.express as px
-import plotly.graph_objects as go
-import pandas as pd
 
-def _floatformat2(inval:float)->str:
+
+def _floatformat2(inval: float) -> str:
     """2 decimals, commas for thousands, no units"""
     return f"{inval:,.2f}"
+
 
 def subset_with_meta(idf: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     """
@@ -95,6 +99,7 @@ def subset_with_meta(idf: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
         df.meta.attach_metadata(idf.meta._meta, apply_units=False)
 
     return df
+
 
 def make_map_with_aoi(gdf, aoi_gdf):
     # Prepare plotting DataFrame and geojson
@@ -144,6 +149,7 @@ def make_map_with_aoi(gdf, aoi_gdf):
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
     return fig
 
+
 def make_aoi_map(gdf, aoi_gdf):
     # Create the base map NOT USED
     base_map = go.Figure()
@@ -164,7 +170,8 @@ def make_aoi_map(gdf, aoi_gdf):
 
     return base_map
 
-def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm:str) -> tuple[int,dict[str,float]]:
+
+def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int, dict[str, float]]:
     """return the zoom level and lat, lon of the center"""
     # Compute extent and center
     if gdf.empty:
@@ -189,6 +196,7 @@ def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm:str) -> tuple[int,d
             zoom = 4
     return (zoom, center)
 
+
 def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
     """Create Plotly map (GeoJSON polygons). NOT USED"""
 
@@ -204,7 +212,7 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
             plot_gdf[col] = plot_gdf[col].pint.magnitude
 
     geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
-    zoom, center = get_zoom_and_center(plot_gdf,"dgo_polygon_geom")
+    zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
 
     map_fig = px.choropleth_map(
         plot_gdf,
@@ -218,20 +226,23 @@ def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
         hover_name="fcode_desc",
         hover_data={"segment_area": True, "ownership_desc": True}
     )
-    # conus bounds 
+    # conus bounds
     map_fig.update_layout(map_bounds={"west": -150, "east": -50, "south": 20, "north": 50})
     map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
     return map_fig
 
-def extract_labels_from_legend(bins_legend_json:str)->list[str]:
+
+def extract_labels_from_legend(bins_legend_json: str) -> list[str]:
     x = json.loads(bins_legend_json)
     labels = [item[1] for item in x]
     return labels
 
-def extract_colours_from_legend(bins_legend_json:str)->list[str]:
+
+def extract_colours_from_legend(bins_legend_json: str) -> list[str]:
     x = json.loads(bins_legend_json)
     colours = [item[0] for item in x]
     return colours
+
 
 def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Low_Lying_Ratio.json
@@ -259,8 +270,8 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
       <rule label="> 75%" symbol="7" key="{3c29e498-5ded-4e5b-a89d-0ae78e081e85}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.75"/>
     </rules>
     """
-    chart_data = df[['low_lying_ratio','segment_area']].copy()
-    bins = [0,0.02,0.05,0.10,0.15,0.25,0.50,0.75,1]
+    chart_data = df[['low_lying_ratio', 'segment_area']].copy()
+    bins = [0, 0.02, 0.05, 0.10, 0.15, 0.25, 0.50, 0.75, 1]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
     # Bin the low_lying_ratio values
@@ -281,6 +292,7 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
 
+
 def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
     # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Prop_Rip.json
     bins_json = """[
@@ -292,8 +304,8 @@ def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
     ["rgb(9, 112, 0)", "> 60%"]
     ]"""
 
-    chart_data = df[['lf_riparian_prop','segment_area']].copy()
-    bins = [0,0.000000001,0.05,0.15,0.3,0.6,1]
+    chart_data = df[['lf_riparian_prop', 'segment_area']].copy()
+    bins = [0, 0.000000001, 0.05, 0.15, 0.3, 0.6, 1]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
     # Bin the low_lying_ratio values
@@ -314,6 +326,7 @@ def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
 
+
 def floodplain_access(df: pd.DataFrame) -> go.Figure:
     # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Fldpln_Access.json
     bins_json = """[
@@ -324,8 +337,8 @@ def floodplain_access(df: pd.DataFrame) -> go.Figure:
     ["rgb(31, 147, 255)", "> 95%"]
   ]"""
 
-    chart_data = df[['fldpln_access','segment_area']].copy()
-    bins = [0,0.50,0.75,0.90,0.95,1]
+    chart_data = df[['fldpln_access', 'segment_area']].copy()
+    bins = [0, 0.50, 0.75, 0.90, 0.95, 1]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
     # Bin the low_lying_ratio values
@@ -356,8 +369,8 @@ def land_use_intensity(df: pd.DataFrame) -> go.Figure:
     ["rgb(245, 0, 0)", "High"]
   ]"""
 
-    chart_data = df[['land_use_intens','segment_area']].copy()
-    bins = [0,0.00001,33.0001,66.001,100]
+    chart_data = df[['land_use_intens', 'segment_area']].copy()
+    bins = [0, 0.00001, 33.0001, 66.001, 100]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
     # Bin the values
@@ -378,7 +391,8 @@ def land_use_intensity(df: pd.DataFrame) -> go.Figure:
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
 
-def prop_ag_dev(df: pd.DataFrame) -> go.Figure: 
+
+def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
     """example of figure with two measures"""
     # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/lf_ag_rme3.json
     # lf_dev_rme3.json has the same ones
@@ -391,8 +405,8 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
         ["rgb(153, 52, 4)", "> 60%"]
         ]"""
     # make a copy and work with that
-    df = df[['lf_agriculture_prop','lf_developed_prop','segment_area']].copy()
-    bins = [0,0.00001,0.05,0.15,0.30,0.60,1.0]
+    df = df[['lf_agriculture_prop', 'lf_developed_prop', 'segment_area']].copy()
+    bins = [0, 0.00001, 0.05, 0.15, 0.30, 0.60, 1.0]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
     # Bin each metric separately
@@ -409,16 +423,17 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
     # Merge for grouped bar chart
     agg_data = pd.merge(ag_data, dev_data, on='bin', how='outer')
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=agg_data['bin'],y=agg_data['ag_segment_area'],name='Agriculture'))
-    fig.add_trace(go.Bar(x=agg_data['bin'],y=agg_data['dev_segment_area'],name='Development'))
+    fig.add_trace(go.Bar(x=agg_data['bin'], y=agg_data['ag_segment_area'], name='Agriculture'))
+    fig.add_trace(go.Bar(x=agg_data['bin'], y=agg_data['dev_segment_area'], name='Development'))
 
     fig.update_layout(
-        title = 'Agriculature and Development Proportion by Bin',
+        title='Agriculature and Development Proportion by Bin',
         barmode='group',
         margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
 
-def dens_road_rail (df: pd.DataFrame) -> go.Figure: 
+
+def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     """riverscape area by road and rail density bins"""
     bins_json = """[
     ["#ffffff", "0"],
@@ -471,34 +486,36 @@ def dens_road_rail (df: pd.DataFrame) -> go.Figure:
     )
     return fig
 
+
 def statistics(gdf) -> dict:
-    stats = {"total_riverscapes_area":gdf["segment_area"].sum(),
-            "total_centerline":gdf["centerline_length"].sum(),
-    }
-    stats['integrated_valley_bottom_width']=stats['total_riverscapes_area']/stats['total_centerline']
-    stats['total_channel_length']=gdf["channel_length"].sum()
+    stats = {"total_riverscapes_area": gdf["segment_area"].sum(),
+             "total_centerline": gdf["centerline_length"].sum(),
+             }
+    stats['integrated_valley_bottom_width'] = stats['total_riverscapes_area']/stats['total_centerline']
+    stats['total_channel_length'] = gdf["channel_length"].sum()
     return stats
+
 
 def table_of_river_names(gdf) -> str:
     # Pint-enabled DataFrame for calculation
     df = gdf[["stream_name", "stream_length"]].copy()
     # Copy metadata so .meta.friendly/unit still works
-    df.meta._meta = gdf.meta._meta.copy() if gdf.meta._meta is not None else None # is this copying the entire _meta dataframe? we only need the part that goes with the fields we have -- make a 'sub-set' function
-    df['stream_name'] = df['stream_name'].fillna("unnamed") # this should be done in the upstream view so that it is always the same for anything that uses stream_name
+    df.meta._meta = gdf.meta._meta.copy() if gdf.meta._meta is not None else None  # is this copying the entire _meta dataframe? we only need the part that goes with the fields we have -- make a 'sub-set' function
+    df['stream_name'] = df['stream_name'].fillna("unnamed")  # this should be done in the upstream view so that it is always the same for anything that uses stream_name
     df = df.groupby('stream_name', as_index=False)['stream_length'].sum()
     if df.empty:
         df.loc[0] = ["no named streams", 0.0]
-    total = df['stream_length'].sum() # this is a Quantity 
-    percent = (df['stream_length'] / total * 100) # this is a Series. Values are a PintArray 
+    total = df['stream_length'].sum()  # this is a Quantity
+    percent = (df['stream_length'] / total * 100)  # this is a Series. Values are a PintArray
     df['Percent of Total'] = percent
     # Add friendly name for Percent of Total to metadata if not present
     df.meta.set_friendly('Percent of Total', 'Percent of Total')
     df.meta.set_unit('Percent of Total', '%')
-    
+
     # Prepare display DataFrame (df_t) with formatted strings
     df_t = df.copy()
     # Convert PintArray to float for display # move this to a function that will do it for *all* columns
-    # try the dequantify() function -- it is purpose built to retrieve the units information as a header row 
+    # try the dequantify() function -- it is purpose built to retrieve the units information as a header row
     if hasattr(df_t['stream_length'], 'pint'):
         df_t['stream_length'] = df_t['stream_length'].pint.magnitude
     # Format all values as strings for display
@@ -524,13 +541,14 @@ def table_of_river_names(gdf) -> str:
     ]
     return df_t.to_html(index=False, escape=False)
 
+
 def table_of_ownership(gdf) -> str:
-    # common elements with table_of_river_names to be separated out 
+    # common elements with table_of_river_names to be separated out
     # Pint-enabled DataFrame for calculation
     # Start from a copy with metadata. this isn't working df.meta.friendly <> gdf.meta.friendly
     df = subset_with_meta(gdf, ["ownership", "ownership_desc", "stream_length"])
-    df = df.groupby(['ownership','ownership_desc'], as_index=False)['stream_length'].sum()
-    total = df['stream_length'].sum() # Quantity
+    df = df.groupby(['ownership', 'ownership_desc'], as_index=False)['stream_length'].sum()
+    total = df['stream_length'].sum()  # Quantity
     percent = (df['stream_length'] / total * 100)
     df['Percent of Total'] = percent
     # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
@@ -548,7 +566,7 @@ def table_of_ownership(gdf) -> str:
     # Add a total row (as formatted strings)
     total_row = pd.DataFrame({
         'ownership': ['Total'],
-        'ownership_desc' : [''],
+        'ownership_desc': [''],
         'stream_length': [f"{_floatformat2(total.magnitude)}"],
         'Percent of Total': ["100.0%"]
     })
@@ -567,6 +585,7 @@ def table_of_ownership(gdf) -> str:
         f"{percent_friendly} ({percent_unit})" if percent_unit else percent_friendly
     ]
     return df_t.to_html(index=False, escape=False)
+
 
 def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     """ Create bar chart of total segment area by ownership
@@ -591,6 +610,7 @@ def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return bar_fig
 
+
 def make_rs_area_by_featcode(gdf) -> go.Figure:
     """Create pie chart of total segment area by NHD feature code type
     Args: 
@@ -600,7 +620,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
     print(chart_data)
     fig = px.pie(
         chart_data,
-        names = 'fcode_desc',
+        names='fcode_desc',
         values='segment_area',
         title='Total Riverscape Area (units) by Feature Code'
     )
