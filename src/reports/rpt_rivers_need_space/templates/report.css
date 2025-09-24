@@ -21,6 +21,7 @@
   --elev-6: 0 8px 24px rgba(0, 26, 58, 0.18);
   --metric-title-line-height: 1.3;
   --metric-title-min-lines: 2;
+  --table-bg: #f5f9ff;
 }
 
 html {
@@ -273,16 +274,28 @@ a:focus {
   margin-top: 0.45rem;
 }
 
-.metric .metric-details {
-  display: block;
-  margin-top: 0.5rem;
-  color: #6b7280;                   
-  font-size: 1.1rem;                 
-  line-height: 1.35;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+table.striped thead th {
+  background-color: var(--accent-color);
+  color: #fff;            
 }
 
+table.striped thead th a {
+  color: #fff;
+  text-decoration: underline;
+}
+
+table.striped,
+table.striped th,
+table.striped td {
+  border-color: var(--border-bg);
+}
+
+table.striped tbody tr:nth-child(even) > td {
+  background-color: var(--table-bg) !important;
+}
+table.striped tbody tr:nth-child(odd) > td {
+  background-color: transparent; /* keep odd rows plain */
+}
 
 .report-figure {
   margin: 0 0 1.5rem;
