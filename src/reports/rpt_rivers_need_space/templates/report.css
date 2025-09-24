@@ -9,6 +9,11 @@
   --text-color: #080705;
   --muted-bg: #f1f4f9;
   --muted-border: #d5deeb;
+  --elev-1: 0 2px 8px rgba(0, 26, 58, 0.08);
+  --elev-6: 0 8px 24px rgba(0, 26, 58, 0.18);
+  --metric-title-line-height: 1.3;
+  --metric-title-min-lines: 2;
+
 }
 
 html {
@@ -188,10 +193,16 @@ a:focus {
 }
 
 .metric {
+  display: flex;
+  flex-direction: column;
+  height: 100%; 
   background: var(--muted-bg);
   border: 1px solid var(--muted-border);
-  padding: 0.75rem 1rem;
+  padding: 1.3rem .8rem;
   font-size: 0.95rem;
+  border-radius: 8px;
+  box-shadow: var(--elev-1);               
+  transition: box-shadow 0.3s ease;        
 }
 
 .metric dt,
@@ -200,15 +211,37 @@ a:focus {
 }
 
 .metric dt {
-  font-weight: 600;
+  line-height: var(--metric-title-line-height);
+  min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
+  display: flex; 
+  align-items: flex-start; 
+  font-weight: 800;
+  font-family: var(--header-font-family);
+  color: var(--accent-color);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.85rem;
 }
 
 .metric dd {
+    line-height: var(--metric-title-line-height);
+  min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
+  display: flex; 
+  align-items: flex-start; 
   font-size: 1.25rem;
+  margin-top: 0.45rem;
 }
+
+.metric .metric-details {
+  display: block;
+  margin-top: 0.5rem;
+  color: #6b7280;                   
+  font-size: 0.9rem;                 
+  line-height: 1.35;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 
 .report-figure {
   margin: 0 0 1.5rem;
