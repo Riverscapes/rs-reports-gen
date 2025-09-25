@@ -6,6 +6,7 @@ import sys
 import shutil
 from datetime import datetime
 from importlib import resources
+import traceback
 # 3rd party imports
 import geopandas as gpd
 import pandas as pd
@@ -18,6 +19,8 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query
+from util.athena.athena import athena_query_get_parsed
+
 from util.pdf.create_pdf import make_pdf_from_html
 from util.plotly.export_figure import export_figure
 # Local imports
@@ -150,7 +153,6 @@ def get_metadata() -> pd.DataFrame:
     """
     log = Logger('Get metadata')
     log.info("Getting metadata from athena")
-    from util.athena.athena import athena_query_get_parsed
 
     query = """
         SELECT table_name, name, type, friendly_name, unit, description
@@ -183,6 +185,14 @@ def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system: str = "US"):
 
 
 def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """ Add any calculated columns to the dataframe
+
+    Args:
+        df (pd.DataFrame): Input dataframe
+
+    Returns:
+        pd.DataFrame: DataFrame with calculated columns added
+    """
     # TODO: add metadata for any added columns
     df['channel_length'] = df['rel_flow_length']*df['centerline_length']
     return df
@@ -212,7 +222,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         log.info(f"Using supplied csv file at {csv_data_path}")
         shutil.copyfile(existing_csv_path, csv_data_path)
     else:
-        log.info(f"Querying athena for data for AOI")
+        log.info("Querying athena for data for AOI")
         get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf.meta.attach_metadata(df_meta)
@@ -235,6 +245,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     if include_pdf:
         pdf_path = make_pdf_from_html(static_path)
         log.info(f'PDF report built from static at {pdf_path}')
+
+    log.info(f"Report orchestration complete. Report is available in {report_dir}")
     return
 
 
@@ -246,6 +258,8 @@ def main():
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--csv', help='Path to a local CSV of AOI data to use instead of querying Athena', type=str, default=None)
+    # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
+
     args = dotenv.parse_args_env(parser)
 
     # Set up some reasonable folders to store things
@@ -260,28 +274,15 @@ def main():
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rs-rpt-rivers-need-space')
 
-    # TODO add try /catch after testing
-    make_report_orchestrator(args.report_name, output_path, args.path_to_shape, args.csv)
-    log.info("all done")
+    try:
+        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, args.csv)
+
+    except Exception as e:
+        log.error(e)
+        traceback.print_exc(file=sys.stdout)
+        sys.exit(1)
+
     sys.exit(0)
-
-
-def env_launch_params():
-    """Default parameters for launching from the report launcher (Development env only).
-
-    """
-
-    # Get the base directory of the current file so that paths can be relative to it
-    base_dir = os.path.dirname(__file__)
-    return [
-        "{env:DATA_ROOT}/rpt-rivers-need-space",
-        # os.path.abspath(os.path.join(base_dir, "example/althouse_smaller_selection.geojson")),
-        "{env:DATA_ROOT}/tmp/rock_cr_miss_247dgos.geojson",
-        "Rock Cr 247",
-        # "Althouse Creek 2",
-        # "--csv",
-        # "{env:DATA_ROOT}/tmp/althousecreek2.csv",
-    ]
 
 
 if __name__ == "__main__":

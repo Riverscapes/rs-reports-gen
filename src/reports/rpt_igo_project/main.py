@@ -45,6 +45,8 @@ def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, 
         gpkg_path = create_gpkg_igos_from_csv(project_dir, spatialite_path, local_csv_path)
         create_igos_project(project_dir, project_name, spatialite_path, gpkg_path, log_path, aoi_gdf)
 
+    log.info(f'IGO project created successfully in {project_dir}.')
+
 
 def main():
     """
@@ -56,6 +58,7 @@ def main():
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('project_name', help='name for the new project')
+    # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
 
@@ -80,20 +83,6 @@ def main():
         log.error(e)
         traceback.print_exc(file=sys.stdout)
         sys.exit(1)
-
-
-def env_launch_params():
-    """Default parameters for launching from the report launcher (Development env only).
-
-    """
-    return [
-        "spatialite_path",
-        "{env:DATA_ROOT}/rpt-igo-project",
-        "../src/reports/rpt_igo_project/example/althouse_smaller_selection.geojson",
-        "Althouse Creek 2",
-        # "--csv",
-        # "/tmp/tmphcfn8l6q.csv",
-    ]
 
 
 if __name__ == '__main__':

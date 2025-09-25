@@ -9,18 +9,16 @@ will prompt for them interactively.
 """
 
 from __future__ import annotations
-
-import os
-import shlex
-import subprocess
-import sys
-from importlib import import_module
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable
-
+from pathlib import Path
+from dataclasses import dataclass
+from importlib import import_module
+import sys
+import shlex
+import traceback
+import logging
 import inquirer
-
+from termcolor import colored
 
 BASE_PACKAGE = "reports"
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
@@ -30,10 +28,10 @@ REPORTS_DIR = SRC_ROOT / "reports"
 @dataclass
 class ReportEntry:
     """Container describing a launchable report module."""
-
     name: str
     module_path: str
     display_name: str
+    launch_path: str
 
 
 def iter_reports(directory: Path) -> Iterable[ReportEntry]:
@@ -49,75 +47,43 @@ def iter_reports(directory: Path) -> Iterable[ReportEntry]:
             continue
         if not (child / "main.py").exists():
             continue
+        if not (child / "launch.py").exists():
+            continue
 
         module_path = f"{BASE_PACKAGE}.{child.name}.main"
+        launch_path = f"{BASE_PACKAGE}.{child.name}.launch"
         base_name = child.name
         if base_name.startswith("rpt_"):
             base_name = base_name[4:]
         display = base_name.replace("_", " ").title()
-        yield ReportEntry(name=child.name, module_path=module_path, display_name=display)
+        yield ReportEntry(name=child.name, module_path=module_path, display_name=display, launch_path=launch_path)
 
 
-def choose_report(reports: list[ReportEntry]) -> ReportEntry | None:
+def choose_report() -> ReportEntry:
     """Prompt the user to pick a report, falling back to manual input."""
+    reports = list(iter_reports(REPORTS_DIR))
 
     if not reports:
         print("No launchable reports were found.")
         return None
 
     # Track the canonical package name so inquirer can return a stable value.
-    choice_lookup = {entry.name: entry for entry in reports}
-    question_choices: list[tuple[str, str]] = [
-        ("📋 " + entry.display_name, entry.name) for entry in reports
-    ]
-
-    question = [
-        inquirer.List(
-            "report",
-            message="Select a report to launch",
-            choices=question_choices,
-        )
+    question_choices: list[tuple[str, ReportEntry]] = [
+        ("📋 " + entry.display_name, entry) for entry in reports
     ]
 
     try:
-        answer = inquirer.prompt(question)
+        answer = inquirer.prompt([
+            inquirer.List(
+                "report",
+                message="Select a report to launch",
+                choices=question_choices,
+            )
+        ])
     except Exception:
         answer = None
 
-    if isinstance(answer, dict):
-        selection = answer.get("report")
-        if isinstance(selection, ReportEntry):
-            return selection
-        # ``inquirer`` may return a Choice wrapper or None when cancelled.
-        if selection is None:
-            return None
-        choice_value = getattr(selection, "value", None)
-        if isinstance(choice_value, ReportEntry):
-            return choice_value
-        if isinstance(choice_value, str):
-            resolved = choice_lookup.get(choice_value)
-            if resolved is not None:
-                return resolved
-        if isinstance(selection, str):
-            resolved = choice_lookup.get(selection)
-            if resolved is not None:
-                return resolved
-
-    # Plain-text fallback when inquirer is unavailable or fails.
-    print("Select a report to launch:")
-    for idx, entry in enumerate(reports, start=1):
-        print(f"  {idx}. {entry.display_name} ({entry.name})")
-    print("  0. Cancel")
-
-    while True:
-        choice = input("Enter choice: ").strip()
-        if choice in {"0", "q", "Q"}:
-            return None
-        if choice.isdigit():
-            index = int(choice) - 1
-            if 0 <= index < len(reports):
-                return reports[index]
-        print("Invalid selection, please try again.")
+    return answer.get("report")
 
 
 def gather_arguments(entry: ReportEntry) -> list[str]:
@@ -128,43 +94,52 @@ def gather_arguments(entry: ReportEntry) -> list[str]:
 
     defaults: list[str] = []
     try:
-        module = import_module(entry.module_path)
-        env_defaults = getattr(module, "env_launch_params", None)
+        module = import_module(entry.launch_path)
+        env_defaults = getattr(module, "main", None)
         if callable(env_defaults):
             defaults = [str(arg) for arg in env_defaults()]
     except Exception as exc:  # pragma: no cover - defensive safety net
-        print(f"Warning: unable to load env_launch_params from {entry.module_path}: {exc}")
+        print(colored(exc, "red"))
+        sys.exit(1)
 
-    if not defaults:
-        raw = input("Additional arguments for the report (press Enter to skip): ").strip()
-        return shlex.split(raw) if raw else []
-
-    print("Press Enter to accept the default value in brackets.")
-    final_args: list[str] = []
-    for idx, resolved in enumerate(defaults, start=1):
-        prompt = f"Argument {idx} [{resolved}]: "
-        response = input(prompt).strip()
-        final_args.append(response or resolved)
-
-    extra = input("Additional arguments (space separated, Enter to skip): ").strip()
-    if extra:
-        final_args.extend(shlex.split(extra))
-
-    return final_args
+    return defaults
 
 
 def launch_report(entry: ReportEntry, extra_args: list[str]) -> int:
-    """Execute the report module in a subprocess and return its exit code."""
+    """Execute the report module within this process and return its exit code."""
 
-    env = os.environ.copy()
-    existing_path = env.get("PYTHONPATH")
-    pythonpath = str(SRC_ROOT)
-    if existing_path:
-        pythonpath = os.pathsep.join([pythonpath, existing_path])
-    env["PYTHONPATH"] = pythonpath
+    module_path = entry.module_path
+    src_path = str(SRC_ROOT)
 
-    cmd = [sys.executable, "-m", entry.module_path, *extra_args]
-    return subprocess.call(cmd, env=env)
+    # Now run the main() function of the selected report module.
+    sys.argv = [module_path] + extra_args
+    sys.path.insert(0, src_path)
+
+    module = import_module(entry.module_path)
+
+    print(f"Launching report: {entry.display_name}")
+    print(f"Module path: {entry.module_path}")
+    print(f"Arguments: {' '.join(shlex.quote(arg) for arg in sys.argv)}")
+
+    # Run the main() function from the imported module
+    logging.getLogger("LOGGER").propagate = False
+
+    if hasattr(module, "main") and callable(module.main):
+        try:
+            result = module.main()
+            # If main returns an int, use it as exit code
+            if isinstance(result, int):
+                return result
+            return 0
+        except SystemExit as exc:
+            # Handle sys.exit() calls in the report
+            return exc.code if isinstance(exc.code, int) else 1
+        except Exception as exc:
+            print(colored(f"Error running report: {exc}", "red"))
+            return 1
+    else:
+        print(colored(f"Module {entry.module_path} does not have a callable main() function.", "red"))
+        return 1
 
 
 def main() -> int:
@@ -173,8 +148,8 @@ def main() -> int:
     Returns:
         int: Exit code from the launched report, or 0 if no report was run.
     """
-    reports = list(iter_reports(REPORTS_DIR))
-    selection = choose_report(reports)
+
+    selection = choose_report()
     if selection is None:
         print("No report selected. Exiting.")
         return 0
