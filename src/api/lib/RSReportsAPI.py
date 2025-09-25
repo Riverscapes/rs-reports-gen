@@ -296,7 +296,7 @@ class RSReportsAPI:
         Returns:
             str: _description_
         """
-        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__),  'graphql', 'queries', f'{query_name}.gql'))
+        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__),  '..', 'graphql', 'queries', f'{query_name}.gql'))
         with open(qry_path, 'r', encoding='utf-8') as queryFile:
             return queryFile.read()
 
@@ -309,7 +309,7 @@ class RSReportsAPI:
         Returns:
             str: _description_
         """
-        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__),  'graphql', 'mutations', f'{mutation_name}.gql'))
+        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'graphql', 'mutations', f'{mutation_name}.gql'))
         with open(qry_path, 'r', encoding='utf-8') as queryFile:
             return queryFile.read()
 

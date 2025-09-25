@@ -8,29 +8,18 @@ import os
 import sys
 import json
 import traceback
-from typing import Dict, List, Tuple
+from typing import List
 from termcolor import colored
 import inquirer
 
-import requests
 from rsxml import Logger, dotenv
 
-from .RSReportsAPI import RSReportsAPI
+from api.lib.RSReportsAPI import RSReportsAPI
+from api.lib.file_utils import collect_output_files
+from api.lib.upload import upload_files
 
 GLOBAL_USER_ID = 'GLOBAL'
-
-
-def _collect_output_files(outputs_dir: str) -> List[Tuple[str, str]]:
-    """Return a list of ``(local_path, s3_path)`` tuples for files in ``outputs_dir``."""
-
-    collected: List[Tuple[str, str]] = []
-    for root, _dirs, files in os.walk(outputs_dir):
-        for filename in files:
-            local_path = os.path.join(root, filename)
-            relative_path = os.path.relpath(local_path, outputs_dir)
-            s3_path = relative_path.replace(os.sep, "/")
-            collected.append((local_path, s3_path))
-    return collected
+DEFAULT_UPLOAD_TIMEOUT = 900
 
 
 def upload_outputs(
@@ -128,61 +117,13 @@ def upload_outputs(
             raise RuntimeError(f"API CreateReport mutation did not return a report ID: {create_res}")
         log.info(f"Created new report with ID: {report_id}")
 
-    files_to_upload = _collect_output_files(outputs_dir)
+    files_to_upload = collect_output_files(outputs_dir)
     if not files_to_upload:
         log.warning("No output files found to upload.")
         return []
 
-    query = api_client.load_query("GetUploadUrls")
-    variables = {
-        "userId": GLOBAL_USER_ID,
-        "reportId": report_id,
-        "filePaths": [remote for _local, remote in files_to_upload],
-        "fileType": "OUTPUTS",
-    }
-    results = api_client.run_query(query, variables)
-
-    upload_entries = results.get("data", {}).get("uploadUrls", []) if results else []
-    if not upload_entries:
-        raise RuntimeError("API did not return any upload URLs.")
-
-    # Map entries by the object key when supplied in the fields payload.
-    entries_by_key: Dict[str, Dict] = {}
-    sequential_entries: List[Dict] = []
-    for entry in upload_entries:
-        fields = entry.get("fields") if isinstance(entry, dict) else None
-        if isinstance(fields, dict):
-            key = fields.get("key") or fields.get("Key")
-            if key:
-                entries_by_key[key] = entry
-        sequential_entries.append(entry)
-
-    uploaded: List[str] = []
-    for index, (local_path, remote_path) in enumerate(files_to_upload):
-        entry = entries_by_key.get(remote_path)
-        if entry is None and index < len(sequential_entries):
-            entry = sequential_entries[index]
-        if entry is None:
-            log.warning("No upload URL found for %s", remote_path)
-            continue
-
-        url = entry.get("url") if isinstance(entry, dict) else None
-        fields = entry.get("fields") if isinstance(entry, dict) else None
-        if not url:
-            log.warning("Missing upload URL in API response for %s", remote_path)
-            continue
-
-        log.info(f"Uploading {local_path} -> {url.split('?')[0]}")
-        with open(local_path, "rb") as data_stream:
-            if isinstance(fields, dict) and fields:
-                # S3 pre-signed POST upload.
-                files = {"file": (os.path.basename(local_path), data_stream)}
-                response = requests.post(url, data=fields, files=files, timeout=120)
-            else:
-                # Fallback for pre-signed PUT uploads.
-                response = requests.put(url, data=data_stream, timeout=120)
-        response.raise_for_status()
-        uploaded.append(remote_path)
+    with api_client:
+        upload_files(api_client, GLOBAL_USER_ID, report_id, files_to_upload, timeout=DEFAULT_UPLOAD_TIMEOUT)
 
     # Now call StartUpload mutation
     # NOTE: We can get fancier with messaging but for now the Cybercastor task completion should

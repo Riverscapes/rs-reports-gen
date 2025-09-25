@@ -7,6 +7,7 @@ from rsxml import Logger
 UREG = pint.UnitRegistry()
 Q_ = UREG.Quantity
 
+
 def pint_example():
     """
     Example function demonstrating basic usage of Pint for unit handling.
@@ -16,8 +17,8 @@ def pint_example():
     logger.title("Pint Unit Conversion example")
 
     # Multiple ways to define a pint Quantity
-    length = Q_(5, UREG.meter) # using constructor
-    time = 10 * UREG.second # by multiplying a scalar by a Unit
+    length = Q_(5, UREG.meter)  # using constructor
+    time = 10 * UREG.second  # by multiplying a scalar by a Unit
     speed = length / time
     logger.info(f"Length: {length.to(UREG.centimeter)}")
     # [INFO] [PintExample] Length: 500.0 centimeter
@@ -53,11 +54,20 @@ def pint_example():
     # [INFO] [PintExample] Area: 50 kilometer ** 2
     logger.info(f"Area: {area.to(UREG.hectometer ** 2)}")
     # [INFO] [PintExample] Area: 5000.0 hectometer ** 2
-    area = Q_(34,"km^2")
+    area = Q_(34, "km^2")
     logger.info(f"Area: {area} is {area.to("ha")} or {area.to("sq_mi"):~P}")
 
-    # conversion, but return the magnitude only, then format it with commas and zero decimal places. 
-    logger.info (f"There are {Q_(1,"mile").to("feet").magnitude:,.0f} feet in a mile.")
+    # conversion, but return the magnitude only, then format it with commas and zero decimal places.
+    logger.info(f"There are {Q_(1, "mile").to("feet").magnitude:,.0f} feet in a mile.")
+
+    # Choose appropriate units
+    byte_too_many = Q_(1234567890, UREG.byte)
+    logger.info(f"Bytes: {byte_too_many.to_compact():.2f~#P}")  # short compact pretty with 2 float digits
+    # [INFO] [PintExample] Bytes: 1.2 GB
+
+    cm = Q_(12345678, UREG.centimeter)
+    logger.info(f"Centimeters: {cm.to_compact():.2f~#P}")  # short compact pretty with 2 float digits
+    # [INFO] [PintExample] Centimeters: 123.46 km
 
     # Unit Systems
     # List all available systems
@@ -71,6 +81,7 @@ def pint_example():
 
     print("\nUS units:")
     print(dir(UREG.sys.US))
-  
+
+
 if __name__ == "__main__":
     pint_example()

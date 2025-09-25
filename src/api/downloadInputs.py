@@ -12,7 +12,7 @@ import requests
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from .RSReportsAPI import RSReportsAPI
+from api.lib.RSReportsAPI import RSReportsAPI
 
 
 def download_inputs(inputs_dir: str, api_key: str, user_id: str, report_id: str, stage: str):
