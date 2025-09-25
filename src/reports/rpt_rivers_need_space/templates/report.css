@@ -307,7 +307,16 @@ table.dataframe tbody tr:nth-child(odd) > td {
   color: #4a5764;
 }
 
-
+.figure-float-left img,
+.figure-float-right img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;                   
+  background: var(--muted-bg);
+  border: 1px solid var(--muted-border);
+  border-radius: 8px;
+}
 .figure-float-left {
   float: left;
   width: clamp(500px, 60%, 700px);
