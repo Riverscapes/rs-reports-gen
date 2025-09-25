@@ -104,23 +104,24 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     bounds_where_clause = f'WHERE (latitude between {bufminy} AND {bufmaxy}) AND (longitude between {bufminx} AND {bufmaxx})'
     return bounds_where_clause
 
-def run_athena_aoi_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, select_fields: str, select_from:str, geometry_field_str:str):
+
+def run_athena_aoi_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, select_fields: str, select_from: str, geometry_field_str: str):
     """return results of 
-    
+
     SELECT {select_fields} FROM {select_from} WHERE {ST_Intersects(<union of everything in aoi_gdf>,{geometry_field_str})} 
 
     but in a performant way - using prefilter on bounding box of aoi first
 
     the source table must have fields: 
      * latitude, longitude 
-    
+
 
     """
     raise NotImplementedError
 
 
 def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: str = "", source_table: str = "raw_rme") -> str | None:
-    """Run Athena query `select (field_str) from raw_rme` on supplied AOI geojson
+    """Run Athena query `select (field_str) from (source_table)` on supplied AOI geojson
     also includes the dgo geometry (polygon) 
     the source table must have fields: 
      * latitude, longitude 
@@ -129,6 +130,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: 
     returns None if the shape can't be converted to suitably sized geometry sql expression. 
     Future Enhancements: 
     - change to using a WKB field instead of dgo_geom
+    - if the source has bounds struct field (comes default with geopandas imports) we can use that instead of the BUFFER 
     - note there is a copy of this function (whole module) in `src\reports\rpt_igo_project\athena_query_aoi.py`
     - use the same multiple-resizing strategy from simplify_to_size in `rs_geo_helpers.py`
     """
@@ -186,9 +188,13 @@ WHERE
 """
 
     # Debugging output
-    log.debug(f'Query is {len(query_str.encode('utf-8'))} bytes')
-    log.debug(f"Query starts with: {query_str[:100]}")
-    log.debug(f"Query ends with: {repr(query_str[-40:])}")
+    query_length = len(query_str.encode('utf-8'))
+    log.debug(f'Query is {query_length} bytes')
+    if query_length < 2000:
+        log.debug(f'Query\n{query_str}')
+    else:
+        log.debug(f"Query starts with: {query_str[:1900]}")
+        log.debug(f"Query ends with: {repr(query_str[-100:])}")
     # print("Full query:")
     # print(query_str)
     # with open("athena_query.sql", "w", encoding="utf-8") as f:
