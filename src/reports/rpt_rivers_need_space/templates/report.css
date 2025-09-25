@@ -308,6 +308,37 @@ table.dataframe tbody tr:nth-child(odd) > td {
 }
 
 
+.figure-float-left {
+  float: left;
+  width: clamp(500px, 60%, 700px);
+  margin: 0 .9rem .6rem 0;
+  padding: 0.7rem 0 0 0;
+  /* border: 1px solid red; */
+}
+.figure-float-right {
+  float: right;
+  width: clamp(500px, 60%, 700px);
+  margin: 0 0 .6rem .9rem;
+    padding: 0.7rem 0 0 0;
+}
+.justified-text p {
+  text-align: justify;         
+  text-justify: inter-word;     
+  hyphens: auto;                
+  line-height: 1.6;           
+  text-wrap: pretty;            
+  hanging-punctuation: first;   
+  margin-block: 0 1rem;        
+}
+
+
+.justified-text {
+  max-width: 100ch;
+  /* border: 1px solid red  ; */
+  padding-bottom: 2rem;           
+}
+
+
 img,
 svg,
 canvas {
