@@ -445,6 +445,9 @@ canvas {
   :root {
     --page-width: 66rem;
     --page-gutter: 0;
+    --outer-gap: 0.12in;   /* gap between top-level cells */
+    --inner-gap: 0.12in;   /* gap inside nested 2x2 */
+    --grid-cell-h: 1.7in;  /* target height for each top-level cell */
   }
 
   html {
@@ -722,5 +725,32 @@ canvas {
   body, .footer-inner, .footer-col, .footer-bottom, .footer-copy {
     font-family: var(--body-font-family) !important;
   }
+  .gridExample .grid {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: stretch !important;
+    gap: var(--outer-gap) !important;
+    margin: 0 0 var(--outer-gap) 0 !important;
+    padding: 0 !important;
+    
+  }
+    .gridExample .grid > * {
+    flex: 1 1 130px !important;       /* matches what worked for metric cards */
+    min-width: 130px !important;
+    box-sizing: border-box !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    text-align: center !important;
+      /* make all siblings same height */
+    min-height: var(--grid-cell-h) !important;
+    height: var(--grid-cell-h) !important;
+
+    /* center simple cells text nicely */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+  
 
 }
