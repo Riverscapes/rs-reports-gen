@@ -94,27 +94,26 @@ def upload_outputs(
             if isinstance(fields, dict) and fields:
                 # S3 pre-signed POST upload.
                 files = {"file": (os.path.basename(local_path), data_stream)}
-                response = requests.post(url, data=fields, files=files, timeout=120)
+                try:
+                    response = requests.post(url, data=fields, files=files, timeout=900)
+                except requests.Timeout:
+                    log.error(f"Request timed out after 900 seconds: {url}")
+                    raise RuntimeError(f"Failed to upload {local_path} due to timeout") from None
+                except requests.RequestException as e:
+                    log.error(f"Error occurred while uploading {local_path}: {e}")
+                    raise RuntimeError(f"Failed to upload {local_path}") from e
             else:
                 # Fallback for pre-signed PUT uploads.
-                response = requests.put(url, data=data_stream, timeout=120)
+                try:
+                    response = requests.put(url, data=data_stream, timeout=900)
+                except requests.Timeout:
+                    log.error(f"Request timed out after 900 seconds: {url}")
+                    raise RuntimeError(f"Failed to upload {local_path} due to timeout") from None
+                except requests.RequestException as e:
+                    log.error(f"Error occurred while uploading {local_path}: {e}")
+                    raise RuntimeError(f"Failed to upload {local_path}") from e
         response.raise_for_status()
         uploaded.append(remote_path)
-
-    # Now call StartUpload mutation
-    # NOTE: We can get fancier with messaging but for now the Cybercastor task completion should
-    # signal the completion of the report
-    # log.info("Notifying API of completed uploads")
-    # with RSReportsAPI(api_token=api_key, stage=stage) as api_client:
-    #     mutation = api_client.load_mutation("StartUpload")
-    #     variables = {
-    #         "userId": user_id,
-    #         "reportId": report_id,
-    #     }
-    #     start_res = api_client.run_query(mutation, variables)
-    #     if not start_res or "errors" in start_res:
-    #         raise RuntimeError(f"API StartUpload mutation failed: {start_res}")
-    #     log.info("API StartUpload mutation successful")
 
 
 def main() -> None:
@@ -126,11 +125,7 @@ def main() -> None:
     parser.add_argument("--user-id", help="User ID (falls back to USER_ID in environment).", type=str)
     parser.add_argument("--report-id", help="Report ID (falls back to REPORT_ID in environment).", type=str)
     parser.add_argument("--log-only", help="Just upload logs.", action="store_true", default=False)
-    parser.add_argument(
-        "--stage",
-        help="API stage (falls back to STAGE in environment).",
-        type=str,
-    )
+    parser.add_argument("--stage", help="API stage (falls back to STAGE in environment).", type=str)
 
     args = dotenv.parse_args_env(parser)
 
