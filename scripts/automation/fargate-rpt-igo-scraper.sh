@@ -9,7 +9,7 @@ IFS=$'\n\t'
 (: "${API_TOKEN?}")
 
 STAGE=${STAGE:-STAGING}
-
+NO_UI=true
 
 cat <<'EOF'
  ▄▀▀█▀▄    ▄▀▀▀▀▄    ▄▀▀▀▀▄                                     
@@ -63,15 +63,18 @@ try() {
   echo "======================  Running rpt_igo_project ======================="
   python -m reports.rpt_igo_project.main \
     "/usr/local/lib/mod_spatialite.so" \
-    "$OUTPUTS_DIR" \
+    "$OUTPUTS_DIR/project" \
     "$INPUTS_DIR/input.geojson" \
     "$REPORT_NAME"
   if [[ $? != 0 ]]; then return 1; fi
 
   echo "======================  Zipping up ======================="
   # Add everything in the outputs directory to a zip file inside the outputs directory
-  (cd "$OUTPUTS_DIR" && zip -r "report.zip" . --exclude "report.zip")
+  (cd "$OUTPUTS_DIR/project" && zip -r "../report.zip" .)
   if [[ $? != 0 ]]; then return 1; fi
+
+  # Delete the original project so it doesn't get uploaded
+  rm -fr "$OUTPUTS_DIR/project"
 
   echo "======================  Uploading outputs ======================="
   python -m api.uploadOutputs \

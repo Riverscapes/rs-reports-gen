@@ -36,6 +36,6 @@ def collect_output_files(outputs_dir: str, log_only: bool = False) -> List[Tuple
             size = os.path.getsize(local_path)
             size_units = size * _UNITS.byte
             compact_size = size_units.to_compact()
-            log.info(f"Found File: {local_path} {compact_size:~P}")
+            log.info(f"Found File: {local_path} {compact_size:.2f~#P}")
 
     return collected

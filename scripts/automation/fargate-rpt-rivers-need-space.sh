@@ -7,6 +7,7 @@ IFS=$'\n\t'
 (: "${REPORT_ID?}")
 (: "${USER_ID?}")
 (: "${API_TOKEN?}")
+NO_UI=true
 
 STAGE=${STAGE:-STAGING}
 
