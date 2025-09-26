@@ -1,3 +1,12 @@
+""" Utility functions to get data from AWS Athena and return it in useful formats
+a version/copy of these functions can be found in multiple Riverscapes repositories
+* data-exchange-scripts
+* rs-reports-gen (this one)
+* athena 
+* cybercastor_scripts
+
+Consider porting any improvements to these other repositories. 
+"""
 import time
 import re
 import boto3
@@ -166,6 +175,20 @@ def _run_athena_query(
     This is core function called by `athena_query_get_path` and `athena_query_get_rows`
     """
     log = Logger("Athena query")
+
+    # Debugging output
+    query_length = len(query.encode('utf-8'))
+    if query_length < 2000:
+        log.debug(f'Query:\n{query_str}')
+    else:
+        log.debug(f'Query is {query_length} bytes')
+        log.debug(f"Query starts with: {query_str[:1900]}")
+        log.debug(f"Query ends with: {repr(query_str[-100:])}")
+    # print("Full query:")
+    # print(query_str)
+    # with open("athena_query.sql", "w", encoding="utf-8") as f:
+    #     f.write(query_str)
+
     athena = boto3.client('athena', region_name='us-west-2')
     response = athena.start_query_execution(
         QueryString=query,

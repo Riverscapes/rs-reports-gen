@@ -187,19 +187,6 @@ WHERE
     );
 """
 
-    # Debugging output
-    query_length = len(query_str.encode('utf-8'))
-    log.debug(f'Query is {query_length} bytes')
-    if query_length < 2000:
-        log.debug(f'Query\n{query_str}')
-    else:
-        log.debug(f"Query starts with: {query_str[:1900]}")
-        log.debug(f"Query ends with: {repr(query_str[-100:])}")
-    # print("Full query:")
-    # print(query_str)
-    # with open("athena_query.sql", "w", encoding="utf-8") as f:
-    #     f.write(query_str)
-
     results = athena_query_get_path(s3_bucket, query_str)
     return results
 
