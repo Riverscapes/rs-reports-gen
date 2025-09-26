@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+  <title>{{ report_name }}</title>
+  <meta charset='utf-8'>
+  <meta name="color-scheme" content="light">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="https://staging.reports.riverscapes.net/favicons/favicon.ico" sizes="any" />
+  <link rel="icon" href="https://staging.reports.riverscapes.net/logo.svg" type="image/svg+xml" />
+
+  <!-- These are the Riverscapes Fonts we always use: -->
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&display=swap" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Space+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Karla&display=swap" rel="stylesheet">
+
+  <!-- We're adding Google Material icons because icons are sometimes useful -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <!-- We're using PICO CSS for layout: https://picocss.com/ -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@latest/css/pico.min.css" />
+
+  <!-- Let's import plotly from a CDN. Make sure the version number matches what we use locally-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.1.0/plotly.min.js"></script>
+
+  <!-- We will inject report.css here -->
+  {{ report.head }}
+</head>
+
+<body>
+
+  <header id="site-header">
+    <div class="header-inner">
+      <div class="riverscapes-logo" aria-hidden="true"></div>
+      <div class="header-content">
+        <div class="header-meta">
+          <p class="meta-item">
+            <span class="meta-label">Report Created:</span>
+            <time datetime="{{ report.date_iso | default(report.date, true) }}">{{ report.date }}</time>
+          </p>
+          <p class="meta-item">
+            <span class="meta-label">Report Type:</span>
+            <span>{{ report.ReportType }}</span>
+          </p>
+        </div>
+        <h1>{{ report.title }}</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="">
+    <div class="">
+      <style>
+        /* Makre sure every td element has no wrapping */
+        td {
+          white-space: nowrap;
+          border-left: 1px solid #ddd;
+        }
+        td:last-child {
+          border-right: 1px solid #ddd;
+        }
+        td.numeric {
+          color: grey;
+          text-align: right;
+        }
+        td.length {
+          color: orange;
+        }
+        td.area {
+          color: red;
+        }
+      </style>
+
+      <!-- We can think of sections as "pages" in the PDF -->
+      <section>
+          {% for key, value in tables.items() %}
+            <h2>{{ key.replace('_', ' ').title() }}</h2>
+            <figure class="report-figure">
+              {{ value|safe }}
+              <figcaption>{{ key.replace('_', ' ').title() }}.</figcaption>
+            </figure>
+          {% endfor %}
+      </section>
+
+    </div>
+  </main>
+  <footer class="site-footer" aria-labelledby="site-footer-title">
+    <!-- Decorative background (wave) -->
+    <div class="footer-inner">
+      <div class="grid">
+        <!-- Logo -->
+        <div class="footer-logo">
+          <a class="riverscapes-footer-logo" href="https://riverscapes.net" target="_blank" rel="noopener"
+            aria-label="Riverscapes Consortium"></a>
+        </div>
+
+        <!-- Column 1 -->
+        <nav class="footer-col" aria-labelledby="footer-connect">
+          <h3 id="footer-connect" class="footer-heading">Connect with Riverscapes Consortium</h3>
+          <ul class="footer-links">
+            <li><a href="https://data.riverscapes.net" target="_blank" rel="noopener">Explore the Data Exchange</a></li>
+            <li><a href="https://riverscapes.net" target="_blank" rel="noopener">Connect with Riverscapes
+                Communities</a></li>
+            <li><a href="https://riverscapes.freshdesk.com/support/tickets/new" target="_blank" rel="noopener">Submit a
+                Support Ticket</a></li>
+            <li><a href="mailto:support@riverscapes.freshdesk.com">support@riverscapes.freshdesk.com</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="footer-bottom">
+        <p id="site-footer-title" class="sr-only">Site Footer</p>
+        <small class="footer-copy">© <span data-year></span> Riverscapes Consortium. All rights reserved.</small>
+      </div>
+    </div>
+  </footer>
+</body>
+
+</html>

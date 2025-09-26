@@ -10,8 +10,10 @@ Consider porting any improvements to these other repositories.
 import time
 import re
 import boto3
-
+import pandas as pd
 from rsxml import Logger
+
+S3_ATHENA_BUCKET = "riverscapes-athena"
 
 
 def fix_s3_uri(argstr: str) -> str:
@@ -227,3 +229,26 @@ def _run_athena_query(
     log.debug(f'Query completed at: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))}')
     output_path = status['QueryExecution']['ResultConfiguration'].get('OutputLocation', '')
     return output_path, query_execution_id
+
+
+def get_metadata() -> pd.DataFrame:
+    """
+    Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
+
+    Returns:
+        pd.DataFrame - DataFrame of metadata
+
+    Example:
+        metadata_df = get_metadata_df()
+    """
+    log = Logger('Get metadata')
+    log.info("Getting metadata from athena")
+
+    query = """
+        SELECT table_name, name, type, friendly_name, unit, description
+        FROM rme_table_column_defs
+    """
+    result = athena_query_get_parsed(S3_ATHENA_BUCKET, query)
+    if result is not None:
+        return pd.DataFrame(result)
+    raise RuntimeError("Railed to retrieve metadata from Athena.")
