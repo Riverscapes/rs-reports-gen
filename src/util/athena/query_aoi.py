@@ -105,19 +105,55 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     return bounds_where_clause
 
 
-def run_athena_aoi_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, select_fields: str, select_from: str, geometry_field_str: str):
-    """return results of 
-
-    SELECT {select_fields} FROM {select_from} WHERE {ST_Intersects(<union of everything in aoi_gdf>,{geometry_field_str})} 
-
-    but in a performant way - using prefilter on bounding box of aoi first
-
-    the source table must have fields: 
-     * latitude, longitude 
-
-
+def run_athena_aoi_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, select_fields: str, select_from: str,
+                         geometry_field_nm: str = "geometry", geometry_bbox_field_nm: str = "geometry_bbox"):
     """
-    raise NotImplementedError
+    Executes an Athena query to select features from select_from table that intersect the AOI geometry,
+    using geometry_bbox for efficient prefiltering.
+
+    Args:
+        aoi_gdf: AOI as GeoDataFrame
+        s3_bucket: S3 bucket for Athena results
+        select_fields: Comma-separated fields to select
+        select_from: Table name
+        geometry_field_nm: Name of geometry field (default 'geometry')
+        geometry_bbox_field_nm: Name of bbox field (default 'geometry_bbox')
+    Returns:
+        Athena results (parsed or S3 path)
+    """
+    log = Logger('run_athena_aoi_query')
+    # Get AOI bounding box
+    minx, miny, maxx, maxy = aoi_gdf.total_bounds
+
+    bbox_where = (
+        f"WHERE "
+        f"{geometry_bbox_field_nm}.xmax >= {minx} AND "
+        f"{geometry_bbox_field_nm}.xmin <= {maxx} AND "
+        f"{geometry_bbox_field_nm}.ymax >= {miny} AND "
+        f"{geometry_bbox_field_nm}.ymin <= {maxy}"
+    )
+
+    # Get AOI geometry SQL expression (WKT or WKB)
+    aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
+    if not aoi_geom_str:
+        log.error('Could not create suitable geometry from AOI.')
+        return None
+
+    # Compose query
+    query_str = f"""
+WITH pre_filtered AS (
+    SELECT {select_fields}, ST_GeomFromBinary({geometry_field_nm}) AS {geometry_field_nm}_geom
+    FROM {select_from}
+    {bbox_where}
+)
+SELECT * FROM pre_filtered
+WHERE ST_Intersects({geometry_field_nm}_geom, {aoi_geom_str});
+"""
+
+    log.info("Running Athena AOI query with bbox prefilter and spatial intersection.")
+    # Use athena_query_get_path to execute and get S3 path
+    results = athena_query_get_path(s3_bucket, query_str)
+    return results
 
 
 def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: str = "", source_table: str = "raw_rme") -> str | None:
@@ -130,7 +166,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: 
     returns None if the shape can't be converted to suitably sized geometry sql expression. 
     Future Enhancements: 
     - change to using a WKB field instead of dgo_geom
-    - if the source has bounds struct field (comes default with geopandas imports) we can use that instead of the BUFFER 
+    - if the source has bounds struct field (comes default with qgis geoparquet exports) we can use that instead of the BUFFER 
     - note there is a copy of this function (whole module) in `src\reports\rpt_igo_project\athena_query_aoi.py`
     - use the same multiple-resizing strategy from simplify_to_size in `rs_geo_helpers.py`
     """
