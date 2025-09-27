@@ -179,11 +179,11 @@ def _run_athena_query(
     # Debugging output
     query_length = len(query.encode('utf-8'))
     if query_length < 2000:
-        log.debug(f'Query:\n{query_str}')
+        log.debug(f'Query:\n{query}')
     else:
         log.debug(f'Query is {query_length} bytes')
-        log.debug(f"Query starts with: {query_str[:1900]}")
-        log.debug(f"Query ends with: {repr(query_str[-100:])}")
+        log.debug(f"Query starts with: {query[:1900]}")
+        log.debug(f"Query ends with: {repr(query[-100:])}")
     # print("Full query:")
     # print(query_str)
     # with open("athena_query.sql", "w", encoding="utf-8") as f:
