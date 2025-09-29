@@ -1,7 +1,6 @@
 from typing import Callable, Dict, List, Optional
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !?
-from pint.errors import UndefinedUnitError
 from rsxml import Logger
 # Custom DataFrame accessor for metadata - to be moved to util
 import pandas as pd
@@ -20,8 +19,24 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         self.log = Logger('RSDataFrame')
         self._meta_df = RSFieldMeta()
 
+    @property
+    def _constructor(self):
+        """ This will ensure that every time we do an operation that returns a DataFrame,
+        """
+        return RSGeoDataFrame
+
+    @property
+    def _constructor_sliced(self):
+        return pd.Series  # or a custom subclass if you have one
+
     def __repr__(self):
         return f"RSDataFrame({self.shape})"
+
+    def copy(self, deep: bool = True):
+        """ Override the copy method to ensure the metadata is preserved.
+        """
+        df_copy = super().copy(deep=deep)
+        return RSGeoDataFrame(df_copy)
 
     def to_html(self, *args,
                 include_units=True,
@@ -43,7 +58,22 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
 
         # Start with a copy of the DataFrame. This is ideally a unitted Dataframe if possible
         # If we are including units, we need to apply them first
-        display_df, applied_units = self._meta_df.apply_units(self) if include_units else [self.copy(), {}]
+        # Filter columns if needed. First inclusively then exclusively
+        display_df = self.copy()
+
+        # Now we do our filtering
+        if include_columns is not None:
+            include_existing = [col for col in include_columns if col in display_df.columns]
+            display_df = self.loc[:, include_existing]
+        if exclude_columns is not None:
+            display_df = self.drop(columns=exclude_columns, errors='ignore')
+
+        # Now apply the units to the dataframe if needed
+        display_df, applied_units = self._meta_df.apply_units(display_df) if include_units else [display_df, {}]
+        headers = display_df.columns.to_list()
+
+        if use_friendly is True:
+            headers = self._meta_df.get_headers(display_df, include_units=include_units, unit_fmt=unit_fmt)
 
         def _to_magnitude(val):
             return val.magnitude if hasattr(val, 'magnitude') else val
@@ -91,14 +121,6 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             else:
                 return str(val)
 
-        # Filter columns if needed. First inclusively then exclusively
-        if include_columns is not None:
-            include_existing = [col for col in include_columns if col in display_df.columns]
-            display_df = display_df.loc[:, include_existing]
-        if exclude_columns is not None:
-            display_df = display_df.drop(columns=exclude_columns, errors='ignore')
-
-        column_headers: List[str] = []
         column_classes: Dict[str, str] = {}
         formatters: Dict[str, Callable[[object], str]] = {}
 
@@ -107,30 +129,12 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             # These are the classes we apply to the columns
             class_tokens: List[str] = []
 
-            # Determine the header label
-            header_text = column
-            if use_friendly:
-                header_text = self._meta_df.friendly(column)
-
-            unit_str = ""
             if include_units:
-                unit = applied_units.get(column) or self._meta_df.unit(column)
-                if isinstance(unit, str) and unit.strip():
-                    raw_unit = unit.strip()
-                    try:
-                        unit_obj = ureg.Unit(raw_unit)
-                        unit_str = f"{unit_obj:~P}"
-                        dim_name = RSFieldMeta.get_dimensionality_name(unit_obj)
-                        if dim_name:
-                            class_tokens.append(dim_name)
-                    except UndefinedUnitError:
-                        unit_str = raw_unit
-                    except Exception as exc:  # pragma: no cover - log unexpected issues
-                        self.log.debug(f"Unable to parse unit '{raw_unit}' for column '{column}': {exc}")
-                        unit_str = raw_unit
-
-                if unit_str:
-                    header_text = f"{header_text}{unit_fmt.format(unit=unit_str)}"
+                unit_obj = applied_units.get(column)
+                if isinstance(unit_obj, pint.Unit):
+                    dim_name = RSFieldMeta.get_dimensionality_name(unit_obj)
+                    if dim_name:
+                        class_tokens.append(dim_name)
 
             # Always convert to magnitude for type checking
             col_magnitude = display_df[column].apply(_to_magnitude)
@@ -144,36 +148,33 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
 
             if is_all_nan:
                 # just return '-' for these columns
-                formatters[header_text] = lambda x: "-"
+                formatters[column] = lambda x: "-"
             elif is_bool_type:
                 class_tokens.append('boolean')
-                formatters[header_text] = _format_boolean
+                formatters[column] = _format_boolean
             elif is_datetime_type:
                 class_tokens.append('datetime')
-                formatters[header_text] = _format_datetime
+                formatters[column] = _format_datetime
             # Numeric types go last so we can convert them to magnitude first
             elif is_integer_type or is_decimal_type:
                 class_tokens.append('numeric')
                 display_df[column] = col_magnitude
                 if is_integer_type:
                     class_tokens.append('integer')
-                    formatters[header_text] = _format_int
+                    formatters[column] = _format_int
                 elif is_decimal_type:
                     class_tokens.append('decimal')
-                    formatters[header_text] = _format_float
+                    formatters[column] = _format_float
             else:
                 class_tokens.append('text')
-                formatters[header_text] = _format_text
+                formatters[column] = _format_text
 
-            column_classes[header_text] = ' '.join(dict.fromkeys(class_tokens)) if class_tokens else ''
-            column_headers.append(header_text)
-
-        display_df.columns = column_headers
+            column_classes[column] = ' '.join(dict.fromkeys(class_tokens)) if class_tokens else ''
 
         styler: pd.io.formats.style.Styler = display_df.style
         styler = styler.format(formatters, na_rep="")
 
-        # Set table attributes
+        # Set table HTML attributes
         table_attributes = kwargs.pop('table_attributes', None)
         if table_attributes is None:
             table_classes = ['dataframe', 'rs-table']
@@ -190,6 +191,8 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             }
             classes_df = pd.DataFrame(class_matrix, index=display_df.index)
             styler = styler.set_td_classes(classes_df)
+        # Apply the headers
+        display_df.columns = headers
         # hide the index
         styler.hide()
         return styler.to_html(*args, **kwargs)

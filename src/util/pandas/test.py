@@ -38,9 +38,8 @@ def main():
     # Load the Metadata and set up the Borg Singleton
     csv_meta_path = demo_dir / 'dgo_sample_meta.csv'
     log.info(f'Loading data from {csv_meta_path}')
-    df_meta = pd.read_csv(csv_meta_path)
     # Instantiate the Borg; NOTE: THIS SHOULD COME BEFORE YOU USE ANYTHING INSIDE RSDataFrame
-    RSFieldMeta().meta = df_meta
+    RSFieldMeta().field_meta = pd.read_csv(csv_meta_path)
 
     # Load the main data
     csv_path = demo_dir / 'dgo_sample.csv'
@@ -61,9 +60,47 @@ def main():
             exclude_columns=['dgo_geom_obj', 'dgo_polygon_geom'],
         )
     }
+
+    ################################################################################
+    # Adding new columns to your dataframe
+    ################################################################################
+
+    # let's create a dataframe that's a subset of data_gdf that only uses the column seg_distance
+    seg_df = RSGeoDataFrame(data_gdf[['seg_distance']])
+    # Now I'm going to rename seg_distance to be seg_distance_cm so that I can have an opinion about it
+
+    # Now let's copy seg_distance to a new column called seg_distance_imperial
+    seg_df['seg_distance_cm'] = seg_df['seg_distance']
+    seg_df['seg_distance_imperial'] = seg_df['seg_distance']
+
+    # Now we need to manually set the metadata for this new column
+    # Note that we're setting no_covert False so this will always show as miles
+    RSFieldMeta().add_meta_column(
+        name='seg_distance_cm',
+        friendly_name='Segment Distance',
+        data_unit='m',  # This is still the original data unit
+        display_unit='cm',  # no_convert is true so the display units will be used
+        dtype='INT',  # Note that we can coerse the dtype if we want here too (was FLOAT)
+        no_convert=True
+    )
+    RSFieldMeta().add_meta_column(
+        name='seg_distance_imperial',
+        friendly_name='Segment Distance',
+        data_unit='m',  # This is still the original data unit
+        display_unit='yards',  # no_convert is true so the display units will be used
+        dtype='INT',  # Note that we can coerse the dtype if we want here too (was FLOAT)
+        no_convert=True
+    )
+    tables["Imperial Distance Column"] = seg_df.to_html()
+
+    ################################################################################
+    # Working with unit systems
+    ################################################################################
+
     # now switch the borg's unit system to imperial. Note that this affects ALL RSDataFrames but since
     # the tables above are already rendered as strings they remain unnaffected. In general you should
     # Really only call this once and only after instantiating the metadata
+
     RSFieldMeta().unit_system = 'imperial'  # valid choices are 'SI' and 'imperial'
     tables["Imperial Units Data Table"] = data_gdf.to_html(
         exclude_columns=['dgo_geom_obj', 'dgo_polygon_geom'],

@@ -1,14 +1,12 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !?
+from pint.errors import UndefinedUnitError
 from rsxml import Logger
 # Custom DataFrame accessor for metadata - to be moved to util
 import pandas as pd
 
 ureg = pint.get_application_registry()
-
-VALID_COLUMNS = ["name", "friendly_name", "unit", "dtype", "no_convert"]
-
 
 # These are the default preferred units for SI and imperial systems for our report.
 # You can override these by setting RSFieldMeta().preferred_units = { ... }
@@ -28,14 +26,27 @@ _PREFERRED_UNITS: Dict[str, Dict[str, str]] = {
         'time': 'second',
     },
 }
-# Questions:
-# 1. Is SI / imperial the only 2 systems we are going to support? Do we need custom?
-# 2. Do we need granular control (beyond just don't convert) on _PREFERRED_UNITS?
-# 3.
 
 # CSV MEta Changes:
 # 1. type => dtype.
+# 2. Add table_name
 # 2. no_convert => boolean (True/False) - default False
+# 3. unit => data_unit and add display_unit
+
+
+class FieldMetaValues:
+    """ A simple class to hold metadata values for a single field.
+        """
+    VALID_COLUMNS = ["table_name", "name", "friendly_name", "data_unit", "display_unit", "dtype", "no_convert"]
+
+    def __init__(self):
+        self.table_name: str = ""
+        self.name: str = ""
+        self.friendly_name: str = ""
+        self.data_unit: Optional[pint.Unit] = None
+        self.display_unit: Optional[pint.Unit] = None
+        self.dtype: str = ""
+        self.no_convert: bool = False
 
 
 class RSFieldMeta:
@@ -49,22 +60,27 @@ class RSFieldMeta:
     def __init__(self):
         self.__dict__ = self._shared_state
         self._log = Logger('RSFieldMeta')
-        if not hasattr(self, "_meta"):
-            self._meta: Optional[pd.DataFrame] = None
+        if not hasattr(self, "_field_meta"):
+            self._field_meta: Optional[pd.DataFrame] = None
         if not hasattr(self, "_unit_system"):
             self._unit_system = 'SI'  # default to SI
             self._log.debug(f'Set default unit system to {self._unit_system}')
         if not hasattr(self, "_preferred_units"):
             self._preferred_units = _PREFERRED_UNITS
 
+    def clear(self):
+        """ Clear the shared metadata.
+        """
+        self._field_meta = None
+
     @property
-    def meta(self) -> Optional[pd.DataFrame]:
+    def field_meta(self) -> Optional[pd.DataFrame]:
         """Get the metadata DataFrame.
 
         Returns:
             Optional[pd.DataFrame]: The metadata DataFrame or None if not set.
         """
-        return self._meta
+        return self._field_meta
 
     @property
     def unit_system(self) -> str:
@@ -84,9 +100,10 @@ class RSFieldMeta:
         """
         return self._preferred_units
 
-    @meta.setter
-    def meta(self, value: pd.DataFrame):
+    @field_meta.setter
+    def field_meta(self, value: pd.DataFrame):
         """ Set or extend the metadata DataFrame.
+        We do a lot of cleaning here to make sure there are valid values being passed in
 
         Args:
             value (pd.DataFrame): The metadata DataFrame to set.
@@ -107,6 +124,26 @@ class RSFieldMeta:
                 return val != 0
             return False
 
+        def _clean_string(val):
+            if pd.isna(val) or val is None:
+                return None
+            return str(val).strip()
+
+        # First clean all the values as if they were strings
+        value = value.copy()
+        for col in FieldMetaValues.VALID_COLUMNS:
+            if col in value.columns:
+                value[col] = value[col].apply(_clean_string)
+            else:
+                # If the column is missing add it with default None values
+                value[col] = None
+
+        # Make our unit objects a little easier to work with
+        if "data_unit" in value.columns:
+            value["data_unit"] = value["data_unit"].apply(lambda x: ureg.Unit(x) if x else None)
+        if "display_unit" in value.columns:
+            value["display_unit"] = value["display_unit"].apply(lambda x: ureg.Unit(x) if x else None)
+
         # We explicitly set the no_convert column to boolean and convert any possible values
         if "no_convert" in value.columns:
             # It's coming in possibly as object/string so we need to convert it
@@ -116,14 +153,14 @@ class RSFieldMeta:
             value["no_convert"] = False
 
         # IF there is no meta then set it
-        if self._meta is None:
+        if self._field_meta is None:
             self._log.info("Setting metadata for the first time.")
-            self._meta = value
-            self._meta.set_index("name", inplace=True)
+            self._field_meta = value
+            self._field_meta.set_index("name", inplace=True)
         else:
             # otherwise extend the existing metadata with the new dataframe
             self._log.warning("Extending existing metadata. This may overwrite existing columns.")
-            self._meta = pd.concat([self._meta, value]).drop_duplicates().set_index("name")
+            self._field_meta = pd.concat([self._field_meta, value]).drop_duplicates().set_index("name")
             self._log.info("Metadata extended successfully.")
 
     @unit_system.setter
@@ -151,7 +188,7 @@ class RSFieldMeta:
         self._preferred_units = mapping
         self._log.info("Preferred units mapping updated.")
 
-    def preferred_unit_for(self, unit_obj: pint.Unit) -> Optional[str]:
+    def preferred_unit_for(self, unit_obj: pint.Unit) -> Optional[pint.Unit]:
         """Return the preferred unit string for the current system and dimensionality."""
         system_units = self._preferred_units.get(self._unit_system)
         if not system_units:
@@ -164,7 +201,7 @@ class RSFieldMeta:
         preferred = system_units.get(dim_name)
         if preferred is None:
             self._log.warning(f"No preferred unit found for dimensionality '{dim_name}' in system '{self._unit_system}'.")
-        return preferred
+        return ureg.Unit(preferred) if preferred else None
 
     @staticmethod
     def get_dimensionality_name(unit_obj: pint.Unit) -> Optional[str]:
@@ -218,96 +255,98 @@ class RSFieldMeta:
         else:
             return None
 
-    def clear(self):
-        """ Clear the shared metadata.
-        """
-        self._meta = None
-
-    def add_meta_column(self, col_name: str, friendly_name: str = "", unit: str = "", field_type: str = ""):
+    def add_meta_column(self,
+                        name: str,
+                        table_name: str = "",
+                        friendly_name: str = "",
+                        data_unit: str = "",
+                        display_unit: str = "",
+                        dtype: str = "",
+                        no_convert: bool = False):
         """ Add a new column to the metadata DataFrame if it does not already exist.
 
         Args:
-            col_name (str): The name of the column to add.
+            name (str): The name of the column to add.
+            table_name (str, optional): The name of the table the column belongs to. Defaults to "".
             friendly_name (str, optional): The friendly name for the column. Defaults to "".
-            unit (str, optional): The unit for the column. Defaults to "".
-            field_type (str, optional): The field type for the column. Defaults to "".
+            data_unit (str, optional): The data unit for the actual data in the column. Defaults to "".
+            display_unit (str, optional): The display unit for the column. Defaults to "".
+                NOTE 1: If this is empty the units will be "Preferred Units"
+                NOTE 2: This will be ignored if no_convert is FALSE
+            dtype (str, optional): The field type for the column. Defaults to "".
+            no_convert (bool, optional): If True, do not convert units for this column. Defaults to False.
+                NOTE: If this is TRUE the units will be display_units and then data_units as a fallback.
         """
-        if self._meta is None:
-            self._meta = pd.DataFrame(index=[col_name], columns=VALID_COLUMNS)
+        if self._field_meta is None:
+            self._field_meta = pd.DataFrame(index=[name], columns=FieldMetaValues.VALID_COLUMNS)
 
         # We need to be really strict here to stop users adding columns and innadvertently clobbering existing ones
         # similar names are really easy to miss
-        if col_name in self._meta.index:
-            raise ValueError(f"Column '{col_name}' already exists in metadata.")
+        if name in self._field_meta.index:
+            raise ValueError(f"Column '{name}' already exists in metadata.")
 
-        self._meta.loc[col_name, "friendly_name"] = friendly_name if friendly_name else col_name
-        self._meta.loc[col_name, "unit"] = unit
-        self._meta.loc[col_name, "dtype"] = field_type
-        self._meta.loc[col_name, "no_convert"] = False
+        self._field_meta.loc[name, "friendly_name"] = friendly_name if friendly_name else name
+        self._field_meta.loc[name, "table_name"] = table_name
+        self._field_meta.loc[name, "data_unit"] = ureg.Unit(data_unit) if data_unit else None
+        self._field_meta.loc[name, "display_unit"] = ureg.Unit(display_unit) if display_unit else None
+        self._field_meta.loc[name, "dtype"] = dtype
+        self._field_meta.loc[name, "no_convert"] = no_convert
 
     def _no_data_warning(self):
         """ Warn if no metadata is set."""
-        if self._meta is None:
+        if self._field_meta is None:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
 
-    def friendly(self, col):
-        """Get the friendly name for a column."""
-        self._no_data_warning()
-        if self._meta is None:
-            return col
-        if col in self._meta.index:
-            val = self._meta.loc[col, "friendly_name"]
-            return val if pd.notnull(val) and str(val).strip() != "" else col
-        return col
+    def get_field_meta(self, name: str) -> Optional[FieldMetaValues]:
+        """Get the metadata for a specific column.
 
-    def field_type(self, col):
-        """Get the field type for a column."""
+        Args:
+            col (str): The column name to get metadata for.
+        Returns:
+            Optional[RSFieldMeta.MetaValues]: The metadata object for the column or None if not found.
+        """
         self._no_data_warning()
-        if self._meta is None:
-            return ""
-        return self._meta.loc[col, "type"] if col in self._meta.index else ""
+        if self._field_meta is None or name not in self._field_meta.index:
+            return None
 
-    def unit(self, col):
-        """Get the unit for a column."""
-        self._no_data_warning()
-        if self._meta is None:
-            return ""
-        return self._meta.loc[col, "unit"] if col in self._meta.index else ""
+        meta_values = FieldMetaValues()
+        meta_values.name = name
+        meta_values.friendly_name = self._field_meta.loc[name, "friendly_name"]
+        meta_values.table_name = self._field_meta.loc[name, "table_name"]
+        meta_values.data_unit = self._field_meta.loc[name, "data_unit"]
+        meta_values.display_unit = self._field_meta.loc[name, "display_unit"]
+        meta_values.dtype = self._field_meta.loc[name, "dtype"]
+        meta_values.no_convert = self._field_meta.loc[name, "no_convert"]
+        return meta_values
 
-    def no_convert(self, col) -> bool:
-        """Get the no_convert flag for a column."""
+    def __set_value(self, row_name, col_name, value):
+        """Generic Property setter"""
         self._no_data_warning()
-        if self._meta is None:
-            return False
-        return bool(self._meta.loc[col, "no_convert"]) if col in self._meta.index else False
+        # Make sure col_name is a valid property of FieldMetaValues
+        if col_name not in FieldMetaValues.VALID_COLUMNS:
+            raise ValueError(f"Invalid metadata column '{col_name}'. Valid columns are: {FieldMetaValues.VALID_COLUMNS}")
+        if self._field_meta is None:
+            # Initialize with just this column if needed
+            self._field_meta = pd.DataFrame(index=[row_name], columns=FieldMetaValues.VALID_COLUMNS)
+        if row_name not in self._field_meta.index:
+            raise ValueError(f"Row '{row_name}' does not exist in metadata.")
+        self._field_meta.loc[row_name, col_name] = value
 
     def set_friendly(self, col, friendly_name):
         """Set the friendly name for a column in the metadata."""
-        self._no_data_warning()
-        if self._meta is None:
-            # Initialize with just this column if needed
-            self._meta = pd.DataFrame(index=[col], columns=VALID_COLUMNS)
-        if col not in self._meta.index:
-            raise ValueError(f"Column '{col}' does not exist in metadata. Cannot set friendly name.")
-        self._meta.loc[col, "friendly_name"] = friendly_name
+        self.__set_value(col, "friendly_name", friendly_name)
 
-    def set_unit(self, col, unit):
-        """Set the unit for a column in the metadata."""
-        self._no_data_warning()
-        if self._meta is None:
-            self._meta = pd.DataFrame(index=[col], columns=VALID_COLUMNS)
-        if col not in self._meta.index:
-            raise ValueError(f"Column '{col}' does not exist in metadata. Cannot set unit.")
-        self._meta.loc[col, "unit"] = unit
+    def set_data_unit(self, col, data_unit):
+        """Set the data unit for a column in the metadata."""
+        self.__set_value(col, "data_unit", data_unit)
 
-    def set_type(self, col, field_type):
+    def set_display_unit(self, col, display_unit):
+        """Set the display unit for a column in the metadata."""
+        self.__set_value(col, "display_unit", display_unit)
+
+    def set_dtype(self, col, dtype):
         """Set the field type for a column in the metadata."""
-        self._no_data_warning()
-        if self._meta is None:
-            self._meta = pd.DataFrame(index=[col], columns=VALID_COLUMNS)
-        if col not in self._meta.index:
-            raise ValueError(f"Column '{col}' does not exist in metadata. Cannot set field type.")
-        self._meta.loc[col, "type"] = field_type
+        self.__set_value(col, "dtype", dtype)
 
     def apply_units(self, df: pd.DataFrame) -> pd.DataFrame:
         """ Apply units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
@@ -318,7 +357,7 @@ class RSFieldMeta:
         Returns:
             pd.DataFrame: A new DataFrame with units applied.
         """
-        if self._meta is None:
+        if self._field_meta is None:
             raise RuntimeError("No metadata set. You need to instantiate RSFieldMeta and set the .meta property first.")
 
         # First Make a copy of the source
@@ -326,44 +365,120 @@ class RSFieldMeta:
         applied_units = {}
 
         # Now loop over the metadata and apply units where possible
-        for col, row in self._meta.iterrows():
+        for col in self._field_meta.index:
             # Only apply if the column exists in the dataframe.
             if col not in df_copy.columns:
                 continue
+            fm = self.get_field_meta(col)
+            if not fm:  # just to be sure it exists
+                continue
 
-            unit = row["unit"]
             # We specify the field type in our metadata so try to coerce the column to that type first
-            field_type = row.get("type", "").upper() if "type" in row else ""
-            if field_type in ('TEXT', 'STRING', 'VARCHAR', 'CHAR', 'UUID'):
+            if fm.dtype in ('TEXT', 'STRING', 'VARCHAR', 'CHAR', 'UUID'):
                 df_copy[col] = df_copy[col].astype("string")
-            if field_type in ('BOOLEAN', 'BOOL'):
+            elif fm.dtype in ('BOOLEAN', 'BOOL'):
                 df_copy[col] = df_copy[col].astype('boolean')
-            if field_type in ('DATE', 'DATETIME', 'TIMESTAMP'):
+            elif fm.dtype in ('DATE', 'DATETIME', 'TIMESTAMP'):
                 df_copy[col] = pd.to_datetime(df_copy[col], errors='coerce')
-            if field_type in ('INT', 'INTEGER', 'SMALLINT', 'BIGINT', 'MEDIUMINT', 'TINYINT'):
+            elif fm.dtype in ('INT', 'INTEGER', 'SMALLINT', 'BIGINT', 'MEDIUMINT', 'TINYINT'):
                 df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce', downcast='integer').astype('Int64')
-            if field_type in ('FLOAT', 'DOUBLE', 'DECIMAL', 'REAL', 'NUMERIC', 'NUMBER'):
+            elif fm.dtype in ('FLOAT', 'DOUBLE', 'DECIMAL', 'REAL', 'NUMERIC', 'NUMBER'):
                 df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce', downcast='float').astype('Float64')
-
-            # Finally apply the unit if it is not null or empty
-            if pd.notnull(unit) and str(unit).strip() != "":
-                no_convert = row.get("no_convert", False)
-                unit_str = str(unit).strip()
-                applied_unit = unit_str
-                try:
-                    df_copy[col] = df_copy[col].astype(f"pint[{unit_str}]")
-                    unit_obj = ureg.Unit(unit_str)
-                    preferred_unit = self.preferred_unit_for(unit_obj)
-                    if not no_convert and preferred_unit and preferred_unit != unit_str:
-                        df_copy[col] = df_copy[col].pint.to(preferred_unit)
-                        applied_unit = preferred_unit
-                        self._log.debug(f'Converted {col} from {unit_str} to {preferred_unit} for {self._unit_system} system')
+            else:
+                self._log.warning(f"Unknown field type '{fm.dtype}' for column '{col}'. Skipping type coercion.")
+            dtype = df_copy[col].dtype
+            # If there is any kind of data unit we can work with it
+            applied_unit = None
+            try:
+                if not fm.data_unit:
+                    self._log.debug(f'No data unit for column {col}. Skipping unit application.')
+                    continue
+                df_copy[col] = df_copy[col].astype(f"pint[{fm.data_unit}]")
+                if fm.no_convert:
+                    # If no_convert is true then we use the display_unit if it exists
+                    if fm.display_unit:
+                        # Even though no_convert is true we still convert it to the display unit
+                        df_copy[col] = df_copy[col].pint.to(fm.display_unit)
+                        # put back the dtype
+                        df_copy[col] = df_copy[col].astype(dtype)
+                        applied_unit = fm.display_unit
+                        self._log.debug(f'Applied {fm.display_unit} to {col} with no_convert using display unit {preferred_unit}')
                     else:
-                        self._log.debug(f'Applied {unit_str} to {col}')
-                except Exception as exc:  # pragma: no cover - log unexpected issues
-                    self._log.debug(f"Unable to apply units '{unit_str}' to column '{col}': {exc}")
-                finally:
-                    applied_units[col] = applied_unit
+                        applied_unit = fm.data_unit
+                        self._log.debug(f'Applied {fm.data_unit} to {col} with no_convert using data unit {preferred_unit}')
+                else:
+                    preferred_unit = self.get_field_unit(col)
+                    df_copy[col] = df_copy[col].pint.to(preferred_unit)
+                    # put back the dtype
+                    df_copy[col] = df_copy[col].astype(dtype)
+                    applied_unit = preferred_unit
+                    self._log.debug(f'Converted {col} from {fm.data_unit} to {preferred_unit} for {self._unit_system} system')
+
+            except Exception as exc:  # pragma: no cover - log unexpected issues
+                self._log.debug(f"Unable to apply units '{fm.data_unit}' to column '{col}': {exc}")
+            finally:
+                applied_units[col] = applied_unit
 
         self._log.debug('Applied units to dataframe using meta info')
         return df_copy, applied_units
+
+    def get_field_unit(self, name: str) -> Optional[pint.Unit]:
+        """ Get the display unit for a specific column based on the metadata and current unit system.
+
+        This will take into account the display_unit, data_unit, no_convert, and preferred units for the current system.
+
+        Args:
+            name (str): The column name to get the display unit for.
+        """
+        fm = self.get_field_meta(name)
+        if not fm:
+            return None
+        if fm.data_unit:
+            # The data unit is always the fallback
+            applied_unit = fm.data_unit
+            try:
+                unit_obj = ureg.Unit(fm.data_unit)
+                preferred_unit = self.preferred_unit_for(unit_obj)
+                if fm.no_convert:
+                    # If no_convert is true then we use the display_unit if it exists
+                    if pd.notnull(fm.display_unit) and str(fm.display_unit).strip() != "":
+                        applied_unit = fm.display_unit
+                    else:
+                        applied_unit = fm.data_unit
+                elif preferred_unit and preferred_unit != fm.data_unit:
+                    applied_unit = preferred_unit
+                else:
+                    self._log.debug(f'Applied {fm.data_unit} to {name}')
+            except Exception as exc:  # pragma: no cover - log unexpected issues
+                self._log.debug(f"Unable to apply units '{fm.data_unit}' to column '{name}': {exc}")
+            return applied_unit
+        return None
+
+    def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})") -> List[str]:
+        """ Get the column headers for a DataFrame based on the metadata. This will return a list of column headers with friendly names and units if specified.
+
+        Args:
+            df (pd.DataFrame): The original dataframe
+            include_units (bool, optional): Whether to include units in the header names. Defaults to True.
+            unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
+
+        Returns:
+            Dict[str, str]: A lookup list of column names to friendly names
+        """
+        column_headers: List[str] = []
+        # Now we loop over all the columns and apply formatting and units if necessary
+        for column in list(df.columns):
+
+            fm = self.get_field_meta(column)
+            # Determine the header label
+            header_text = fm.friendly_name if fm and fm.friendly_name else column
+
+            if include_units:
+                preferred_unit = self.get_field_unit(column)
+                if preferred_unit:
+                    unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
+                    header_text = f"{header_text}{unit_text}"
+
+            column_headers.append(header_text)
+
+        return column_headers
