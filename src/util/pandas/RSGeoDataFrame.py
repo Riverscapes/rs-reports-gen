@@ -140,8 +140,12 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             is_bool_type = pd.api.types.is_bool_dtype(col_magnitude)
             is_datetime_type = pd.api.types.is_datetime64_any_dtype(col_magnitude)
             is_text_type = pd.api.types.is_string_dtype(col_magnitude)
+            is_all_nan = col_magnitude.isna().all()
 
-            if is_bool_type:
+            if is_all_nan:
+                # just return '-' for these columns
+                formatters[header_text] = lambda x: "-"
+            elif is_bool_type:
                 class_tokens.append('boolean')
                 formatters[header_text] = _format_boolean
             elif is_datetime_type:

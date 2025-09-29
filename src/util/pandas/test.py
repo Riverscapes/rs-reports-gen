@@ -57,7 +57,7 @@ def main():
             use_friendly=False,
             exclude_columns=['dgo_geom_obj', 'dgo_polygon_geom']
         ),
-        "Unitted Data Table": data_gdf.to_html(
+        "Metric (default) Data Table": data_gdf.to_html(
             exclude_columns=['dgo_geom_obj', 'dgo_polygon_geom'],
         )
     }

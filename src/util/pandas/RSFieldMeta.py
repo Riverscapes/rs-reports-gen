@@ -28,6 +28,14 @@ _PREFERRED_UNITS: Dict[str, Dict[str, str]] = {
         'time': 'second',
     },
 }
+# Questions:
+# 1. Is SI / imperial the only 2 systems we are going to support? Do we need custom?
+# 2. Do we need granular control (beyond just don't convert) on _PREFERRED_UNITS?
+# 3.
+
+# CSV MEta Changes:
+# 1. type => dtype.
+# 2. no_convert => boolean (True/False) - default False
 
 
 class RSFieldMeta:
@@ -85,13 +93,15 @@ class RSFieldMeta:
         """
 
         def _make_boolean(val):
+            if pd.isna(val) or val is None:
+                return False
             if isinstance(val, bool):
                 return val
             if isinstance(val, str):
                 val_lower = val.strip().lower()
                 if val_lower in ('true', '1', 'yes'):
                     return True
-                elif val_lower in ('false', '0', 'no'):
+                else:
                     return False
             if isinstance(val, (int, float)):
                 return val != 0
@@ -322,10 +332,9 @@ class RSFieldMeta:
                 continue
 
             unit = row["unit"]
-            no_convert = row.get("no_convert", False)
             # We specify the field type in our metadata so try to coerce the column to that type first
             field_type = row.get("type", "").upper() if "type" in row else ""
-            if field_type in ('TEXT', 'STRING', 'VARCHAR', 'CHAR', 'UUID', ''):
+            if field_type in ('TEXT', 'STRING', 'VARCHAR', 'CHAR', 'UUID'):
                 df_copy[col] = df_copy[col].astype("string")
             if field_type in ('BOOLEAN', 'BOOL'):
                 df_copy[col] = df_copy[col].astype('boolean')
@@ -338,6 +347,7 @@ class RSFieldMeta:
 
             # Finally apply the unit if it is not null or empty
             if pd.notnull(unit) and str(unit).strip() != "":
+                no_convert = row.get("no_convert", False)
                 unit_str = str(unit).strip()
                 applied_unit = unit_str
                 try:

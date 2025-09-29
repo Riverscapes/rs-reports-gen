@@ -56,6 +56,7 @@
       <style>
         /* Makre sure every td element has no wrapping */
         td {
+          font-weight: 400;
           white-space: nowrap;
           border-left: 1px solid #ddd;
         }
@@ -63,14 +64,35 @@
           border-right: 1px solid #ddd;
         }
         td.numeric {
-          color: grey;
+          color: rgb(230, 6, 230);
           text-align: right;
         }
         td.length {
+          position: relative;
           color: orange;
         }
+        /* The word "length" should appear on any td with a .length class */
+        td.length::after {
+          position: absolute;
+          top: 0;
+          left: 4px;
+          content: "LENGTH";
+          font-size: 8px;
+          color: black;
+          background: orange;
+        }
         td.area {
+          position: relative;
           color: red;
+        }
+        td.area::after {
+          position: absolute;
+          top: 0;
+          left: 4px;
+          content: "AREA";
+          font-size: 8px;
+          color: white;
+          background: red;
         }
       </style>
 
