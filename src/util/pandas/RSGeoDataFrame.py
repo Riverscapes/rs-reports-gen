@@ -12,12 +12,28 @@ ureg = pint.get_application_registry()
 
 class RSGeoDataFrame(gpd.GeoDataFrame):
     """ A module to extend pandas DataFrames with remote sensing specific functionality.
+
+    This is a subclass of GeoDataFrame so it should work just like a normal GeoDataFrame.
+
+    For starters it doesn't "DO" anything too special except:
+
+        1. Overrides the to_html method to provide friendly column names and units
+        2. Provides a convenient property for adding footer rows to your dataframes
+
+
     """
 
-    def __init__(self, df: gpd.GeoDataFrame, *args, **kwargs):
+    def __init__(self, df: gpd.GeoDataFrame, *args,
+                 footer: Optional[pd.DataFrame] = None,
+                 **kwargs):
         super().__init__(df, *args, **kwargs)
         self.log = Logger('RSDataFrame')
+
+        # This is our metadata singleton. Mostly this is just here for convenience
         self._meta_df = RSFieldMeta()
+
+        # This is a footer DataFrame that will be appended to the main DataFrame when rendering
+        self._footer = footer if footer is not None else pd.DataFrame()
 
     @property
     def _constructor(self):
@@ -29,14 +45,21 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
     def _constructor_sliced(self):
         return pd.Series  # or a custom subclass if you have one
 
-    def __repr__(self):
-        return f"RSDataFrame({self.shape})"
+    def set_footer(self, footer: pd.DataFrame):
+        """ Set a footer DataFrame that will be appended to the main DataFrame when rendering.
+
+        Args:
+            footer (pd.DataFrame): The footer DataFrame to append.
+        """
+        self._footer = footer
 
     def copy(self, deep: bool = True):
         """ Override the copy method to ensure the metadata is preserved.
         """
         df_copy = super().copy(deep=deep)
-        return RSGeoDataFrame(df_copy)
+        footer = self._footer.copy(deep=deep)
+        # Make sure the footer comes along for the ride
+        return RSGeoDataFrame(df_copy, footer=footer)
 
     def to_html(self, *args,
                 include_units=True,
@@ -171,6 +194,21 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
 
             column_classes[column] = ' '.join(dict.fromkeys(class_tokens)) if class_tokens else ''
 
+        # If self._footer is set and not empty, append it to the display_df
+        row_classes: Dict[int, str] = {}
+        if not self._footer.empty:
+            footer_df = self._footer.copy()
+            # Ensure footer has the same columns as display_df
+            for col in display_df.columns:
+                if col not in footer_df.columns:
+                    footer_df[col] = pd.NA
+            footer_df = footer_df[display_df.columns]  # Reorder columns to match
+            display_df = pd.concat([display_df, footer_df], ignore_index=True)
+            # We also want to add a class called "footer" to the row of any footer rows
+            footer_start_idx = len(display_df) - len(footer_df)
+            for idx in range(footer_start_idx, len(display_df)):
+                row_classes[idx] = "footer"
+
         styler: pd.io.formats.style.Styler = display_df.style
         styler = styler.format(formatters, na_rep="")
 
@@ -184,13 +222,19 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             styler = styler.set_table_attributes(table_attributes)
 
         # Create a DataFrame of classes if we have any column classes to apply
-        if column_classes and not display_df.empty:
-            class_matrix = {
-                col: [column_classes.get(col, '') for _ in range(len(display_df))]
-                for col in display_df.columns
-            }
-            classes_df = pd.DataFrame(class_matrix, index=display_df.index)
+        if not display_df.empty:
+            combined_classes = {}
+            for col in display_df.columns:
+                col_classes = [column_classes.get(col, '') for _ in range(len(display_df))]
+                # If row_classes exist, merge them in
+                for i in range(len(display_df)):
+                    row_class = row_classes.get(i, {})
+                    # Combine both, avoiding duplicates and empty strings
+                    tokens = set(filter(None, (col_classes[i], row_class)))
+                    combined_classes.setdefault(col, []).append(' '.join(tokens))
+            classes_df = pd.DataFrame(combined_classes, index=display_df.index)
             styler = styler.set_td_classes(classes_df)
+
         # Apply the headers
         display_df.columns = headers
         # hide the index

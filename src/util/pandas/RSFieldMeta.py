@@ -1,7 +1,6 @@
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !?
-from pint.errors import UndefinedUnitError
 from rsxml import Logger
 # Custom DataFrame accessor for metadata - to be moved to util
 import pandas as pd
@@ -10,7 +9,7 @@ ureg = pint.get_application_registry()
 
 # These are the default preferred units for SI and imperial systems for our report.
 # You can override these by setting RSFieldMeta().preferred_units = { ... }
-_PREFERRED_UNITS: Dict[str, Dict[str, str]] = {
+PREFERRED_UNIT_DEFAULTS: Dict[str, Dict[str, str]] = {
     'SI': {
         'length': 'meter',
         'area': 'kilometer ** 2',
@@ -66,7 +65,7 @@ class RSFieldMeta:
             self._unit_system = 'SI'  # default to SI
             self._log.debug(f'Set default unit system to {self._unit_system}')
         if not hasattr(self, "_preferred_units"):
-            self._preferred_units = _PREFERRED_UNITS
+            self._preferred_units = PREFERRED_UNIT_DEFAULTS
 
     def clear(self):
         """ Clear the shared metadata.
@@ -102,7 +101,8 @@ class RSFieldMeta:
 
     @field_meta.setter
     def field_meta(self, value: pd.DataFrame):
-        """ Set or extend the metadata DataFrame.
+        """ Set or extend the field metadata DataFrame. If metadata already exists it will be extended.
+
         We do a lot of cleaning here to make sure there are valid values being passed in
 
         Args:
@@ -165,9 +165,16 @@ class RSFieldMeta:
 
     @unit_system.setter
     def unit_system(self, system: str):
-        """Set the unit system for rendering columns with units."""
+        """ Set the current unit system.
+
+        Args:
+            system (str): The unit system to set (e.g. 'SI' or 'imperial').
+
+        Raises:
+            ValueError: If the unit system is invalid.
+        """
         normalized = system.strip()
-        valid_systems = set(_PREFERRED_UNITS.keys())
+        valid_systems = set(PREFERRED_UNIT_DEFAULTS.keys())
         if normalized not in valid_systems:
             raise ValueError(f"Invalid unit system '{system}'. Valid options are: {list(valid_systems)}")
         ureg.default_system = normalized
@@ -179,17 +186,26 @@ class RSFieldMeta:
     def preferred_units(self, mapping: Dict[str, Dict[str, str]]):
         """Set the preferred units mapping.
 
+        Raise an error if the mapping contains unknown unit systems (i.e. not 'SI' or 'imperial').
+
         Args:
             mapping (Dict[str, Dict[str, str]]): The preferred units mapping.
         """
         # Test to make sure only SI and imperial are present in the keys
-        if not all(key in _PREFERRED_UNITS for key in mapping.keys()):
+        if not all(key in PREFERRED_UNIT_DEFAULTS for key in mapping.keys()):
             raise ValueError("Preferred units mapping contains unknown unit systems. Valid systems are 'SI' and 'imperial'.")
         self._preferred_units = mapping
         self._log.info("Preferred units mapping updated.")
 
     def preferred_unit_for(self, unit_obj: pint.Unit) -> Optional[pint.Unit]:
-        """Return the preferred unit string for the current system and dimensionality."""
+        """ Get the preferred unit for a given unit object based on the current unit system.
+
+        Args:
+            unit_obj (pint.Unit): A Pint unit object.
+
+        Returns:
+            Optional[pint.Unit]: The preferred unit (Pint Object) for the given unit object, or None if not found.
+        """
         system_units = self._preferred_units.get(self._unit_system)
         if not system_units:
             self._log.warning(f"No preferred units mapping found for unit system '{self._unit_system}'.")
@@ -201,6 +217,7 @@ class RSFieldMeta:
         preferred = system_units.get(dim_name)
         if preferred is None:
             self._log.warning(f"No preferred unit found for dimensionality '{dim_name}' in system '{self._unit_system}'.")
+
         return ureg.Unit(preferred) if preferred else None
 
     @staticmethod
@@ -255,14 +272,14 @@ class RSFieldMeta:
         else:
             return None
 
-    def add_meta_column(self,
-                        name: str,
-                        table_name: str = "",
-                        friendly_name: str = "",
-                        data_unit: str = "",
-                        display_unit: str = "",
-                        dtype: str = "",
-                        no_convert: bool = False):
+    def add_field_meta(self,
+                       name: str,
+                       table_name: str = "",
+                       friendly_name: str = "",
+                       data_unit: str = "",
+                       display_unit: str = "",
+                       dtype: str = "",
+                       no_convert: bool = False):
         """ Add a new column to the metadata DataFrame if it does not already exist.
 
         Args:
@@ -298,12 +315,12 @@ class RSFieldMeta:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
 
     def get_field_meta(self, name: str) -> Optional[FieldMetaValues]:
-        """Get the metadata for a specific column.
+        """Get the field metadata for a specific column. This returns a FieldMetaValues object.
 
         Args:
             col (str): The column name to get metadata for.
         Returns:
-            Optional[RSFieldMeta.MetaValues]: The metadata object for the column or None if not found.
+            Optional[FieldMetaValues]: The metadata object for the column or None if not found.
         """
         self._no_data_warning()
         if self._field_meta is None or name not in self._field_meta.index:
@@ -320,7 +337,7 @@ class RSFieldMeta:
         return meta_values
 
     def __set_value(self, row_name, col_name, value):
-        """Generic Property setter"""
+        """Generic Property setter. Use this for all the specific setters below."""
         self._no_data_warning()
         # Make sure col_name is a valid property of FieldMetaValues
         if col_name not in FieldMetaValues.VALID_COLUMNS:
@@ -332,7 +349,7 @@ class RSFieldMeta:
             raise ValueError(f"Row '{row_name}' does not exist in metadata.")
         self._field_meta.loc[row_name, col_name] = value
 
-    def set_friendly(self, col, friendly_name):
+    def set_friendly_name(self, col, friendly_name):
         """Set the friendly name for a column in the metadata."""
         self.__set_value(col, "friendly_name", friendly_name)
 
@@ -455,7 +472,8 @@ class RSFieldMeta:
         return None
 
     def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})") -> List[str]:
-        """ Get the column headers for a DataFrame based on the metadata. This will return a list of column headers with friendly names and units if specified.
+        """ Get the column headers for a DataFrame based on the metadata. This will return a list of column 
+        headers with friendly names and units if specified.
 
         Args:
             df (pd.DataFrame): The original dataframe
@@ -482,3 +500,33 @@ class RSFieldMeta:
             column_headers.append(header_text)
 
         return column_headers
+
+    def bake_units(self, df: pd.DataFrame, header_units: bool = True) -> Tuple[pd.DataFrame, List[str]]:
+        """ Apply units to a DataFrame based on the metadata. Returns a copy of the dataframe and the corresponding headers.
+
+        Args:
+            df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is not modified in place.
+
+        Returns:
+            Tuple[pd.DataFrame, List[str]]: The modified DataFrame with units applied and the corresponding headers.
+        """
+
+        # First apply the units
+        df_baked, _ = self.apply_units(df)
+        # Now get the headers
+        headers = self.get_headers(df, include_units=header_units)
+        # Now we have a dataframe with unit objects where appropriate
+
+        # A little function to return the magnitudes if it's a Pint object
+        def _to_magnitude(val):
+            return val.magnitude if hasattr(val, 'magnitude') else val
+
+        # Now we need to convert any Pint objects to their magnitudes
+        for column in list(df_baked.columns):
+            df_baked[column] = df_baked[column].apply(_to_magnitude)
+
+        self._log.debug('Baked units into dataframe using meta info')
+
+        # We return the object and its nice headers separately so the user
+        # can decide when they want to overwrite the headers
+        return [df_baked, headers]

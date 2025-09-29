@@ -94,9 +94,14 @@
           color: white;
           background: red;
         }
+        table.dataframe tr:nth-child(n)>td.footer {
+          color: white;
+          border: 1px solid red;
+          background-color: black!important;
+        }
       </style>
-
-      <!-- We can think of sections as "pages" in the PDF -->
+      
+      <!-- Now let's inject all our figures  -->
       <section>
           {% for key, value in tables.items() %}
             <h2>{{ key.replace('_', ' ').title() }}</h2>
