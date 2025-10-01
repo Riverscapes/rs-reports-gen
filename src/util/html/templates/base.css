@@ -259,7 +259,7 @@ a:focus {
   display: flex; 
   align-items: flex-start; 
   font-weight: 700;
-  color: var(--accent-color);
+  color: var(--header-color);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.85rem;
@@ -307,6 +307,97 @@ table.dataframe tbody tr:nth-child(odd) > td {
   color: #4a5764;
 }
 
+.figure-float-left img,
+.figure-float-right img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;                   
+  background: var(--muted-bg);
+  border: 1px solid var(--muted-border);
+  border-radius: 8px;
+}
+.figure-float-left {
+  float: left;
+  width: clamp(500px, 60%, 700px);
+  margin: 0 .9rem .6rem 0;
+  padding: 0.7rem 0 0 0;
+  /* border: 1px solid red; */
+}
+.figure-float-right {
+  float: right;
+  width: clamp(500px, 60%, 700px);
+  margin: 0 0 .6rem .9rem;
+    padding: 0.7rem 0 0 0;
+}
+.justified-text p {
+  text-align: justify;         
+  text-justify: inter-word;     
+  hyphens: auto;                
+  line-height: 1.6;           
+  text-wrap: pretty;            
+  hanging-punctuation: first;   
+  margin-block: 0 1rem;        
+}
+
+
+.justified-text {
+  max-width: 100ch;
+  /* border: 1px solid red  ; */
+  padding-bottom: 2rem;           
+}
+
+.blueprint-list {
+  list-style: none;
+  margin: 1rem 0 0 0;          
+  padding: 0;
+  counter-reset: step;
+  display: grid;
+  gap: 0.6rem;               
+}
+
+.blueprint-list li {
+  position: relative;
+  counter-increment: step;
+  border: 1px solid var(--muted-border);
+  border-left: 4px solid var(--accent-color);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem 0.75rem 2.6rem; /* room for badge */
+  line-height: 1.45;
+  box-shadow: var(--elev-1);
+  background-clip: padding-box;
+}
+
+.blueprint-list li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0.6rem;
+  top: 0.7rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font: 600 0.9rem/1 var(--header-font-family);
+  color: #fff;
+  background: var(--accent-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+
+.blueprint-list .bp-title {
+  font-family: var(--header-font-family);
+  font-weight: 700;
+  color: var(--header-color);
+  margin: 0 0 .25rem 0;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  font-size: .95rem;
+}
+.blueprint-list .bp-note {
+  margin: .15rem 0 0 0;
+  font-size: .85rem;
+  opacity: .8;
+}
 
 img,
 svg,
@@ -445,6 +536,9 @@ canvas {
   :root {
     --page-width: 66rem;
     --page-gutter: 0;
+    --outer-gap: 0.12in;   /* gap between top-level cells */
+    --inner-gap: 0.12in;   /* gap inside nested 2x2 */
+    --grid-cell-h: 1.7in;  /* target height for each top-level cell */
   }
 
   html {
@@ -476,7 +570,7 @@ canvas {
   h4,
   h5 {
     font-family: var(--header-font-family);
-    color: var(--accent-color);
+    color: var(--header-color);
     clear: both;
     line-height: 1.25;
     margin: 0 0 0.75rem;
@@ -544,7 +638,7 @@ canvas {
     display: none;
   }
   a {
-    color: inherit;
+    color: var(--header-color);
     text-decoration: underline;
   }
 
@@ -558,6 +652,7 @@ canvas {
   .page-break-after {
     display: block;
   }
+
   .metric-grid {
     display: flex !important;
     flex-wrap: wrap !important;
@@ -567,10 +662,16 @@ canvas {
     gap: 0 !important; 
   }
    .metric-grid > * {
-    flex: 1 1 100px !important; 
-    margin: 0.03in !important; 
-    box-sizing: border-box;
+  flex: 1 1 130px !important;
+  min-height: 130px !important;
+  line-height: 1.5 !important;
+  margin: 0.03in !important;
+  box-sizing: border-box;
   }
+  .metric dt { 
+    margin-bottom: 1.3em;
+  }
+
 
   .page-break,
   .page-break-before,

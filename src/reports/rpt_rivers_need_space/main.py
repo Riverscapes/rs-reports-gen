@@ -73,6 +73,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         report_dir=report_dir,
         figure_dir=figure_dir,
         body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
+        css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
     )
     for (name, fig) in figures.items():
         report.add_figure(name, fig)

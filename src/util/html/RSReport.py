@@ -13,7 +13,7 @@ class RSReport:
     """ Class to build an HTML report using Jinja2 templates and Plotly figures.
     """
 
-    def __init__(self, report_name: str, report_type: str, report_dir: str, figure_dir: str, body_template_path: str = None):
+    def __init__(self, report_name: str, report_type: str, report_dir: str, figure_dir: str, body_template_path: str = None, css_paths: list[str] = None):
         """ Initialize the report."""
         self.report_name = report_name
         self.report_type = report_type
@@ -22,6 +22,7 @@ class RSReport:
         self.figures = {}
         self.html_elements = {}
         self.body_template_path = body_template_path
+        self.css_paths = css_paths if css_paths else []
         self._log = Logger("HTML template_builder")
         os.makedirs(report_dir, exist_ok=True)
         os.makedirs(figure_dir, exist_ok=True)
@@ -80,6 +81,11 @@ class RSReport:
         templates_pkg = resources.files(__package__).joinpath('templates')
         template = Template(templates_pkg.joinpath('template.html').read_text(encoding='utf-8'))
         css = templates_pkg.joinpath('base.css').read_text(encoding='utf-8')
+        for css_path in self.css_paths:
+            if os.path.exists(css_path):
+                css += "\n" + open(css_path, "r", encoding="utf-8").read()
+            else:
+                log.warning(f"CSS path {css_path} does not exist and will be skipped.")
         style_tag = f"<style>{css}</style>"
         now = datetime.now()
 
