@@ -5,7 +5,7 @@ from .athena import (
     download_file_from_s3,
     fix_s3_uri,
     get_s3_file,
-    get_metadata,
+    get_field_metadata,
 )
 from .query_aoi import run_aoi_athena_query
 
@@ -17,4 +17,5 @@ __all__ = [
     "fix_s3_uri",
     "get_s3_file",
     "run_aoi_athena_query",
+    "get_field_metadata",
 ]

@@ -26,12 +26,6 @@ PREFERRED_UNIT_DEFAULTS: Dict[str, Dict[str, str]] = {
     },
 }
 
-# CSV MEta Changes:
-# 1. type => dtype.
-# 2. Add table_name
-# 2. no_convert => boolean (True/False) - default False
-# 3. unit => data_unit and add display_unit
-
 
 class FieldMetaValues:
     """ A simple class to hold metadata values for a single field.
@@ -300,7 +294,7 @@ class RSFieldMeta:
         # We need to be really strict here to stop users adding columns and innadvertently clobbering existing ones
         # similar names are really easy to miss
         if name in self._field_meta.index:
-            raise ValueError(f"Column '{name}' already exists in metadata.")
+            self._log.error(f"Column '{name}' already exists in metadata. SKIPPING ADDITION")
 
         self._field_meta.loc[name, "friendly_name"] = friendly_name if friendly_name else name
         self._field_meta.loc[name, "table_name"] = table_name
@@ -498,6 +492,27 @@ class RSFieldMeta:
                     header_text = f"{header_text}{unit_text}"
 
             column_headers.append(header_text)
+
+        return column_headers
+
+    def get_headers_dict(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})") -> Dict[str, str]:
+        """ Get the column headers for a DataFrame based on the metadata. This will return a lookup dict of column 
+        names to friendly names with units if specified.
+
+        Args:
+            df (pd.DataFrame): The original dataframe
+            include_units (bool, optional): Whether to include units in the header names. Defaults to True.
+            unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
+
+        Returns:
+            Dict[str, str]: A lookup list of column names to friendly names
+        """
+        column_headers: Dict[str, str] = {}
+        headers = list(df.columns)
+        friendly_headers = self.get_headers(df, include_units=include_units, unit_fmt=unit_fmt)
+
+        for i, column in enumerate(headers):
+            column_headers[column] = friendly_headers[i]
 
         return column_headers
 

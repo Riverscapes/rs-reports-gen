@@ -18,11 +18,11 @@ from jinja2 import Template
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from util.athena import get_s3_file, run_aoi_athena_query
-from util.athena.athena import athena_query_get_parsed
+from util.athena import get_s3_file, run_aoi_athena_query, get_field_metadata
 
 from util.pdf.create_pdf import make_pdf_from_html
 from util.plotly.export_figure import export_figure
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 # Local imports
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
@@ -41,6 +41,7 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
 
 
 S3_BUCKET = "riverscapes-athena"
+_FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 ureg = pint.UnitRegistry()
 
 
@@ -141,49 +142,6 @@ def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
     return
 
 
-def get_metadata() -> pd.DataFrame:
-    """
-    Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
-
-    Returns:
-        pd.DataFrame - DataFrame of metadata
-
-    Example:
-        metadata_df = get_metadata_df()
-    """
-    log = Logger('Get metadata')
-    log.info("Getting metadata from athena")
-
-    query = """
-        SELECT table_name, name, type, friendly_name, unit, description
-        FROM rme_table_column_defs
-    """
-    result = athena_query_get_parsed(S3_BUCKET, query)
-    if result is not None:
-        return pd.DataFrame(result)
-    raise RuntimeError("Railed to retrieve metadata from Athena.")
-
-
-def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system: str = "US"):
-    """convert all measures according to unit system 
-    does not work yet
-
-    Args:
-        gdf (gpd.GeoDataFrame): data_gpd
-        unit_system (str, optional): Unit system. Defaults to "US".
-
-    Returns:
-        same data frame but with units converted
-    """
-    ureg.default_system = unit_system
-    for col in gdf.columns:
-        if hasattr(gdf[col], 'pint'):
-            # convert each unit DOES NOT WORK this way
-            # pint.to_unit(foot) etc. does work -- we'll need to know which units
-            gdf[col] = gdf[col].pint.to_base_units()
-    return gdf
-
-
 def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
     """ Add any calculated columns to the dataframe
 
@@ -193,30 +151,65 @@ def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame with calculated columns added
     """
-    # TODO: add metadata for any added columns
-    df['channel_length'] = df['rel_flow_length']*df['centerline_length']
+    df['channel_length'] = df['rel_flow_length'] * df['centerline_length']
+
+    meta = RSFieldMeta()
+    existing_meta = meta.field_meta
+    if existing_meta is None or 'channel_length' not in existing_meta.index:
+        table_name = ''
+        data_unit = ''
+        display_unit = ''
+        dtype = ''
+        if existing_meta is not None and 'centerline_length' in existing_meta.index:
+            base_meta = existing_meta.loc['centerline_length']
+            table_name_val = base_meta.get('table_name', '')
+            data_unit_obj = base_meta.get('data_unit')
+            display_unit_obj = base_meta.get('display_unit')
+            dtype_val = base_meta.get('dtype', '')
+            if pd.notna(table_name_val):
+                table_name = str(table_name_val)
+            if pd.notna(data_unit_obj):
+                data_unit = str(data_unit_obj)
+            if pd.notna(display_unit_obj):
+                display_unit = str(display_unit_obj)
+            if pd.notna(dtype_val):
+                dtype = str(dtype_val)
+        meta.add_field_meta(
+            name='channel_length',
+            table_name=table_name,
+            friendly_name='Channel Length',
+            data_unit=data_unit,
+            display_unit=display_unit,
+            dtype=dtype or 'DOUBLE',
+        )
     return df
 
 
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str,
-                             existing_csv_path: str | None = None, include_pdf: bool = True):
+                             existing_csv_path: str | None = None,
+                             include_pdf: bool = True,
+                             unit_system: str = "SI"):
     """ Orchestrates the report generation process:
 
     Args:
         report_name (str): The name of the report.
         report_dir (str): The directory where the report will be saved.
         path_to_shape (str): The path to the shapefile for the area of interest.
+        existing_csv_path (str | None, optional): Path to an existing CSV file to use instead of querying Athena. Defaults to None.
+        include_pdf (bool, optional): Whether to generate a PDF version of the report. Defaults to True.
+        unit_system (str, optional): The unit system to use ("SI" or "imperial"). Defaults to "SI".
     """
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
+
+    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
+    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
+
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
     # get data first as csv
     safe_makedirs(os.path.join(report_dir, 'data'))
     csv_data_path = os.path.join(report_dir, 'data', 'data.csv')
-
-    df_meta = get_metadata()
-    df_meta.describe()
 
     if existing_csv_path:
         log.info(f"Using supplied csv file at {csv_data_path}")
@@ -225,17 +218,13 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         log.info("Querying athena for data for AOI")
         get_data_for_aoi(aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
-    data_gdf.meta.attach_metadata(df_meta)
-    data_gdf = convert_gdf_units(data_gdf, 'US')
-    data_gdf = add_calculated_cols(data_gdf)
+
+    add_calculated_cols(data_gdf)
 
     # excel version
-    with pd.ExcelWriter(os.path.join(report_dir, 'data', 'data.xlsx')) as writer:
-        data_gdf.to_excel(writer, sheet_name="data")
-        df_meta.to_excel(writer, sheet_name="metadata")
+    export_excel(data_gdf, os.path.join(report_dir, 'data', 'data.xlsx'))
 
     # make html report
-
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]
     static_path = report_paths["static"]
@@ -250,6 +239,25 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     return
 
 
+def export_excel(gdf: gpd.GeoDataFrame, output_path: str):
+    """ Export the GeoDataFrame to an Excel file with metadata.
+
+    Args:
+        gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+        output_path (str): The path to save the Excel file.
+    """
+    log = Logger('Export Excel')
+    log.info(f"Exporting data to Excel at {output_path}")
+
+    baked_gdf, baked_headers = _FIELD_META.bake_units(gdf)
+    baked_gdf.columns = baked_headers
+
+    # excel version
+    with pd.ExcelWriter(output_path) as writer:
+        baked_gdf.to_excel(writer, sheet_name="data")
+        _FIELD_META.field_meta.to_excel(writer, sheet_name="metadata")
+
+
 def main():
     """ Main function to parse arguments and generate the report
     """
@@ -257,6 +265,7 @@ def main():
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
+    parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
     parser.add_argument('--csv', help='Path to a local CSV of AOI data to use instead of querying Athena', type=str, default=None)
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
@@ -275,7 +284,7 @@ def main():
     log.title('rs-rpt-rivers-need-space')
 
     try:
-        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, args.csv)
+        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, args.csv, args.unit_system)
 
     except Exception as e:
         log.error(e)

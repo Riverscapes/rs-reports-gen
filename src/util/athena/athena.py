@@ -231,21 +231,30 @@ def _run_athena_query(
     return output_path, query_execution_id
 
 
-def get_metadata() -> pd.DataFrame:
+def get_field_metadata() -> pd.DataFrame:
     """
     Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
+
+    # For the shape of what needs to be returned refer to:
+        src/util/pandas/RSFieldMeta.py
 
     Returns:
         pd.DataFrame - DataFrame of metadata
 
     Example:
-        metadata_df = get_metadata_df()
+        metadata_df = get_field_metadata()
     """
-    log = Logger('Get metadata')
-    log.info("Getting metadata from athena")
+    log = Logger('Get field metadata')
+    log.info("Getting field metadata from athena")
+
+    # TODO: Athena table needs the following column changes:
+    # 1. Rename `type` => `dtype`.
+    # 2. Add Column: `no_convert` => boolean (True/False) - default False
+    # 3. Rename `unit` => `data_unit`
+    # 4. Add Column `display_unit` (same data type as data_unit)
 
     query = """
-        SELECT table_name, name, type, friendly_name, unit, description
+        SELECT table_name, name, friendly_name, type AS dtype, unit AS data_unit, description
         FROM rme_table_column_defs
     """
     result = athena_query_get_parsed(S3_ATHENA_BUCKET, query)

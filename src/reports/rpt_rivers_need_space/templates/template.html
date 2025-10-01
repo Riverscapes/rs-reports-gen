@@ -80,7 +80,7 @@
           {% for key, value in kpis.items() %}
           <div class="metric">
             <dt>{{ key.replace('_', ' ').title() }}</dt>
-            <dd>{{ "{:~P,.0f}".format(value) }}</dd>
+            <dd>{{ "{:,.0f}".format(value) }}</dd>
           </div>
           {% endfor %}
         </dl>
