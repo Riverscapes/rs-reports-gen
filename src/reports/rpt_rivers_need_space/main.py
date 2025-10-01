@@ -22,7 +22,7 @@ from util.athena import get_s3_file, run_aoi_athena_query, get_field_metadata
 
 from util.pdf.create_pdf import make_pdf_from_html
 from util.plotly.export_figure import export_figure
-from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.pandas import RSFieldMeta
 # Local imports
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
@@ -265,6 +265,7 @@ def main():
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
+    parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
     parser.add_argument('--csv', help='Path to a local CSV of AOI data to use instead of querying Athena', type=str, default=None)
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
@@ -284,7 +285,14 @@ def main():
     log.title('rs-rpt-rivers-need-space')
 
     try:
-        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, args.csv, args.unit_system)
+        make_report_orchestrator(
+            args.report_name,
+            output_path,
+            args.path_to_shape,
+            args.csv,
+            args.include_pdf,
+            args.unit_system
+        )
 
     except Exception as e:
         log.error(e)

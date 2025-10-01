@@ -38,10 +38,20 @@ def extract_colours_from_legend(bins_legend_json: str) -> list[str]:
 # =========================
 
 def make_map_with_aoi(gdf, aoi_gdf):
+    """ make a map with the data and the AOI outlined
+
+    Args:
+        gdf (_type_): _description_
+        aoi_gdf (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     # Prepare plotting DataFrame and geojson
     plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
     plot_gdf = gdf.reset_index(drop=True).copy()
     plot_gdf["id"] = plot_gdf.index
+    plot_gdf = plot_gdf.fillna("-")
     plot_gdf = plot_gdf[["id"] + plot_cols]
     for col in plot_gdf.columns:
         if hasattr(plot_gdf[col], "pint"):
@@ -51,14 +61,20 @@ def make_map_with_aoi(gdf, aoi_gdf):
     # Calculate zoom and center
     zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
 
+    # Bake in the units and names
+    baked_header_lookup = RSFieldMeta().get_headers_dict(plot_gdf)
+    baked, baked_headers = RSFieldMeta().bake_units(plot_gdf)
+    # baked.columns = baked_headers
+
     # Create choropleth map with Plotly Express
     fig = px.choropleth_map(
-        plot_gdf,
+        baked,
         geojson=geojson,
         locations="id",
         color="fcode_desc",
         featureidkey="properties.id",
         opacity=0.5,
+        labels=baked_header_lookup,
         hover_name="fcode_desc",
         hover_data={"segment_area": True, "ownership_desc": True},
         center=center,
@@ -66,7 +82,6 @@ def make_map_with_aoi(gdf, aoi_gdf):
     )
 
     # Add AOI outlines using go.Scattermap
-
     for _, row in aoi_gdf.iterrows():
         x, y = row['geometry'].exterior.xy
         fig.add_trace(go.Scattermap(
@@ -85,29 +100,29 @@ def make_map_with_aoi(gdf, aoi_gdf):
     return fig
 
 
-def make_aoi_map(gdf, aoi_gdf: gpd.GeoDataFrame):
-    """
-    **NOT USED** 
-    # Create the base map 
-    """
+# def make_aoi_map(gdf, aoi_gdf: gpd.GeoDataFrame):
+#     """
+#     **NOT USED**
+#     # Create the base map
+#     """
 
-    base_map = go.Figure()
+#     base_map = go.Figure()
 
-    # Add AOI polygons as an outline (no fill)
-    for _, row in aoi_gdf.iterrows():
-        x, y = row['geometry'].exterior.xy
-        base_map.add_trace(go.Scattermapbox(
-            lon=list(x),
-            lat=list(y),
-            mode='lines',
-            line=dict(color='red', width=3),
-            name='AOI'
-        ))
-    base_map.update_maps(
-        style="open-street-map"
-    )
+#     # Add AOI polygons as an outline (no fill)
+#     for _, row in aoi_gdf.iterrows():
+#         x, y = row['geometry'].exterior.xy
+#         base_map.add_trace(go.Scattermapbox(
+#             lon=list(x),
+#             lat=list(y),
+#             mode='lines',
+#             line=dict(color='red', width=3),
+#             name='AOI'
+#         ))
+#     base_map.update_maps(
+#         style="open-street-map"
+#     )
 
-    return base_map
+#     return base_map
 
 
 def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int, dict[str, float]]:
@@ -136,39 +151,39 @@ def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int,
     return (zoom, center)
 
 
-def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
-    """Create Plotly map (GeoJSON polygons). NOT USED"""
+# def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
+#     """Create Plotly map (GeoJSON polygons). NOT USED"""
 
-    # Create a plotting-safe DataFrame with only needed columns, convert PintArray to float
-    plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
-    plot_gdf = gdf.reset_index(drop=True).copy()
-    plot_gdf["id"] = plot_gdf.index  # unique id for each row
-    # Only keep necessary columns for plotting
-    plot_gdf = plot_gdf[["id"] + plot_cols]
-    # Convert PintArray columns to float (magnitude)
-    for col in plot_gdf.columns:
-        if hasattr(plot_gdf[col], "pint"):
-            plot_gdf[col] = plot_gdf[col].pint.magnitude
+#     # Create a plotting-safe DataFrame with only needed columns, convert PintArray to float
+#     plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
+#     plot_gdf = gdf.reset_index(drop=True).copy()
+#     plot_gdf["id"] = plot_gdf.index  # unique id for each row
+#     # Only keep necessary columns for plotting
+#     plot_gdf = plot_gdf[["id"] + plot_cols]
+#     # Convert PintArray columns to float (magnitude)
+#     for col in plot_gdf.columns:
+#         if hasattr(plot_gdf[col], "pint"):
+#             plot_gdf[col] = plot_gdf[col].pint.magnitude
 
-    geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
-    zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
+#     geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
+#     zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
 
-    map_fig = px.choropleth_map(
-        plot_gdf,
-        geojson=geojson,
-        locations="id",
-        color="fcode_desc",
-        featureidkey="properties.id",
-        center=center,
-        zoom=zoom,
-        opacity=0.5,
-        hover_name="fcode_desc",
-        hover_data={"segment_area": True, "ownership_desc": True}
-    )
-    # conus bounds
-    map_fig.update_layout(map_bounds={"west": -150, "east": -50, "south": 20, "north": 50})
-    map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
-    return map_fig
+#     map_fig = px.choropleth_map(
+#         plot_gdf,
+#         geojson=geojson,
+#         locations="id",
+#         color="fcode_desc",
+#         featureidkey="properties.id",
+#         center=center,
+#         zoom=zoom,
+#         opacity=0.5,
+#         hover_name="fcode_desc",
+#         hover_data={"segment_area": True, "ownership_desc": True}
+#     )
+#     # conus bounds
+#     map_fig.update_layout(map_bounds={"west": -150, "east": -50, "south": 20, "north": 50})
+#     map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
+#     return map_fig
 
 # =========================
 # Tables - take dataframe and return html
@@ -189,7 +204,7 @@ def project_id_table(df: pd.DataFrame) -> str:
     df["project_url"] = "https://data.riverscapes.net/p/" + df['rme_project_id'].astype(str)
     df['link'] = df.apply(lambda row: f'<a href="{row["project_url"]}">{row["rme_project_name"]}</a>', axis=1)
     df = df[['link']].copy()
-    html_table = df.to_html(escape=False)
+    html_table = df.to_html(escape=False, index=False)
     return html_table
 
 
@@ -273,17 +288,17 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
 
     # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/qgis/Shared/Low_Lying_Ratio.qml
     # didn't end up using this
-    bins_xml = """<rules key="{74b18146-02e2-4bd4-ad4c-996748046586}">
-      <rule label="&lt; 2%" symbol="0" key="{4e2991cc-a65b-4213-9cbe-900c7018ca7a}" filter="&quot;vbet_igo_low_lying_ratio&quot; &lt; 0.02"/>
-      <rule label="2% to 5%" symbol="1" key="{b25eaed3-e38a-49d6-b8b5-c151647e9852}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.02 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.05"/>
-      <rule label="5% to 10%" symbol="2" key="{d1d038ba-632f-42de-b195-7d14d7db2b75}" filter="&quot;vbet_igo_low_lying_ratio&quot;>= 0.05 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.1"/>
-      <rule label="10% to 15%" symbol="3" key="{d7d5b108-b27e-43ea-8b09-70ac500cf74f}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.1 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.15"/>
-      <rule label="15% to 25%" symbol="4" key="{5dcf0a4e-c077-4839-b96f-8f5a04376f10}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.15 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.25"/>
-      <rule label="25% to 50% " symbol="5" key="{87131111-33cf-4724-b94c-a6e70b5d456a}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.25 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.5"/>
-      <rule label="50% to 75% " symbol="6" key="{c6db9e10-6619-439e-bf60-bb1e885b2b4c}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.5 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.75"/>
-      <rule label="> 75%" symbol="7" key="{3c29e498-5ded-4e5b-a89d-0ae78e081e85}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.75"/>
-    </rules>
-    """
+    # bins_xml = """<rules key="{74b18146-02e2-4bd4-ad4c-996748046586}">
+    #   <rule label="&lt; 2%" symbol="0" key="{4e2991cc-a65b-4213-9cbe-900c7018ca7a}" filter="&quot;vbet_igo_low_lying_ratio&quot; &lt; 0.02"/>
+    #   <rule label="2% to 5%" symbol="1" key="{b25eaed3-e38a-49d6-b8b5-c151647e9852}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.02 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.05"/>
+    #   <rule label="5% to 10%" symbol="2" key="{d1d038ba-632f-42de-b195-7d14d7db2b75}" filter="&quot;vbet_igo_low_lying_ratio&quot;>= 0.05 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.1"/>
+    #   <rule label="10% to 15%" symbol="3" key="{d7d5b108-b27e-43ea-8b09-70ac500cf74f}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.1 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.15"/>
+    #   <rule label="15% to 25%" symbol="4" key="{5dcf0a4e-c077-4839-b96f-8f5a04376f10}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.15 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.25"/>
+    #   <rule label="25% to 50% " symbol="5" key="{87131111-33cf-4724-b94c-a6e70b5d456a}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.25 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.5"/>
+    #   <rule label="50% to 75% " symbol="6" key="{c6db9e10-6619-439e-bf60-bb1e885b2b4c}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.5 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.75"/>
+    #   <rule label="> 75%" symbol="7" key="{3c29e498-5ded-4e5b-a89d-0ae78e081e85}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.75"/>
+    # </rules>
+    # """
     chart_data = df[['low_lying_ratio', 'segment_area']].copy()
     bins = [0, 0.02, 0.05, 0.10, 0.15, 0.25, 0.50, 0.75, 1]
     labels = extract_labels_from_legend(bins_json)
@@ -292,15 +307,21 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     chart_data['bin'] = pd.cut(chart_data['low_lying_ratio'], bins=bins, labels=labels, include_lowest=True)
     # Aggregate segment_area by bin
     agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
-    # Plot bar chart
+
+    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+
+    baked_header_lookup['bin'] = 'Low Lying Ratio'
+    baked_header_lookup['segment_area'] = 'Total Segment Area'
+
     fig = px.bar(
-        agg_data,
+        baked_agg_data,
         x='bin',
         y='segment_area',
         color='bin',
         color_discrete_sequence=colours,
         title='Total Segment Area by Low Lying Ratio Bin',
-        labels={'bin': 'Low Lying Ratio', 'segment_area': 'Total Segment Area'},
+        labels=baked_header_lookup,
         height=400
     )
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
@@ -327,14 +348,19 @@ def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
     # Aggregate segment_area by bin
     agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
     # Plot bar chart
+    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+
+    baked_header_lookup['bin'] = 'Low Lying Ratio'
+
     fig = px.bar(
-        agg_data,
+        baked_agg_data,
         x='bin',
         y='segment_area',
         color='bin',
         color_discrete_sequence=colours,
         title='Total Segment Area by Proportion Riparian Bin',
-        labels={'bin': 'Riparian Proportion', 'segment_area': 'Total Segment Area'},
+        labels=baked_header_lookup,
         height=400
     )
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
@@ -359,15 +385,22 @@ def floodplain_access(df: pd.DataFrame) -> go.Figure:
     chart_data['bin'] = pd.cut(chart_data['fldpln_access'], bins=bins, labels=labels, include_lowest=True)
     # Aggregate segment_area by bin
     agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+
+    # Plot bar chart
+    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+
+    baked_header_lookup['bin'] = 'Low Lying Ratio'
+
     # Plot bar chart
     fig = px.bar(
-        agg_data,
+        baked_agg_data,
         x='bin',
         y='segment_area',
         color='bin',
         color_discrete_sequence=colours,
         title='Total Riverscapes Area by Floodplain Access',
-        labels={'bin': 'Floodplain Access', 'segment_area': 'Total Riverscapes Area (units)'},
+        labels={'bin': 'Floodplain Access', 'segment_area': 'Total Riverscapes Area'},
         height=400
     )
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
@@ -391,6 +424,12 @@ def land_use_intensity(df: pd.DataFrame) -> go.Figure:
     chart_data['bin'] = pd.cut(chart_data['land_use_intens'], bins=bins, labels=labels, include_lowest=True)
     # Aggregate segment_area by bin
     agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+
+    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+
+    baked_header_lookup['bin'] = 'Land Use Intensity'
+
     # Plot bar chart
     fig = px.bar(
         agg_data,
@@ -399,7 +438,7 @@ def land_use_intensity(df: pd.DataFrame) -> go.Figure:
         color='bin',
         color_discrete_sequence=colours,
         title='Total Riverscapes Area by Land Use Intensity',
-        labels={'bin': 'Land Use Intensity', 'segment_area': 'Total Riverscapes Area (units)'},
+        labels=baked_header_lookup,
         height=400
     )
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
@@ -436,9 +475,15 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
 
     # Merge for grouped bar chart
     agg_data = pd.merge(ag_data, dev_data, on='bin', how='outer')
+
+    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+
+    baked_header_lookup['bin'] = 'Land Use Intensity'
+
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=agg_data['bin'], y=agg_data['ag_segment_area'], name='Agriculture'))
-    fig.add_trace(go.Bar(x=agg_data['bin'], y=agg_data['dev_segment_area'], name='Development'))
+    fig.add_trace(go.Bar(x=baked_agg_data['bin'], y=baked_agg_data['ag_segment_area'], name='Agriculture'))
+    fig.add_trace(go.Bar(x=baked_agg_data['bin'], y=baked_agg_data['dev_segment_area'], name='Development'))
 
     fig.update_layout(
         title='Agriculature and Development Proportion by Bin',
@@ -476,17 +521,19 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     # Merge for grouped bar chart
     agg_data = pd.merge(road_data, rail_data, on='bin', how='outer')
 
-    import plotly.graph_objects as go
+    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar char
+
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        y=agg_data['bin'],
-        x=agg_data['road_segment_area'],
+        y=baked_agg_data['bin'],
+        x=baked_agg_data['road_segment_area'],
         name='Road Density',
         orientation='h'
     ))
     fig.add_trace(go.Bar(
-        y=agg_data['bin'],
-        x=agg_data['rail_segment_area'],
+        y=baked_agg_data['bin'],
+        x=baked_agg_data['rail_segment_area'],
         name='Rail Density',
         orientation='h'
     ))
@@ -512,13 +559,17 @@ def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     """
     # Create horizontal bar chart (sum of segment_area by ownership)
     chart_data = gdf.groupby('ownership', as_index=False)['segment_area'].sum()
+
+    baked_header_lookup = RSFieldMeta().get_headers_dict(chart_data)
+    baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
+
     bar_fig = px.bar(
-        chart_data,
+        baked_chart_data,
         y="ownership",
         x="segment_area",
         orientation="h",
         title="Total Riverscape Area (units) by Ownership",
-        labels={"segment_area": "Total Segment Area (m²)", "ownership": "Ownership"},
+        labels=baked_header_lookup,
         height=400
     )
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
@@ -531,9 +582,12 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
         gdf with fcode_desc and segment_area
     """
     chart_data = gdf.groupby('fcode_desc', as_index=False)['segment_area'].sum()
-    print(chart_data)
+
+    baked_header_lookup = RSFieldMeta().get_headers_dict(chart_data)
+    baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
+
     fig = px.pie(
-        chart_data,
+        baked_chart_data,
         names='fcode_desc',
         values='segment_area',
         title='Total Riverscape Area (units) by Feature Code'
