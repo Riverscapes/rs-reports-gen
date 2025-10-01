@@ -4,8 +4,6 @@ import logging
 import os
 import sys
 import shutil
-from datetime import datetime
-from importlib import resources
 import traceback
 # 3rd party imports
 import geopandas as gpd
@@ -13,15 +11,12 @@ import pandas as pd
 import pint
 from shapely import wkt
 
-from jinja2 import Template
-
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query, get_field_metadata
 
-from util.pdf.create_pdf import make_pdf_from_html
-from util.plotly.export_figure import export_figure
+from util.html import RSReport
 from util.pandas import RSFieldMeta
 # Local imports
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
@@ -72,43 +67,27 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
 
-    def render_report(fig_mode, suffix=""):
-        figure_exports = {}
-        for (name, fig) in figures.items():
-            figure_exports[name] = export_figure(
-                fig, figure_dir, name, mode=fig_mode, include_plotlyjs=False, report_dir=report_dir
-            )
-        templates_pkg = resources.files(__package__).joinpath('templates')
-        template = Template(templates_pkg.joinpath('template.html').read_text(encoding='utf-8'))
-        css = templates_pkg.joinpath('report.css').read_text(encoding='utf-8')
-        style_tag = f"<style>{css}</style>"
-        now = datetime.now()
-        html = template.render(
-            report={
-                'head': style_tag,
-                'title': report_name,
-                'date': now.strftime('%B %d, %Y - %I:%M%p'),
-                'ReportType': "Rivers Need Space"
-            },
-            report_name=report_name,
-            figures=figure_exports,
-            kpis=statistics(gdf),
-            tables=tables
-        )
-        out_path = os.path.join(report_dir, f"report{suffix}.html")
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(html)
-        log.info(f"Report written to {out_path}")
-        return out_path
+    report = RSReport(
+        report_name=report_name,
+        report_type="Rivers Need Space",
+        report_dir=report_dir,
+        figure_dir=figure_dir,
+        body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
+    )
+    for (name, fig) in figures.items():
+        report.add_figure(name, fig)
+
+    report.add_html_elements('tables', tables)
+    report.add_html_elements('kpis', statistics(gdf))
 
     if mode == "both":
-        interactive_path = render_report("interactive", "")
-        static_path = render_report("png", "_static")
+        interactive_path = report.render(fig_mode="interactive", suffix="")
+        static_path = report.render(fig_mode="png", suffix="_static")
         return {"interactive": interactive_path, "static": static_path}
     elif mode == "static":
-        return render_report("png", "_static")
+        return report.render(fig_mode="png", suffix="_static")
     else:
-        return render_report("interactive", "")
+        return report.render(fig_mode="interactive", suffix="")
 
 
 def load_gdf_from_csv(csv_path):
@@ -225,15 +204,16 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     export_excel(data_gdf, os.path.join(report_dir, 'data', 'data.xlsx'))
 
     # make html report
+
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]
     static_path = report_paths["static"]
     log.info(f'Interactive HTML report built at {html_path}')
     log.info(f'Static HTML report built at {static_path}')
 
-    if include_pdf:
-        pdf_path = make_pdf_from_html(static_path)
-        log.info(f'PDF report built from static at {pdf_path}')
+    # if include_pdf:
+    #     pdf_path = make_pdf_from_html(static_path)
+    #     log.info(f'PDF report built from static at {pdf_path}')
 
     log.info(f"Report orchestration complete. Report is available in {report_dir}")
     return

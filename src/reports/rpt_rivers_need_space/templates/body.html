@@ -1,0 +1,72 @@
+  <!-- We can think of sections as "pages" in the PDF -->
+  <section>
+    <h2>KPIs</h2>
+    <dl class="metric-grid">
+      {% for key, value in kpis.items() %}
+      <div class="metric">
+        <dt>{{ key.replace('_', ' ').title() }}</dt>
+        <dd>{{ "{:,.0f}".format(value) }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </section>
+  <section>
+    <h2>Map of Polygons</h2>
+    <figure class="report-figure">
+      {{ figures['map']|safe }}
+      <figcaption>Interactive map of identified polygons.</figcaption>
+    </figure>
+  </section>
+  <section>
+    <h2>Segment Area by Ownership</h2>
+    <figure class="report-figure">
+      {{ figures['bar']|safe }}
+      <figcaption>Visualization of segment area by ownership category.</figcaption>
+    </figure>
+    <figure class="report-figure">
+      {{ tables['owners']|safe}}
+      <figcaption>Tabular summary of segment ownership.</figcaption>
+    </figure>
+  </section>
+  <section>
+    <h2>Segment Area by feature code</h2>
+    <figure class="report-figure">
+      {{ figures['pie']|safe }}
+      <figcaption>Segment areas grouped by feature code.</figcaption>
+    </figure>
+  </section>
+  <section>
+    <h2>Table of Stream Names and lengths</h2>
+    <figure class="report-figure">
+      {{ tables['river_names']|safe}}
+      <figcaption>Stream names listed with calculated lengths.</figcaption>
+    </figure>
+  </section>
+  <section>
+    <h2>Condition</h2>
+    <figure class="report-figure">
+      {{figures['low_lying']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['prop_riparian']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['floodplain_access']|safe}}
+    </figure>
+    <h2>Recovery Potential</h2>
+    <figure class="report-figure">
+      {{figures['land_use_intensity']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['prop_ag_dev']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['dens_road_rail']|safe}}
+    </figure>
+  </section>
+
+  <section class="appendix">
+    <h1>Appendices</h1>
+    <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
+    {{tables['project_id_table']|safe}}
+  </section>
