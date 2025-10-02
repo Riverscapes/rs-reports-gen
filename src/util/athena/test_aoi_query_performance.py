@@ -2,8 +2,7 @@ import time
 import geopandas as gpd
 import logging
 from rsxml import Logger
-from util.athena.query_aoi import run_aoi_athena_query, run_athena_aoi_query
-from util.athena.athena import athena_query_get_parsed
+from util.athena import run_aoi_athena_query, run_athena_aoi_query
 import pandas as pd
 from util.athena.athena import get_s3_file
 import os

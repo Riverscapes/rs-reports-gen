@@ -3,7 +3,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 import geopandas as gpd
 import pint
-from rsxml import Logger
 
 # assume pint registry has been set up already
 
@@ -268,10 +267,34 @@ def table_of_ownership(gdf) -> str:
     return df.to_html(index=False, escape=False)
 
 
+def table_of_fcodes(gdf) -> str:
+    """
+    generate table summary of fcode descriptions and lengths
+    """
+
+    df = gdf[["fcode_desc", "stream_length"]].copy()
+    df = RSGeoDataFrame(df.groupby('fcode_desc', as_index=False)['stream_length'].sum())
+    total = df['stream_length'].sum()  # Quantity
+    percent = (df['stream_length'] / total * 100)
+
+    df['fcode_total_pct'] = percent
+    # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
+    RSFieldMeta().add_field_meta(name='fcode_total_pct', friendly_name='Percent of Total (%)', dtype='REAL')
+
+    total_row = pd.DataFrame({
+        'fcode_desc': ['Total'],
+        'stream_length': total,
+        'fcode_total_pct': [100]
+    })
+    df.set_footer(total_row)
+
+    return df.to_html()
+
 # =========================
 # Figures - generate specific figures
 # take a (geo)dataframe and return a plotly graph object
 # =========================
+
 
 def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Low_Lying_Ratio.json
