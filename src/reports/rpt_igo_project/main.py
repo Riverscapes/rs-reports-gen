@@ -7,14 +7,22 @@ import logging
 import sys
 import traceback
 import tempfile
-import geopandas as gpd
+import shutil
 # Third party imports
+import geopandas as gpd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 from util.athena.athena import get_s3_file
 # Local imports
 from .athena_query_aoi import run_aoi_athena_query
 from .athenacsv_to_rme import create_gpkg_igos_from_csv, create_igos_project
+
+
+def generate_report(project_dir: str):
+    """Make a readme file"""
+    src_dir = os.path.dirname(__file__)
+    template_path = os.path.join(src_dir, 'templates', 'template_readme.md')
+    shutil.copyfile(template_path, os.path.join(project_dir, 'README.md'))
 
 
 def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, project_name, log_path):
@@ -38,12 +46,13 @@ def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, 
         log.error('Did not get result from run_aoi_athena_query that we were expecting')
         raise ValueError("No valid S3 path returned from Athena query; cannot download file.")
     log.info('Athena query to extract data for AOI completed successfully.')
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile:  # could change to True for production?
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile:
         local_csv_path = tmpfile.name
-        get_s3_file(path_to_results, local_csv_path)
-        log.info('Downloaded results csv from s3 successfully.')
-        gpkg_path = create_gpkg_igos_from_csv(project_dir, spatialite_path, local_csv_path)
-        create_igos_project(project_dir, project_name, spatialite_path, gpkg_path, log_path, aoi_gdf)
+    get_s3_file(path_to_results, local_csv_path)
+    log.info('Downloaded results csv from s3 successfully.')
+    gpkg_path = create_gpkg_igos_from_csv(project_dir, spatialite_path, local_csv_path)
+    create_igos_project(project_dir, project_name, spatialite_path, gpkg_path, log_path, aoi_gdf)
+    generate_report(project_dir)
 
     log.info(f'IGO project created successfully in {project_dir}.')
 

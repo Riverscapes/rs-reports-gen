@@ -19,7 +19,7 @@ def main():
     data_root = os.environ.get("DATA_ROOT")
 
     if not os.environ.get("SPATIALITE_PATH"):
-        raise RuntimeError("\nSPATIALITE_PATH environment variable is not set. Please set it in your .env file\n\n  e.g.SPATIALITE_PATH=/opt/homebrew/lib/mod_spatialite.8.dylib")
+        raise RuntimeError("\nSPATIALITE_PATH environment variable is not set. Please set it in your .env file\n\n  e.g. (on Mac) SPATIALITE_PATH=/opt/homebrew/lib/mod_spatialite.8.dylib \n (on PC) SPATIALITE_PATH=C:\\OSGeo4W\\bin\\mod_spatialite.dll")
     spatialite_path = os.environ.get("SPATIALITE_PATH")
 
     # IF we have everything we need from environment variables then we can skip the prompts
@@ -41,6 +41,9 @@ def main():
                 ],
             ),
         ])
+        if geojson_question is None:
+            print("\nNo geojson file selected. Exiting.\n")
+            exit(0)
         geojson_filename = geojson_question['geojson']
         geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
 
