@@ -49,6 +49,39 @@ def main():
     }
 
     ################################################################################
+    # A few utility functions
+    ################################################################################
+
+    # You can just get a nice friendly name for a field with the unit included:
+    print(_FIELD_META.get_field_header('drainage_area'))
+    # OUTPUT: Drainage Area (km²)
+
+    # If you want a nice object with all the metadata for a field:
+    drainage_area_meta = _FIELD_META.get_field_meta('drainage_area')
+    print(drainage_area_meta)
+    # OUTPUT: FieldMetaValues(name='drainage_area', friendly_name='Drainage Area', data_unit='kilometer ** 2',
+    # display_unit='None', dtype='REAL', no_convert=False)
+
+    print(_FIELD_META.get_dimensionality_name(drainage_area_meta.data_unit))
+    # OUTPUT: area
+
+    # Apply units gives back a dataframe with Pint objects in it
+    # This can be useful for doing math since the units will add some safety to the calculation and
+    # the results will (or should) also have appropriate units
+    _FIELD_META.apply_units(data_gdf)
+
+    # Bake units gives back a dataframe with magnitude applied (numbers, not Pint objects) and a list of headers with units baked in
+    baked_df, headers = _FIELD_META.bake_units(data_gdf)
+
+    # Retrieve a list of all headers with units baked in
+    _FIELD_META.get_headers(data_gdf)
+    # OUTPUT: ['Level Path', 'Segment distance (m)', 'Centerline length (m)', 'Segment Area (km²)', 'fcode', 'Feature Code Description', 'longitude', 'latitude', 'Ownership Code', 'Ownership description', 'State', 'County', 'Drainage Area (km²)', 'stream_name', 'stream_order', 'Stream Length (m)', 'huc12', 'rel_flow_length', 'channel_area', 'integrated_width', 'low_lying_ratio', 'elevated_ratio', 'floodplain_ratio', 'acres_vb_per_mile (acre/mi)', 'hect_vb_per_km (ha/km)', 'channel_width', 'lf_agriculture_prop', 'lf_agriculture', 'lf_developed_prop', 'lf_developed', 'lf_riparian_prop', 'lf_riparian', 'ex_riparian', 'hist_riparian', 'prop_riparian', 'hist_prop_riparian', 'develop', 'road_len', 'road_dens', 'rail_len', 'Rail Density', 'land_use_intens', 'road_dist', 'rail_dist', 'div_dist', 'canal_dist', 'infra_dist', 'fldpln_access', 'access_fldpln_extent', 'rme_project_id', 'rme_project_name', 'dgo_geom_obj', 'dgo_polygon_geom']
+
+    # Retrieve a lookup dictionary of field name to header with units baked in
+    _FIELD_META.get_headers_dict(data_gdf)
+    # OUTPUT: {'level_path': 'Level Path', 'seg_distance': 'Segment distance (m)', 'centerline_length': 'Centerline length (m)', 'segment_area': 'Segment Area (km²)', 'fcode': 'fcode', 'fcode_desc': 'Feature Code Description', 'longitude': 'longitude', 'latitude': 'latitude', 'ownership': 'Ownership Code', 'ownership_desc': 'Ownership description', 'state': 'State', 'county': 'County', 'drainage_area': 'Drainage Area (km²)', 'stream_name': 'stream_name', 'stream_order': 'stream_order', 'stream_length': 'Stream Length (m)', 'huc12': 'huc12', 'rel_flow_length': 'rel_flow_length', 'channel_area': 'channel_area', 'integrated_width': 'integrated_width', 'low_lying_ratio': 'low_lying_ratio', 'elevated_ratio': 'elevated_ratio', 'floodplain_ratio': 'floodplain_ratio', 'acres_vb_per_mile': 'acres_vb_per_mile (acre/mi)', 'hect_vb_per_km': 'hect_vb_per_km (ha/km)', 'channel_width': 'channel_width', 'lf_agriculture_prop': 'lf_agriculture_prop', 'lf_agriculture': 'lf_agriculture', 'lf_developed_prop': 'lf_developed_prop', 'lf_developed': 'lf_developed', 'lf_riparian_prop': 'lf_riparian_prop', 'lf_riparian': 'lf_riparian', 'ex_riparian': 'ex_riparian', 'hist_riparian': 'hist_riparian', 'prop_riparian': 'prop_riparian', 'hist_prop_riparian': 'hist_prop_riparian', 'develop': 'develop', 'road_len': 'road_len', 'road_dens': 'road_dens', 'rail_len': 'rail_len', 'rail_dens': 'Rail Density', 'land_use_intens': 'land_use_intens', 'road_dist': 'road_dist', 'rail_dist': 'rail_dist', 'div_dist': 'div_dist', 'canal_dist': 'canal_dist', 'infra_dist': 'infra_dist', 'fldpln_access': 'fldpln_access', 'access_fldpln_extent': 'access_fldpln_extent', 'rme_project_id': 'rme_project_id', 'rme_project_name': 'rme_project_name', 'dgo_geom_obj': 'dgo_geom_obj', 'dgo_polygon_geom': 'dgo_polygon_geom'}
+
+    ################################################################################
     # Adding new columns to your dataframe
     ################################################################################
 

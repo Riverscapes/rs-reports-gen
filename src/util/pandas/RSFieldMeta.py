@@ -41,6 +41,12 @@ class FieldMetaValues:
         self.dtype: str = ""
         self.no_convert: bool = False
 
+    # Make it printable for easier debugging
+    def __repr__(self):
+        return (f"FieldMetaValues(name='{self.name}', friendly_name='{self.friendly_name}', "
+                f"data_unit='{self.data_unit}', display_unit='{self.display_unit}', "
+                f"dtype='{self.dtype}', no_convert={self.no_convert})")
+
 
 class RSFieldMeta:
     """ A Borg pattern to share metadata across multiple DataFrames.
@@ -464,6 +470,32 @@ class RSFieldMeta:
                 self._log.debug(f"Unable to apply units '{fm.data_unit}' to column '{name}': {exc}")
             return applied_unit
         return None
+
+    def get_field_header(self, name: str, include_units: bool = True, unit_fmt=" ({unit})") -> str:
+        """ Get the column header for a specific column based on the metadata.
+
+        Args:
+            name (str): The column name to get the header for.
+            include_units (bool, optional): Whether to include units in the header name. Defaults to True.
+            unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
+
+        Returns:
+            str: The column header with friendly name and units if specified.
+        """
+        fm = self.get_field_meta(name)
+        if not fm:
+            return name
+
+        # Determine the header label
+        header_text = fm.friendly_name if fm and fm.friendly_name else name
+
+        if include_units:
+            preferred_unit = self.get_field_unit(name)
+            if preferred_unit:
+                unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
+                header_text = f"{header_text}{unit_text}"
+
+        return header_text
 
     def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})") -> List[str]:
         """ Get the column headers for a DataFrame based on the metadata. This will return a list of column 
