@@ -366,7 +366,7 @@ class RSFieldMeta:
         self.__set_value(col, "dtype", dtype)
 
     def apply_units(self, df: pd.DataFrame) -> pd.DataFrame:
-        """ Apply units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
+        """ Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is NOT modified in place.
@@ -432,7 +432,7 @@ class RSFieldMeta:
                     self._log.debug(f'Converted {col} from {fm.data_unit} to {preferred_unit} for {self._unit_system} system')
 
             except Exception as exc:  # pragma: no cover - log unexpected issues
-                self._log.debug(f"Unable to apply units '{fm.data_unit}' to column '{col}': {exc}")
+                self._log.warning(f"Unable to apply units '{fm.data_unit}' to column '{col}': {exc}")
             finally:
                 applied_units[col] = applied_unit
 

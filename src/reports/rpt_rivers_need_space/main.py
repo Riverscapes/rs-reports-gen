@@ -89,6 +89,84 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         return report.render(fig_mode="interactive", suffix="")
 
 
+def load_gdf_from_csv(csv_path):
+    """ load csv from athena query into gdf
+
+    Args:
+        csv_path (_type_): _path to csv
+
+    Returns:
+        _type_: gdf
+    """
+    df = pd.read_csv(csv_path)
+    df.describe()  # outputs some info for debugging
+    df['dgo_polygon_geom'] = df['dgo_geom_obj'].apply(wkt.loads)  # pyright: ignore[reportArgumentType, reportCallIssue]
+    gdf = gpd.GeoDataFrame(df, geometry='dgo_polygon_geom', crs='EPSG:4326')
+    # print(gdf)
+    return gdf
+
+
+def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
+    """given aoi in gdf format (assume 4326), just get all the raw_rme (for now)
+    returns: local path to the data csv file"""
+    log = Logger('Run AOI query on Athena')
+    # temporary approach
+    # TODO later try using report-type specific CTAS and report-specific UNLOAD statement (not CSV format)
+    fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, rme_project_id, rme_project_name"
+    s3_csv_path = run_aoi_athena_query(gdf, S3_BUCKET, fields_str=fields_str, source_table="rpt_rme")
+    if s3_csv_path is None:
+        log.error("Didn't get a result from athena")
+        raise NotImplementedError
+    get_s3_file(s3_csv_path, output_path)
+    return
+
+
+def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """ Add any calculated columns to the dataframe
+
+    Args:
+        df (pd.DataFrame): Input dataframe
+
+    Returns:
+        pd.DataFrame: DataFrame with calculated columns added
+    """
+    df['channel_length'] = df['rel_flow_length'] * df['centerline_length']
+
+    meta = RSFieldMeta()
+    existing_meta = meta.field_meta
+    if existing_meta is None or 'channel_length' not in existing_meta.index:
+        table_name = ''
+        data_unit = ''
+        display_unit = ''
+        dtype = ''
+        if existing_meta is not None and 'centerline_length' in existing_meta.index:
+            base_meta = existing_meta.loc['centerline_length']
+            table_name_val = base_meta.get('table_name', '')
+            data_unit_obj = base_meta.get('data_unit')
+            display_unit_obj = base_meta.get('display_unit')
+            dtype_val = base_meta.get('dtype', '')
+            if pd.notna(table_name_val):
+                table_name = str(table_name_val)
+            if pd.notna(data_unit_obj):
+                data_unit = str(data_unit_obj)
+            if pd.notna(display_unit_obj):
+                display_unit = str(display_unit_obj)
+            if pd.notna(dtype_val):
+                dtype = str(dtype_val)
+        meta.add_field_meta(
+            name='channel_length',
+            table_name=table_name,
+            friendly_name='Channel Length',
+            data_unit=data_unit,
+            display_unit=display_unit,
+            dtype=dtype or 'DOUBLE',
+        )
+    return df
+
+
+>>>>>> > ab1c2da(better comments)
+
+
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str,
                              existing_csv_path: str | None = None,
                              include_pdf: bool = True,

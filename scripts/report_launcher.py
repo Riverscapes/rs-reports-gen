@@ -35,7 +35,7 @@ class ReportEntry:
 
 
 def iter_reports(directory: Path) -> Iterable[ReportEntry]:
-    """Yield all report packages that provide a ``main.py`` entry point."""
+    """Yield all report packages that provide a ``main.py`` entry point AND a launch.py."""
 
     if not directory.exists():
         raise RuntimeError(f"Reports directory not found: {directory}")
