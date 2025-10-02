@@ -15,7 +15,7 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util.athena import get_s3_file, run_aoi_athena_query, get_field_metadata
-
+from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta
 # Local imports
@@ -212,9 +212,9 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     log.info(f'Interactive HTML report built at {html_path}')
     log.info(f'Static HTML report built at {static_path}')
 
-    # if include_pdf:
-    #     pdf_path = make_pdf_from_html(static_path)
-    #     log.info(f'PDF report built from static at {pdf_path}')
+    if include_pdf:
+        pdf_path = make_pdf_from_html(static_path)
+        log.info(f'PDF report built from static at {pdf_path}')
 
     log.info(f"Report orchestration complete. Report is available in {report_dir}")
     return

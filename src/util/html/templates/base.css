@@ -279,7 +279,7 @@ table.dataframe thead th {
   color: #fff;            
 }
 
-   thead th a {
+thead th a {
   color: #fff;
   text-decoration: underline;
 }
@@ -289,12 +289,18 @@ table.dataframe th,
 table.dataframe td {
   border-color: var(--border-bg);
 }
-
 table.dataframe tbody tr:nth-child(even) > td {
-  background-color: var(--table-bg) !important;
+  background-color: var(--table-bg);
 }
 table.dataframe tbody tr:nth-child(odd) > td {
   background-color: transparent; /* keep odd rows plain */
+}
+
+table.dataframe td.footer {
+  border-top: 2px solid var(--border-bg);
+  font-weight: 600;
+  background-color: #aaaaaa;
+  color: black;
 }
 
 .report-figure {

@@ -274,28 +274,50 @@ a:focus {
   margin-top: 0.45rem;
 }
 
-table.dataframe thead th {
-  background-color: var(--accent-color);
-  color: #fff;            
-}
+/* ===== Tables: Global (screen + print) ===== */
 
-   thead th a {
+/* Generic tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: Arial, sans-serif;
+  font-size: 0.9rem;
+  color: #004793;
+  border: 1px solid #1c5faa; /* outer frame */
+}
+th {
+  background-color: #004793;
   color: #fff;
-  text-decoration: underline;
+  text-align: left;
+  padding: 8px;
+  border: 1px solid #1c5faa;
+  font-weight: 600;
+}
+td {
+  border: 1px solid #1c5faa;
+  padding: 8px;
+  text-align: left;
+}
+tr:nth-child(even) td {
+  background-color: #f1f4f9;
 }
 
-table.dataframe,
+/* Pandas DataFrame tables */
+table.dataframe {
+  border: 1px solid #1c5faa;
+}
 table.dataframe th,
 table.dataframe td {
-  border-color: var(--border-bg);
+  border: 1px solid #1c5faa;
+}
+table.dataframe thead th {
+  background-color: #004793;
+  color: #fff;
+}
+table.dataframe tbody tr:nth-child(even) > td {
+  background-color: #f1f4f9;
 }
 
-table.dataframe tbody tr:nth-child(even) > td {
-  background-color: var(--table-bg) !important;
-}
-table.dataframe tbody tr:nth-child(odd) > td {
-  background-color: transparent; /* keep odd rows plain */
-}
 
 .report-figure {
   margin: 0 0 1.5rem;
@@ -438,32 +460,89 @@ canvas {
 }
 
 @media print {
-    @page {
-    size: Letter;   /* 8.5in × 11in */
-    margin: 0.5in;
-  }
-  :root {
-    --page-width: 66rem;
-    --page-gutter: 0;
-  }
+/* =========================================
+   0) Page & Global
+   ========================================= */
+  @page { size: Letter; margin: 0; }
+  :root { --page-width: 66rem; --page-gutter: 0; }
 
-  html {
-    font-size: 10.909px; /* (8.5 - 1.0)in * 96 / 66 = 10.909px */
-  }
   body {
-    /* outline: 8px solid magenta !important; */
-    background: #ffffff !important;
+    background: #fff !important;
     color: #000;
     font-size: 12pt;
+    font-family: var(--body-font-family) !important;
   }
+
+  a { color: inherit; text-decoration: underline; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+
+  /* Utility */
+  .pdf-hide { display: none; }
+
+  /* Avoid awkward splits for common blocks */
+  table, .metric, .plotly-graph-div { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Page-break helpers */
+  .page-break,
+  .page-break-before,
+  .page-break-after { display: block; }
+  .page-break,
+  .page-break-after { break-after: page; page-break-after: always; }
+  .page-break-before { break-before: page; page-break-before: always; }
+
+/* =========================================
+   1) Top Bars / Headers
+   (a) Formats bar (#report-nav)
+   (b) Site header (#site-header)
+   ========================================= */
+
+  /* (a) Formats bar — already hidden via .pdf-hide */
+
+
+  .header-meta {
+    display: flex;
+    justify-content: space-between; /* left-align metadata */
+    align-items: center;
+    width: 650px;
+    gap: 1.55rem;
+    flex-wrap: nowrap;
+  }
+
+  .meta-item {
+    display: inline-flex;          /* keep label + time on one line */
+    align-items: center;
+    gap: 0.25rem;                  /* space between label + value */
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
+    white-space: nowrap;           /* prevent wrapping */
+  }
+
+  .meta-label {
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .meta-item time {
+    font-weight: 500;
+  }
+
+/* =========================================
+   2) Main Container
+   ========================================= */
   .report-container { padding: 0; }
-  .report-inner {
+  .report-inner{
     margin: 0 auto;
-    padding: 0.35in;    
-    box-shadow: none;    
+    padding: 0.35in;
+    box-shadow: none;
+    background: #fff;
+    color: #000;
   }
-  h1,
-  h2 {
+
+/* =========================================
+   3) Section Typography (headings, text)
+   ========================================= */
+  h1, h2{
     font-family: var(--header-font-family);
     color: var(--header-color);
     clear: both;
@@ -472,9 +551,7 @@ canvas {
     font-weight: 600;
     border-bottom: 1px solid var(--border-bg);
   }
-  h3,
-  h4,
-  h5 {
+  h3, h4, h5{
     font-family: var(--header-font-family);
     color: var(--accent-color);
     clear: both;
@@ -484,236 +561,107 @@ canvas {
     border-bottom: none !important;
   }
 
-  .riverscapes-logo {
-  background-image: url(https://data.riverscapes.net/riverscapes.png);
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  flex: 0 0 55px;
-  min-width: 55px;
-  min-height: 55px;
-}
-  .header-content {
-    flex: 1 1 auto;
+/* =========================================
+   4) KPI / Metrics (dl.metric-grid)
+   ========================================= */
+   .metric-grid{
     display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .header-meta {
-    display: flex;
-    justify-content: space-between;
-    flex-direction: row !important;
-    gap: 0.1in !important;
-    width: 100%;
     flex-wrap: wrap;
-  }
-  .header-meta .meta-item {
-    width: 100% !important;
-    box-sizing: border-box;
-  }
-
-  .meta-item {
-    display: flex;
-    /* align-items: baseline; */
-    gap: 0.2rem;
-    font-size: 0.95rem;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-    margin: 0;
+    justify-content: flex-start;       /* left-align the row */
+    gap: 0.2in;                         /* clear visual spacing */
+    margin: 0.15in 0 0.35in 0;
+    padding: 0;
+    color: #004793;
   }
 
-  .meta-label {
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  #site-header h1{
-    font-size: 1.8rem;
-    font-weight: 800;
-    border-bottom: none;
-  }
-
-  #site-header h1,
-  #site-header h4 {
-    clear: both;
-    color: #fffffaff;
-    padding: 0.2rem 0;
-    margin: 0;
-  }
-  .pdf-hide{ 
-    display: none;
-  }
-  a {
-    color: inherit;
-    text-decoration: underline;
-  }
-
-  a[href^="http"]::after {
-    content: " (" attr(href) ")";
-    font-size: 0.85em;
-  }
-
-  .page-break,
-  .page-break-before,
-  .page-break-after {
-    display: block;
-  }
-  .metric-grid {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;   /* center last row */
-    margin: 0.1in 0 0.3in 0 !important; /* add space above and below grid */
-    padding: 0  !important;
-    gap: 0 !important; 
-  }
-   .metric-grid > * {
-    flex: 1 1 100px !important; 
-    margin: 0.03in !important; 
-    box-sizing: border-box;
-  }
-
-  .page-break,
-  .page-break-before,
-  .page-break-after { display: block; }
-  .page-break,
-  .page-break-after { break-after: page; page-break-after: always; }
-  .page-break-before { break-before: page; page-break-before: always; }
-
-
-  table,
-  .metric,
-  .plotly-graph-div {
+  /* Each card: readable width, avoid page splits */
+  .metric-grid > .metric{
+    height: 200px;
+    width: 23%;
+    padding: 0.18in;
+    border-radius: 8px;
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* Title */
+  .metric dt{
+    text-transform: uppercase;
+    line-height: 1.25;
+    font-size: 8px;
+    min-height: 60px;
+  }
+
+  /* Value line(s) */
+  .metric dd{
+    margin: 0;
+    line-height: 1.35;
+    font-size: 11pt;
+  }
+
+  /* Optional details line */
+  .metric .metric-details{
+    margin-top: 0.12in;
+  }
+
+/* =========================================
+   5) Tables (generic + pandas .dataframe)
+   ========================================= */
+
+
+   /* Avoid awkward table splits in print */
+  table,
   table.dataframe {
-    border: 0 !important;
-  }
-  table.dataframe th,
-  table.dataframe td {
-    border: 0 !important;
-  }
-
-  table.dataframe thead th,
-  table.dataframe tbody tr:nth-child(even) > td {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-   .site-footer{
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    color: #fff !important;
-    background:
-      rgb(0,18,88)
-      url("https://pbr.riverscapes.net/footer/background.jpg")
-      center / cover no-repeat !important;
     break-inside: avoid;
+    page-break-inside: avoid;
   }
 
+/* =========================================
+   7) Figures / Captions
+   ========================================= */
+  .report-figure{ break-inside: avoid; page-break-inside: avoid; }
+
+/* =========================================
+   8) Footer
+   ========================================= */
+  
   .footer-inner{
     max-width: var(--page-width);
     margin: 0 auto;
-    padding: 0.35in;      
+    padding: 0.35in;
   }
 
-  /* Pico .grid → flex for WeasyPrint (keeps one row: logo | column) */
   .footer-inner .grid{
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 0.3in !important;
-    width: 100% !important;
-    margin: 0 !important;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    padding-bottom: 10px;
   }
 
-  /* Logo (fixed width) */
-  .footer-logo{
-    flex: 0 0 200px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    margin: 0 !important;
-  }
-  .riverscapes-footer-logo{
-    width: 200px !important;
-    height: 60px !important;
-    background-image: url("https://pbr.riverscapes.net/footer/riverscapes.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-  }
-
-  /* Right column: show heading + list; align right */
-  .footer-col{
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-end !important;
-    text-align: left !important;
-  }
   .footer-heading{
-    color: #fff !important;
-    margin: 0 0 .1in 0 !important;
+    font-size: 16px;
   }
 
-  /* SHOW list text in print */
-  .footer-links{
-    display: grid !important;     /* or block */
-    gap: .12in !important;        /* nicer vertical rhythm on paper */
-    line-height: 1.4 !important;
-    padding-left: 0 !important;   /* remove the .5rem indent for a cleaner rule */
-    margin: 0 !important;
-  }
-  .footer-links a{
-    color: #fff !important;
-    text-decoration: underline;
-  }
-  .site-footer .footer-links a,
-  .site-footer .footer-links a:link,
-  .site-footer .footer-links a:visited,
-  .site-footer .footer-links a:hover,
-  .site-footer .footer-links a:focus,
-  .site-footer .footer-links a:active {
-    /* nuke Pico decorations that create the gray pill */
-    background: none !important;
-    background-color: transparent !important;
-    background-image: none !important;
-    box-shadow: none !important;
-    outline: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    text-shadow: none !important;
-
-    /* keep them readable on dark bg */
-    color: #fff !important;
-    text-decoration: underline !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  .footer-col {
+    flex: 1 1 auto;
+    max-width: 350px;  
+    margin-left: 0.5in;
+    align-items: flex-start;
+    text-align: left;
   }
 
-  /* HIDE only the auto-appended URLs in the footer */
+  /* Hide auto-appended URLs in footer links */
   .site-footer a[href]::after{ content: none !important; }
 
-  /* Bottom bar */
-  .footer-bottom{
-    border-top: 1px solid rgba(255,255,255,.35) !important;
-    padding-top: 0.12in !important;
-    margin-top: 0.12in !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-  }
-  .footer-copy{
-    color: #fff !important;
-    opacity: .9 !important;
-    margin: 0 !important;
+  .site-footer{
+    break-inside: avoid;
   }
 
-  body, .footer-inner, .footer-col, .footer-bottom, .footer-copy {
-    font-family: var(--body-font-family) !important;
+  .footer-links{
+    gap: .12in;
+    line-height: 1.4;
+    font-size: .9rem;
   }
-
+  
 }
+
