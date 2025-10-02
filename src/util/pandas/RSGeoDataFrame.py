@@ -61,6 +61,34 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         # Make sure the footer comes along for the ride
         return RSGeoDataFrame(df_copy, footer=footer)
 
+    def export_excel(self, output_path: str):
+        """ Export the GeoDataFrame to an Excel file with metadata.
+
+        Args:
+            output_path (str): The path to save the Excel file.
+        """
+        self.log.info(f"Exporting data to Excel at {output_path}")
+
+        baked_gdf, baked_headers = self._meta_df.bake_units(self)
+        baked_gdf.columns = baked_headers
+
+        # Now add the footer columns if there are any
+        if not self._footer.empty:
+            self.log.debug("Adding footer to Excel export")
+            footer = self._footer.copy()
+            # Ensure footer has the same columns as baked_gdf
+            for col in baked_gdf.columns:
+                if col not in footer.columns:
+                    footer[col] = pd.NA
+            footer = footer[baked_gdf.columns]  # Reorder columns to match
+            baked_gdf = pd.concat([baked_gdf, footer], ignore_index=True)
+
+        # excel version
+        with pd.ExcelWriter(output_path) as writer:
+            baked_gdf.to_excel(writer, sheet_name="data")
+            self._meta_df.field_meta.to_excel(writer, sheet_name="metadata")
+        self.log.info(f"Excel export complete. See it here: {output_path}")
+
     def to_html(self, *args,
                 include_units=True,
                 use_friendly=True,

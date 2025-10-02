@@ -23,26 +23,6 @@ def load_gdf_from_csv(csv_path):
     return gdf
 
 
-def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system: str = "US"):
-    """convert all measures according to unit system 
-    does not work yet
-
-    Args:
-        gdf (gpd.GeoDataFrame): data_gpd
-        unit_system (str, optional): Unit system. Defaults to "US".
-
-    Returns:
-        same data frame but with units converted
-    """
-    ureg.default_system = unit_system
-    for col in gdf.columns:
-        if hasattr(gdf[col], 'pint'):
-            # convert each unit DOES NOT WORK this way
-            # pint.to_unit(foot) etc. does work -- we'll need to know which units
-            gdf[col] = gdf[col].pint.to_base_units()
-    return gdf
-
-
 def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
     """ Add any calculated columns to the dataframe
 

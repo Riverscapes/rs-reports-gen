@@ -6,9 +6,7 @@ import sys
 import shutil
 import traceback
 # 3rd party imports
-import pandas as pd
 import geopandas as gpd
-import pint
 
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
@@ -18,7 +16,7 @@ from util.athena import get_field_metadata, get_data_for_aoi
 
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
-from util.pandas import RSFieldMeta
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 # Local imports
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
@@ -38,7 +36,6 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
 
 S3_BUCKET = "riverscapes-athena"
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-ureg = pint.UnitRegistry()
 
 
 def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
@@ -128,8 +125,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     add_calculated_cols(data_gdf)
 
-    # excel version
-    export_excel(data_gdf, os.path.join(report_dir, 'data', 'data.xlsx'))
+    # Export the data to Excel
+    RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
     # make html report
 
@@ -145,25 +142,6 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     log.info(f"Report orchestration complete. Report is available in {report_dir}")
     return
-
-
-def export_excel(gdf: gpd.GeoDataFrame, output_path: str):
-    """ Export the GeoDataFrame to an Excel file with metadata.
-
-    Args:
-        gdf (gpd.GeoDataFrame): The input GeoDataFrame.
-        output_path (str): The path to save the Excel file.
-    """
-    log = Logger('Export Excel')
-    log.info(f"Exporting data to Excel at {output_path}")
-
-    baked_gdf, baked_headers = _FIELD_META.bake_units(gdf)
-    baked_gdf.columns = baked_headers
-
-    # excel version
-    with pd.ExcelWriter(output_path) as writer:
-        baked_gdf.to_excel(writer, sheet_name="data")
-        _FIELD_META.field_meta.to_excel(writer, sheet_name="metadata")
 
 
 def main():

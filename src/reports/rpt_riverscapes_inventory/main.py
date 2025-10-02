@@ -4,23 +4,18 @@ import logging
 import os
 import sys
 import shutil
-from datetime import datetime
-from importlib import resources
 import traceback
 # 3rd party imports
 import geopandas as gpd
-import pandas as pd
-
-from jinja2 import Template
-
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from util.pandas import load_gdf_from_csv, convert_gdf_units, add_calculated_cols
+from util.pandas import load_gdf_from_csv, add_calculated_cols
 from util.athena import get_data_for_aoi, get_field_metadata
 
 from util.pdf import make_pdf_from_html
-from util.plotly.export_figure import export_figure
+from util.html import RSReport
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
                                                    make_map_with_aoi,
@@ -38,6 +33,7 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    )
 
 S3_BUCKET = "riverscapes-athena"
+_FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
 
 def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
@@ -68,65 +64,53 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
 
-    def render_report(fig_mode, suffix=""):
-        figure_exports = {}
-        for (name, fig) in figures.items():
-            figure_exports[name] = export_figure(
-                fig, figure_dir, name, mode=fig_mode, include_plotlyjs=False, report_dir=report_dir
-            )
-        templates_pkg = resources.files(__package__).joinpath('templates')
-        template = Template(templates_pkg.joinpath('template.html').read_text(encoding='utf-8'))
-        css = templates_pkg.joinpath('report.css').read_text(encoding='utf-8')
-        style_tag = f"<style>{css}</style>"
-        now = datetime.now()
-        html = template.render(
-            report={
-                'head': style_tag,
-                'title': report_name,
-                'date': now.strftime('%B %d, %Y - %I:%M%p'),
-                'ReportType': "Rivers Need Space"
-            },
-            report_name=report_name,
-            figures=figure_exports,
-            kpis=statistics(gdf),
-            tables=tables
-        )
-        out_path = os.path.join(report_dir, f"report{suffix}.html")
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(html)
-        log.info(f"Report written to {out_path}")
-        return out_path
+    report = RSReport(
+        report_name=report_name,
+        report_type="Riverscapes Inventory",
+        report_dir=report_dir,
+        figure_dir=figure_dir,
+        body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
+        css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
+    )
+    for (name, fig) in figures.items():
+        report.add_figure(name, fig)
+
+    report.add_html_elements('tables', tables)
+    report.add_html_elements('kpis', statistics(gdf))
 
     if mode == "both":
-        interactive_path = render_report("interactive", "")
-        static_path = render_report("png", "_static")
+        interactive_path = report.render(fig_mode="interactive", suffix="")
+        static_path = report.render(fig_mode="png", suffix="_static")
         return {"interactive": interactive_path, "static": static_path}
     elif mode == "static":
-        return render_report("png", "_static")
+        return report.render(fig_mode="png", suffix="_static")
     else:
-        return render_report("interactive", "")
+        return report.render(fig_mode="interactive", suffix="")
 
 
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str,
-                             existing_csv_path: str | None = None, include_pdf: bool = True):
+                             existing_csv_path: str | None = None, include_pdf: bool = True, unit_system: str = "SI"):
     """ Orchestrates the report generation process:
 
     Args:
         report_name (str): The name of the report.
         report_dir (str): The directory where the report will be saved.
         path_to_shape (str): The path to the shapefile for the area of interest.
+        existing_csv_path (str | None, optional): Path to an existing CSV file to use instead of querying Athena. Defaults to None.
+        include_pdf (bool, optional): Whether to generate a PDF version of the report. Defaults to True.
+        unit_system (str, optional): The unit system to use ("SI" or "imperial"). Defaults to "SI".
     """
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
+
+    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
+    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
     # get data first as csv
     safe_makedirs(os.path.join(report_dir, 'data'))
     csv_data_path = os.path.join(report_dir, 'data', 'data.csv')
-
-    df_meta = get_field_metadata()
-    df_meta.describe()
 
     if existing_csv_path:
         log.info(f"Using supplied csv file at {csv_data_path}")
@@ -136,17 +120,12 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         get_data_for_aoi(S3_BUCKET, aoi_gdf, csv_data_path)
 
     data_gdf = load_gdf_from_csv(csv_data_path)
-    data_gdf.meta.attach_metadata(df_meta)
-    data_gdf = convert_gdf_units(data_gdf, 'US')
     data_gdf = add_calculated_cols(data_gdf)
 
-    # excel version
-    with pd.ExcelWriter(os.path.join(report_dir, 'data', 'data.xlsx')) as writer:
-        data_gdf.to_excel(writer, sheet_name="data")
-        df_meta.to_excel(writer, sheet_name="metadata")
+    # Export the data to Excel
+    RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
     # make html report
-
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]
     static_path = report_paths["static"]
@@ -168,6 +147,8 @@ def main():
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
+    parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
+    parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
     parser.add_argument('--csv', help='Path to a local CSV of AOI data to use instead of querying Athena', type=str, default=None)
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
@@ -193,7 +174,12 @@ def main():
         log.info("No existing CSV provided, will query Athena")
 
     try:
-        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, args.csv)
+        make_report_orchestrator(args.report_name,
+                                 output_path,
+                                 args.path_to_shape,
+                                 args.csv,
+                                 args.include_pdf,
+                                 args.unit_system)
 
     except Exception as e:
         log.error(e)
