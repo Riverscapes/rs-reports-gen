@@ -14,6 +14,7 @@ import pandas as pd
 from rsxml import Logger
 
 S3_ATHENA_BUCKET = "riverscapes-athena"
+ATHENA_WORKGROUP = "primary"
 
 
 def fix_s3_uri(argstr: str) -> str:
@@ -194,6 +195,7 @@ def _run_athena_query(
     athena = boto3.client('athena', region_name='us-west-2')
     response = athena.start_query_execution(
         QueryString=query,
+        WorkGroup=ATHENA_WORKGROUP,
         QueryExecutionContext={
             'Database': 'default',
             'Catalog': 'AwsDataCatalog'
