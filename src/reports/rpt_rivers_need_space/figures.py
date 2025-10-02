@@ -325,6 +325,43 @@ def table_of_river_names(gdf: pd.DataFrame) -> str:
     return df_t.to_html(index=False, escape=False)
 
 
+def table_of_fcodes(gdf) -> str:
+    """
+    generate table summary of fcode descriptions and lengths
+    """
+
+    df = subset_with_meta(gdf, ["fcode_desc", "stream_length"])
+    df = df.groupby('fcode_desc', as_index=False)['stream_length'].sum()
+    total = df['stream_length'].sum()  # Quantity
+    percent = (df['stream_length'] / total * 100)
+    df['Percent of Total'] = percent
+    # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
+    df.meta.set_friendly('Percent of Total', 'Percent of Total')
+    df.meta.set_unit('Percent of Total', '%')
+
+    total_row = pd.DataFrame({
+        'fcode_desc': ['Total'],
+        'stream_length': [f"{_floatformat2(total.magnitude)}"],
+        'Percent of Total': ["100.0%"]
+    })
+
+    df = pd.concat([df, total_row], ignore_index=True)
+    # Use metadata for friendly names and units in headings
+    friendly_area = df.meta.friendly('stream_length')
+    unit_area = df.meta.unit('stream_length')
+    friendly_owner = df.meta.friendly('ownership')
+    friendly_owner_desc = df.meta.friendly('ownership_desc')
+    percent_friendly = df.meta.friendly('Percent of Total')
+    percent_unit = df.meta.unit('Percent of Total')
+    # df.columns = [
+    #     friendly_owner,
+    #     friendly_owner_desc,
+    #     f"{friendly_area} ({unit_area})" if unit_area else friendly_area,
+    #     f"{percent_friendly} ({percent_unit})" if percent_unit else percent_friendly
+    # ]
+    return df.to_html(index=False, escape=False)
+
+
 def table_of_ownership(gdf) -> str:
     # common elements with table_of_river_names to be separated out
     # Pint-enabled DataFrame for calculation

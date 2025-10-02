@@ -44,15 +44,21 @@ def main():
         geojson_filename = geojson_question['geojson']
         geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
 
-    # Now ask for an optional csv path
-    csv_question = inquirer.prompt([
-        inquirer.Text(
-            'csv',
-            message="Optional: Enter a path to a CSV file to use for results (leave blank to query Athena)",
-            default="",
-        ),
-    ])
-    csv_file = csv_question['csv']
+    if os.environ.get("RNS_CSV"):
+        if not os.path.exists(os.path.join(os.environ.get("RNS_CSV"))):
+            raise RuntimeError(
+                colored(f"\nThe RNS_CSV environment variable is set to '{os.environ.get('RNS_CSV')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+        csv_file = os.environ.get("RNS_CSV")
+    else:
+        # No CSV file provided. Ask for an optional csv path
+        csv_question = inquirer.prompt([
+            inquirer.Text(
+                'csv',
+                message="Optional: Enter a path to a CSV file to use for results (leave blank to query Athena)",
+                default="",
+            ),
+        ])
+        csv_file = csv_question['csv']
 
     if os.environ.get("RNS_REPORT_NAME"):
         report_name = os.environ.get("RNS_REPORT_NAME")

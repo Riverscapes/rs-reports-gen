@@ -18,10 +18,10 @@ from jinja2 import Template
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from util.athena import get_s3_file, run_aoi_athena_query
-from util.athena.athena import athena_query_get_parsed
+from util.pandas import load_gdf_from_csv, convert_gdf_units, add_calculated_cols
+from util.athena import get_s3_file, run_aoi_athena_query, get_data_for_aoi, athena_query_get_parsed, get_metadata
 
-from util.pdf.create_pdf import make_pdf_from_html
+from util.pdf import make_pdf_from_html
 from util.plotly.export_figure import export_figure
 # Local imports
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
@@ -110,94 +110,6 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         return render_report("interactive", "")
 
 
-def load_gdf_from_csv(csv_path):
-    """ load csv from athena query into gdf
-
-    Args:
-        csv_path (_type_): _path to csv
-
-    Returns:
-        _type_: gdf
-    """
-    df = pd.read_csv(csv_path)
-    df.describe()  # outputs some info for debugging
-    df['dgo_polygon_geom'] = df['dgo_geom_obj'].apply(wkt.loads)  # pyright: ignore[reportArgumentType, reportCallIssue]
-    gdf = gpd.GeoDataFrame(df, geometry='dgo_polygon_geom', crs='EPSG:4326')
-    # print(gdf)
-    return gdf
-
-
-def get_data_for_aoi(gdf: gpd.GeoDataFrame, output_path: str):
-    """given aoi in gdf format (assume 4326), just get all the raw_rme (for now)
-    returns: local path to the data csv file"""
-    log = Logger('Run AOI query on Athena')
-    # temporary approach -- later try using report-type specific CTAS and report-specific UNLOAD statement
-    fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, rme_project_id, rme_project_name"
-    s3_csv_path = run_aoi_athena_query(gdf, S3_BUCKET, fields_str=fields_str, source_table="rpt_rme")
-    if s3_csv_path is None:
-        log.error("Didn't get a result from athena")
-        raise NotImplementedError
-    get_s3_file(s3_csv_path, output_path)
-    return
-
-
-def get_metadata() -> pd.DataFrame:
-    """
-    Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
-
-    Returns:
-        pd.DataFrame - DataFrame of metadata
-
-    Example:
-        metadata_df = get_metadata_df()
-    """
-    log = Logger('Get metadata')
-    log.info("Getting metadata from athena")
-
-    query = """
-        SELECT table_name, name, type, friendly_name, unit, description
-        FROM rme_table_column_defs
-    """
-    result = athena_query_get_parsed(S3_BUCKET, query)
-    if result is not None:
-        return pd.DataFrame(result)
-    raise RuntimeError("Railed to retrieve metadata from Athena.")
-
-
-def convert_gdf_units(gdf: gpd.GeoDataFrame, unit_system: str = "US"):
-    """convert all measures according to unit system 
-    does not work yet
-
-    Args:
-        gdf (gpd.GeoDataFrame): data_gpd
-        unit_system (str, optional): Unit system. Defaults to "US".
-
-    Returns:
-        same data frame but with units converted
-    """
-    ureg.default_system = unit_system
-    for col in gdf.columns:
-        if hasattr(gdf[col], 'pint'):
-            # convert each unit DOES NOT WORK this way
-            # pint.to_unit(foot) etc. does work -- we'll need to know which units
-            gdf[col] = gdf[col].pint.to_base_units()
-    return gdf
-
-
-def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
-    """ Add any calculated columns to the dataframe
-
-    Args:
-        df (pd.DataFrame): Input dataframe
-
-    Returns:
-        pd.DataFrame: DataFrame with calculated columns added
-    """
-    # TODO: add metadata for any added columns
-    df['channel_length'] = df['rel_flow_length']*df['centerline_length']
-    return df
-
-
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str,
                              existing_csv_path: str | None = None, include_pdf: bool = True):
     """ Orchestrates the report generation process:
@@ -215,7 +127,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     safe_makedirs(os.path.join(report_dir, 'data'))
     csv_data_path = os.path.join(report_dir, 'data', 'data.csv')
 
-    df_meta = get_metadata()
+    df_meta = get_metadata(S3_BUCKET)
     df_meta.describe()
 
     if existing_csv_path:
@@ -223,7 +135,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         shutil.copyfile(existing_csv_path, csv_data_path)
     else:
         log.info("Querying athena for data for AOI")
-        get_data_for_aoi(aoi_gdf, csv_data_path)
+        get_data_for_aoi(S3_BUCKET, aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf.meta.attach_metadata(df_meta)
     data_gdf = convert_gdf_units(data_gdf, 'US')
