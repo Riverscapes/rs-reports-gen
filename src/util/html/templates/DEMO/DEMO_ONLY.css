@@ -134,3 +134,20 @@
   color: #666;
   opacity: 0.8;
 }
+
+
+  .DEMO-no-pdf {
+    display: block;
+  }
+  .DEMO-only-pdf {
+    display: none;
+  }
+
+@media print {
+  .DEMO-no-pdf {
+    display: none;
+  }
+  .DEMO-only-pdf {
+    display: block;
+  }
+}
