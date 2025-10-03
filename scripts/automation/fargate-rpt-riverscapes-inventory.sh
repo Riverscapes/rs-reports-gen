@@ -63,6 +63,7 @@ try() {
     "$OUTPUTS_DIR" \
     "$INPUTS_DIR/input.geojson" \
     "$REPORT_NAME" \
+    --include_pdf \
     --unit_system "$UNIT_SYSTEM"
   if [[ $? != 0 ]]; then return 1; fi
 
