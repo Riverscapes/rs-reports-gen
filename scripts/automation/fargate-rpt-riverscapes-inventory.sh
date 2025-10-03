@@ -7,6 +7,7 @@ IFS=$'\n\t'
 (: "${REPORT_ID?}")
 (: "${USER_ID?}")
 (: "${API_TOKEN?}")
+(: "${UNIT_SYSTEM?}")
 NO_UI=true
 
 STAGE=${STAGE:-STAGING}
@@ -27,6 +28,7 @@ EOF
 echo "REPORT_ID: $REPORT_ID"
 echo "USER_ID: $USER_ID"
 echo "RSReports STAGE: $STAGE"
+echo "Unit System: $UNIT_SYSTEM"
 
 
 echo "======================  Initial Disk space usage ======================="
@@ -60,7 +62,8 @@ try() {
   python -m reports.rpt_riverscapes_inventory.main \
     "$OUTPUTS_DIR" \
     "$INPUTS_DIR/input.geojson" \
-    "$REPORT_NAME"
+    "$REPORT_NAME" \
+    --unit_system "$UNIT_SYSTEM"
   if [[ $? != 0 ]]; then return 1; fi
 
   echo "======================  Zipping up ======================="
