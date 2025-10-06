@@ -3,7 +3,11 @@
   refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
 -->
   <section>
-    <h2>KPIs</h2>
+    <p>This Rivers Need Space Report describe the current riverscape and the space that it occupies. It provides insights into the character of the riverscape for the entire floodplain in which the current river resides.</p>
+
+      <p>Use this report to understand the current condition of the riverscape, identify areas where the river has been constrained, and prioritize areas for restoration or conservation efforts. The report includes maps, charts, and tables that illustrate key aspects of the riverscape, such as land use, vegetation cover, and floodplain connectivity.</p>
+    <h2>Key Indicators</h2>
+
     <dl class="metric-grid">
       {% for key, value in kpis.items() %}
       <div class="metric">
@@ -15,16 +19,18 @@
   </section>
   <section>
     <h2>Map of Polygons</h2>
+    <p>The following map shows the riverscapes that were selected for this report. These polygons represent the areas of interest for the analysis. The charts and tables that follow provide further insights into these areas.</p>
     <figure class="report-figure">
       {{ figures['map']|safe }}
       <figcaption>Interactive map of identified polygons.</figcaption>
     </figure>
   </section>
   <section>
-    <h2>Segment Area by Ownership</h2>
+    <h2>Ownership</h2>
+    <p>This section provides an overview of the ownership of the river segments within the study area. The dominant ownership category is determined for each riverscape and then summed across the area of interest.</p>
     <figure class="report-figure">
       {{ figures['bar']|safe }}
-      <figcaption>Visualization of segment area by ownership category.</figcaption>
+      <figcaption>Visualization of riverscape area by ownership category.</figcaption>
     </figure>
     <figure class="report-figure">
       {{ tables['owners']|safe}}
@@ -32,10 +38,11 @@
     </figure>
   </section>
   <section>
-    <h2>Segment Area by feature code</h2>
+    <h2>Flow Types</h2>
+    <p>This section categorizes the river segments based on their flow types, providing insights into the hydrological characteristics of the study area.</p>
     <figure class="report-figure">
       {{ figures['pie']|safe }}
-      <figcaption>Segment areas grouped by feature code.</figcaption>
+      <figcaption>Segment areas grouped by flow type.</figcaption>
     </figure>
   </section>
   <section>
@@ -72,4 +79,11 @@
     <h1>Appendices</h1>
     <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
     {{tables['project_id_table']|safe}}
+    <h2>Appendix 2 - Source Data</h2>
+    <p>This report was generated using data from the <a href="https://data.riverscapes.net">Riverscapes Data Exchange</a>. Free, pubicly accessibable data were processed through a series of models by the Riverscapes Consortium, culminating with the Riverscapes Metric Engine (RME) that synthesizes metrics together for all the preceeding models. These RME data are based on polygons that span the valley bottom and are segmented at a distance that varies with drainage area. These polygons, or discreet geographic objects (DGOs) possess over 100 metrics spanning a variety of topics pertaining to riverscape health.</p>
+
+    <p>The model runs in question were all part of an initiative to produce a continuous riverscapes dataset for the <a href="https://docs.riverscapes.net/initiatives/CONUS-runs">Conterminous United States in 2025</a>.</p>
+
+    <h2>Appendix 3 - Questions</h2>
+    <p>Contact the Riverscapes Consortium at support@riverscapes.freshdesk.com with any questions regarding this report.</p>
   </section>
