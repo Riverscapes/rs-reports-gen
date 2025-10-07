@@ -202,7 +202,7 @@ def get_data_for_aoi(s3_bucket: str, gdf: gpd.GeoDataFrame, output_path: str):
     log = Logger('Run AOI query on Athena')
     # temporary approach -- later try using report-type specific CTAS and report-specific UNLOAD statement
     fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, rme_project_id, rme_project_name"
-    s3_csv_path = run_aoi_athena_query(gdf, s3_bucket, fields_str=fields_str, source_table="rpt_rme")
+    s3_csv_path = run_aoi_athena_query(gdf, s3_bucket, fields_str=fields_str, source_table="rpt_rme_pq")
     if s3_csv_path is None:
         log.error("Didn't get a result from athena")
         raise NotImplementedError
@@ -408,7 +408,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: 
     also includes the dgo geometry (polygon) 
     the source table must have fields: 
      * latitude, longitude 
-     * dgo_geom (which is WKT but with , replaced by |)
+     * dgo_geom (WKB)
     return path to results on S3
     returns None if the shape can't be converted to suitably sized geometry sql expression. 
     Future Enhancements: 
@@ -425,7 +425,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: 
 
     # count the prefiltered records - these 3 lines are only needed for debugging -- comment out for better performance
     query_str = f'SELECT count(*) AS record_count FROM {source_table} {prefilter_where_clause}'
-    results = (athena_query_get_parsed(s3_bucket, query_str))
+    results = athena_query_get_parsed(s3_bucket, query_str)
     log.debug(f'Prefiltered records: {results}')
 
     # Try with original geometry
@@ -454,7 +454,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, fields_str: 
 WITH pre_filtered_rme AS (
     SELECT
         {fields_str}
-        , ST_GeometryFromText(REPLACE({source_table}.dgo_geom, '|', ',')) AS dgo_geom_obj
+        , ST_GeomFromBinary(dgo_geom) AS dgo_geom_obj
     FROM
         {source_table}
     {prefilter_where_clause}
