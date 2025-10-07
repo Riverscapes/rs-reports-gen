@@ -99,31 +99,6 @@ def make_map_with_aoi(gdf, aoi_gdf):
     return fig
 
 
-# def make_aoi_map(gdf, aoi_gdf: gpd.GeoDataFrame):
-#     """
-#     **NOT USED**
-#     # Create the base map
-#     """
-
-#     base_map = go.Figure()
-
-#     # Add AOI polygons as an outline (no fill)
-#     for _, row in aoi_gdf.iterrows():
-#         x, y = row['geometry'].exterior.xy
-#         base_map.add_trace(go.Scattermapbox(
-#             lon=list(x),
-#             lat=list(y),
-#             mode='lines',
-#             line=dict(color='red', width=3),
-#             name='AOI'
-#         ))
-#     base_map.update_maps(
-#         style="open-street-map"
-#     )
-
-#     return base_map
-
-
 def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int, dict[str, float]]:
     """return the zoom level and lat, lon of the center"""
     # Compute extent and center
@@ -149,40 +124,6 @@ def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int,
             zoom = 4
     return (zoom, center)
 
-
-# def make_map(gdf: gpd.GeoDataFrame) -> go.Figure:
-#     """Create Plotly map (GeoJSON polygons). NOT USED"""
-
-#     # Create a plotting-safe DataFrame with only needed columns, convert PintArray to float
-#     plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
-#     plot_gdf = gdf.reset_index(drop=True).copy()
-#     plot_gdf["id"] = plot_gdf.index  # unique id for each row
-#     # Only keep necessary columns for plotting
-#     plot_gdf = plot_gdf[["id"] + plot_cols]
-#     # Convert PintArray columns to float (magnitude)
-#     for col in plot_gdf.columns:
-#         if hasattr(plot_gdf[col], "pint"):
-#             plot_gdf[col] = plot_gdf[col].pint.magnitude
-
-#     geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
-#     zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
-
-#     map_fig = px.choropleth_map(
-#         plot_gdf,
-#         geojson=geojson,
-#         locations="id",
-#         color="fcode_desc",
-#         featureidkey="properties.id",
-#         center=center,
-#         zoom=zoom,
-#         opacity=0.5,
-#         hover_name="fcode_desc",
-#         hover_data={"segment_area": True, "ownership_desc": True}
-#     )
-#     # conus bounds
-#     map_fig.update_layout(map_bounds={"west": -150, "east": -50, "south": 20, "north": 50})
-#     map_fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
-#     return map_fig
 
 # =========================
 # Tables - take dataframe and return html
@@ -309,19 +250,6 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     ["rgb(0, 68, 27)", "> 75%"]
     ]"""
 
-    # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/qgis/Shared/Low_Lying_Ratio.qml
-    # didn't end up using this
-    # bins_xml = """<rules key="{74b18146-02e2-4bd4-ad4c-996748046586}">
-    #   <rule label="&lt; 2%" symbol="0" key="{4e2991cc-a65b-4213-9cbe-900c7018ca7a}" filter="&quot;vbet_igo_low_lying_ratio&quot; &lt; 0.02"/>
-    #   <rule label="2% to 5%" symbol="1" key="{b25eaed3-e38a-49d6-b8b5-c151647e9852}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.02 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.05"/>
-    #   <rule label="5% to 10%" symbol="2" key="{d1d038ba-632f-42de-b195-7d14d7db2b75}" filter="&quot;vbet_igo_low_lying_ratio&quot;>= 0.05 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.1"/>
-    #   <rule label="10% to 15%" symbol="3" key="{d7d5b108-b27e-43ea-8b09-70ac500cf74f}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.1 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.15"/>
-    #   <rule label="15% to 25%" symbol="4" key="{5dcf0a4e-c077-4839-b96f-8f5a04376f10}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.15 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.25"/>
-    #   <rule label="25% to 50% " symbol="5" key="{87131111-33cf-4724-b94c-a6e70b5d456a}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.25 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.5"/>
-    #   <rule label="50% to 75% " symbol="6" key="{c6db9e10-6619-439e-bf60-bb1e885b2b4c}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.5 and &quot;vbet_igo_low_lying_ratio&quot; &lt; 0.75"/>
-    #   <rule label="> 75%" symbol="7" key="{3c29e498-5ded-4e5b-a89d-0ae78e081e85}" filter="&quot;vbet_igo_low_lying_ratio&quot; >= 0.75"/>
-    # </rules>
-    # """
     chart_data = df[['low_lying_ratio', 'segment_area']].copy()
     bins = [0, 0.02, 0.05, 0.10, 0.15, 0.25, 0.50, 0.75, 1]
     labels = extract_labels_from_legend(bins_json)
@@ -335,7 +263,7 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
 
     baked_header_lookup['bin'] = 'Low Lying Ratio'
-    baked_header_lookup['segment_area'] = 'Total Segment Area'
+    baked_header_lookup['segment_area'] = 'Total Riverscape Area'
 
     fig = px.bar(
         baked_agg_data,
@@ -343,7 +271,7 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
         y='segment_area',
         color='bin',
         color_discrete_sequence=colours,
-        title='Total Segment Area by Low Lying Ratio Bin',
+        title='Total Riverscape Area by Low Lying Ratio Bin',
         labels=baked_header_lookup,
         height=400
     )
@@ -375,6 +303,7 @@ def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
     baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
 
     baked_header_lookup['bin'] = 'Low Lying Ratio'
+    baked_header_lookup['segment_area'] = 'Total Riverscape Area'
 
     fig = px.bar(
         baked_agg_data,
@@ -382,7 +311,7 @@ def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
         y='segment_area',
         color='bin',
         color_discrete_sequence=colours,
-        title='Total Segment Area by Proportion Riparian Bin',
+        title='Total Riverscape Area by Proportion Riparian Bin',
         labels=baked_header_lookup,
         height=400
     )
@@ -509,7 +438,7 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Bar(x=baked_agg_data['bin'], y=baked_agg_data['dev_segment_area'], name='Development'))
 
     fig.update_layout(
-        title='Agriculature and Development Proportion by Bin',
+        title='Agriculture and Development Proportion by Bin',
         barmode='group',
         margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
