@@ -129,7 +129,15 @@ class RSFieldMeta:
                 return None
             return str(val).strip()
 
-        # First clean all the values as if they were strings
+        def _try_apply_unit(unittext: str) -> pint.Unit | None:
+            try:
+                if not unittext or pd.isna(unittext):
+                    return None
+                return ureg.Unit(unittext)
+            except Exception as e:
+                self._log.warning(f"Could not apply {unittext}: {e}")
+
+            # First clean all the values as if they were strings
         value = value.copy()
         for col in FieldMetaValues.VALID_COLUMNS:
             if col in value.columns:
@@ -140,9 +148,9 @@ class RSFieldMeta:
 
         # Make our unit objects a little easier to work with
         if "data_unit" in value.columns:
-            value["data_unit"] = value["data_unit"].apply(lambda x: ureg.Unit(x) if x else None)
+            value["data_unit"] = value["data_unit"].apply(_try_apply_unit)
         if "display_unit" in value.columns:
-            value["display_unit"] = value["display_unit"].apply(lambda x: ureg.Unit(x) if x else None)
+            value["display_unit"] = value["display_unit"].apply(_try_apply_unit)
 
         # We explicitly set the no_convert column to boolean and convert any possible values
         if "no_convert" in value.columns:

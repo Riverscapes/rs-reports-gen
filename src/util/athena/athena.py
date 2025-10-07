@@ -180,15 +180,9 @@ def get_field_metadata() -> pd.DataFrame:
     log = Logger('Get field metadata')
     log.info("Getting field metadata from athena")
 
-    # TODO: Athena table needs the following column changes:
-    # 1. Rename `type` => `dtype`.
-    # 2. Add Column: `no_convert` => boolean (True/False) - default False
-    # 3. Rename `unit` => `data_unit`
-    # 4. Add Column `display_unit` (same data type as data_unit)
-
     query = """
-        SELECT table_name, name, friendly_name, type AS dtype, unit AS data_unit, description
-        FROM rme_table_column_defs
+        SELECT table_name, name, theme_name, friendly_name, dtype, data_unit, display_unit, no_convert, description
+        FROM table_column_defs 
     """
     result = athena_query_get_parsed(S3_ATHENA_BUCKET, query)
     if result is not None:
