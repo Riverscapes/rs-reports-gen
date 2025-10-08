@@ -25,7 +25,6 @@
     </div>
     <figure class="report-figure">
       {{ figures['map']|safe }}
-      <figcaption>Interactive map of identified polygons.</figcaption>
     </figure>
   </section>
   <section>
@@ -35,11 +34,9 @@
     </div>
     <figure class="report-figure">
       {{ figures['bar']|safe }}
-      <figcaption>Visualization of riverscape area by ownership category.</figcaption>
     </figure>
     <figure class="report-figure">
       {{ tables['owners']|safe}}
-      <figcaption>Tabular summary of segment ownership.</figcaption>
     </figure>
   </section>
   <section>
@@ -49,14 +46,12 @@
     </div>
     <figure class="report-figure">
       {{ figures['pie']|safe }}
-      <figcaption>Segment areas grouped by flow type.</figcaption>
     </figure>
   </section>
   <section>
     <h2>Table of Stream Names and lengths</h2>
     <figure class="report-figure">
       {{ tables['river_names']|safe}}
-      <figcaption>Stream names listed with calculated lengths.</figcaption>
     </figure>
   </section>
   <section>
