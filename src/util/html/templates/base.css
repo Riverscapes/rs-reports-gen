@@ -404,6 +404,35 @@ canvas {
   margin: 0 auto;
   padding: clamp(1.25rem, 1.5vw + 1rem, 2rem);
 }
+.copyright-bar {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: transparent;
+  color: #fff;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.copyright-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.copyright-inner img {
+  height: 36px;
+  width: 36px;
+}
+
+.copyright-inner .footer-copy {
+  font-family: var(--body-font-family);
+  font-size: 1rem;
+  color: #fff;
+  font-weight: 500;
+  margin: 0;
+}
 
 
 
