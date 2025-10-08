@@ -14,7 +14,7 @@
   --header-color: #003166;
   --accent-color: #004793;
   --border-bg: #0661c1;
-  --text-color: #080705;
+  --text-color: #222222;
   --muted-bg: #f1f4f9;
   --muted-border: #d5deeb;
   --elev-1: 0 2px 8px rgba(0, 26, 58, 0.08);
@@ -22,6 +22,7 @@
   --metric-title-line-height: 1.3;
   --metric-title-min-lines: 2;
   --table-bg: #f5f9ff;
+  --chart-bg: #E5ECF6;
 }
 
 html {
@@ -282,7 +283,7 @@ table {
   width: 100%;
   font-family: Arial, sans-serif;
   font-size: 0.9rem;
-  color: #004793;
+  color:  var(--text-color);
   border: 1px solid #1c5faa; /* outer frame */
 }
 th {
@@ -297,6 +298,7 @@ td {
   border: 1px solid #1c5faa;
   padding: 8px;
   text-align: left;
+  color: var(--text-color);
 }
 tr:nth-child(even) td {
   background-color: #f1f4f9;
@@ -315,7 +317,7 @@ table.dataframe thead th {
   color: #fff;
 }
 table.dataframe tbody tr:nth-child(even) > td {
-  background-color: var(--table-bg);
+  background-color: var(--chart-bg);
 }
 
 table.dataframe td.numeric {
@@ -326,7 +328,6 @@ table.dataframe td.numeric {
 table.dataframe td.footer {
   border-top: 2px solid var(--border-bg);
   font-weight: 600;
-  background-color: #aaaaaa;
   color: black;
 }
 
