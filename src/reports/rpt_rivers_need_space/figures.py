@@ -408,6 +408,7 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
         yaxis_title='Density Bin',
         xaxis_title='Total Segment Area'
     )
+    fig.update_xaxes(tickformat=",")
     return fig
 
 
@@ -436,14 +437,12 @@ def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
         height=400
     )
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    bar_fig.update_xaxes(tickformat=",")
     return bar_fig
 
 
 def make_rs_area_by_featcode(gdf) -> go.Figure:
-    """Create pie chart of total segment area by NHD feature code type
-    Args: 
-        gdf with fcode_desc and segment_area
-    """
+    """Create pie chart of total segment area by NHD feature code type"""
     chart_data = gdf.groupby('fcode_desc', as_index=False)['segment_area'].sum()
 
     baked_header_lookup = RSFieldMeta().get_headers_dict(chart_data)
@@ -451,10 +450,22 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
 
     fig = px.pie(
         baked_chart_data,
-        names='fcode_desc',
-        values='segment_area',
-        title='Total Riverscape Area (units) by Feature Code'
+        names="fcode_desc",
+        values="segment_area",
+        labels=baked_header_lookup,  # legend/axis labels use your nice names
+        title='Total Riverscape Area (units) by Feature Code',
     )
+
+    # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
+    fig.update_traces(
+        textinfo="percent",
+        hovertemplate="<b>%{label}</b><br>%{value:,.0f}<extra></extra>"
+        # Use :,.1f or :,.2f if you want decimals.
+    )
+
+    # Prevent legend/hover name truncation
+    fig.update_layout(hoverlabel=dict(namelength=-1))
+
     return fig
 
 # =========================
