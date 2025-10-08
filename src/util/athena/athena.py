@@ -18,8 +18,7 @@ from util import simplify_gdf
 # buffer, in decimal degrees, on centroids to capture DGO.
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
 BUFFER_CENTROID_TO_BB_DD = 0.47
-S3_ATHENA_BUCKET = "riverscapes-athena"
-S3_ATHENA_BUCKET_OUTPUT = "riverscapes-athena-output"
+S3_ATHENA_BUCKET = "riverscapes-athena-output"
 ATHENA_WORKGROUP = "primary"
 
 
@@ -177,6 +176,8 @@ def get_field_metadata() -> pd.DataFrame:
 
     Example:
         metadata_df = get_field_metadata()
+    TODO: anything that uses this should use table_name in combination with name as there can be duplicate (column) name values in this table
+    TODO: rename name field to column_name for clarity
     """
     log = Logger('Get field metadata')
     log.info("Getting field metadata from athena")
