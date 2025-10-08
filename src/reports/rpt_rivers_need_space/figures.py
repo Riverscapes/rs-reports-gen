@@ -15,11 +15,6 @@ from util.pandas import RSFieldMeta, RSGeoDataFrame
 # =========================
 
 
-def _floatformat2(inval: float) -> str:
-    """2 decimals, commas for thousands, no units"""
-    return f"{inval:,.2f}"
-
-
 def extract_labels_from_legend(bins_legend_json: str) -> list[str]:
     x = json.loads(bins_legend_json)
     labels = [item[1] for item in x]
@@ -146,90 +141,6 @@ def project_id_table(df: pd.DataFrame) -> str:
     df = df[['link']].copy()
     html_table = df.to_html(escape=False, index=False)
     return html_table
-
-
-def table_of_river_names(gdf: pd.DataFrame) -> str:
-    """generate table summary of stream names and lengths
-
-    Args:
-        gdf (pd.DataFrame): data_gdf
-
-    Returns:
-        str: html fragment
-    """
-    # Pint-enabled DataFrame for calculation
-    df = RSGeoDataFrame(gdf[["stream_name", "stream_length"]].copy())
-
-    df['stream_name'] = df['stream_name'].fillna("-unnamed-")  # this should be done in the upstream view so that it is always the same for anything that uses stream_name
-    df = RSGeoDataFrame(df.groupby('stream_name', as_index=False)['stream_length'].sum())
-
-    total = df['stream_length'].sum()  # this is a Quantity
-    df['names_total_pct'] = df['stream_length'] / total * 100
-    # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
-    RSFieldMeta().add_field_meta(name='names_total_pct', friendly_name='Percent of Total (%)', dtype='REAL')
-
-    # Add a total row (as formatted strings)
-    df.set_footer(pd.DataFrame({
-        'stream_name': ['Total'],
-        'stream_length': total,
-        'names_total_pct': [100]
-    }))
-
-    return df.to_html(index=False, escape=False)
-
-
-def table_of_ownership(gdf) -> str:
-    """ generate table summary of ownership and lengths
-
-    Args:
-        gdf (_type_): data_gdf
-
-    Returns:
-        str: _description_
-    """
-    # common elements with table_of_river_names to be separated out
-    # Pint-enabled DataFrame for calculation
-    subset = gdf[["ownership", "ownership_desc", "stream_length"]].copy()
-    df = RSGeoDataFrame(subset.groupby(['ownership', 'ownership_desc'], as_index=False)['stream_length'].sum())
-    total = df['stream_length'].sum()  # Quantity
-
-    df['total_pct'] = df['stream_length'] / total * 100
-    # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
-    RSFieldMeta().add_field_meta(name='total_pct', friendly_name='Percent of Total (%)', dtype='REAL')
-
-    # Add a total row (as formatted strings)
-    df.set_footer(pd.DataFrame({
-        'ownership': ['Total'],
-        'ownership_desc': [''],
-        'stream_length': [total],
-        'total_pct': [100]
-    }))
-
-    return df.to_html(index=False, escape=False)
-
-
-def table_of_fcodes(gdf) -> str:
-    """
-    generate table summary of fcode descriptions and lengths
-    """
-
-    df = gdf[["fcode_desc", "stream_length"]].copy()
-    df = RSGeoDataFrame(df.groupby('fcode_desc', as_index=False)['stream_length'].sum())
-    total = df['stream_length'].sum()  # Quantity
-    percent = (df['stream_length'] / total * 100)
-
-    df['fcode_total_pct'] = percent
-    # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
-    RSFieldMeta().add_field_meta(name='fcode_total_pct', friendly_name='Percent of Total (%)', dtype='REAL')
-
-    total_row = pd.DataFrame({
-        'fcode_desc': ['Total'],
-        'stream_length': total,
-        'fcode_total_pct': [100]
-    })
-    df.set_footer(total_row)
-
-    return df.to_html()
 
 # =========================
 # Figures - generate specific figures
@@ -510,17 +421,17 @@ def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
         _type_: _plotly figure object_
     """
     # Create horizontal bar chart (sum of segment_area by ownership)
-    chart_data = gdf.groupby('ownership', as_index=False)['segment_area'].sum()
+    chart_data = gdf.groupby('ownership_desc', as_index=False)['segment_area'].sum()
 
     baked_header_lookup = RSFieldMeta().get_headers_dict(chart_data)
     baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
 
     bar_fig = px.bar(
         baked_chart_data,
-        y="ownership",
+        y="ownership_desc",
         x="segment_area",
         orientation="h",
-        title="Total Riverscape Area (units) by Ownership",
+        title="Total Riverscape Area by Ownership",
         labels=baked_header_lookup,
         height=400
     )

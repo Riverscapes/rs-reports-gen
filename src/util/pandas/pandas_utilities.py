@@ -33,5 +33,6 @@ def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: DataFrame with calculated columns added
     """
     # TODO: add metadata for any added columns
+    # TODO: add units
     df['channel_length'] = df['rel_flow_length']*df['centerline_length']
     return df

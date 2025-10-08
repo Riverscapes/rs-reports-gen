@@ -322,26 +322,27 @@ class RSFieldMeta:
         if self._field_meta is None:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
 
-    def get_field_meta(self, name: str) -> Optional[FieldMetaValues]:
+    def get_field_meta(self, column_name: str) -> Optional[FieldMetaValues]:
         """Get the field metadata for a specific column. This returns a FieldMetaValues object.
 
         Args:
             col (str): The column name to get metadata for.
         Returns:
             Optional[FieldMetaValues]: The metadata object for the column or None if not found.
+        TODO: include tablename
         """
         self._no_data_warning()
-        if self._field_meta is None or name not in self._field_meta.index:
+        if self._field_meta is None or column_name not in self._field_meta.index:
             return None
 
         meta_values = FieldMetaValues()
-        meta_values.name = name
-        meta_values.friendly_name = self._field_meta.loc[name, "friendly_name"]
-        meta_values.table_name = self._field_meta.loc[name, "table_name"]
-        meta_values.data_unit = self._field_meta.loc[name, "data_unit"]
-        meta_values.display_unit = self._field_meta.loc[name, "display_unit"]
-        meta_values.dtype = self._field_meta.loc[name, "dtype"]
-        meta_values.no_convert = self._field_meta.loc[name, "no_convert"]
+        meta_values.name = column_name
+        meta_values.friendly_name = self._field_meta.loc[column_name, "friendly_name"]
+        meta_values.table_name = self._field_meta.loc[column_name, "table_name"]
+        meta_values.data_unit = self._field_meta.loc[column_name, "data_unit"]
+        meta_values.display_unit = self._field_meta.loc[column_name, "display_unit"]
+        meta_values.dtype = self._field_meta.loc[column_name, "dtype"]
+        meta_values.no_convert = self._field_meta.loc[column_name, "no_convert"]
         return meta_values
 
     def __set_value(self, row_name, col_name, value):

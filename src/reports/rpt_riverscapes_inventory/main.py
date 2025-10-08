@@ -5,23 +5,23 @@ import os
 import sys
 import shutil
 import traceback
-# 3rd party imports
+import pandas as pd
 import geopandas as gpd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util.pandas import load_gdf_from_csv, add_calculated_cols
 from util.athena import get_data_for_aoi, get_field_metadata
+from util.athena import athena_query_get_parsed
 
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.figures import table_total_x_by_y
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
                                                    make_map_with_aoi,
                                                    statistics,
-                                                   table_of_river_names,
-                                                   table_of_ownership,
                                                    low_lying_ratio_bins,
                                                    prop_riparian_bins,
                                                    floodplain_access,
@@ -29,8 +29,8 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    prop_ag_dev,
                                                    dens_road_rail,
                                                    project_id_table,
-                                                   table_of_fcodes
                                                    )
+from reports.rpt_riverscapes_inventory.figures import hypsometry_data
 
 S3_BUCKET = "riverscapes-athena"
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
@@ -56,10 +56,10 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "dens_road_rail": dens_road_rail(gdf),
     }
     tables = {
-        "river_names": table_of_river_names(gdf),
-        "owners": table_of_ownership(gdf),
+        "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
+        "owners": table_total_x_by_y(gdf, 'stream_length', ['ownership', 'ownership_desc']),
         "project_id_table": project_id_table(gdf),
-        "table_of_fcodes": table_of_fcodes(gdf)
+        "table_of_fcodes": table_total_x_by_y(gdf, 'stream_length', ['fcode_desc'])
     }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
@@ -86,6 +86,31 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         return report.render(fig_mode="png", suffix="_static")
     else:
         return report.render(fig_mode="interactive", suffix="")
+
+
+def load_huc_data(hucs: list[str]) -> pd.DataFrame:
+    """Queries rscontext_huc10 for all the huc10 watersheds that intersect the aoi
+    * this could be a spatial query but we already have the huc12 from data_gdf so this is much faster
+    * FUTURE ENHANCEMENT - take the aoi and join with huc geometries to produce some statistics about the amount of intersection between them
+    * FUTURE ENHANCEMENT - use unload instead of select
+    """
+    log = Logger('Load HUC data')
+
+    # Basic input sanitation: ensure all hucs are strings, length 10, digits only, and unique
+    clean_hucs = {h for h in hucs if isinstance(h, str) and len(h) == 10 and h.isdigit()}
+    if not clean_hucs or (len(clean_hucs) != len(hucs)):
+        log.error('No hucs, duplicate huc or unexpected value in huc list')
+
+    # Prepare SQL-safe quoted list
+    huc_sql = '(' + ','.join([f"'{h}'" for h in clean_hucs]) + ')'
+    sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
+
+    dict_results = athena_query_get_parsed(s3_bucket="riverscapes-athena-output", query=sql_str)
+    if not dict_results:
+        # Return empty DataFrame with expected columns
+        raise ValueError("No results for the hucs supplied")
+    df = pd.DataFrame(dict_results)
+    return df
 
 
 def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: str,
@@ -122,6 +147,12 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf = add_calculated_cols(data_gdf)
 
+    unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
+    huc_data_df = load_huc_data(unique_huc10)
+    hypsometry_data(huc_data_df)
+
+    # return  # STOP FOR TESTING PURPOSES
+
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
@@ -142,7 +173,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
 def main():
     """ Main function to parse arguments and generate the report
-    """
+"""
+
     parser = argparse.ArgumentParser()
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)

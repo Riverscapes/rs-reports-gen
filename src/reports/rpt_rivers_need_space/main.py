@@ -17,13 +17,12 @@ from util.athena import get_field_metadata, get_data_for_aoi
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.figures import table_total_x_by_y
 # Local imports
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
                                                    make_map_with_aoi,
                                                    statistics,
-                                                   table_of_river_names,
-                                                   table_of_ownership,
                                                    low_lying_ratio_bins,
                                                    prop_riparian_bins,
                                                    floodplain_access,
@@ -58,8 +57,8 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "dens_road_rail": dens_road_rail(gdf),
     }
     tables = {
-        "river_names": table_of_river_names(gdf),
-        "owners": table_of_ownership(gdf),
+        "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
+        "owners": table_total_x_by_y(gdf, 'stream_length', ['ownership', 'ownership_desc']),
         "project_id_table": project_id_table(gdf),
     }
     figure_dir = os.path.join(report_dir, 'figures')
