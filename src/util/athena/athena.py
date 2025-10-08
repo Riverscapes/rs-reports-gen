@@ -19,6 +19,7 @@ from util import simplify_gdf
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
 BUFFER_CENTROID_TO_BB_DD = 0.47
 S3_ATHENA_BUCKET = "riverscapes-athena"
+S3_ATHENA_BUCKET_OUTPUT = "riverscapes-athena-output"
 ATHENA_WORKGROUP = "primary"
 
 
