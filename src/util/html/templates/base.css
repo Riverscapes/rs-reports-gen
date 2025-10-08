@@ -65,7 +65,9 @@ table,
 .plotly-graph-div {
   margin-bottom: 1.25rem;
 }
-
+p {
+  color: var(--text-color);
+}
 text.legendtitletext {
     visibility: hidden;
 }
