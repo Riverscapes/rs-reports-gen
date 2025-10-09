@@ -10,7 +10,7 @@ import geopandas as gpd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from util.pandas import load_gdf_from_csv, add_calculated_cols
+from util.pandas import load_gdf_from_csv
 from util.athena import get_data_for_aoi
 from util.rme.field_metadata import get_field_metadata
 from util.athena import athena_unload_to_dataframe
@@ -33,6 +33,7 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    dens_road_rail,
                                                    project_id_list,
                                                    )
+from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()

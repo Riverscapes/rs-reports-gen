@@ -12,7 +12,7 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 
-from util.pandas import load_gdf_from_csv, add_calculated_cols
+from util.pandas import load_gdf_from_csv
 from util.athena import get_data_for_aoi
 from util.rme.field_metadata import get_field_metadata
 from util.pdf import make_pdf_from_html
@@ -20,6 +20,7 @@ from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.figures import table_total_x_by_y
 # Local imports
+from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_rivers_need_space import __version__ as report_version
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
@@ -35,7 +36,6 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    )
 
 
-S3_BUCKET = "riverscapes-athena"
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
 
@@ -125,7 +125,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         shutil.copyfile(existing_csv_path, csv_data_path)
     else:
         log.info("Querying athena for data for AOI")
-        get_data_for_aoi(S3_BUCKET, aoi_gdf, csv_data_path)
+        get_data_for_aoi(None, aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
 
     add_calculated_cols(data_gdf)

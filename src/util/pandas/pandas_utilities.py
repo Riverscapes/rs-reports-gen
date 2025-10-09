@@ -6,7 +6,7 @@ import pint
 ureg = pint.UnitRegistry()
 
 
-def load_gdf_from_csv(csv_path):
+def load_gdf_from_csv(csv_path) -> gpd.GeoDataFrame:
     """ load csv from athena query into gdf
 
     Args:
@@ -21,18 +21,3 @@ def load_gdf_from_csv(csv_path):
     gdf = gpd.GeoDataFrame(df, geometry='dgo_polygon_geom', crs='EPSG:4326')
     # print(gdf)
     return gdf
-
-
-def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
-    """ Add any calculated columns to the dataframe
-
-    Args:
-        df (pd.DataFrame): Input dataframe
-
-    Returns:
-        pd.DataFrame: DataFrame with calculated columns added
-    """
-    # TODO: add metadata for any added columns
-    # TODO: add units
-    df['channel_length'] = df['rel_flow_length']*df['centerline_length']
-    return df
