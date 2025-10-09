@@ -95,7 +95,8 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         report.add_figure(name, fig)
 
     report.add_html_elements('tables', tables)
-    report.add_html_elements('kpis', statistics(gdf))
+    report.add_html_elements('cards', metric_cards(statistics(gdf)))
+    report.add_html_elements('appendices', appendices)
 
     if mode == "both":
         interactive_path = report.render(fig_mode="interactive", suffix="")
