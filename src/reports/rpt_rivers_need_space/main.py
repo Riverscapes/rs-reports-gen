@@ -12,8 +12,8 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util.pandas import load_gdf_from_csv, add_calculated_cols
-from util.athena import get_field_metadata, get_data_for_aoi
-
+from util.athena import get_data_for_aoi
+from util.rme.field_metadata import get_field_metadata
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame

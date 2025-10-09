@@ -11,8 +11,10 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util.pandas import load_gdf_from_csv, add_calculated_cols
-from util.athena import get_data_for_aoi, get_field_metadata
-from util.athena import athena_query_get_parsed
+from util.athena import get_data_for_aoi
+from util.rme.field_metadata import get_field_metadata
+from util.athena import athena_unload_to_dataframe
+from util.athena.athena import S3_ATHENA_BUCKET
 
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
@@ -30,13 +32,12 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    dens_road_rail,
                                                    project_id_table,
                                                    )
-from reports.rpt_riverscapes_inventory.figures import hypsometry_data
+from reports.rpt_riverscapes_inventory.figures import hypsometry_fig
 
-S3_BUCKET = "riverscapes-athena"
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
 
-def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
+def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
     """
     Generates HTML report(s) in report_dir.
     mode: "interactive", "static", or "both"
@@ -54,6 +55,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "land_use_intensity": land_use_intensity(gdf),
         "prop_ag_dev": prop_ag_dev(gdf),
         "dens_road_rail": dens_road_rail(gdf),
+        "hypsometry": hypsometry_fig(huc_df),
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
@@ -105,11 +107,7 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
     huc_sql = '(' + ','.join([f"'{h}'" for h in clean_hucs]) + ')'
     sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
 
-    dict_results = athena_query_get_parsed(s3_bucket="riverscapes-athena-output", query=sql_str)
-    if not dict_results:
-        # Return empty DataFrame with expected columns
-        raise ValueError("No results for the hucs supplied")
-    df = pd.DataFrame(dict_results)
+    df = athena_unload_to_dataframe(sql_str)
     return df
 
 
@@ -142,22 +140,24 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         shutil.copyfile(existing_csv_path, csv_data_path)
     else:
         log.info("Querying athena for data for AOI")
-        get_data_for_aoi(S3_BUCKET, aoi_gdf, csv_data_path)
+        get_data_for_aoi(S3_ATHENA_BUCKET, aoi_gdf, csv_data_path)
 
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf = add_calculated_cols(data_gdf)
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)
-    hypsometry_data(huc_data_df)
-
-    # return  # STOP FOR TESTING PURPOSES
+    print(huc_data_df)  # DEBUG ONLY
 
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
+    # stop at just dynamic report for testing
+    # make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name)
+    # return
+
     # make html report
-    report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
+    report_paths = make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]
     static_path = report_paths["static"]
     log.info(f'Interactive HTML report built at {html_path}')

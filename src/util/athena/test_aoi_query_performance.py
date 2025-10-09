@@ -1,3 +1,7 @@
+"""this is to compare querying using parquet vs csv versions of raw_rme
+needs to be fixed since have changed the athena.py considerably
+"""
+
 import time
 import geopandas as gpd
 import logging
