@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import geopandas as gpd
 import pint
+from rsxml import Logger
 
 # assume pint registry has been set up already
 
@@ -48,7 +49,7 @@ def make_map_with_aoi(gdf, aoi_gdf):
     plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
     plot_gdf = gdf.reset_index(drop=True).copy()
     plot_gdf["id"] = plot_gdf.index
-    plot_gdf = plot_gdf.fillna("-")
+    # plot_gdf = plot_gdf.fillna("-") # if we are going to do it can only do it for non-numeric columns
     plot_gdf = plot_gdf[["id"] + plot_cols]
     for col in plot_gdf.columns:
         if hasattr(plot_gdf[col], "pint"):
@@ -163,10 +164,10 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     bins = [0, 0.02, 0.05, 0.10, 0.15, 0.25, 0.50, 0.75, 1]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
-    # Bin the low_lying_ratio values
+    # Bin the low_lying_ratio values - cut creates Categorical dtype
     chart_data['bin'] = pd.cut(chart_data['low_lying_ratio'], bins=bins, labels=labels, include_lowest=True)
     # Aggregate segment_area by bin
-    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    agg_data = chart_data.groupby('bin', as_index=False, observed=False)['segment_area'].sum()
 
     baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
     baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
@@ -203,10 +204,10 @@ def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
     bins = [0, 0.000000001, 0.05, 0.15, 0.3, 0.6, 1]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
-    # Bin the low_lying_ratio values
+    # Bin the low_lying_ratio values - cut creates Categorical dtype
     chart_data['bin'] = pd.cut(chart_data['lf_riparian_prop'], bins=bins, labels=labels, include_lowest=True)
     # Aggregate segment_area by bin
-    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    agg_data = chart_data.groupby('bin', as_index=False, observed=False)['segment_area'].sum()
     # Plot bar chart
     baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
     baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
@@ -242,10 +243,10 @@ def floodplain_access(df: pd.DataFrame) -> go.Figure:
     bins = [0, 0.50, 0.75, 0.90, 0.95, 1]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
-    # Bin the low_lying_ratio values
+    # Bin the low_lying_ratio values- cut creates Categorical dtype
     chart_data['bin'] = pd.cut(chart_data['fldpln_access'], bins=bins, labels=labels, include_lowest=True)
     # Aggregate segment_area by bin
-    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    agg_data = chart_data.groupby('bin', as_index=False, observed=False)['segment_area'].sum()
 
     # Plot bar chart
     baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
@@ -283,17 +284,17 @@ def land_use_intensity(df: pd.DataFrame) -> go.Figure:
     colours = extract_colours_from_legend(bins_json)
     # Bin the values
     chart_data['bin'] = pd.cut(chart_data['land_use_intens'], bins=bins, labels=labels, include_lowest=True)
-    # Aggregate segment_area by bin
-    agg_data = chart_data.groupby('bin', as_index=False)['segment_area'].sum()
+    # Aggregate segment_area by bin - cut creates Categorical dtype
+    agg_data = chart_data.groupby('bin', as_index=False, observed=False)['segment_area'].sum()
 
     baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+    baked_agg_data, _baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
 
     baked_header_lookup['bin'] = 'Land Use Intensity'
 
     # Plot bar chart
     fig = px.bar(
-        agg_data,
+        baked_agg_data,
         x='bin',
         y='segment_area',
         color='bin',
@@ -306,7 +307,7 @@ def land_use_intensity(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
+def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     """example of figure with two measures"""
     # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/lf_ag_rme3.json
     # lf_dev_rme3.json has the same ones
@@ -319,19 +320,19 @@ def prop_ag_dev(df: pd.DataFrame) -> go.Figure:
         ["rgb(153, 52, 4)", "> 60%"]
         ]"""
     # make a copy and work with that
-    df = df[['lf_agriculture_prop', 'lf_developed_prop', 'segment_area']].copy()
+    chart_data = chart_data[['lf_agriculture_prop', 'lf_developed_prop', 'segment_area']].copy()
     bins = [0, 0.00001, 0.05, 0.15, 0.30, 0.60, 1.0]
     labels = extract_labels_from_legend(bins_json)
     colours = extract_colours_from_legend(bins_json)
     # Bin each metric separately
-    df['ag_bin'] = pd.cut(df['lf_agriculture_prop'], bins=bins, labels=labels, include_lowest=True)
-    df['dev_bin'] = pd.cut(df['lf_developed_prop'], bins=bins, labels=labels, include_lowest=True)
+    chart_data['ag_bin'] = pd.cut(chart_data['lf_agriculture_prop'], bins=bins, labels=labels, include_lowest=True)
+    chart_data['dev_bin'] = pd.cut(chart_data['lf_developed_prop'], bins=bins, labels=labels, include_lowest=True)
 
     # Aggregate segment_area by each bin
-    ag_data = df.groupby('ag_bin')['segment_area'].sum().reset_index()
+    ag_data = chart_data.groupby('ag_bin', observed=False)['segment_area'].sum().reset_index()
     ag_data = ag_data.rename(columns={'ag_bin': 'bin', 'segment_area': 'ag_segment_area'})
 
-    dev_data = df.groupby('dev_bin')['segment_area'].sum().reset_index()
+    dev_data = chart_data.groupby('dev_bin', observed=False)['segment_area'].sum().reset_index()
     dev_data = dev_data.rename(columns={'dev_bin': 'bin', 'segment_area': 'dev_segment_area'})
 
     # Merge for grouped bar chart
@@ -373,10 +374,10 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     chart_data['rail_bin'] = pd.cut(chart_data['rail_dens'], bins=bins, labels=labels, include_lowest=True)
 
     # Aggregate segment_area by each bin
-    road_data = chart_data.groupby('road_bin')['segment_area'].sum().reset_index()
+    road_data = chart_data.groupby('road_bin', observed=False)['segment_area'].sum().reset_index()
     road_data = road_data.rename(columns={'road_bin': 'bin', 'segment_area': 'road_segment_area'})
 
-    rail_data = chart_data.groupby('rail_bin')['segment_area'].sum().reset_index()
+    rail_data = chart_data.groupby('rail_bin', observed=False)['segment_area'].sum().reset_index()
     rail_data = rail_data.rename(columns={'rail_bin': 'bin', 'segment_area': 'rail_segment_area'})
 
     # Merge for grouped bar chart
@@ -471,32 +472,97 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
 # =========================
 
 
-def statistics(gdf) -> dict[str, pint.Quantity]:
-    """ Calculate and return key statistics as a dictionary
+def metric_cards(metrics: dict) -> list[tuple[str, str, str]]:
+    """transform a statistics dictionary into list of metric elements
 
-    Args:
-        gdf (_type_): data_gdf input
+    Args: 
+        metrics (dict): metric_id, Quantity
+        **uses Friendly name and description if they have been added to the RSFieldMeta**
 
     Returns:
-        dict[str, pint.Quantity]: _description_
+        list of card elements: 
+            * friendly metric name (title)
+            * formatted metric value, including units
+            * additional description (optional)
+
+    Uses the order of the dictionary (guaranteed to be insertion order from Python 3.7 and later)
+    FUTURE ENHANCEMENT - Should be modified to handle different number of decimal places depending on the metric
+    """
+    cards = []
+    meta = RSFieldMeta()
+    log = Logger('metric_cards')
+    for key, value in metrics.items():
+        friendly = meta.get_friendly_name(key)
+        desc = meta.get_description(key)
+        log.info(f"metric: {key}, friendly: {friendly}, desc: {desc}")
+        formatted = format_value(key, value, 0)
+        cards.append((friendly, formatted, desc))
+    return cards
+
+
+def format_value(column_name, value, decimals: int) -> str:
+    """return value formatted with units
+
+    Args:
+        value (_type_): Quantity or any
+        decimals (int): how many decimals to render
+
+    Returns:
+        string: formatted value ready to render
+
+    insipired by get_headers and bake 
+    TODO: this should go in RSFieldMeta or other common util spot 
+    """
+    meta = RSFieldMeta()
+    # unit_fmt = " {unit}"  # just the plain unit, no brackets
+    if hasattr(value, "magnitude"):
+        preferred_unit = meta.get_field_unit(column_name)
+        unit_text = ""
+        if preferred_unit:
+            value = value.to(preferred_unit)
+            # unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
+        # let Pint handle the unit formatting, so no need to append unit_text
+        formatted_val = f"{value:~P,.{decimals}f}{unit_text}"
+    elif isinstance(value, (int, float)):
+        formatted_val = f"{value:,.{decimals}f}"
+    else:
+        formatted_val = str(value)
+    return formatted_val
+
+
+def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
+    """ Calculate and return key statistics as a dictionary
+    TODO: integrated should be calculated from the totals, not at row level
+    Args:
+        gdf (GeoDataFrame): data_gdf input WITH UNITS APPLIED
+
+    Returns:
+        dict[str, pint.Quantity]: new summary statistics applicable to the whole dataframe
     """
     subset = RSGeoDataFrame(gdf[["segment_area", "centerline_length", "channel_length"]].copy())
-    # Add a new summary field and corresponding field meta lookup
-    subset['integrated_valley_bottom_width'] = subset['segment_area'] / subset['centerline_length']
-    RSFieldMeta().add_field_meta(name='integrated_valley_bottom_width',
-                                 friendly_name='Integrated Valley Bottom Width',
-                                 data_unit='m',
-                                 dtype='REAL')
-    # Noe give me a new dataframe with just the stats
-    statsdf = subset.agg({
-        'segment_area': ['sum'],
-        'centerline_length': ['sum'],
-        'channel_length': ['sum'],
-        'integrated_valley_bottom_width': ['sum'],
-    })
+    # Calculate totals
+    total_segment_area = subset["segment_area"].sum()
+    total_centerline_length = subset["centerline_length"].sum()
+    total_channel_length = subset["channel_length"].sum()
 
-    # Now output all the sums as a dictionary
-    baked, baked_columns = RSFieldMeta().bake_units(statsdf)
-    baked.columns = baked_columns
+    # Calculate integrated valley bottom width as ratio of totals
+    integrated_valley_bottom_width = total_segment_area / total_centerline_length if total_centerline_length != 0 else float('nan')
 
-    return baked.transpose().to_dict()['sum']
+    # if you want different units or descriptions then give them different names and add rsfieldmeta
+    # Add field meta if not already present
+    RSFieldMeta().add_field_meta(
+        name='integrated_valley_bottom_width',
+        friendly_name='Integrated Valley Bottom Width',
+        data_unit='m',
+        dtype='REAL',
+        description='Total segment area divided by total centerline length, representing average valley bottom width'
+    )
+
+    # Compose result dictionary
+    stats = {
+        'segment_area': total_segment_area,
+        'centerline_length': total_centerline_length,
+        'channel_length': total_channel_length,
+        'integrated_valley_bottom_width': integrated_valley_bottom_width,
+    }
+    return stats

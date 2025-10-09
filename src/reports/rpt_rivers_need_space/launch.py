@@ -60,6 +60,9 @@ def main():
         ),
     ])
     csv_file = csv_question['csv']
+    # Strip leading/trailing quotes if present
+    if csv_file:
+        csv_file = csv_file.strip().strip('"').strip("'")
 
     if os.environ.get("UNIT_SYSTEM"):
         unit_system = os.environ.get("UNIT_SYSTEM")
@@ -89,7 +92,7 @@ def main():
         os.path.join(data_root, "rpt-rivers-need-space", report_name),
         geojson_file,
         report_name,
-        "--include_pdf",
+        # "--include_pdf",
         "--unit_system", unit_system,
     ]
     if csv_file.strip():

@@ -1,8 +1,44 @@
+"""
+RSFieldMeta: Centralized Field Metadata Management for Reporting
+
+This module provides the RSFieldMeta class and supporting utilities for managing
+field (column) metadata in our reporting and data analysis pipelines. 
+
+Metadata includes friendly names, units, data types,
+conversion flags, and descriptions for each field.
+
+General functions:
+    * add_field_meta
+    * get_field_meta
+
+Pandas DataFrames specific functions: 
+    * apply_units, bake_units
+    * get_headers, get_headers_dict
+
+Key Features:
+- Centralized, shared metadata storage using the Borg pattern.
+- Support for SI and imperial unit systems, with preferred unit mappings.
+- Automatic unit conversion and header formatting for DataFrames.
+- Integration with Pint for unit handling.
+
+Typical Usage:
+    meta = RSFieldMeta()
+    meta.add_field_meta(name="segment_area", friendly_name="Riverscape Area", data_unit="meter ** 2", description="Area of the riverscape segment.")
+    friendly = meta.get_field_meta("segment_area").friendly_name
+    df_baked, headers = meta.bake_units(df)
+
+Classes:
+    FieldMetaValues: Simple container for metadata of a single field.
+    RSFieldMeta: Main class for managing and applying field metadata.
+
+Authors: Matt Reimer, Lorin Gaertner
+October 2025
+"""
+
 from typing import Optional, Dict, List, Tuple
 import pint  # noqa: F401  # pylint: disable=unused-import
-import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !?
+import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed
 from rsxml import Logger
-# Custom DataFrame accessor for metadata - to be moved to util
 import pandas as pd
 
 ureg = pint.get_application_registry()
@@ -30,7 +66,7 @@ PREFERRED_UNIT_DEFAULTS: Dict[str, Dict[str, str]] = {
 class FieldMetaValues:
     """ A simple class to hold metadata values for a single field.
         """
-    VALID_COLUMNS = ["table_name", "name", "friendly_name", "data_unit", "display_unit", "dtype", "no_convert"]
+    VALID_COLUMNS = ["table_name", "name", "friendly_name", "data_unit", "display_unit", "dtype", "no_convert", "description"]
 
     def __init__(self):
         self.table_name: str = ""
@@ -40,6 +76,7 @@ class FieldMetaValues:
         self.display_unit: Optional[pint.Unit] = None
         self.dtype: str = ""
         self.no_convert: bool = False
+        self.description: str = ""
 
     # Make it printable for easier debugging
     def __repr__(self):
@@ -137,7 +174,7 @@ class RSFieldMeta:
             except Exception as e:
                 self._log.warning(f"Could not apply {unittext}: {e}")
 
-            # First clean all the values as if they were strings
+        # First clean all the values as if they were strings
         value = value.copy()
         for col in FieldMetaValues.VALID_COLUMNS:
             if col in value.columns:
@@ -287,7 +324,8 @@ class RSFieldMeta:
                        data_unit: str = "",
                        display_unit: str = "",
                        dtype: str = "",
-                       no_convert: bool = False):
+                       no_convert: bool = False,
+                       description: str = ""):
         """ Add a new column to the metadata DataFrame if it does not already exist.
 
         Args:
@@ -301,6 +339,8 @@ class RSFieldMeta:
             dtype (str, optional): The field type for the column. Defaults to "".
             no_convert (bool, optional): If True, do not convert units for this column. Defaults to False.
                 NOTE: If this is TRUE the units will be display_units and then data_units as a fallback.
+            description (str, optional): a description of the column to be displayed to end-users for example in tool-tips
+
         """
         if self._field_meta is None:
             self._field_meta = pd.DataFrame(index=[name], columns=FieldMetaValues.VALID_COLUMNS)
@@ -316,6 +356,7 @@ class RSFieldMeta:
         self._field_meta.loc[name, "display_unit"] = ureg.Unit(display_unit) if display_unit else None
         self._field_meta.loc[name, "dtype"] = dtype
         self._field_meta.loc[name, "no_convert"] = no_convert
+        self._field_meta.loc[name, "description"] = description
 
     def _no_data_warning(self):
         """ Warn if no metadata is set."""
@@ -343,7 +384,24 @@ class RSFieldMeta:
         meta_values.display_unit = self._field_meta.loc[column_name, "display_unit"]
         meta_values.dtype = self._field_meta.loc[column_name, "dtype"]
         meta_values.no_convert = self._field_meta.loc[column_name, "no_convert"]
+        meta_values.description = self._field_meta.loc[column_name, "description"]
         return meta_values
+
+    def get_friendly_name(self, column_name: str) -> str:
+        """Get the friendly name for a column, or format version of column name if not found."""
+        fm = self.get_field_meta(column_name)
+        if fm and hasattr(fm, "friendly_name"):
+            friendly = fm.friendly_name
+        else:
+            friendly = column_name.replace('_', ' ').title()
+        return friendly
+
+    def get_description(self, column_name: str) -> str:
+        """Get the description for a column, or an empty string if not found."""
+        fm = self.get_field_meta(column_name)
+        if fm and hasattr(fm, "description") and fm.description:
+            return fm.description
+        return ""
 
     def __set_value(self, row_name, col_name, value):
         """Generic Property setter. Use this for all the specific setters below."""
@@ -374,15 +432,16 @@ class RSFieldMeta:
         """Set the field type for a column in the metadata."""
         self.__set_value(col, "dtype", dtype)
 
-    def apply_units(self, df: pd.DataFrame) -> pd.DataFrame:
+    def apply_units(self, df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         """ Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is NOT modified in place.
 
         Returns:
-            pd.DataFrame: A new DataFrame with units applied.
+            tuple(pd.DataFrame,dict) : A new DataFrame with units applied, a dict of applied units
         """
+        self._log.info("Applying Units")
         if self._field_meta is None:
             raise RuntimeError("No metadata set. You need to instantiate RSFieldMeta and set the .meta property first.")
 
@@ -407,9 +466,11 @@ class RSFieldMeta:
             elif fm.dtype in ('DATE', 'DATETIME', 'TIMESTAMP'):
                 df_copy[col] = pd.to_datetime(df_copy[col], errors='coerce')
             elif fm.dtype in ('INT', 'INTEGER', 'SMALLINT', 'BIGINT', 'MEDIUMINT', 'TINYINT'):
-                df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce', downcast='integer').astype('Int64')
+                if not isinstance(df_copy[col].dtype, pint_pandas.PintType):
+                    df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce', downcast='integer').astype('Int64')
             elif fm.dtype in ('FLOAT', 'DOUBLE', 'DECIMAL', 'REAL', 'NUMERIC', 'NUMBER'):
-                df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce', downcast='float').astype('Float64')
+                if not isinstance(df_copy[col].dtype, pint_pandas.PintType):
+                    df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce', downcast='float').astype('Float64')
             else:
                 self._log.warning(f"Unknown field type '{fm.dtype}' for column '{col}'. Skipping type coercion.")
             dtype = df_copy[col].dtype
@@ -436,7 +497,7 @@ class RSFieldMeta:
                     preferred_unit = self.get_field_unit(col)
                     df_copy[col] = df_copy[col].pint.to(preferred_unit)
                     # put back the dtype
-                    df_copy[col] = df_copy[col].astype(dtype)
+                    # df_copy[col] = df_copy[col].astype(dtype)
                     applied_unit = preferred_unit
                     self._log.debug(f'Converted {col} from {fm.data_unit} to {preferred_unit} for {self._unit_system} system')
 
@@ -523,7 +584,7 @@ class RSFieldMeta:
         for column in list(df.columns):
 
             fm = self.get_field_meta(column)
-            # Determine the header label
+            # Determine the header label # TODO consider use get_friendly instead
             header_text = fm.friendly_name if fm and fm.friendly_name else column
 
             if include_units:
@@ -565,6 +626,8 @@ class RSFieldMeta:
 
         Returns:
             Tuple[pd.DataFrame, List[str]]: The modified DataFrame with units applied and the corresponding headers.
+
+        Issue: Since the return df has different headers from the original, it loses the connection to the metadata (will not be able to get description)
         """
 
         # First apply the units

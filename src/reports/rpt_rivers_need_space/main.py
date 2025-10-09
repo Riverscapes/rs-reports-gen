@@ -25,7 +25,6 @@ from reports.rpt_rivers_need_space import __version__ as report_version
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
                                                    make_map_with_aoi,
-                                                   statistics,
                                                    low_lying_ratio_bins,
                                                    prop_riparian_bins,
                                                    floodplain_access,
@@ -33,17 +32,31 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    prop_ag_dev,
                                                    dens_road_rail,
                                                    project_id_list,
+                                                   metric_cards,
+                                                   statistics,
                                                    )
 
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
 
+def log_unit_status(df, label):
+    log = Logger('UnitStatus')
+    pint_cols = [col for col in df.columns if "pint" in str(df[col].dtype)]
+    log.info(f"[{label}] Pint columns: {pint_cols}")
+    log.info(f"[{label}] dtypes: {df.dtypes.to_dict()}")
+    if pint_cols:
+        log.info(f"[{label}] Sample value from {pint_cols[0]}: {df[pint_cols[0]].iloc[0]}")
+
+
 def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
     """
     Generates HTML report(s) in report_dir.
-    mode: "interactive", "static", or "both"
-    Returns path(s) to the generated html file(s).
+    Args: 
+        gdf: data to make report from
+        mode: "interactive", "static", or "both"
+    Returns:
+      path(s) to the generated html file(s).
     """
     log = Logger('make report')
 
@@ -78,11 +91,11 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
     )
     for (name, fig) in figures.items():
+        log.debug(f"Adding figure: {name}")
         report.add_figure(name, fig)
 
     report.add_html_elements('tables', tables)
     report.add_html_elements('kpis', statistics(gdf))
-    report.add_html_elements('appendices', appendices)
 
     if mode == "both":
         interactive_path = report.render(fig_mode="interactive", suffix="")
@@ -122,18 +135,24 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     if existing_csv_path:
         log.info(f"Using supplied csv file at {csv_data_path}")
-        shutil.copyfile(existing_csv_path, csv_data_path)
+        if existing_csv_path != csv_data_path:
+            shutil.copyfile(existing_csv_path, csv_data_path)
     else:
         log.info("Querying athena for data for AOI")
         get_data_for_aoi(None, aoi_gdf, csv_data_path)
     data_gdf = load_gdf_from_csv(csv_data_path)
+    log_unit_status(data_gdf, "Loaded")
+    data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicity about it for type checking
+    log_unit_status(data_gdf, "Applied units")
 
     add_calculated_cols(data_gdf)
+    log_unit_status(data_gdf, "added calculated columns")
 
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
     # make html report
+    log_unit_status(data_gdf, "after export to excel")
 
     report_paths = make_report(data_gdf, aoi_gdf, report_dir, report_name, mode="both")
     html_path = report_paths["interactive"]

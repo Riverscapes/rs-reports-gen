@@ -2,6 +2,7 @@
 import os
 from datetime import datetime
 from importlib import resources
+from typing import Any
 
 import plotly.graph_objects as go
 from rsxml import Logger
@@ -54,12 +55,12 @@ class RSReport:
         """
         self.figures[name] = fig
 
-    def add_html_elements(self, key: str, el: str) -> None:
+    def add_html_elements(self, key: str, el: Any) -> None:
         """ Add HTML elements to the report.
 
         Args:
             key (str): The key for the HTML element (you can reference this in the template).
-            el (str): The HTML element.
+            el (Any): The HTML element or data (can be str, list, dict, anything that can be represented with __str__)
         """
         self.html_elements[key] = el
 

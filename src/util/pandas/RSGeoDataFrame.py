@@ -33,7 +33,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         self._meta_df = RSFieldMeta()
 
         # This is a footer DataFrame that will be appended to the main DataFrame when rendering
-        self._footer = footer if footer is not None else pd.DataFrame()
+        object.__setattr__(self, "_footer", footer if footer is not None else pd.DataFrame())
 
     @property
     def _constructor(self):

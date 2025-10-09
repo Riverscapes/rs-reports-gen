@@ -14,10 +14,13 @@
   <h2>Key Indicators</h2>
 
   <dl class="metric-grid">
-    {% for key, value in kpis.items() %}
+    {% for title, value, details in cards %}
     <div class="metric">
-      <dt>{{ key.replace('_', ' ') }}</dt>
-      <dd>{{ "{:,.0f}".format(value) }}</dd>
+      <dt>{{ title }}</dt>
+      <dd>{{ value }}</dd>
+      {% if details %}
+      <dd class="metric-details">{{ details }}</dd>
+      {% endif %}
     </div>
     {% endfor %}
   </dl>
@@ -95,7 +98,7 @@
   <!-- This is a list in the form: <li>Project Name - <a href="Project URL">Project URL</a></li> -->
   <ul>
     {% for project in appendices['project_ids'] %}
-      <li><a href="{{ project[1] }}"><strong>{{ project[0] }}</strong> - &lt;{{ project[1] }}&gt;</a></li>
+    <li><a href="{{ project[1] }}"><strong>{{ project[0] }}</strong> - &lt;{{ project[1] }}&gt;</a></li>
     {% endfor %}
   </ul>
   <h2>Appendix 2 - Source Data</h2>
