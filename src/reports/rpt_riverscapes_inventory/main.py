@@ -33,6 +33,7 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    project_id_table,
                                                    )
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig
+from .__version__ import __version__
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
@@ -200,6 +201,7 @@ def main():
     log.info(f"Output path: {output_path}")
     log.info(f"AOI shape: {args.path_to_shape}")
     log.info(f"Report name: {args.report_name}")
+    log.info(f"Report Version: {__version__}")
     if args.csv:
         log.info(f"Using existing CSV: {args.csv}")
     else:

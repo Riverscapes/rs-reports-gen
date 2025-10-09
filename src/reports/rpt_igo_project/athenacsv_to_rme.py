@@ -41,7 +41,7 @@ from rsxml.project_xml import (
 )
 
 from util import est_rows_for_csv_file, get_bounds_from_gdf
-from util.athena import get_s3_file
+from util.athena.athena import get_s3_file
 from .__version__ import __version__
 
 

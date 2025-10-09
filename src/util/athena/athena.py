@@ -384,7 +384,7 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     return bounds_where_clause
 
 
-def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme") -> str | None:
+def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq") -> str | None:
     """Run Athena query `select (field_str) from (source_table)` on supplied AOI geojson
     also includes the dgo geometry (polygon) 
     the source table must have fields: 
@@ -400,6 +400,11 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
     """
     log = Logger('Run AOI Query on Athena')
 
+    if s3_bucket is None:
+        s3_output_path = f's3://{S3_ATHENA_BUCKET}/aoi_query_results/{uuid.uuid4()}/'
+    else:
+        s3_output_path = f's3://{s3_bucket}/aoi_query_results/{uuid.uuid4()}/'
+
     # we are going to filter the centroids, but clip to polygon
     # So we need to buffer by the maximum distance between a centroid and its bounding polygon
     prefilter_where_clause = generate_sql_where_clause_for_bounds(aoi_gdf)
@@ -407,7 +412,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
     # count the prefiltered records - these 3 lines are only needed for debugging
     # TODO: IN production comment this out for better performance
     query_str = f'SELECT count(*) AS record_count FROM {source_table} {prefilter_where_clause}'
-    results = athena_select_to_dict(query_str, s3_bucket)
+    results = athena_select_to_dict(query_str, s3_output_path)
     log.debug(f'Prefiltered records: {results}')
 
     # Try with original geometry
@@ -451,12 +456,8 @@ WHERE
         {aoi_geom_str}
     );
 """
-    if s3_bucket is None:
-        s3_output = f's3://{S3_ATHENA_BUCKET}/aoi_query_results/{uuid.uuid4()}/'
-    else:
-        s3_output = f's3://{s3_bucket}/aoi_query_results/{uuid.uuid4()}/'
 
-    result = _run_athena_query(s3_output, query_str)
+    result = _run_athena_query(s3_output_path, query_str)
     if not result:
         raise RuntimeError("Did not get a valid result from query")
     result_path, _ = result

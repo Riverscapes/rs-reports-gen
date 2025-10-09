@@ -12,10 +12,11 @@ import shutil
 import geopandas as gpd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
-from util.athena.athena import get_s3_file
 # Local imports
-from .athena_query_aoi import run_aoi_athena_query
+from util.athena.athena import get_s3_file, S3_ATHENA_BUCKET
+from util.athena import run_aoi_athena_query
 from .athenacsv_to_rme import create_gpkg_igos_from_csv, create_igos_project
+from .__version__ import __version__
 
 
 def generate_report(project_dir: str):
@@ -71,7 +72,7 @@ def main():
 
     args = dotenv.parse_args_env(parser)
 
-    s3_bucket = "riverscapes-athena"
+    s3_bucket = S3_ATHENA_BUCKET
 
     # Set up some reasonable folders to store things
     output_path = args.output_path
@@ -81,6 +82,7 @@ def main():
     log_path = os.path.join(output_path, 'report.log')
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rpt-igo-project')
+    log.info(f"Version: {__version__}")
 
     try:
         get_and_process_aoi(args.path_to_shape, s3_bucket, args.spatialite_path, output_path, args.project_name, log_path)
