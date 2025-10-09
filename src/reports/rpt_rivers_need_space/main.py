@@ -11,6 +11,7 @@ import geopandas as gpd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
+
 from util.pandas import load_gdf_from_csv, add_calculated_cols
 from util.athena import get_data_for_aoi
 from util.rme.field_metadata import get_field_metadata
@@ -19,6 +20,7 @@ from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.figures import table_total_x_by_y
 # Local imports
+from reports.rpt_rivers_need_space import __version__ as report_version
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
                                                    make_map_with_aoi,
@@ -29,7 +31,7 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    land_use_intensity,
                                                    prop_ag_dev,
                                                    dens_road_rail,
-                                                   project_id_table,
+                                                   project_id_list,
                                                    )
 
 
@@ -59,7 +61,9 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
         "owners": table_total_x_by_y(gdf, 'stream_length', ['ownership', 'ownership_desc']),
-        "project_id_table": project_id_table(gdf),
+    }
+    appendices = {
+        "project_ids": project_id_list(gdf),
     }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
@@ -69,6 +73,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         report_type="Rivers Need Space",
         report_dir=report_dir,
         figure_dir=figure_dir,
+        report_version=report_version,
         body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
         css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
     )
@@ -77,6 +82,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
 
     report.add_html_elements('tables', tables)
     report.add_html_elements('kpis', statistics(gdf))
+    report.add_html_elements('appendices', appendices)
 
     if mode == "both":
         interactive_path = report.render(fig_mode="interactive", suffix="")

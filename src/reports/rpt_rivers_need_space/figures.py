@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import List
+from ast import Tuple
 import json
 import plotly.graph_objects as go
 import plotly.express as px
@@ -120,12 +123,7 @@ def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int,
     return (zoom, center)
 
 
-# =========================
-# Tables - take dataframe and return html
-# =========================
-
-
-def project_id_table(df: pd.DataFrame) -> str:
+def project_id_list(df: pd.DataFrame) -> List[Tuple[str, str]]:
     """generate html fragment representing the projects used
 
     Args:
@@ -134,13 +132,13 @@ def project_id_table(df: pd.DataFrame) -> str:
     Returns:
         str: html fragment to insert in 
     """
-    df = df[['rme_project_id', 'rme_project_name']].copy()
-    df = df.drop_duplicates()
-    df["project_url"] = "https://data.riverscapes.net/p/" + df['rme_project_id'].astype(str)
-    df['link'] = df.apply(lambda row: f'<a href="{row["project_url"]}">{row["rme_project_name"]}</a>', axis=1)
-    df = df[['link']].copy()
-    html_table = df.to_html(escape=False, index=False)
-    return html_table
+    newdf = df[['rme_project_id', 'rme_project_name']].copy()
+    newdf = newdf.drop_duplicates()
+    # We can nicely hard-code the urls
+    newdf["project_url"] = "https://data.riverscapes.net/p/" + newdf['rme_project_id'].astype(str)
+    ret_val = list(newdf[['rme_project_name', 'project_url']].itertuples(index=False, name=None))
+    return ret_val
+
 
 # =========================
 # Figures - generate specific figures

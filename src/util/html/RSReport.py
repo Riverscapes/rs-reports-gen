@@ -13,8 +13,25 @@ class RSReport:
     """ Class to build an HTML report using Jinja2 templates and Plotly figures.
     """
 
-    def __init__(self, report_name: str, report_type: str, report_dir: str, figure_dir: str, body_template_path: str = None, css_paths: list[str] = None):
-        """ Initialize the report."""
+    def __init__(self,
+                 report_name: str,
+                 report_type: str,
+                 report_dir: str,
+                 figure_dir: str,
+                 body_template_path: str = None,
+                 css_paths: list[str] = None,
+                 report_version: str = "1.0"):
+        """_summary_
+
+        Args:
+            report_name (str): _description_
+            report_type (str): _description_
+            report_dir (str): _description_
+            figure_dir (str): _description_
+            version (str): _description_
+            body_template_path (str, optional): _description_. Defaults to None.
+            css_paths (list[str], optional): _description_. Defaults to None.
+        """
         self.report_name = report_name
         self.report_type = report_type
         self.report_dir = report_dir
@@ -24,6 +41,7 @@ class RSReport:
         self.body_template_path = body_template_path
         self.css_paths = css_paths if css_paths else []
         self._log = Logger("HTML template_builder")
+        self.report_version = report_version
         os.makedirs(report_dir, exist_ok=True)
         os.makedirs(figure_dir, exist_ok=True)
 
@@ -96,6 +114,7 @@ class RSReport:
                 'title': self.report_name,
                 'date': now.strftime('%B %d, %Y - %I:%M%p'),
                 'ReportType': self.report_type,
+                'version': self.report_version
             },
             'figures': figure_exports,
             **self.html_elements

@@ -20,6 +20,7 @@ from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.figures import table_total_x_by_y
+from reports.rpt_riverscapes_inventory import __version__ as report_version
 from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    make_rs_area_by_featcode,
                                                    make_map_with_aoi,
@@ -30,10 +31,9 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
                                                    land_use_intensity,
                                                    prop_ag_dev,
                                                    dens_road_rail,
-                                                   project_id_table,
+                                                   project_id_list,
                                                    )
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig
-from .__version__ import __version__
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
@@ -61,8 +61,10 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
         "owners": table_total_x_by_y(gdf, 'stream_length', ['ownership', 'ownership_desc']),
-        "project_id_table": project_id_table(gdf),
         "table_of_fcodes": table_total_x_by_y(gdf, 'stream_length', ['fcode_desc'])
+    }
+    appendices = {
+        "project_ids": project_id_list(gdf),
     }
     figure_dir = os.path.join(report_dir, 'figures')
     safe_makedirs(figure_dir)
@@ -71,6 +73,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         report_name=report_name,
         report_type="Riverscapes Inventory",
         report_dir=report_dir,
+        report_version=report_version,
         figure_dir=figure_dir,
         body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
         css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
@@ -80,6 +83,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
 
     report.add_html_elements('tables', tables)
     report.add_html_elements('kpis', statistics(gdf))
+    report.add_html_elements('appendices', appendices)
 
     if mode == "both":
         interactive_path = report.render(fig_mode="interactive", suffix="")
@@ -201,7 +205,7 @@ def main():
     log.info(f"Output path: {output_path}")
     log.info(f"AOI shape: {args.path_to_shape}")
     log.info(f"Report name: {args.report_name}")
-    log.info(f"Report Version: {__version__}")
+    log.info(f"Report Version: {report_version}")
     if args.csv:
         log.info(f"Using existing CSV: {args.csv}")
     else:

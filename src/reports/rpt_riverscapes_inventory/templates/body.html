@@ -4,7 +4,7 @@
   <dl class="metric-grid">
     {% for key, value in kpis.items() %}
     <div class="metric">
-      <dt>{{ key.replace('_', ' ').title() }}</dt>
+      <dt>{{ key.replace('_', ' ') }}</dt>
       <dd>{{ "{:,.0f}".format(value) }}</dd>
     </div>
     {% endfor %}
@@ -79,5 +79,26 @@
 <section class="appendix">
   <h1>Appendices</h1>
   <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
-  {{tables['project_id_table']|safe}}
+  <!-- This is a list in the form: <li>Project Name - <a href="Project URL">Project URL</a></li> -->
+  <ul>
+    {% for project in appendices['project_ids'] %}
+      <li><a href="{{ project[1] }}"><strong>{{ project[0] }}</strong> - &lt;{{ project[1] }}&gt;</a></li>
+    {% endfor %}
+  </ul>
+  <h2>Appendix 2 - Source Data</h2>
+  <div class="section-context">
+    <p>This report was generated using data from the <a href="https://data.riverscapes.net">Riverscapes Data
+        Exchange</a>. Free, pubicly accessibable data were processed through a series of models by the Riverscapes
+      Consortium, culminating with the Riverscapes Metric Engine (RME) that synthesizes metrics together for all the
+      preceeding models. These RME data are based on polygons that span the valley bottom and are segmented at a
+      distance that varies with drainage area. These polygons, or discreet geographic objects (DGOs) possess over 100
+      metrics spanning a variety of topics pertaining to riverscape health.</p>
+    <p>The model runs in question were all part of an initiative to produce a continuous riverscapes dataset for the <a
+        href="https://docs.riverscapes.net/initiatives/CONUS-runs">Conterminous United States in 2025</a>.</p>
+  </div>
+  <h2>Appendix 3 - Questions</h2>
+  <div class="section-context">
+    <p>Contact the Riverscapes Consortium at support@riverscapes.freshdesk.com with any questions regarding this report.
+    </p>
+  </div>
 </section>

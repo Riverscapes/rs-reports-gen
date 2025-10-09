@@ -16,7 +16,7 @@
   <dl class="metric-grid">
     {% for key, value in kpis.items() %}
     <div class="metric">
-      <dt>{{ key.replace('_', ' ').title() }}</dt>
+      <dt>{{ key.replace('_', ' ') }}</dt>
       <dd>{{ "{:,.0f}".format(value) }}</dd>
     </div>
     {% endfor %}
@@ -92,7 +92,12 @@
 <section class="appendix">
   <h1>Appendices</h1>
   <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
-  {{tables['project_id_table']|safe}}
+  <!-- This is a list in the form: <li>Project Name - <a href="Project URL">Project URL</a></li> -->
+  <ul>
+    {% for project in appendices['project_ids'] %}
+      <li><a href="{{ project[1] }}"><strong>{{ project[0] }}</strong> - &lt;{{ project[1] }}&gt;</a></li>
+    {% endfor %}
+  </ul>
   <h2>Appendix 2 - Source Data</h2>
   <div class="section-context">
     <p>This report was generated using data from the <a href="https://data.riverscapes.net">Riverscapes Data
