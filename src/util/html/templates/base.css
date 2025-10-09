@@ -268,7 +268,6 @@ a:focus {
   align-items: flex-start; 
   font-weight: 700;
   color: var(--accent-color);
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.85rem;
 }
@@ -507,6 +506,10 @@ canvas {
   border: 0 !important;
 }
 
+article.report-meta {
+  background-color: #dddddd;
+}
+
 @media print {
 /* =========================================
    0) Page & Global
@@ -568,7 +571,6 @@ canvas {
 
   .meta-label {
     font-weight: 700;
-    text-transform: uppercase;
   }
 
   .meta-item time {
@@ -634,7 +636,6 @@ canvas {
 
   /* Title */
   .metric dt{
-    text-transform: uppercase;
     line-height: 1.25;
     font-size: 8px;
     min-height: 60px;

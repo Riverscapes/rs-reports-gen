@@ -83,7 +83,7 @@ if __name__ == "__main__":
             Polygon([(4, 4), (5, 4), (5, 5), (4, 5)]),
         ],
     }
-    gdf = gpd.GeoDataFrame(pd.DataFrame(data), geometry="geometry")
+    input_gdf = gpd.GeoDataFrame(pd.DataFrame(data), geometry="geometry")
 
     COLORS = {
         "Perennial": "#1f77b4",
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     }
 
     fig = make_rs_area_by_owner_pie(
-        gdf,
+        input_gdf,
         title="Ownership Share of Riverscape Area",
         hole=0.3,
         show_percent=True,
