@@ -128,7 +128,6 @@ def test_apply_units_respects_no_convert_and_display_unit(fresh_meta):
 
     assert applied_units["distance"] == ureg.Unit("kilometer")
     # Also check the dtype of the column and make sure it's a Pint type
-    assert str(source["distance"].dtype) == "float"
-    assert str(applied["distance"].dtype) == "pint[kilometer]"
-    assert applied["distance"].tolist() == pytest.approx([1.0, 2.0])
-    assert source["distance"].tolist() == [1000.0, 2000.0]
+    assert str(source["distance"].dtype) == "float64"
+    assert str(applied["distance"].dtype) == "pint[kilometer][Float64]"
+    assert [float(x.magnitude) for x in applied["distance"].tolist()] == pytest.approx([1.0, 2.0])

@@ -487,7 +487,7 @@ class RSFieldMeta:
                         # Even though no_convert is true we still convert it to the display unit
                         df_copy[col] = df_copy[col].pint.to(fm.display_unit)
                         # put back the dtype
-                        df_copy[col] = df_copy[col].astype(dtype)
+                        # df_copy[col] = df_copy[col].astype(dtype)
                         applied_unit = fm.display_unit
                         self._log.debug(f'Applied {fm.display_unit} to {col} with no_convert using display unit {preferred_unit}')
                     else:
