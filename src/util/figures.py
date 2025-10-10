@@ -114,10 +114,14 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     baked_header_lookup = meta.get_headers_dict(chart_data)
     baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
 
-    if fig_params.orientation is None:
-        fig_params = {"orientation": "h"}
-    if fig_params.title is None:
-        title = f"Total {meta.getfriendly(total.col)} by {meta.getfriendly(group_by_cols[0])}"
+    if fig_params is None:
+        fig_params = {}
+    if "orientation" not in fig_params:
+        fig_params["orientation"] = "h"
+    if "title" in fig_params:
+        title = fig_params["title"]
+    else:
+        title = f"Total {meta.get_friendly_name(total_col)} by {meta.get_friendly_name(group_by_cols[0])}"
 
     bar_fig = px.bar(
         baked_chart_data,
