@@ -18,7 +18,7 @@ from util.rme.field_metadata import get_field_metadata
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
-from util.figures import table_total_x_by_y
+from util.figures import table_total_x_by_y, bar_group_x_by_y
 # Local imports
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_rivers_need_space import __version__ as report_version
@@ -63,6 +63,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "bar": make_rs_area_by_owner(gdf),
+        "owner_bar": bar_group_x_by_y(gdf, 'stream_length', ['ownership'], ''),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying": low_lying_ratio_bins(gdf),
         "prop_riparian": prop_riparian_bins(gdf),
