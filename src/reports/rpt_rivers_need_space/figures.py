@@ -11,6 +11,7 @@ import numpy as np
 
 from rsxml import Logger
 from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.figures import format_value
 
 # assume pint registry has been set up already
 
@@ -517,36 +518,6 @@ def metric_cards(metrics: dict) -> list[tuple[str, str, str]]:
         formatted = format_value(key, value, 0)
         cards.append((friendly, formatted, desc))
     return cards
-
-
-def format_value(column_name, value, decimals: int) -> str:
-    """return value formatted with units
-
-    Args:
-        value (_type_): Quantity or any
-        decimals (int): how many decimals to render
-
-    Returns:
-        string: formatted value ready to render
-
-    insipired by get_headers and bake 
-    TODO: this should go in RSFieldMeta or other common util spot 
-    """
-    meta = RSFieldMeta()
-    # unit_fmt = " {unit}"  # just the plain unit, no brackets
-    if hasattr(value, "magnitude"):
-        preferred_unit = meta.get_field_unit(column_name)
-        unit_text = ""
-        if preferred_unit:
-            value = value.to(preferred_unit)
-            # unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
-        # let Pint handle the unit formatting, so no need to append unit_text
-        formatted_val = f"{value:~P,.{decimals}f}{unit_text}"
-    elif isinstance(value, (int, float)):
-        formatted_val = f"{value:,.{decimals}f}"
-    else:
-        formatted_val = str(value)
-    return formatted_val
 
 
 def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:

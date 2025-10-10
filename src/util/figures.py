@@ -9,6 +9,35 @@ import pandas as pd
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 
 
+def format_value(column_name, value, decimals: int) -> str:
+    """return value formatted with units
+
+    Args:
+        value (_type_): Quantity or any
+        decimals (int): how many decimals to render
+
+    Returns:
+        string: formatted value ready to render
+
+    insipired by get_headers and bake 
+    """
+    meta = RSFieldMeta()
+    # unit_fmt = " {unit}"  # just the plain unit, no brackets
+    if hasattr(value, "magnitude"):
+        preferred_unit = meta.get_field_unit(column_name)
+        unit_text = ""
+        if preferred_unit:
+            value = value.to(preferred_unit)
+            # unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
+        # let Pint handle the unit formatting, so no need to append unit_text
+        formatted_val = f"{value:~P,.{decimals}f}{unit_text}"
+    elif isinstance(value, (int, float)):
+        formatted_val = f"{value:,.{decimals}f}"
+    else:
+        formatted_val = str(value)
+    return formatted_val
+
+
 def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], with_percent: bool = True) -> RSGeoDataFrame:
     """summarize the dataframe with friendly name and units
 
@@ -33,6 +62,7 @@ def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], wit
 
         # add the grand_total metadata
         grand_total = df[total_col].sum()  # Quantity
+
         df['pct_of_total'] = df[total_col] / grand_total * 100
         # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
         RSFieldMeta().add_field_meta(name='pct_of_total', friendly_name='Percent of Total (%)', dtype='REAL')
