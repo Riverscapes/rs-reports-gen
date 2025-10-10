@@ -62,7 +62,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
 
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
-        "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc']),
+        "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying": low_lying_ratio_bins(gdf),
         "prop_riparian": prop_riparian_bins(gdf),

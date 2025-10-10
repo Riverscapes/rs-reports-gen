@@ -101,13 +101,14 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     Args:
         df (pd.DataFrame): input dataframe
         total_col (str): column to sum
-        group_by_cols (list[str]): list of fields to group by - only the first is used!
-        TODO: can we do multiples??
+        group_by_cols (list[str]): fields to group by. First field will be the y axis, second field the color
         fig_params (dict, optional): override things like title, orientation.
 
     Returns:
         go.Figure: a plotly figure object
     """
+    if len(group_by_cols) > 2:
+        raise NotImplementedError("We don't make bar charts with more than 2 group bys")
     chart_data = total_x_by_y(df, total_col, group_by_cols, False)
 
     meta = RSFieldMeta()
@@ -121,7 +122,10 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     if "title" in fig_params:
         title = fig_params["title"]
     else:
-        title = f"Total {meta.get_friendly_name(total_col)} by {meta.get_friendly_name(group_by_cols[0])}"
+        group_names = [meta.get_friendly_name(col) for col in group_by_cols]
+        title = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)}"
+    if len(group_by_cols) == 2 and not "color" in fig_params:
+        fig_params["color"] = group_by_cols[1]
 
     bar_fig = px.bar(
         baked_chart_data,
