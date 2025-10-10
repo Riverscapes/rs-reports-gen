@@ -13,6 +13,10 @@ from rsxml import Logger
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.figures import format_value
 
+from util.plotly.pie_charts import make_rs_pie_chart
+from util.plotly.vertical_bar_charts import make_rs_vertical_bar
+from util.plotly.horizontal_bar_charts import make_rs_horizontal_bar
+
 # assume pint registry has been set up already
 
 # =========================
@@ -192,20 +196,35 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
     baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
 
-    baked_header_lookup['bin'] = 'Low Lying Ratio'
-    baked_header_lookup['segment_area'] = 'Total Riverscape Area'
+    baked_header_lookup["bin"] = "Low Lying Ratio"
+    baked_header_lookup["segment_area"] = "Total Riverscape Area"
 
-    fig = px.bar(
-        baked_agg_data,
-        x='bin',
-        y='segment_area',
-        color='bin',
-        color_discrete_sequence=colours,
-        title='Total Riverscape Area by Low Lying Ratio Bin',
-        labels=baked_header_lookup,
-        height=400
+    # Build color map (now accepts both '#hex' and 'rgb(...)')
+    color_map = {lab: col for lab, col in zip(labels, colours)}
+
+    # Delegate to the shared vertical bar helper
+    fig = make_rs_vertical_bar(
+        gdf=baked_agg_data,
+        group_col="bin",
+        value_col="segment_area",
+        title="Total Riverscape Area by Low Lying Ratio Bin",
+        show_percent=False,
+        color_map=color_map,
+        height=400,
+        keep_input_order=True,            # <-- preserve your legend order
+        label_angle=-30,
+        labels=baked_header_lookup,      # <-- ensures axis + hover labels
+        hover_decimals=6,
     )
-    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+
+    # Ensure axis titles and explicit category order are applied
+    fig.update_layout(
+        xaxis_title=baked_header_lookup["bin"],
+        yaxis_title=baked_header_lookup["segment_area"],
+        margin={"r": 10, "t": 40, "l": 60, "b": 10},  # keep y ticks fully visible
+    )
+    fig.update_xaxes(categoryorder="array", categoryarray=labels)
+
     return fig
 
 
