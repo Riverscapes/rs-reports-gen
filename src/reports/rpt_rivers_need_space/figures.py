@@ -6,13 +6,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 import geopandas as gpd
 import pint
+import pandas as pd
+import numpy as np
+
 from rsxml import Logger
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 
 # assume pint registry has been set up already
-
-# Custom DataFrame accessor for metadata - to be moved to util
-import pandas as pd
-from util.pandas import RSFieldMeta, RSGeoDataFrame
 
 # =========================
 # Helpers
@@ -31,9 +31,18 @@ def extract_colours_from_legend(bins_legend_json: str) -> list[str]:
     return colours
 
 
+def check_for_pdna(df, label):
+    if df.isna().any().any():
+        Logger('NATypeCheck').error(f"pd.NA found in DataFrame before plotting: {label}")
+        # Optionally, print which columns/rows
+        for col in df.columns:
+            if df[col].isna().any():
+                Logger('NATypeCheck').error(f"  Column '{col}' has NA at rows: {df[df[col].isna()].index.tolist()}")
+
 # =========================
 # Maps
 # =========================
+
 
 def make_map_with_aoi(gdf, aoi_gdf):
     """ make a map with the data and the AOI outlined
@@ -46,10 +55,20 @@ def make_map_with_aoi(gdf, aoi_gdf):
         _type_: _description_
     """
     # Prepare plotting DataFrame and geojson
+    log = Logger("Make map with AOI")
     plot_cols = ["dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]
     plot_gdf = gdf.reset_index(drop=True).copy()
     plot_gdf["id"] = plot_gdf.index
-    # plot_gdf = plot_gdf.fillna("-") # if we are going to do it can only do it for non-numeric columns
+    # Keep only the columns needed for plotting and geojson
+    plot_gdf = plot_gdf[["id", "dgo_polygon_geom", "fcode_desc", "ownership_desc", "segment_area"]]
+    # Fill NAs for string/object columns with "-", for numeric columns with np.nan
+    for col in plot_gdf.columns:
+        if pd.api.types.is_string_dtype(plot_gdf[col]) or plot_gdf[col].dtype == "object":
+            plot_gdf[col] = plot_gdf[col].fillna("-")
+        elif pd.api.types.is_numeric_dtype(plot_gdf[col]):
+            plot_gdf[col] = plot_gdf[col].fillna(np.nan)
+        # Optionally handle other dtypes (categorical, boolean) as needed
+    check_for_pdna(plot_gdf, log.method)
     plot_gdf = plot_gdf[["id"] + plot_cols]
     for col in plot_gdf.columns:
         if hasattr(plot_gdf[col], "pint"):
@@ -61,12 +80,12 @@ def make_map_with_aoi(gdf, aoi_gdf):
 
     # Bake in the units and names
     baked_header_lookup = RSFieldMeta().get_headers_dict(plot_gdf)
-    baked, baked_headers = RSFieldMeta().bake_units(plot_gdf)
+    baked_df, baked_headers = RSFieldMeta().bake_units(plot_gdf)
     # baked.columns = baked_headers
 
     # Create choropleth map with Plotly Express
     fig = px.choropleth_map(
-        baked,
+        baked_df,
         geojson=geojson,
         locations="id",
         color="fcode_desc",
