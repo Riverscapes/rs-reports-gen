@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Bins Configuration Schema",
+    "description": "Schema for binning configuration used in Riverscapes reporting. Each top-level key corresponds to a bin set for a specific column or logical group. Each bin set contains the bin edges, legend, and optional metadata.",
+    "type": "object",
+    "patternProperties": {
+        "^[a-zA-Z0-9_]+$": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Optional. URL or path to the source or documentation for this bin set."
+                },
+                "edges": {
+                    "type": "array",
+                    "description": "An array of numbers specifying the bin edges for pandas.cut. The length of this array should be one more than the number of bins/labels. Used with pandas.cut(..., bins=edges, include_lowest=True) to assign values to bins.",
+                    "items": {
+                        "type": "number"
+                    },
+                    "minItems": 2
+                },
+                "legend": {
+                    "type": "array",
+                    "description": "An array of arrays, each containing two elements: a color (as a string, e.g., 'rgb(...)' or hex) and a label (string) for the bin. The number of legend entries should be one less than the number of edges.",
+                    "items": {
+                        "type": "array",
+                        "items": [
+                            {
+                                "type": "string",
+                                "description": "Color for the bin (e.g., 'rgb(247, 252, 245)' or '#ffffff')."
+                            },
+                            {
+                                "type": "string",
+                                "description": "Label for the bin (e.g., '< 2%')."
+                            }
+                        ],
+                        "minItems": 2,
+                        "maxItems": 2
+                    }
+                }
+            },
+            "required": [
+                "edges",
+                "legend"
+            ],
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false
+}

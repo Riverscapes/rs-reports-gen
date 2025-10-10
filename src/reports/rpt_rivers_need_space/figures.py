@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List, Dict
 from ast import Tuple
 import json
+import os
 import plotly.graph_objects as go
 import plotly.express as px
 import geopandas as gpd
@@ -18,6 +19,13 @@ from util.figures import format_value
 # =========================
 # Helpers
 # =========================
+
+
+def get_bins_legend(key: str) -> list:
+    bins_path = os.path.join(os.path.dirname(__file__), "bins.json")
+    with open(bins_path, "r") as f:
+        bins_dict = json.load(f)
+    return bins_dict[key]
 
 
 def extract_labels_from_legend(bins_legend_json: str) -> list[str]:
@@ -190,7 +198,7 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
     agg_data = chart_data.groupby('bin', as_index=False, observed=False)['segment_area'].sum()
 
     baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)
 
     baked_header_lookup['bin'] = 'Low Lying Ratio'
     baked_header_lookup['segment_area'] = 'Total Riverscape Area'
@@ -242,84 +250,6 @@ def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
         color='bin',
         color_discrete_sequence=colours,
         title='Total Riverscape Area by Proportion Riparian Bin',
-        labels=baked_header_lookup,
-        height=400
-    )
-    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
-    return fig
-
-
-def floodplain_access(df: pd.DataFrame) -> go.Figure:
-    # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Fldpln_Access.json
-    bins_json = """[
-    ["rgb(242, 0, 0)", "< 50%"],
-    ["rgb(255, 0, 106)", "50 - 75%"],
-    ["rgb(230, 57, 185)", "75 - 90%"],
-    ["rgb(161, 114, 239)", "90 - 95%"],
-    ["rgb(31, 147, 255)", "> 95%"]
-  ]"""
-
-    chart_data = df[['fldpln_access', 'segment_area']].copy()
-    bins = [0, 0.50, 0.75, 0.90, 0.95, 1]
-    labels = extract_labels_from_legend(bins_json)
-    colours = extract_colours_from_legend(bins_json)
-    # Bin the low_lying_ratio values- cut creates Categorical dtype
-    chart_data['bin'] = pd.cut(chart_data['fldpln_access'], bins=bins, labels=labels, include_lowest=True)
-    # Aggregate segment_area by bin
-    agg_data = chart_data.groupby('bin', as_index=False, observed=False)['segment_area'].sum()
-
-    # Plot bar chart
-    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
-
-    baked_header_lookup['bin'] = 'Low Lying Ratio'
-
-    # Plot bar chart
-    fig = px.bar(
-        baked_agg_data,
-        x='bin',
-        y='segment_area',
-        color='bin',
-        color_discrete_sequence=colours,
-        title='Total Riverscapes Area by Floodplain Access',
-        labels={'bin': 'Floodplain Access', 'segment_area': 'Total Riverscapes Area'},
-        height=400
-    )
-    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
-    return fig
-
-
-def land_use_intensity(df: pd.DataFrame) -> go.Figure:
-    # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Land_Use.json
-    bins_json = """[
-    ["rgb(38, 115, 0)", "Very Low"],
-    ["rgb(164, 196, 0)", "Low"],
-    ["rgb(255, 187, 0)", "Moderate"],
-    ["rgb(245, 0, 0)", "High"]
-  ]"""
-
-    chart_data = df[['land_use_intens', 'segment_area']].copy()
-    bins = [0, 0.00001, 33.0001, 66.001, 100]
-    labels = extract_labels_from_legend(bins_json)
-    colours = extract_colours_from_legend(bins_json)
-    # Bin the values
-    chart_data['bin'] = pd.cut(chart_data['land_use_intens'], bins=bins, labels=labels, include_lowest=True)
-    # Aggregate segment_area by bin - cut creates Categorical dtype
-    agg_data = chart_data.groupby('bin', as_index=False, observed=False)['segment_area'].sum()
-
-    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, _baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
-
-    baked_header_lookup['bin'] = 'Land Use Intensity'
-
-    # Plot bar chart
-    fig = px.bar(
-        baked_agg_data,
-        x='bin',
-        y='segment_area',
-        color='bin',
-        color_discrete_sequence=colours,
-        title='Total Riverscapes Area by Land Use Intensity',
         labels=baked_header_lookup,
         height=400
     )

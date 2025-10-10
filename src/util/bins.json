@@ -1,0 +1,77 @@
+{
+  "low_lying_ratio": {
+    "source" : "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Low_Lying_Ratio.json",
+    "edges" : [0, 0.02, 0.05, 0.10, 0.15, 0.25, 0.50, 0.75, 1],
+    "legend": [
+    ["rgb(247, 252, 245)", "< 2%"],
+    ["rgb(226, 244, 221)", "2% to 5%"],
+    ["rgb(192, 230, 185)", "5% to 10%"],
+    ["rgb(148, 211, 144)", "10% to 15%"],
+    ["rgb(96, 186, 108)", "15% to 25%"],
+    ["rgb(50, 155, 81)", "25% to 50%"],
+    ["rgb(12, 120, 53)", "50% to 75%"],
+    ["rgb(0, 68, 27)", "> 75%"]
+  ]
+},
+  "lf_riparian_prop": {
+    "source" : "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Prop_Rip.json",
+  "edges":[0, 0.000000001, 0.05, 0.15, 0.3, 0.6, 1],
+  "legend":
+  [
+    ["rgb(67, 41, 0)", "0%"],
+    ["rgb(98, 73, 0)", "0 - 5%"],
+    ["rgb(89, 83, 0)", "5 - 15%"],
+    ["rgb(76, 93, 0)", "15 - 30%"],
+    ["rgb(53, 103, 0)", "30 - 60%"],
+    ["rgb(9, 112, 0)", "> 60%"]
+  ]
+},
+
+  "fldpln_access":  {
+    "source" : "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Fldpln_Access.json",
+    "edges": [0, 0.50, 0.75, 0.90, 0.95, 1],
+    "legend":
+  [
+    ["rgb(242, 0, 0)", "< 50%"],
+    ["rgb(255, 0, 106)", "50 - 75%"],
+    ["rgb(230, 57, 185)", "75 - 90%"],
+    ["rgb(161, 114, 239)", "90 - 95%"],
+    ["rgb(31, 147, 255)", "> 95%"]
+  ]},
+  "land_use_intens": {
+    "source" : "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Land_Use.json",
+    "edges" : [0, 0.00001, 33.0001, 66.001, 100],
+    "legend" :
+    [
+    ["rgb(38, 115, 0)", "Very Low"],
+    ["rgb(164, 196, 0)", "Low"],
+    ["rgb(255, 187, 0)", "Moderate"],
+    ["rgb(245, 0, 0)", "High"]
+  ]}
+  ,
+  "lf_agriculture_prop":{
+    "source":"https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/lf_ag_rme3.json",
+    "edges" : [0, 0.00001, 0.05, 0.15, 0.30, 0.60, 1.0],
+    "legend": 
+     [
+    ["rgb(255, 255, 212)", "0%"],
+    ["rgb(254, 227, 145)", "0 - 5%"],
+    ["rgb(254, 196, 79)", "5 - 15%"],
+    ["rgb(254, 153, 41)", "15 - 30%"],
+    ["rgb(217, 95, 14)", "30 - 60%"],
+    ["rgb(153, 52, 4)", "> 60%"]
+  ]
+ },
+ "road_dens": {
+    "source": "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Anthro/road_dens.json",
+    "edges": [0, 0.1, 0.5, 1, 2, 5, 10, 100],
+    "legend":[
+    ["#ffffff", "0"],
+    ["#4fac24", "0 - 0.01"],
+    ["#93d31d", "0.01 - 0.025"],
+    ["#ffef39", "0.025 - 0.1"],
+    ["#fb9820", "0.1 - 1"],
+    ["#ed2024", "> 1"]
+    ]
+ }
+}
