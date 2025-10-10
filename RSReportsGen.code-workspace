@@ -23,6 +23,12 @@
             "--disable=C0301,C0114,C0103,W0719,W0718",
             "--max-line-length=240"
         ],
+        "python.testing.pytestEnabled": true,
+        // Testing setup
+        "python.testing.pytestArgs": [
+          "tests"
+        ],
+        "python.testing.unittestEnabled": false,
         "files.watcherExclude": {
           "**/*.egg-info/**": true,
           "**/docs/**": true,
@@ -51,6 +57,8 @@
           "mhutchie.git-graph",
           "graphql.vscode-graphql-syntax",
           "graphql.vscode-graphql",
-        ]
-      }
+          "ms-python.autopep8",
+          "ms-python.pylint"
+        ],
+      },
 }

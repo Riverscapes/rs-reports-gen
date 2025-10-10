@@ -32,12 +32,13 @@ dependencies = [
 rpt-igo-project = "reports.rpt_igo_project.main:main"
 rpt-rivers-need-space = "reports.rpt_rivers_need_space.main:main"
 
+# Install these using uv by typing: "uv pip install ".[dev]"
 [project.optional-dependencies]
 dev = [
     "ipython",
     "nbformat",
     "pytest",
-    "ipykernel",
+    "ipykernel"
     # add any other dev-only packages here
 ]
 
