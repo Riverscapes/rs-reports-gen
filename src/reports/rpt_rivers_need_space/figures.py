@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Dict
 from ast import Tuple
 import json
 import plotly.graph_objects as go
@@ -460,6 +460,25 @@ def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
     return bar_fig
 
 
+def format_hover(df: pd.DataFrame, nice_headers: List[str]) -> str:
+    """
+    Generate a Plotly hovertemplate based on column dtypes.
+    Returns a string suitable for `update_traces(hovertemplate=...)`.
+    """
+    lines = []
+    for i, (col, dtype) in enumerate(df.dtypes.items()):
+        col_name = nice_headers[i]
+        if np.issubdtype(dtype, np.number):
+            lines.append(f"{col_name}: %{{customdata[{i}]:,.2f}}")
+        elif np.issubdtype(dtype, np.datetime64):
+            lines.append(f"{col_name}: %{{customdata[{i}]|%Y-%m-%d %H:%M}}")
+        else:
+            lines.append(f"{col_name}: %{{customdata[{i}]}}")
+
+    hover = "<br>".join(lines) + "<extra></extra>"
+    return hover
+
+
 def make_rs_area_by_featcode(gdf) -> go.Figure:
     """Create pie chart of total segment area by NHD feature code type"""
     chart_data = gdf.groupby('fcode_desc', as_index=False)['segment_area'].sum()
@@ -478,7 +497,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
     # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
     fig.update_traces(
         textinfo="percent",
-        hovertemplate="<b>%{label}</b><br>%{value:,.0f}<extra></extra>"
+        hovertemplate=f"<b>{baked_header_lookup.get('segment_area', 'segment_area')} for {baked_header_lookup.get('fcode_desc', 'fcode_desc Code')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>"
         # Use :,.1f or :,.2f if you want decimals.
     )
 

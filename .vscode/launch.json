@@ -1,4 +1,5 @@
 {
+  "version": "0.2.0",
   "inputs": [
     {
       "id": "environment",
@@ -90,6 +91,21 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src"
       }
-    }
+    },
+    // This is what integrates with the Testing sidebar. Don't change it unless you know what you're doing.
+    {
+      "name": "🐍 Python: Debug Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "purpose": [
+        "debug-test"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "justMyCode": false
+    },
   ]
 }

@@ -31,6 +31,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
 
         # This is our metadata singleton. Mostly this is just here for convenience
         self._meta_df = RSFieldMeta()
+        self._footer = None
 
         # This is a footer DataFrame that will be appended to the main DataFrame when rendering
         object.__setattr__(self, "_footer", footer if footer is not None else pd.DataFrame())
@@ -51,7 +52,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         Args:
             footer (pd.DataFrame): The footer DataFrame to append.
         """
-        self._footer = footer
+        self._footer = footer.copy()
 
     def copy(self, deep: bool = True):
         """ Override the copy method to ensure the metadata is preserved.
@@ -175,6 +176,28 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         column_classes: Dict[str, str] = {}
         formatters: Dict[str, Callable[[object], str]] = {}
 
+        # If self._footer is set and not empty, append it to the display_df
+        row_classes: Dict[int, str] = {}
+        if not self._footer.empty:
+            display_footer = self._footer.copy()
+            # Ensure footer has the same columns as display_df
+            for col in display_df.columns:
+                if col not in display_footer.columns:
+                    display_footer[col] = pd.NA
+                # Match dtypes for Pint columns
+                if col in display_df.columns:
+                    main_dtype = display_df[col].dtype
+                    if "pint" in str(main_dtype):
+                        display_footer[col] = display_footer[col].astype(main_dtype)
+
+            display_footer = display_footer[display_df.columns]  # Reorder columns to match
+            display_df = pd.concat([display_df, display_footer], ignore_index=True)
+
+            # We also want to add a class called "footer" to the row of any footer rows
+            footer_start_idx = len(display_df) - len(display_footer)
+            for idx in range(footer_start_idx, len(display_df)):
+                row_classes[idx] = "footer"
+
         # Now we loop over all the columns and apply formatting and units if necessary
         for column in list(display_df.columns):
             # These are the classes we apply to the columns
@@ -221,21 +244,6 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
                 formatters[column] = _format_text
 
             column_classes[column] = ' '.join(dict.fromkeys(class_tokens)) if class_tokens else ''
-
-        # If self._footer is set and not empty, append it to the display_df
-        row_classes: Dict[int, str] = {}
-        if not self._footer.empty:
-            footer_df = self._footer.copy()
-            # Ensure footer has the same columns as display_df
-            for col in display_df.columns:
-                if col not in footer_df.columns:
-                    footer_df[col] = pd.NA
-            footer_df = footer_df[display_df.columns]  # Reorder columns to match
-            display_df = pd.concat([display_df, footer_df], ignore_index=True)
-            # We also want to add a class called "footer" to the row of any footer rows
-            footer_start_idx = len(display_df) - len(footer_df)
-            for idx in range(footer_start_idx, len(display_df)):
-                row_classes[idx] = "footer"
 
         styler: pd.io.formats.style.Styler = display_df.style
         styler = styler.format(formatters, na_rep="")
