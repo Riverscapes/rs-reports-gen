@@ -19,16 +19,15 @@ from util.athena.athena import S3_ATHENA_BUCKET
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
-from util.figures import table_total_x_by_y
+from util.figures import (
+    table_total_x_by_y,
+    bar_group_x_by_y,
+    bar_total_x_by_ybins,
+)
 from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
-                                                   make_rs_area_by_featcode,
+from reports.rpt_rivers_need_space.figures import (make_rs_area_by_featcode,
                                                    make_map_with_aoi,
                                                    statistics,
-                                                   low_lying_ratio_bins,
-                                                   prop_riparian_bins,
-                                                   floodplain_access,
-                                                   land_use_intensity,
                                                    prop_ag_dev,
                                                    dens_road_rail,
                                                    project_id_list,
@@ -49,12 +48,12 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
 
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
-        "bar": make_rs_area_by_owner(gdf),
+        "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "pie": make_rs_area_by_featcode(gdf),
-        "low_lying": low_lying_ratio_bins(gdf),
-        "prop_riparian": prop_riparian_bins(gdf),
-        "floodplain_access": floodplain_access(gdf),
-        "land_use_intensity": land_use_intensity(gdf),
+        "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
+        "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),
+        "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access']),
+        "land_use_intensity_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['land_use_intens']),
         "prop_ag_dev": prop_ag_dev(gdf),
         "dens_road_rail": dens_road_rail(gdf),
         "hypsometry": hypsometry_fig(huc_df),
