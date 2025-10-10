@@ -1,11 +1,13 @@
-"""Generic Functions to generate figures for reports 
-these should work with any report, any data frame input 
+"""Generic Functions to generate figures for reports
+these should work with any report, any data frame input
 (may create new hard-coded fields such as Total or Percent of Total)
 """
 
 # assume pint registry has been set up already
 
 import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 
 
@@ -19,7 +21,7 @@ def format_value(column_name, value, decimals: int) -> str:
     Returns:
         string: formatted value ready to render
 
-    insipired by get_headers and bake 
+    insipired by get_headers and bake
     """
     meta = RSFieldMeta()
     # unit_fmt = " {unit}"  # just the plain unit, no brackets
@@ -90,3 +92,41 @@ def table_total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str
     """return html table fragment for grouped-by with total (and optional percent) table"""
     df = total_x_by_y(df, total_col, group_by_cols, with_percent)
     return df.to_html(index=False, escape=False)
+
+
+def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
+                     fig_params=None) -> go.Figure:
+    """create bar chart of total x by y
+
+    Args:
+        df (pd.DataFrame): input dataframe
+        total_col (str): column to sum
+        group_by_cols (list[str]): list of fields to group by - only the first is used!
+        TODO: can we do multiples??
+        fig_params (dict, optional): override things like title, orientation.
+
+    Returns:
+        go.Figure: a plotly figure object
+    """
+    chart_data = total_x_by_y(df, total_col, group_by_cols, False)
+
+    meta = RSFieldMeta()
+    baked_header_lookup = meta.get_headers_dict(chart_data)
+    baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
+
+    if fig_params.orientation is None:
+        fig_params = {"orientation": "h"}
+    if fig_params.title is None:
+        title = f"Total {meta.getfriendly(total.col)} by {meta.getfriendly(group_by_cols[0])}"
+
+    bar_fig = px.bar(
+        baked_chart_data,
+        y=group_by_cols[0],
+        x=total_col,
+        title=title,
+        labels=baked_header_lookup,
+        **fig_params
+    )
+    bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    bar_fig.update_xaxes(tickformat=",")
+    return bar_fig
