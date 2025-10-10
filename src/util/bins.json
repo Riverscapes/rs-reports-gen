@@ -63,15 +63,16 @@
   ]
  },
  "road_dens": {
-    "source": "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Anthro/road_dens.json",
+    "source": "maybe? https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Anthro/road_dens.json",
     "edges": [0, 0.1, 0.5, 1, 2, 5, 10, 100],
     "legend":[
-    ["#ffffff", "0"],
-    ["#4fac24", "0 - 0.01"],
-    ["#93d31d", "0.01 - 0.025"],
-    ["#ffef39", "0.025 - 0.1"],
-    ["#fb9820", "0.1 - 1"],
-    ["#ed2024", "> 1"]
+    ["#ffffff", "<0.1"],
+    ["#4fac24", "0.1-0.5"],
+    ["#93d31d", "0.5-1"],
+    ["#ffef39", "1-2"],
+    ["#fb9820", "2-5"],
+    ["#ed2024", "5-10"],
+    ["#ea1020", ">10"]
     ]
  }
 }

@@ -218,6 +218,7 @@ def low_lying_ratio_bins(df: pd.DataFrame) -> go.Figure:
 
 
 def prop_riparian_bins(df: pd.DataFrame) -> go.Figure:
+    """NOT NEEDED JUST KEEPING TO SHOW WHAT WE DID"""
     # "legend" array from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Prop_Rip.json
     bins_json = """[
     ["rgb(67, 41, 0)", "0%"],

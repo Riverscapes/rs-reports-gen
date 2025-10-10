@@ -83,13 +83,16 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     fields: [] = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     edges, labels, colours = get_bins_info(group_by_cols[0])
+    # TODO: iterate through the group_by_cols, name each bein col_bin AND ensure it has metadata - units, description etc.
     chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
     # Aggregate total_col by bin - NB cut creates a Categorical dtype
+    # TO DO: aggregate by each bin
     agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
 
     # THIS IS WHERE WE COULD REGURN agg_data TO BE USED BY OTHER FUNCTIONS
     # however, colurs are not part of the agg_data and are needed - so we'd need to call the get_bins_info again
     # prepare the data
+    # TODO: for grouped bar chart we should merge the bins and do something different with the colors
     meta = RSFieldMeta()
     baked_header_lookup = meta.get_headers_dict(agg_data)
     baked_agg_data, _baked_headers = RSFieldMeta().bake_units(agg_data)
@@ -103,6 +106,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     # baked_header_lookup[total_col] = f'Total {meta.get_friendly_name(total_col)}'
     # build the figure
     # set parameters
+    # TODO if we are doing multiples then it is a grouped and we add multiple traces and barmode='group'
     if fig_params is None:
         fig_params = {}
 

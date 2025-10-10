@@ -29,7 +29,6 @@ from reports.rpt_rivers_need_space import __version__ as report_version
 from reports.rpt_rivers_need_space.figures import (
     make_rs_area_by_featcode,
     make_map_with_aoi,
-    prop_riparian_bins,
     prop_ag_dev,
     dens_road_rail,
     project_id_list,
@@ -66,11 +65,13 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
-        "prop_riparian": prop_riparian_bins(gdf),
+        "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),
         "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access']),
         "land_use_intensity_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['land_use_intens']),
         "prop_ag_dev": prop_ag_dev(gdf),
+        "prop_ag_dev_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_agriculture_prop', 'lf_developed_prop']),
         "dens_road_rail": dens_road_rail(gdf),
+        "dens_road_rail_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['road_dens', 'rail_dens'], {"orientation": 'h'}),
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
