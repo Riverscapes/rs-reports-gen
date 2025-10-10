@@ -431,33 +431,33 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
-    """ Create bar chart of total segment area by ownership
+# def make_rs_area_by_owner(gdf: gpd.GeoDataFrame) -> go.Figure:
+#     """ Create bar chart of total segment area by ownership
 
-    Args:
-        gdf (GeoDataFrame): _geodataframe with 'ownership' and 'segment_area' columns_
+#     Args:
+#         gdf (GeoDataFrame): _geodataframe with 'ownership' and 'segment_area' columns_
 
-    Returns:
-        _type_: _plotly figure object_
-    """
-    # Create horizontal bar chart (sum of segment_area by ownership)
-    chart_data = gdf.groupby('ownership_desc', as_index=False)['segment_area'].sum()
+#     Returns:
+#         _type_: _plotly figure object_
+#     """
+#     # Create horizontal bar chart (sum of segment_area by ownership)
+#     chart_data = gdf.groupby('ownership_desc', as_index=False)['segment_area'].sum()
 
-    baked_header_lookup = RSFieldMeta().get_headers_dict(chart_data)
-    baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
+#     baked_header_lookup = RSFieldMeta().get_headers_dict(chart_data)
+#     baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
 
-    bar_fig = px.bar(
-        baked_chart_data,
-        y="ownership_desc",
-        x="segment_area",
-        orientation="h",
-        title="Total Riverscape Area by Ownership",
-        labels=baked_header_lookup,
-        height=400
-    )
-    bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
-    bar_fig.update_xaxes(tickformat=",")
-    return bar_fig
+#     bar_fig = px.bar(
+#         baked_chart_data,
+#         y="ownership_desc",
+#         x="segment_area",
+#         orientation="h",
+#         title="Total Riverscape Area by Ownership",
+#         labels=baked_header_lookup,
+#         height=400
+#     )
+#     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+#     bar_fig.update_xaxes(tickformat=",")
+#     return bar_fig
 
 
 def format_hover(df: pd.DataFrame, nice_headers: List[str]) -> str:

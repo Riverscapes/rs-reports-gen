@@ -22,19 +22,19 @@ from util.figures import table_total_x_by_y, bar_group_x_by_y
 # Local imports
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_rivers_need_space import __version__ as report_version
-from reports.rpt_rivers_need_space.figures import (make_rs_area_by_owner,
-                                                   make_rs_area_by_featcode,
-                                                   make_map_with_aoi,
-                                                   low_lying_ratio_bins,
-                                                   prop_riparian_bins,
-                                                   floodplain_access,
-                                                   land_use_intensity,
-                                                   prop_ag_dev,
-                                                   dens_road_rail,
-                                                   project_id_list,
-                                                   metric_cards,
-                                                   statistics,
-                                                   )
+from reports.rpt_rivers_need_space.figures import (
+    make_rs_area_by_featcode,
+    make_map_with_aoi,
+    low_lying_ratio_bins,
+    prop_riparian_bins,
+    floodplain_access,
+    land_use_intensity,
+    prop_ag_dev,
+    dens_road_rail,
+    project_id_list,
+    metric_cards,
+    statistics,
+)
 
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
@@ -62,8 +62,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir, rep
 
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
-        "bar": make_rs_area_by_owner(gdf),
-        "owner_bar": bar_group_x_by_y(gdf, 'stream_length', ['ownership']),
+        "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc']),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying": low_lying_ratio_bins(gdf),
         "prop_riparian": prop_riparian_bins(gdf),
