@@ -17,6 +17,8 @@
   --text-color: #222222;
   --muted-bg: #f1f4f9;
   --muted-border: #d5deeb;
+  --metric-number: #4a5764;
+  --metric-description: #6e7889;
   --elev-1: 0 2px 8px rgba(0, 26, 58, 0.08);
   --elev-6: 0 8px 24px rgba(0, 26, 58, 0.18);
   --metric-title-line-height: 1.3;
@@ -46,9 +48,10 @@ html {
   }
   h3,
   h4,
-  h5{
+  h5,
+  h6 {
     font-family: var(--header-font-family);
-    color: var( --accent-color);
+    color: var( --header-color);
     clear: both;
     line-height: 1.25;
     margin: 0 0 0.75rem;
@@ -238,7 +241,7 @@ a:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
-  margin: 3rem 0;
+  margin: 3rem 1rem;
   padding: 0;
 }
 
@@ -267,20 +270,29 @@ a:focus {
   display: flex; 
   align-items: flex-start; 
   font-weight: 700;
-  color: var(--accent-color);
+  color: var(--header-color);
   letter-spacing: 0.04em;
   font-size: 0.85rem;
 }
 
+
 .metric dd {
   line-height: var(--metric-title-line-height);
-  min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
+  /* min-height: calc(var(--metric-title-min-lines) * 0.75em * var(--metric-title-line-height)); */
   display: flex; 
-  align-items: flex-start; 
-  font-size: 1.25rem;
-  margin-top: 0.45rem;
+  align-items: flex-start;
+  color: var(--metric-description); 
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+
 }
 
+.metric .metric-number {
+  color: var(--metric-number);
+  font-size: 1.9rem;
+  margin-top: 0.45rem;
+  font-weight: 700;
+}
 /* ===== Tables: Global (screen + print) ===== */
 
 /* Generic tables */
@@ -290,18 +302,18 @@ table {
   font-family: Arial, sans-serif;
   font-size: 0.9rem;
   color:  var(--text-color);
-  border: 1px solid #1c5faa; /* outer frame */
+  border: 1px solid var(--border-bg); 
 }
 th {
-  background-color: #004793;
+  background-color: var(--border-bg);
   color: #fff;
   text-align: left;
   padding: 8px;
-  border: 1px solid #1c5faa;
+  border: 1px solid var(--border-bg);
   font-weight: 600;
 }
 td {
-  border: 1px solid #1c5faa;
+  border: 1px solid var(--border-bg);
   padding: 8px;
   text-align: left;
   color: var(--text-color);
@@ -312,14 +324,14 @@ tr:nth-child(even) td {
 
 /* Pandas DataFrame tables */
 table.dataframe {
-  border: 1px solid #1c5faa;
+  border: 1px solid var(--border-bg);
 }
 table.dataframe th,
 table.dataframe td {
-  border: 1px solid #1c5faa;
+  border: 1px solid var(--border-bg);
 }
 table.dataframe thead th {
-  background-color: #004793;
+  background-color: var(--accent-color);
   color: #fff;
 }
 table.dataframe tbody tr:nth-child(even) > td {
@@ -434,10 +446,12 @@ canvas {
   font-family: var(--body-font-family);
   font-size: 1rem;
   color: #fff;
-  font-weight: 500;
   margin: 0;
 }
-
+.site-footer a {
+  color: #fff;
+  text-decoration: none;
+}
 
 
 @media (min-width: 600px) {                 /* ~MUI sm */

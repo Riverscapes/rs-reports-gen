@@ -17,7 +17,7 @@
     {% for title, value, details in cards %}
     <div class="metric">
       <dt>{{ title }}</dt>
-      <dd>{{ value }}</dd>
+      <dd class="metric-number">{{ value }}</dd>
       {% if details %}
       <dd class="metric-details">{{ details }}</dd>
       {% endif %}
