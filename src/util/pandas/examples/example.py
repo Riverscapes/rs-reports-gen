@@ -7,8 +7,10 @@ from jinja2 import Template
 from rsxml import Logger
 from shapely import wkt
 import plotly.express as px
+import pint
 from util.pandas.RSFieldMeta import RSFieldMeta
 from util.pandas.RSGeoDataFrame import RSGeoDataFrame
+ureg = pint.get_application_registry()
 
 
 def main():
@@ -80,6 +82,50 @@ def main():
     # Retrieve a lookup dictionary of field name to header with units baked in
     _FIELD_META.get_headers_dict(data_gdf)
     # OUTPUT: {'level_path': 'Level Path', 'seg_distance': 'Segment distance (m)', 'centerline_length': 'Centerline length (m)', 'segment_area': 'Segment Area (km²)', 'fcode': 'fcode', 'fcode_desc': 'Feature Code Description', 'longitude': 'longitude', 'latitude': 'latitude', 'ownership': 'Ownership Code', 'ownership_desc': 'Ownership description', 'state': 'State', 'county': 'County', 'drainage_area': 'Drainage Area (km²)', 'stream_name': 'stream_name', 'stream_order': 'stream_order', 'stream_length': 'Stream Length (m)', 'huc12': 'huc12', 'rel_flow_length': 'rel_flow_length', 'channel_area': 'channel_area', 'integrated_width': 'integrated_width', 'low_lying_ratio': 'low_lying_ratio', 'elevated_ratio': 'elevated_ratio', 'floodplain_ratio': 'floodplain_ratio', 'acres_vb_per_mile': 'acres_vb_per_mile (acre/mi)', 'hect_vb_per_km': 'hect_vb_per_km (ha/km)', 'channel_width': 'channel_width', 'lf_agriculture_prop': 'lf_agriculture_prop', 'lf_agriculture': 'lf_agriculture', 'lf_developed_prop': 'lf_developed_prop', 'lf_developed': 'lf_developed', 'lf_riparian_prop': 'lf_riparian_prop', 'lf_riparian': 'lf_riparian', 'ex_riparian': 'ex_riparian', 'hist_riparian': 'hist_riparian', 'prop_riparian': 'prop_riparian', 'hist_prop_riparian': 'hist_prop_riparian', 'develop': 'develop', 'road_len': 'road_len', 'road_dens': 'road_dens', 'rail_len': 'rail_len', 'rail_dens': 'Rail Density', 'land_use_intens': 'land_use_intens', 'road_dist': 'road_dist', 'rail_dist': 'rail_dist', 'div_dist': 'div_dist', 'canal_dist': 'canal_dist', 'infra_dist': 'infra_dist', 'fldpln_access': 'fldpln_access', 'access_fldpln_extent': 'access_fldpln_extent', 'rme_project_id': 'rme_project_id', 'rme_project_name': 'rme_project_name', 'dgo_geom_obj': 'dgo_geom_obj', 'dgo_polygon_geom': 'dgo_polygon_geom'}
+
+    ################################################################################
+    # Explicitly Setting Units
+    ################################################################################
+
+    # If you don't want to use the PREFERRED_UNIT_DEFAULTS but you still want system conversions (i.e. miles to km or acres to hectares)
+    # You can use get_system_units() to convert a Pint quantity to the appropriate unit for the current unit system
+    length_in_miles = 10 * ureg.mile
+    print(f"{_FIELD_META.get_system_units(length_in_miles)}")
+    # 16.09344 kilometer
+
+    # If we're already in the desired unit system then it just returns the original quantity
+    length_in_km = 20 * ureg.kilometer
+    print(f"{_FIELD_META.get_system_units(length_in_km)}")
+    # 20 kilometer
+
+    # All of this is dependent on the current unit system having a lookup in the SI_TO_IMPERIAL or IMPERIAL_TO_SI dicts
+    # (see RSFieldMeta.py). If there is no mapping it will just return the original quantity with a warning in the console
+    volume_in_teaspoons = 5 * ureg.teaspoon
+    print(f"{_FIELD_META.get_system_units(volume_in_teaspoons)}")
+    # [WARNING] [RSFieldMeta] No conversion found for unit 'teaspoon' in current system 'SI'.
+    # 5 teaspoon
+
+    # the lookups are bidirectional since we don't always have 1:1 mappings (e.g. acre to hectare, yards or feet to meters etc.)
+    length_in_meters = 100 * ureg.meter
+    print(f"{_FIELD_META.get_system_units(length_in_meters)}")
+    # 100 meter
+
+    length_in_yards = 100 * ureg.yard
+    # Note here how meters convert to yards (not feet)
+    print(f"{_FIELD_META.get_system_units(length_in_yards)}")
+    # 91.44 meter
+
+    length_in_feet = 100 * ureg.foot
+    print(f"{_FIELD_META.get_system_units(length_in_feet)}")
+    # 30.479999999999997 meter
+
+    _FIELD_META.unit_system = 'imperial'  # valid choices are 'SI' and 'imperial'
+    # Note here how meters convert to feet (not yards)
+    print(f"{_FIELD_META.get_system_units(length_in_meters)}")
+    # 328.0839895013123 foot
+
+    # End of example. reset to SI
+    _FIELD_META.unit_system = 'SI'  # valid choices are 'SI' and 'imperial'
 
     ################################################################################
     # Adding new columns to your dataframe

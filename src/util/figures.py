@@ -30,7 +30,7 @@ def get_bins_info(key: str):
     return edges, labels, colours
 
 
-def format_value(column_name, value, decimals: int) -> str:
+def format_value(value, decimals: int) -> str:
     """return value formatted with units
 
     Args:
@@ -42,15 +42,9 @@ def format_value(column_name, value, decimals: int) -> str:
 
     insipired by get_headers and bake
     """
-    meta = RSFieldMeta()
     # unit_fmt = " {unit}"  # just the plain unit, no brackets
     if hasattr(value, "magnitude"):
-        preferred_unit = meta.get_field_unit(column_name)
         unit_text = ""
-        if preferred_unit:
-            value = value.to(preferred_unit)
-            # unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
-        # let Pint handle the unit formatting, so no need to append unit_text
         formatted_val = f"{value:~P,.{decimals}f}{unit_text}"
     elif isinstance(value, (int, float)):
         formatted_val = f"{value:,.{decimals}f}"

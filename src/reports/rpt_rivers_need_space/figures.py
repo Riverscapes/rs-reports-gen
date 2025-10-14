@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Dict
+from typing import List
 from ast import Tuple
 import json
 import os
@@ -465,7 +465,9 @@ def metric_cards(metrics: dict) -> list[tuple[str, str, str]]:
         friendly = meta.get_friendly_name(key)
         desc = meta.get_description(key)
         log.info(f"metric: {key}, friendly: {friendly}, desc: {desc}")
-        formatted = format_value(key, value, 0)
+        # Make sure the value respects the unit system
+        system_value = RSFieldMeta().get_system_units(value)
+        formatted = format_value(system_value, 0)
         cards.append((friendly, formatted, desc))
     return cards
 
@@ -500,9 +502,10 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
 
     # Compose result dictionary
     stats = {
-        'segment_area': total_segment_area,
-        'centerline_length': total_centerline_length,
-        'channel_length': total_channel_length,
-        'integrated_valley_bottom_width': integrated_valley_bottom_width,
+        'segment_area': total_segment_area.to('kilometer ** 2'),  # acres and hectares will be interchangeable based on unit system
+        'centerline_length': total_centerline_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
+        'channel_length': total_channel_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
+        # Here we specify yards (because yards converts to meters but meters converts to feet and we want yards for the imperial system)
+        'integrated_valley_bottom_width': integrated_valley_bottom_width.to('yards'),
     }
     return stats

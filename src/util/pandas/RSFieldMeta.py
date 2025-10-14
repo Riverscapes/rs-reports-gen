@@ -61,6 +61,24 @@ PREFERRED_UNIT_DEFAULTS: Dict[str, Dict[str, str]] = {
         'time': 'second',
     },
 }
+# I need a lookup table for converting units like meters to feet and km to miles based on the current unit system.
+# So, for example, if I ask for "meters" and the current system is imperial, I should get "feet" back.
+# This will be a mapping of dimensionality to preferred units for each system.
+SI_TO_IMPERIAL: Dict[str, str] = {
+    'meter': 'foot',
+    'kilometer': 'mile',
+    'kilometer ** 2': 'acre',
+    'kilogram': 'pound',
+}
+IMPERIAL_TO_SI: Dict[str, str] = {
+    # Start by just reversing the SI_TO_IMPERIAL mapping
+    **{v: k for k, v in SI_TO_IMPERIAL.items()},
+    # Then add any additional mappings that don't have a direct reverse
+    # e.g. 'foot ** 2' -> 'meter ** 2' is not a direct reverse of 'meter' -> 'foot'
+    # but we can add it here for completeness
+    'foot ** 2': 'meter ** 2',
+    'yard': 'meter',
+}
 
 
 class FieldMetaValues:
@@ -617,6 +635,43 @@ class RSFieldMeta:
             column_headers[column] = friendly_headers[i]
 
         return column_headers
+
+    def get_system_units(self, in_qty: pint.Quantity) -> pint.Quantity:
+        """ Use SI_TO_IMPERIAL and IMPERIAL_TO_SI to get explicit units for a given input unit based on the current unit system.
+        Fail safely with a warning if the unit is not in the lookup table
+
+        Args:
+            in_qty (pint.Quantity): A pint quantity with units to convert
+
+        Returns:
+            A pint quantity in the preferred units for the current system
+        """
+
+        if self._unit_system == 'SI':
+            # We are in SI so convert any imperial units to SI
+            lookup = IMPERIAL_TO_SI
+            reverse_lookup = SI_TO_IMPERIAL
+        else:
+            # We are in imperial so convert any SI units to imperial
+            lookup = SI_TO_IMPERIAL
+            reverse_lookup = IMPERIAL_TO_SI
+
+        lookup_val = lookup.get(str(in_qty.units), None)
+        reverse_val = reverse_lookup.get(str(in_qty.units), None)
+
+        # Test if we need a conversion and if not just return the input
+        if lookup_val is None or lookup_val == in_qty.units:
+            # If we didn't find a conversion and the unit is not in the reverse lookup then warn
+            if lookup_val is None and reverse_val is None:
+                self._log.warning(f"No conversion found for unit '{in_qty.units}' in current system '{self._unit_system}'.")
+            return in_qty
+
+        try:
+            out_value = in_qty.to(lookup_val)
+            return out_value
+        except Exception as exc:  # pragma: no cover - log unexpected issues
+            self._log.warning(f"Unable to convert unit '{in_qty.units}' to '{lookup_val}': {exc}")
+            return in_qty
 
     def bake_units(self, df: pd.DataFrame, header_units: bool = True) -> Tuple[pd.DataFrame, List[str]]:
         """ Apply units to a DataFrame based on the metadata. Returns a copy of the dataframe and the corresponding headers.
