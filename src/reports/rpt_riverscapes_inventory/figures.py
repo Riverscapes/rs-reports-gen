@@ -89,6 +89,27 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # if you want different units or descriptions then give them different names and add rsfieldmeta
     # Add field meta if not already present
     RSFieldMeta().add_field_meta(
+        name='total_segment_area',
+        friendly_name='Total Segment Area',
+        data_unit='kilometer ** 2',
+        dtype='REAL',
+        description='Total area of all segments in the segment'
+    )
+    RSFieldMeta().add_field_meta(
+        name='total_centerline_length',
+        friendly_name='Total Centerline Length',
+        data_unit='kilometer',
+        dtype='REAL',
+        description='Total length of all centerlines in the segment'
+    )
+    RSFieldMeta().add_field_meta(
+        name='total_channel_length',
+        friendly_name='Total Channel Length',
+        data_unit='kilometer',
+        dtype='REAL',
+        description='Total length of all channels in the segment'
+    )
+    RSFieldMeta().add_field_meta(
         name='integrated_valley_bottom_width',
         friendly_name='Integrated Valley Bottom Width',
         data_unit='m',
@@ -98,9 +119,9 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
 
     # Compose result dictionary
     stats = {
-        'segment_area': total_segment_area.to('kilometer ** 2'),  # acres and hectares will be interchangeable based on unit system
-        'centerline_length': total_centerline_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
-        'channel_length': total_channel_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
+        'total_segment_area': total_segment_area.to('kilometer ** 2'),  # acres and hectares will be interchangeable based on unit system
+        'total_centerline_length': total_centerline_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
+        'total_channel_length': total_channel_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
         # Here we specify yards (because yards converts to meters but meters converts to feet and we want yards for the imperial system)
         'integrated_valley_bottom_width': integrated_valley_bottom_width.to('yards'),
     }
