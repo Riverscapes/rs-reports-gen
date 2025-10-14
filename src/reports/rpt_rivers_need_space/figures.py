@@ -72,31 +72,31 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # Add field meta if not already present
     RSFieldMeta().add_field_meta(
         name='total_segment_area',
-        friendly_name='Total Segment Area',
+        friendly_name='Total Riverscape Area',
         data_unit='kilometer ** 2',
         dtype='REAL',
-        description='Total area of all segments in the segment'
+        description='Sum of the riverscape area for all DGOs captured in the report.'
     )
     RSFieldMeta().add_field_meta(
         name='total_centerline_length',
-        friendly_name='Total Centerline Length',
+        friendly_name='Total Riverscape Length',
         data_unit='kilometer',
         dtype='REAL',
-        description='Total length of all centerlines in the segment'
+        description='Sum of the riverscape centerline lengths for all DGOs captured in the report.'
     )
     RSFieldMeta().add_field_meta(
         name='total_channel_length',
         friendly_name='Total Channel Length',
         data_unit='kilometer',
         dtype='REAL',
-        description='Total length of all channels in the segment'
+        description='Total length of all channel flow lines for all DGOs captured in the report.'
     )
     RSFieldMeta().add_field_meta(
         name='integrated_valley_bottom_width',
         friendly_name='Integrated Valley Bottom Width',
         data_unit='m',
         dtype='REAL',
-        description='Total segment area divided by total centerline length, representing average valley bottom width'
+        description='Total riverscape area divided by total riverscape length.'
     )
 
     # Compose result dictionary
