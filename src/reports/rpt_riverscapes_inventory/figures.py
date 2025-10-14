@@ -1,3 +1,4 @@
+from collections import defaultdict
 import pandas as pd
 from rsxml import Logger
 import plotly.graph_objects as go
@@ -11,7 +12,12 @@ def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
     Returns a DataFrame with columns: bin, total_cell_count.
     Fills missing bins (using bin_size) with zeros, sorted descending by bin.
     """
-    from collections import defaultdict
+    log = Logger('hypsometry_data')
+    log.info(f"Processing hypsometry data with bin size {bin_size}")
+    if 'dem_bins' not in huc_df.columns:
+        log.warning("No 'dem_bins' column found in DataFrame.")
+        # Return empty DataFrame with expected columns
+        return pd.DataFrame(columns=['bin', 'total_cell_count'])
 
     combined_bins = defaultdict(int)
     for dem_bin_dict in huc_df['dem_bins']:
