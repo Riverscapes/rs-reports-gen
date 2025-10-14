@@ -1,7 +1,7 @@
 [data-theme=light],
 :root:not([data-theme=dark]),
 :host(:not([data-theme=dark])) {
-  --pico-color: #004793;
+  --pico-color: #003166;
   --pico-background-color: #fff;
   --pico-text-selection-color: rgb(255, 251, 0);
 }
@@ -12,8 +12,8 @@
   --page-width: 66rem;
   --page-gutter: clamp(1.25rem, 2vw + 1rem, 2.5rem);
   --header-color: #003166;
-  --accent-color: #004793;
-  --border-bg: #0661c1;
+  --accent-color: #003166;
+  --border-bg: #003166;
   --text-color: #222222;
   --muted-bg: #f1f4f9;
   --muted-border: #d5deeb;
@@ -635,7 +635,7 @@ article.report-meta {
     gap: 0.2in;                         /* clear visual spacing */
     margin: 0.15in 0 0.35in 0;
     padding: 0;
-    color: #004793;
+    color: #003166;
   }
 
   /* Each card: readable width, avoid page splits */

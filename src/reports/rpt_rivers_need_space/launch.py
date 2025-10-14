@@ -92,7 +92,7 @@ def main():
         os.path.join(data_root, "rpt-rivers-need-space", report_name),
         geojson_file,
         report_name,
-        # "--include_pdf",
+        "--include_pdf",
         "--unit_system", unit_system,
     ]
     if csv_file.strip():
