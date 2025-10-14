@@ -143,7 +143,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     if existing_csv_path:
         log.info(f"Using supplied csv file at {csv_data_path}")
-        shutil.copyfile(existing_csv_path, csv_data_path)
+        if existing_csv_path != csv_data_path:
+            shutil.copyfile(existing_csv_path, csv_data_path)
     else:
         log.info("Querying athena for data for AOI")
         get_data_for_aoi(S3_ATHENA_BUCKET, aoi_gdf, csv_data_path)
