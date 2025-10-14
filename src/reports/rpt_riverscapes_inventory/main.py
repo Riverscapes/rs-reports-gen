@@ -45,6 +45,9 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     """
     log = Logger('make report')
 
+    # TODO: Check - beaver_dam_capacity only applies to perennieal - so may need to use filter gdf before building beaver_dam_capacity_bar
+    # also can we make the units dams per km or dams per mile
+
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
@@ -58,6 +61,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "hypsometry": hypsometry_fig(huc_df),
         "confinement_length_bar": bar_total_x_by_ybins(gdf, 'channel_length', ['confinement_ratio', 'fcode_desc']),
         "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc']),
+        "beaver_dam_capacity_historical_bar": bar_total_x_by_ybins(gdf, 'channel_length', ['brat_hist_capacity']),
+        "beaver_dam_capacity_current_bar": bar_total_x_by_ybins(gdf, 'channel_length', ['brat_capacity'])
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
