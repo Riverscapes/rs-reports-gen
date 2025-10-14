@@ -28,17 +28,23 @@ from util.figures import (
     dens_road_rail,
     project_id_list,
     metric_cards,
-    statistics,
 )
 # Local imports
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_rivers_need_space import __version__ as report_version
+from reports.rpt_rivers_need_space.figures import statistics
 
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
 
 def log_unit_status(df, label):
+    """ Log Unit Status
+
+    Args:
+        df (_type_): _description_
+        label (_type_): _description_
+    """
     log = Logger('UnitStatus')
     pint_cols = [col for col in df.columns if "pint" in str(df[col].dtype)]
     log.info(f"[{label}] Pint columns: {pint_cols}")

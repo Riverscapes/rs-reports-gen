@@ -2,7 +2,9 @@ from collections import defaultdict
 import pandas as pd
 from rsxml import Logger
 import plotly.graph_objects as go
-from util.pandas import RSFieldMeta
+import pint
+import geopandas as gpd
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.figures import format_value
 
 
@@ -41,36 +43,6 @@ def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
     return result_df
 
 
-def metric_cards(metrics: dict) -> list[tuple[str, str, str]]:
-    """transform a statistics dictionary into list of metric elements
-
-    Args: 
-        metrics (dict): metric_id, Quantity
-        **uses Friendly name and description if they have been added to the RSFieldMeta**
-
-    Returns:
-        list of card elements: 
-            * friendly metric name (title)
-            * formatted metric value, including units
-            * additional description (optional)
-
-    Uses the order of the dictionary (guaranteed to be insertion order from Python 3.7 and later)
-    FUTURE ENHANCEMENT - Should be modified to handle different number of decimal places depending on the metric
-    """
-    cards = []
-    meta = RSFieldMeta()
-    log = Logger('metric_cards')
-    for key, value in metrics.items():
-        friendly = meta.get_friendly_name(key)
-        desc = meta.get_description(key)
-        log.info(f"metric: {key}, friendly: {friendly}, desc: {desc}")
-        # Make sure the value respects the unit system
-        system_value = RSFieldMeta().get_system_units(value)
-        formatted = format_value(system_value, 0)
-        cards.append((friendly, formatted, desc))
-    return cards
-
-
 def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
     """
     Plot hypsometry as a bar chart: total_cell_count vs. bin.
@@ -94,3 +66,42 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
         template="plotly_white"
     )
     return fig
+
+
+def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
+    """ Calculate and return key statistics as a dictionary
+    TODO: integrated should be calculated from the totals, not at row level
+    Args:
+        gdf (GeoDataFrame): data_gdf input WITH UNITS APPLIED
+
+    Returns:
+        dict[str, pint.Quantity]: new summary statistics applicable to the whole dataframe
+    """
+    subset = RSGeoDataFrame(gdf[["segment_area", "centerline_length", "channel_length"]].copy())
+    # Calculate totals
+    total_segment_area = subset["segment_area"].sum()
+    total_centerline_length = subset["centerline_length"].sum()
+    total_channel_length = subset["channel_length"].sum()
+
+    # Calculate integrated valley bottom width as ratio of totals
+    integrated_valley_bottom_width = total_segment_area / total_centerline_length if total_centerline_length != 0 else float('nan')
+
+    # if you want different units or descriptions then give them different names and add rsfieldmeta
+    # Add field meta if not already present
+    RSFieldMeta().add_field_meta(
+        name='integrated_valley_bottom_width',
+        friendly_name='Integrated Valley Bottom Width',
+        data_unit='m',
+        dtype='REAL',
+        description='Total segment area divided by total centerline length, representing average valley bottom width'
+    )
+
+    # Compose result dictionary
+    stats = {
+        'segment_area': total_segment_area.to('kilometer ** 2'),  # acres and hectares will be interchangeable based on unit system
+        'centerline_length': total_centerline_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
+        'channel_length': total_channel_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
+        # Here we specify yards (because yards converts to meters but meters converts to feet and we want yards for the imperial system)
+        'integrated_valley_bottom_width': integrated_valley_bottom_width.to('yards'),
+    }
+    return stats

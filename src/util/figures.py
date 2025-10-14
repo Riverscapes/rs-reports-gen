@@ -11,7 +11,7 @@ FUTURE ENHANCEMENTs:
 
 import os
 import json
-from typing import List, Dict, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,14 +20,14 @@ import geopandas as gpd
 import plotly.graph_objects as go
 import plotly.express as px
 
-from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 from rsxml import Logger
+from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 
 
 def get_bins_info(key: str):
     """extract data from bins.json"""
     bins_path = os.path.join(os.path.dirname(__file__), "bins.json")
-    with open(bins_path, "r") as f:
+    with open(bins_path, "r", encoding="utf-8") as f:
         bins_dict = json.load(f)
     info = bins_dict[key]
     edges = info["edges"]
@@ -366,6 +366,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
     fig.update_layout(hoverlabel=dict(namelength=-1))
 
     return fig
+
 
 def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     """ Calculate and return key statistics as a dictionary

@@ -25,14 +25,14 @@ from util.figures import (
     bar_total_x_by_ybins,
     make_map_with_aoi,
     make_rs_area_by_featcode,
-    statistics,
     prop_ag_dev,
     dens_road_rail,
     project_id_list,
+    metric_cards,
 )
 from reports.rpt_riverscapes_inventory import __version__ as report_version
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
-from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, metric_cards
+from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
