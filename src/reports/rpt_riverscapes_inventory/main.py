@@ -23,15 +23,14 @@ from util.figures import (
     table_total_x_by_y,
     bar_group_x_by_y,
     bar_total_x_by_ybins,
+    make_map_with_aoi,
+    make_rs_area_by_featcode,
+    statistics,
+    prop_ag_dev,
+    dens_road_rail,
+    project_id_list,
 )
 from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_rivers_need_space.figures import (make_rs_area_by_featcode,
-                                                   make_map_with_aoi,
-                                                   statistics,
-                                                   prop_ag_dev,
-                                                   dens_road_rail,
-                                                   project_id_list,
-                                                   )
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, metric_cards
 

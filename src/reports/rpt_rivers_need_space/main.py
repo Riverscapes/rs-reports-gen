@@ -22,19 +22,17 @@ from util.figures import (
     table_total_x_by_y,
     bar_group_x_by_y,
     bar_total_x_by_ybins,
-)
-# Local imports
-from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
-from reports.rpt_rivers_need_space import __version__ as report_version
-from reports.rpt_rivers_need_space.figures import (
-    make_rs_area_by_featcode,
     make_map_with_aoi,
+    make_rs_area_by_featcode,
     prop_ag_dev,
     dens_road_rail,
     project_id_list,
     metric_cards,
     statistics,
 )
+# Local imports
+from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
+from reports.rpt_rivers_need_space import __version__ as report_version
 
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
