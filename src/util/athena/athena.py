@@ -475,7 +475,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
 WITH pre_filtered_rme AS (
     SELECT
         {fields_str}
-        , {geometry_field_clause} AS row_geom_obj
+        , {geometry_field_clause} AS dgo_geom_obj
     FROM
         {source_table}
     {prefilter_where_clause}
@@ -486,7 +486,7 @@ FROM
     pre_filtered_rme AS t1
 WHERE 
     ST_Intersects(
-        t1.row_geom_obj,
+        t1.dgo_geom_obj,
         {aoi_geom_str}
     );
 """
