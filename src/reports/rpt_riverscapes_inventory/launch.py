@@ -64,6 +64,9 @@ def main():
             ),
         ])
         csv_file = csv_question['csv']
+        # Strip leading/trailing quotes if present
+        if csv_file:
+            csv_file = csv_file.strip().strip('"').strip("'")
 
     if os.environ.get("UNIT_SYSTEM"):
         unit_system = os.environ.get("UNIT_SYSTEM")
