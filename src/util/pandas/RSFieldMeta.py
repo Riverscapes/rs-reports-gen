@@ -646,6 +646,8 @@ class RSFieldMeta:
         Returns:
             A pint quantity in the preferred units for the current system
         """
+        if not isinstance(in_qty, pint.Quantity):
+            raise ValueError("Input must be a Pint Quantity with units.")
 
         if self._unit_system == 'SI':
             # We are in SI so convert any imperial units to SI

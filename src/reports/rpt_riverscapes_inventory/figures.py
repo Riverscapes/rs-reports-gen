@@ -1,5 +1,8 @@
 import pandas as pd
+from rsxml import Logger
 import plotly.graph_objects as go
+from util.pandas import RSFieldMeta
+from util.figures import format_value
 
 
 def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
@@ -30,6 +33,36 @@ def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
     result_df = pd.DataFrame(filled_bins)
     result_df = result_df.sort_values('bin', ascending=True).reset_index(drop=True)
     return result_df
+
+
+def metric_cards(metrics: dict) -> list[tuple[str, str, str]]:
+    """transform a statistics dictionary into list of metric elements
+
+    Args: 
+        metrics (dict): metric_id, Quantity
+        **uses Friendly name and description if they have been added to the RSFieldMeta**
+
+    Returns:
+        list of card elements: 
+            * friendly metric name (title)
+            * formatted metric value, including units
+            * additional description (optional)
+
+    Uses the order of the dictionary (guaranteed to be insertion order from Python 3.7 and later)
+    FUTURE ENHANCEMENT - Should be modified to handle different number of decimal places depending on the metric
+    """
+    cards = []
+    meta = RSFieldMeta()
+    log = Logger('metric_cards')
+    for key, value in metrics.items():
+        friendly = meta.get_friendly_name(key)
+        desc = meta.get_description(key)
+        log.info(f"metric: {key}, friendly: {friendly}, desc: {desc}")
+        # Make sure the value respects the unit system
+        system_value = RSFieldMeta().get_system_units(value)
+        formatted = format_value(system_value, 0)
+        cards.append((friendly, formatted, desc))
+    return cards
 
 
 def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:

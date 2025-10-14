@@ -33,7 +33,7 @@ from reports.rpt_rivers_need_space.figures import (make_rs_area_by_featcode,
                                                    project_id_list,
                                                    )
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
-from reports.rpt_riverscapes_inventory.figures import hypsometry_fig
+from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, metric_cards
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
@@ -82,7 +82,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         report.add_figure(name, fig)
 
     report.add_html_elements('tables', tables)
-    report.add_html_elements('kpis', statistics(gdf))
+    report.add_html_elements('cards', metric_cards(statistics(gdf)))
     report.add_html_elements('appendices', appendices)
 
     if mode == "both":
@@ -149,6 +149,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf = add_calculated_cols(data_gdf)
+    data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicity about it for type checking
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)

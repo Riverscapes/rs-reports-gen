@@ -1,11 +1,14 @@
 <!-- We can think of sections as "pages" in the PDF -->
 <section>
-  <h2>KPIs</h2>
+  <h2>Key Indicators</h2>
   <dl class="metric-grid">
-    {% for key, value in kpis.items() %}
+    {% for title, value, details in cards %}
     <div class="metric">
-      <dt>{{ key.replace('_', ' ') }}</dt>
+      <dt>{{ title }}</dt>
       <dd class="metric-number">{{ value }}</dd>
+      {% if details %}
+      <dd class="metric-details">{{ details }}</dd>
+      {% endif %}
     </div>
     {% endfor %}
   </dl>
