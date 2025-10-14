@@ -24,6 +24,7 @@ import tempfile
 from pathlib import Path
 import apsw
 import geopandas as gpd
+import pandas as pd
 from rsxml import Logger, ProgressBar, dotenv
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
@@ -48,7 +49,7 @@ from .__version__ import __version__
 GEOMETRY_COL_TYPES = ('MULTIPOLYGON', 'POINT')
 
 
-def parse_table_defs(defs_csv_path):
+def parse_table_defs(defs_csv_path) -> tuple[dict, dict, set]:
     """
     Parse rme_table_column_defs.csv and return a dict of table schemas; a list of column order; list of foreign key tables
     Returns: {table_name: {col_name: col_type, ...}, ...}, {table_name: [col_order]}, set(table_names)
@@ -155,15 +156,20 @@ def wkt_from_csv(csv_geom: str) -> str | None:
     return csv_geom.replace('|', ',')
 
 
-def list_of_source_projects(local_csv_path):
-    """iterate over csv to get unique project ids
+def list_of_source_projects(local_csv_path: str) -> list[dict[str, str]]:
+    """
+    Iterate over a CSV to get unique project IDs and return a list of dicts with project_id and project_url.
 
-    return: dictionary project_ids: list (tuple [project_id str, project_url ])
+    Args:
+        local_csv_path (str): Path to the local CSV file.
 
-    * nb could use project_id_list function in rivers_need_space but we don't use a dataframe for IGOs because the size can get huge (maybe if we switch to polars)
-    * nb would be more efficient to extract this as part of populate_tables_from_csv while we're looping over it there
-    but keeping it here for better separation of duties
-    * to get the name we'd need to join to conus_projects
+    Returns:
+        list[dict[str, str]]: List of dictionaries with keys 'project_id' and 'project_url'.
+
+    Notes:
+        - Could use project_id_list function in rivers_need_space but we don't use a dataframe for IGOs because the size can get huge (maybe if we switch to polars).
+        - Would be more efficient to extract this as part of populate_tables_from_csv while we're looping over it there, but keeping it here for better separation of duties.
+        - To get the name we'd need to join to conus_projects.
     """
     log = Logger('Get source projects')
     project_ids = set()
@@ -176,7 +182,7 @@ def list_of_source_projects(local_csv_path):
             prog_bar.update(idx)
         prog_bar.finish()
     log.debug(f"{len(project_ids)} projects identified")
-    return [(x, f'https://data.riverscapes.net/p/{x}') for x in project_ids]
+    return [{"project_id": x, "project_url": f'https://data.riverscapes.net/p/{x}'} for x in project_ids]
 
 
 def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_map: dict, table_col_order: dict) -> None:

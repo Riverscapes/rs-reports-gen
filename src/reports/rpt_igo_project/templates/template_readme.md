@@ -1,11 +1,10 @@
-
 # IGOs Project
 
 The contents of this folder were generated programatically using the [Riverscapes reporting system](https://reports.riverscapes.net) IGO Report version {{report_version}}.
 
 The data come from a 'scrape' of all the [Riverscapes Metric Engine (RME)](https://tools.riverscapes.net/rme/) projects in the [Riverscape Data Exchange](https://data.riverscapes.net/) created as part of the [2025 CONUS Run](https://docs.riverscapes.net/initiatives/CONUS-runs/). This scrape represents a snapshot in time that precedes the report run date. Data may be incomplete and have not been thoroughly quality controlled. No fitness for use is warranted or implied.
 
-An IGO is an Integrated Geographic Object. It represents the center of a Discrete Geographic Object or DGO.
+An IGO is an Integrated Geographic Object. It represents a point in the middle of a Discrete Geographic Object (DGO) on the valley centerline. The points in this project are not the IGO points; they are a centroid of the DGO polygon that may not be on the valley centerline.
 
 It is structured as a [Riverscapes Project](https://docs.riverscapes.net/products/data-exchange/advanced/data-exchange-api#projects) of type `IGOs`.
 
@@ -46,7 +45,8 @@ These are spatial views that join the dgo geometry with the attributes tables, s
 
 #### Columns
 
+See the full list of columns and their metadata in [field_metadata.csv](field_metadata.csv).
+
 ## Source Projects
 
-{% for project in appendices['project_ids'] %}* [{{ project[0] }}]({{ project[1] }})
-{% endfor %}
+See the full list of Riverscapes Data Exchange projects from which the data were scraped in [source_projects.csv](source_projects.csv).

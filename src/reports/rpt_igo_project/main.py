@@ -7,8 +7,8 @@ import logging
 import sys
 import traceback
 import tempfile
-import shutil
 # Third party imports
+import pandas as pd
 import geopandas as gpd
 from jinja2 import Template  # or maybe use util.html RSReport instead
 from rsxml import Logger, dotenv
@@ -16,27 +16,44 @@ from rsxml.util import safe_makedirs
 # Local imports
 from util.athena.athena import get_s3_file, S3_ATHENA_BUCKET
 from util.athena import run_aoi_athena_query
+from util.rme.field_metadata import get_field_metadata
 # from util.html import RSReport
 from .athenacsv_to_rme import create_gpkg_igos_from_csv, create_igos_project, list_of_source_projects
 from .__version__ import __version__
 
 
+def field_metadata_to_file(output_path: str):
+    """Export field metadata from Athena to a CSV file."""
+    df = get_field_metadata("WHERE table_name='raw_rme'")
+    # users won't understand all columsn
+    df = df[['name', 'theme_name', 'friendly_name', 'data_unit', 'description']].copy()
+    df = df.rename(columns={'name': 'column_name'})
+    df.to_csv(output_path, index=False)
+
+
+def project_list_to_file(local_csv_path, output_path: str):
+    sp_list = list_of_source_projects(local_csv_path)
+    df = pd.DataFrame(sp_list)
+    df.to_csv(output_path, index=False)
+
+
 def generate_report(project_dir: str, local_csv_path: str):
-    """Make a readme file"""
+    """Make a readme file. Include links to metadata and list of projects as separate files"""
+    # column_meta
+    field_metadata_to_file(os.path.join(project_dir, 'column_metadata.csv'))
+    # list of projects
+    project_list_to_file(local_csv_path, os.path.join(project_dir, 'source_projects.csv'))
+    # build readme
     src_dir = os.path.dirname(__file__)
     template_path = os.path.join(src_dir, 'templates', 'template_readme.md')
     with open(template_path, encoding='utf-8') as f:
         template = Template(f.read())
     context = {
-        "appendices": {
-            "project_ids": list_of_source_projects(local_csv_path)
-        },
         "report_version": __version__
     }
     readme_contents = template.render(context)
     with open(os.path.join(project_dir, 'README.md'), 'w', encoding='utf-8') as f:
         f.write(readme_contents)
-    # shutil.copyfile(template_path, os.path.join(project_dir, 'README.md'))
 
 
 def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, project_name, log_path):

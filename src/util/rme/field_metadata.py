@@ -6,7 +6,7 @@ from rsxml import Logger
 from util.athena.athena import athena_select_to_dataframe
 
 
-def get_field_metadata() -> pd.DataFrame:
+def get_field_metadata(where_clause: str = "") -> pd.DataFrame:
     """
     Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
 
@@ -19,9 +19,9 @@ def get_field_metadata() -> pd.DataFrame:
     log = Logger('Get field metadata')
     log.info("Getting field metadata from athena")
 
-    query = """
+    query = f"""
         SELECT table_name, name, theme_name, friendly_name, dtype, data_unit, display_unit, no_convert, description
-        FROM table_column_defs 
+        FROM table_column_defs {where_clause}
     """
     df = athena_select_to_dataframe(query)
     if df.empty:
