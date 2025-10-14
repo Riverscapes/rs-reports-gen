@@ -8,8 +8,11 @@ Internal use only
 
 Plans:
 
+* [x] change to use new scrape of raw_rme that exports to parquet and includes project id
+* [x] add projects from which it was scraped to readme
 * [ ] get metadata (list of fields, data types and tables they go in) from shared table in Athena
-* [ ] change to use new scrape of raw_rme that exports to parquet and includes project id
+* [ ] add column metadata to geopackage
+* [ ] add column metadata to readme
 
 ### 0.1.0
 

@@ -1,7 +1,7 @@
 
 # IGOs Project
 
-The contents of this folder were generated programatically using the [Riverscapes reporting system](https://reports.riverscapes.net) IGO Report.
+The contents of this folder were generated programatically using the [Riverscapes reporting system](https://reports.riverscapes.net) IGO Report version {{report_version}}.
 
 The data come from a 'scrape' of all the [Riverscapes Metric Engine (RME)](https://tools.riverscapes.net/rme/) projects in the [Riverscape Data Exchange](https://data.riverscapes.net/) created as part of the [2025 CONUS Run](https://docs.riverscapes.net/initiatives/CONUS-runs/). This scrape represents a snapshot in time that precedes the report run date. Data may be incomplete and have not been thoroughly quality controlled. No fitness for use is warranted or implied.
 
@@ -43,3 +43,10 @@ These are spatial views that join the dgo geometry with the attributes tables, s
 * vw_dgo_impacts_metrics
 * vw_dgo_metrics
 * vw_dgo_veg_metrics
+
+#### Columns
+
+## Source Projects
+
+{% for project in appendices['project_ids'] %}* [{{ project[0] }}]({{ project[1] }})
+{% endfor %}

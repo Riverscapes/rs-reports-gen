@@ -8,7 +8,7 @@ Lorin Gaertner (with copilot)
 August/Sept 2025
 
 IMPLEMENTED: Sequential dgoid (integer), geometry handling for dgo_geom (SRID 4326, WKT conversion), foreign key syntax in table creation, error handling (throws on missing/malformed required columns), debug output for skipped/invalid rows.
-Actual column names/types must be supplied in rme_table_column_defs.csv. 
+Actual column names/types must be supplied in rme_table_column_defs.csv.
 No batching/optimization for very large CSVs - but it handled 1.5 M records okay and managed 7M too.
 No advanced validation or transformation beyond geometry and required columns.
 Foreign key constraints are defined but not enforced unless PRAGMA foreign_keys=ON is set.
@@ -80,7 +80,7 @@ def parse_table_defs(defs_csv_path):
 
 def create_geopackage(gpkg_path: str, table_schema_map: dict, table_col_order: dict, fk_tables: set, spatialite_path: str) -> apsw.Connection:
     """
-    Create a GeoPackage (SQLite) file and tables as specified in table_schema_map. 
+    Create a GeoPackage (SQLite) file and tables as specified in table_schema_map.
     Returns the APSW connection.
     """
     log = Logger('Create GeoPackage')
@@ -153,6 +153,30 @@ def wkt_from_csv(csv_geom: str) -> str | None:
     if not csv_geom:
         return None
     return csv_geom.replace('|', ',')
+
+
+def list_of_source_projects(local_csv_path):
+    """iterate over csv to get unique project ids
+
+    return: dictionary project_ids: list (tuple [project_id str, project_url ])
+
+    * nb could use project_id_list function in rivers_need_space but we don't use a dataframe for IGOs because the size can get huge (maybe if we switch to polars)
+    * nb would be more efficient to extract this as part of populate_tables_from_csv while we're looping over it there
+    but keeping it here for better separation of duties
+    * to get the name we'd need to join to conus_projects
+    """
+    log = Logger('Get source projects')
+    project_ids = set()
+    with open(local_csv_path, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        rows = est_rows_for_csv_file(local_csv_path)
+        prog_bar = ProgressBar(rows, text="Transfer from csv to database table")
+        for idx, row in enumerate(reader, start=1):
+            project_ids.add(row['rme_project_id'])
+            prog_bar.update(idx)
+        prog_bar.finish()
+    log.debug(f"{len(project_ids)} projects identified")
+    return [(x, f'https://data.riverscapes.net/p/{x}') for x in project_ids]
 
 
 def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_map: dict, table_col_order: dict) -> None:

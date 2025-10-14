@@ -2,18 +2,18 @@
 needs to be fixed since have changed the athena.py considerably
 """
 
-import time
-import geopandas as gpd
-import logging
-from rsxml import Logger
-from util.athena import run_aoi_athena_query, run_athena_aoi_query
-import pandas as pd
-from util.athena.athena import get_s3_file
 import os
+import time
+import logging
+import pandas as pd
+import geopandas as gpd
+from rsxml import Logger
+from util.athena import run_aoi_athena_query
+from util.athena.athena import get_s3_file
 
 S3_BUCKET = "riverscapes-athena"
 RAW_RME_TABLE = "raw_rme"
-RAW_RME_PQ_TABLE = "raw_rme_pq"
+RAW_RME_PQ_TABLE = "raw_rme_pq2"
 
 # Example fields string (adjust as needed)
 FIELDS_STR = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode*2 as squarecode, longitude, latitude, ownership, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent"
@@ -23,10 +23,32 @@ def test_aoi_query_performance(path_to_geojson):
     log = Logger('AOI Query Test')
     aoi_gdf = gpd.read_file(path_to_geojson)
 
+    # # Test raw_rme (TSV, no bbox)
+    # log.info("Testing raw_rme (TSV, no bbox)...")
+    # start1 = time.time()
+    # s3_csv_path1 = run_aoi_athena_query(aoi_gdf, S3_BUCKET,
+    #                                     fields_str=FIELDS_STR,
+    #                                     source_table=RAW_RME_TABLE,
+    #                                     geometry_field_clause=f"ST_GeometryFromText(REPLACE({RAW_RME_TABLE}.dgo_geom, '|', ','))"
+    #                                     )
+    # end1 = time.time()
+    # log.info(f"raw_rme query time: {end1 - start1:.2f} seconds")
+    # if s3_csv_path1:
+    #     # Get number of rows from Athena (using athena_query_get_parsed)
+    #     # This assumes the result is a CSV file on S3
+    #     # You may want to download and count rows, but here we just log the S3 path
+    #     log.info(f"raw_rme S3 result: {s3_csv_path1}")
+    # else:
+    #     log.error("raw_rme query failed.")
+
+    # Test raw_rme_pq but without bbox
     # Test raw_rme (TSV, no bbox)
-    log.info("Testing raw_rme (TSV, no bbox)...")
+    log.info("Testing raw_rme_pq (Parquet but no bbox)...")
     start1 = time.time()
-    s3_csv_path1 = run_aoi_athena_query(aoi_gdf, S3_BUCKET, fields_str=FIELDS_STR, source_table=RAW_RME_TABLE)
+    s3_csv_path1 = run_aoi_athena_query(aoi_gdf, S3_BUCKET,
+                                        fields_str=FIELDS_STR,
+                                        source_table=RAW_RME_PQ_TABLE,
+                                        )
     end1 = time.time()
     log.info(f"raw_rme query time: {end1 - start1:.2f} seconds")
     if s3_csv_path1:
@@ -40,13 +62,12 @@ def test_aoi_query_performance(path_to_geojson):
     # Test raw_rme_pq (GeoParquet, has bbox)
     log.info("Testing raw_rme_pq (GeoParquet, has bbox)...")
     start2 = time.time()
-    s3_csv_path2 = run_athena_aoi_query(
+    s3_csv_path2 = run_aoi_athena_query(
         aoi_gdf,
         S3_BUCKET,
-        select_fields=FIELDS_STR,
-        select_from=RAW_RME_PQ_TABLE,
-        geometry_field_nm="dgo_geom",
-        geometry_bbox_field_nm="dgo_geom_bbox"
+        fields_str=FIELDS_STR,
+        source_table=RAW_RME_PQ_TABLE,
+        bbox_field="dgo_geom_bbox"
     )
     end2 = time.time()
     log.info(f"raw_rme_pq query time: {end2 - start2:.2f} seconds")
@@ -80,13 +101,18 @@ def test_aoi_query_performance(path_to_geojson):
         log.info("Row counts not available (implement S3 download to compare)")
 
 
+def main(test_area_path):
+    log = Logger('Setup')
+    log_path = os.path.join(r'c:\nardata\localcode\rs-reports-gen', 'test_aoi_query_performance.log')
+    log.setup(log_path=log_path, log_level=logging.DEBUG)
+    log.title('test_aoi_query_performance')
+    log.info(f'AOI File path: {test_area_path}.')
+    test_aoi_query_performance(test_area_path)
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
         print("Usage: python test_aoi_query_performance.py <path_to_geojson>")
         sys.exit(1)
-    log_path = os.path.join(r'c:\nardata\localcode\rs-reports-gen', 'test_aoi_query_performance.log')
-    log = Logger('Setup')
-    log.setup(log_path=log_path, log_level=logging.DEBUG)
-    log.title('test_aoi_query_performance')
-    test_aoi_query_performance(sys.argv[1])
+    main(sys.argv[1])

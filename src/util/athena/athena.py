@@ -27,6 +27,7 @@ import json
 import uuid
 import tempfile
 import csv
+import math
 from urllib.parse import urlparse
 import boto3
 import pandas as pd
@@ -358,7 +359,7 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     return SQL where clause for latitude and longitude within this expanded box
     we round to 6 decimal places (<10cm) to control size of the SQL string 
 
-    Assumes the geojson is in decimal degrees 
+    Assumes the geodataframe is in decimal degrees 
     Todo: check the assumption 
 
     Previously: tried buffering the bounding box with buffer, but 
@@ -384,7 +385,39 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     return bounds_where_clause
 
 
-def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq") -> str | None:
+def round_down(val, decimals=6):
+    factor = 10 ** decimals
+    return math.floor(val * factor) / factor
+
+
+def round_up(val, decimals=6):
+    factor = 10 ** decimals
+    return math.ceil(val * factor) / factor
+
+
+def generate_sql_bbox_where_clause_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox_fld_nm: str) -> str:
+    """return SQL clause for to find records where the bounding box of the record overlaps with bounding box of the aoi
+
+    Assumes both are in the same spatial reference system (probably degrees), and rounds to 6 decimal places
+
+    Args:
+        aoi_gdf (gpd.GeoDataFrame): geodataframe containing area of interest
+        bbox_fld_nm (str): name of the bounding box field
+
+    Returns:
+        str: sql WHERE clause (including the word WHERE)
+    """
+
+    minx, miny, maxx, maxy = aoi_gdf.total_bounds
+    minx = round_down(float(minx), 6)
+    miny = round_down(float(miny), 6)
+    maxx = round_up(float(maxx), 6)
+    maxy = round_up(float(maxy), 6)
+    bounds_where_clause = f'WHERE {bbox_fld_nm}.xmax >= {minx} AND {bbox_fld_nm}.xmin <= {maxx} AND {bbox_fld_nm}.ymax >= {miny} AND {bbox_fld_nm}.ymin <= {maxy}'
+    return bounds_where_clause
+
+
+def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq", geometry_field_clause: str | None = 'ST_GeomFromBinary(dgo_geom)', bbox_field: str | None = None) -> str | None:
     """Run Athena query `select (field_str) from (source_table)` on supplied AOI geojson
     also includes the dgo geometry (polygon) 
     the source table must have fields: 
@@ -393,9 +426,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
     return path to results on S3
     returns None if the shape can't be converted to suitably sized geometry sql expression. 
     Future Enhancements: 
-    - change to using a WKB field instead of dgo_geom
     - if the source has bounds struct field (comes default with qgis geoparquet exports) we can use that instead of the BUFFER 
-    - note there is a copy of this function (whole module) in `src\reports\rpt_igo_project\athena_query_aoi.py`
     - use the same multiple-resizing strategy from simplify_to_size in `rs_geo_helpers.py`
     """
     log = Logger('Run AOI Query on Athena')
@@ -405,9 +436,12 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
     else:
         s3_output_path = f's3://{s3_bucket}/aoi_query_results/{uuid.uuid4()}/'
 
-    # we are going to filter the centroids, but clip to polygon
-    # So we need to buffer by the maximum distance between a centroid and its bounding polygon
-    prefilter_where_clause = generate_sql_where_clause_for_bounds(aoi_gdf)
+    if bbox_field:
+        prefilter_where_clause = generate_sql_bbox_where_clause_for_bounds(aoi_gdf, bbox_field)
+    else:
+        # we are going to filter the centroids, but clip to polygon
+        # So we need to buffer by the maximum distance between a centroid and its bounding polygon
+        prefilter_where_clause = generate_sql_where_clause_for_bounds(aoi_gdf)
 
     # count the prefiltered records - these 3 lines are only needed for debugging
     # TODO: IN production comment this out for better performance
@@ -441,18 +475,18 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
 WITH pre_filtered_rme AS (
     SELECT
         {fields_str}
-        , ST_GeomFromBinary(dgo_geom) AS dgo_geom_obj
+        , {geometry_field_clause} AS row_geom_obj
     FROM
         {source_table}
     {prefilter_where_clause}
     )
 SELECT
-    * -- was fields_str
+    * 
 FROM 
     pre_filtered_rme AS t1
 WHERE 
     ST_Intersects(
-        t1.dgo_geom_obj,
+        t1.row_geom_obj,
         {aoi_geom_str}
     );
 """
