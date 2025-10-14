@@ -56,6 +56,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "prop_ag_dev": prop_ag_dev(gdf),
         "dens_road_rail": dens_road_rail(gdf),
         "hypsometry": hypsometry_fig(huc_df),
+        "confinement_length_bar": bar_total_x_by_ybins(gdf, 'channel_length', ['confinement_ratio', 'fcode_desc']),
+        "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc']),
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
@@ -148,7 +150,7 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf = add_calculated_cols(data_gdf)
-    data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicity about it for type checking
+    data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)
