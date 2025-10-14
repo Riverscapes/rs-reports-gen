@@ -304,13 +304,19 @@ def make_map_with_aoi(gdf, aoi_gdf):
             mode='lines',
             line=dict(color='red', width=3),
             name='AOI',
-            showlegend=False
+            showlegend=True
         ))
 
     fig.update_maps(
         style="open-street-map"
     )
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
+
+    fig.update_layout(
+        legend=dict(
+            y=0.95,
+        )
+    )
     return fig
 
 
