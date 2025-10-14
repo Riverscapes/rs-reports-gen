@@ -24,7 +24,6 @@ import tempfile
 from pathlib import Path
 import apsw
 import geopandas as gpd
-import pandas as pd
 from rsxml import Logger, ProgressBar, dotenv
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
