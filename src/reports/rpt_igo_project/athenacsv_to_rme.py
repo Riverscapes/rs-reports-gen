@@ -46,6 +46,8 @@ from .__version__ import __version__
 
 
 GEOMETRY_COL_TYPES = ('MULTIPOLYGON', 'POINT')
+# TODO: change athena to not return geometry object if not needed  and use UNLOAD to parquet instead of CSV
+csv.field_size_limit(10**7)  # temporary solution
 
 
 def parse_table_defs(defs_csv_path) -> tuple[dict, dict, set]:
