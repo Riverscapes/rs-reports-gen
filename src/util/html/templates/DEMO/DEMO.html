@@ -73,8 +73,18 @@
 
   <main class="report-container">
     <div class="report-inner">
+
+      <!-- TABLE OF CONTENTS WITH LINKS -->
+       <section id='toc'>
+        <h2>Table of Contents</h2>
+          <ol class="toc-list">
+            <li><a href="#key-metrics">Key Metrics</a></li>
+            <li><a href="#map-of-polygons">Map of Polygons</a></li>
+          </ol>
+       </section>
+
       <!-- We can think of sections as "pages" in the PDF -->
-      <section>
+      <section id="key-metrics">
         <h2>Key Metrics</h2>
         <dl class="metric-grid">
 
@@ -113,7 +123,7 @@
 
         </dl>
       </section>
-      <section>
+      <section id="map-of-polygons">
         <h2>Map of Polygons</h2>
         <figure class="report-figure">
           <div class="dummyChart DEMO-only-pdf" style="height: 300px;"></div>

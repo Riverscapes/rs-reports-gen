@@ -2,7 +2,20 @@
  
   refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
 -->
-<section>
+<section id='toc'>
+  <h2>Table of Contents</h2>
+  <ol class="toc-list">
+    <li><a href="#key-indicators">Key Indicators</a></li>
+    <li><a href="#map-of-polygons">Map of Polygons</a></li>
+    <li><a href="#ownership-and-flowtypes">Ownership and Flow Types</a></li>
+    <li><a href="#stream-names">Stream Names and Lengths</a></li>
+    <li><a href="#condition-and-recovery-potential">Condition and Recovery Potential</a></li>
+    <li><a href="#appendices">Appendices</a></li>
+  </ol>
+</section>
+
+
+<section id="key-indicators">
   <div class="section-context">
     <p>This Rivers Need Space Report describe the current riverscape and the space that it occupies. It provides
       insights into the character of the riverscape for the entire floodplain in which the current river resides.</p>
@@ -26,7 +39,7 @@
   </dl>
 </section>
 <div class="page-break-before"></div>
-<section>
+<section id="map-of-polygons">
   <h2>Report Area of Interest</h2>
   <div class="section-context">
     <p>The following map shows the riverscapes that were selected for this report. These polygons represent the areas of
@@ -37,7 +50,7 @@
     <!-- <figcaption>Interactive map of identified polygons.</figcaption> -->
   </figure>
 </section>
-<section>
+<section id="ownership-and-flowtypes">
   <h2>Ownership</h2>
   <div class="section-context">
     <p>This section provides an overview of the ownership of the river segments within the study area. The dominant
@@ -56,7 +69,7 @@
     <!-- <figcaption>Tabular summary of segment ownership.</figcaption> -->
   </figure>
 </section>
-<section>
+<section id="flow-types">
   <h2>Flow Types</h2>
   <div class="section-context">
     <p>This section categorizes the river segments based on their flow types, providing insights into the hydrological
@@ -67,14 +80,14 @@
     <!-- <figcaption>Segment areas grouped by flow type.</figcaption> -->
   </figure>
 </section>
-<section>
+<section id="stream-names">
   <h2>Table of Stream Names and lengths</h2>
   <figure class="report-figure">
     {{ tables['river_names']|safe}}
     <!-- <figcaption>Stream names listed with calculated lengths.</figcaption> -->
   </figure>
 </section>
-<section>
+<section id="condition-and-recovery-potential">
   <h2>Condition</h2>
   <figure class="report-figure">
     {{figures['low_lying_bin_bar']|safe}}
@@ -103,7 +116,7 @@
   </figure>
 </section>
 
-<section class="appendix">
+<section id="appendices" class="appendix">
   <h1>Appendices</h1>
   <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
   <!-- This is a list in the form: <li>Project Name - <a href="Project URL">Project URL</a></li> -->
