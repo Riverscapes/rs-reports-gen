@@ -528,7 +528,10 @@ article.report-meta {
 /* =========================================
    0) Page & Global
    ========================================= */
-  @page { size: Letter; margin: 0; }
+  @page:first {
+    margin: 0;
+  }
+  @page { size: Letter; margin: 0.5in; }
   :root { --page-width: 66rem; --page-gutter: 0; }
 
   body {
@@ -547,14 +550,29 @@ article.report-meta {
   /* Avoid awkward splits for common blocks */
   table, .metric, .plotly-graph-div { break-inside: avoid; page-break-inside: avoid; }
 
-  /* Page-break helpers */
+  /* Page-break helpers */ 
+
   .page-break,
   .page-break-before,
   .page-break-after { display: block; }
   .page-break,
   .page-break-after { break-after: page; page-break-after: always; }
-  .page-break-before { break-before: page; page-break-before: always; }
+  .page-break-before { break-before: page; page-break-before: always; } 
+  /* Avoid breaking headings from their content */
+  h1, h2, h3 { break-after: avoid; }
+  h1 + *, h2 + *, h3 + * { break-before: avoid; }
+  p, li { orphans: 3; widows: 3; }
+  /* Repeat table headers/footers on page breaks */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
 
+  /* Figures, images, and generic blocks often split—avoid that */
+  .report-figure,
+  figure,
+  img { break-inside: avoid; page-break-inside: avoid; }
+  /* Prevent inner grid items from splitting across pages */
+  .grid > *,
+  .metric-grid > *  { break-inside: avoid; page-break-inside: avoid; }
 /* =========================================
    1) Top Bars / Headers
    (a) Formats bar (#report-nav)
@@ -632,6 +650,7 @@ article.report-meta {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-start;       /* left-align the row */
+    align-items: stretch;
     gap: 0.2in;                         /* clear visual spacing */
     margin: 0.15in 0 0.35in 0;
     padding: 0;
@@ -640,8 +659,12 @@ article.report-meta {
 
   /* Each card: readable width, avoid page splits */
   .metric-grid > .metric{
-    height: 200px;
-    width: 23%;
+    flex: 1 1 23%;
+    max-width: 23%;
+    min-width: 150px;
+    min-height: 230px;
+     flex-direction: column;
+    display: flex;
     padding: 0.18in;
     border-radius: 8px;
     break-inside: avoid;
@@ -659,12 +682,13 @@ article.report-meta {
   .metric dd{
     margin: 0;
     line-height: 1.35;
-    font-size: 11pt;
+    font-size: 9pt;
   }
 
   /* Optional details line */
   .metric .metric-details{
-    margin-top: 0.12in;
+    /* margin-top: auto;  */
+    margin-top: 0.05in;
   }
 
 /* =========================================
