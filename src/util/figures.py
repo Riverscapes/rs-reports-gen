@@ -386,12 +386,14 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
 
     Returns:
         dict[str, pint.Quantity]: new summary statistics applicable to the whole dataframe
+    Future Enhancement: move this out of figures, it is a data prep fn
     """
-    subset = RSGeoDataFrame(gdf[["segment_area", "centerline_length"]].copy())
+    # make a copy of dataframe (subset) and work with that so don't accidentally change incoming
+    subset_df = RSGeoDataFrame(gdf[["segment_area", "centerline_length", "stream_length"]].copy())
     # Calculate totals
-    total_segment_area = subset["segment_area"].sum()
-    total_centerline_length = subset["centerline_length"].sum()
-    total_stream_length = subset["stream_length"].sum()
+    total_segment_area = subset_df["segment_area"].sum()
+    total_centerline_length = subset_df["centerline_length"].sum()
+    total_stream_length = subset_df["stream_length"].sum()
 
     # Calculate integrated valley bottom width as ratio of totals
     integrated_valley_bottom_width = total_segment_area / total_centerline_length if total_centerline_length != 0 else float('nan')

@@ -5,7 +5,9 @@ import plotly.graph_objects as go
 import pint
 import geopandas as gpd
 from util.pandas import RSFieldMeta, RSGeoDataFrame
-from util.figures import format_value, common_statistics
+from util.figures import common_statistics
+
+ureg = pint.get_application_registry()
 
 
 def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
@@ -83,7 +85,8 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     subset_df = RSGeoDataFrame(gdf[["huc12",]].copy())
 
     # e.g. Calculate totals
-    count_huc12s = subset_df.groupby("huc12").count()
+    count_huc12s = subset_df['huc12'].nunique()
+    count_huc12s = count_huc12s * ureg('count')  # 'count' is a unitless unit in pint
 
     # if you want different units or descriptions then give them different names and add rsfieldmeta
     # Add field meta if not already present

@@ -92,7 +92,11 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         report.add_figure(name, fig)
 
     report.add_html_elements('tables', tables)
-    report.add_html_elements('cards', metric_cards(statistics(gdf)))
+
+    all_stats = statistics(gdf)
+    metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
+    metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
+    report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
     report.add_html_elements('appendices', appendices)
 
     if mode == "both":
