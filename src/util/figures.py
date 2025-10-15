@@ -455,7 +455,7 @@ def extract_colours_from_legend(bins_legend_json: str) -> list[str]:
 def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     """example of figure with two measures"""
     # load shared bins
-    bins, labels, colours = get_bins_info("lf_agriculture_prop")
+    bins, labels, _colours = get_bins_info("lf_agriculture_prop")
 
     # make a copy and work with that
     chart_data = chart_data[['lf_agriculture_prop', 'lf_developed_prop', 'segment_area']].copy()
@@ -483,7 +483,7 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Bar(x=baked_agg_data['bin'], y=baked_agg_data['dev_segment_area'], name='Development'))
 
     fig.update_layout(
-        title='Agriculture and Development Proportion by Bin',
+        title='Agriculture and Development Proportion',
         barmode='group',
         margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
@@ -491,20 +491,11 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
 
 def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     """riverscape area by road and rail density bins"""
-    bins_json = """[
-    ["#ffffff", "0"],
-    ["#4fac24", "0 - 0.01"],
-    ["#93d31d", "0.01 - 0.025"],
-    ["#ffef39", "0.025 - 0.1"],
-    ["#fb9820", "0.1 - 1"],
-    ["#ed2024", "> 1"]
-    ]"""
-
+    bins, labels, _colours = get_bins_info("road_density")
     # Example: horizontal grouped bar chart for road and rail density
     chart_data = df[['road_dens', 'rail_dens', 'segment_area']].copy()
+
     # Bin each metric (customize bins as needed)
-    bins = [0, 0.1, 0.5, 1, 2, 5, 10, 100]
-    labels = ["<0.1", "0.1-0.5", "0.5-1", "1-2", "2-5", "5-10", ">10"]
     chart_data['road_bin'] = pd.cut(chart_data['road_dens'], bins=bins, labels=labels, include_lowest=True)
     chart_data['rail_bin'] = pd.cut(chart_data['rail_dens'], bins=bins, labels=labels, include_lowest=True)
 
@@ -536,11 +527,11 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     ))
     fig.update_layout(
         barmode='group',
-        title='Segment Area by Road and Rail Density Bin',
+        title='Riverscape Area by Road and Rail Density Bin',
         margin={"r": 0, "t": 40, "l": 0, "b": 0},
         height=400,
         yaxis_title='Density Bin',
-        xaxis_title='Total Segment Area'
+        xaxis_title='Total Riverscape Area'
     )
     fig.update_xaxes(tickformat=",")
     return fig
