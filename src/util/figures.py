@@ -350,15 +350,20 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
     """Create pie chart of total segment area by NHD feature code type"""
     chart_data = gdf.groupby('fcode_desc', as_index=False)['segment_area'].sum()
 
-    baked_header_lookup = RSFieldMeta().get_headers_dict(chart_data)
-    baked_chart_data, baked_headers = RSFieldMeta().bake_units(chart_data)
+    meta = RSFieldMeta()
+    baked_header_lookup = meta.get_headers_dict(chart_data)
+    baked_chart_data, baked_headers = meta.bake_units(chart_data)
+
+    total_name = baked_header_lookup.get('segment_area', meta.get_friendly_name('segment_area'))
+    group_name = baked_header_lookup.get('fcode_desc', meta.get_friendly_name('fcode_desc'))
+    title = f"Total {total_name} by {group_name}"
 
     fig = px.pie(
         baked_chart_data,
         names="fcode_desc",
         values="segment_area",
         labels=baked_header_lookup,  # legend/axis labels use your nice names
-        title='Total Riverscape Area by Flow Type',
+        title=title,
     )
 
     # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
