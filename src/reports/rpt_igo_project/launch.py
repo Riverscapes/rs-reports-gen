@@ -8,6 +8,7 @@ def main():
 
     NOTE: YOU CAN BYPASS ALL THESE QUESTIONS BY SETTING ENVIRONMENT VARIABLES
 
+    Environment variables that can be set:
         SPATIALITE_PATH - path to the mod_spatialite library (REQUIRED)
         DATA_ROOT - Path to the outputs folder. A subfolder rpt-igo-project will be created if it does not exist (REQUIRED)
 

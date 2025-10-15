@@ -47,6 +47,9 @@ def main():
                 ],
             ),
         ])
+        if geojson_question is None:
+            print("\nNo geojson file selected. Exiting.\n")
+            exit(0)
         geojson_filename = geojson_question['geojson']
         geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
 
