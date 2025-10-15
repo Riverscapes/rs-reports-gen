@@ -68,7 +68,7 @@
 <section id="hypsometry">
   <h2>Hypsometry</h2>
   <div class="section-context">
-    <p>This section provides an overview of the elevation distribution within the study area. The hypsometry chart
+    <p>This section provides an overview of the elevation distribution within the area of interest. The hypsometry chart
       illustrates the relationship between elevation and area, offering insights into the topographical characteristics
       of
       the region.</p>
@@ -78,9 +78,9 @@
   </figure>
 </section>
 <section id="ownership-and-flowtypes">
-  <h2>Segment Area by Ownership</h2>
+  <h2>Ownership</h2>
   <div class="section-context">
-    <p>This section provides an overview of the ownership of the river segments within the study area. The dominant
+    <p>This section provides an overview of the ownership of the riverscapes within the area of interest. The dominant
       ownership category is determined for each riverscape and then summed across the area of interest.</p>
   </div>
   <figure class="report-figure">
@@ -146,6 +146,22 @@
     </figure>
   </div>
   <h3 id="stream-order">Stream Order</h3>
+  <h3>Hydro Geomorphic</h3>
+  <h4>Confinement</h4>
+  <figure class="report-figure">
+    {{figures['confinement_length_bar']|safe}}
+  </figure>
+  <figure class="report-figure">
+    {{figures['confinement_area_bar']|safe}}
+  </figure>
+  <h3>Stream Order</h3>
+
+<div class="section-context">
+    <p>Stream order is a measure of the relative size of streams. It is determined by the hierarchy of tributaries in a
+      drainage basin. In this report, we use the Strahler method to classify stream order, where the smallest tributaries
+      are assigned an order of 1. When two streams of the same order merge, the resulting stream is assigned an order
+      that is one higher. If streams of different orders merge, the resulting stream retains the higher order.</p>
+  </div>
   <figure class="report-figure">
     {{figures['stream_order_bar']}}
   </figure>
