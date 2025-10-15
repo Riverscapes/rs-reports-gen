@@ -10,6 +10,7 @@
   --header-font-family: "JetBrains Mono", "Courier New", Courier, "Lucida Sans Typewriter", "Lucida Typewriter", monospace;
   --body-font-family: "Roboto", Arial, sans-serif;
   --page-width: 66rem;
+  --body-font-size-print: 11pt;
   --page-gutter: clamp(1.25rem, 2vw + 1rem, 2.5rem);
   --header-color: #003166;
   --accent-color: #003166;
@@ -531,13 +532,13 @@ article.report-meta {
   @page:first {
     margin: 0;
   }
-  @page { size: Letter; margin: 0.5in 0; }
+  @page { size: Letter; margin: 0.5in; }
   :root { --page-width: 66rem; --page-gutter: 0; }
 
   body {
     background: #fff !important;
     color: #000;
-    font-size: 12pt;
+    font-size: var(--body-font-size-print);
     font-family: var(--body-font-family) !important;
   }
 
@@ -642,7 +643,18 @@ article.report-meta {
     font-weight: 600;
     border-bottom: none !important;
   }
-
+  h1 {
+    font-size: 1.4rem;
+  }
+  h2 {
+    font-size: 1.1rem;
+  }
+  h3 {
+    font-size: 1rem;
+  }
+  h4, h5, h6 {
+    font-size: 0.9rem;
+  }
 /* =========================================
    4) KPI / Metrics (dl.metric-grid)
    ========================================= */
