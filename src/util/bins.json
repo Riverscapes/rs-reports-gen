@@ -107,5 +107,29 @@
     ["hsl(100, 99%, 45%)","Frequent: 5-15 dams/km (8-24 dams/mi)"],
     ["hsl(216, 100%, 45%)","Pervasive: 15-40 dams/km (24-64 dams/mi)"]
   ]
+ },
+ "riparian_condition":{
+  "source":"(change order) https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/rip_cond_rme3.json",
+  "edges" : [-1,-0.0000000001,0,0.2,0.4,0.65,0.85],
+    "legend": [
+    ["#000000", "Valley Too Narrow to Sample"],
+    ["#ed2024", "Very Poor < 0.20"],
+    ["#fba919", "Poor 0.20 - 0.40"],
+    ["#fff73b", "Moderate 0.40 - 0.65"],
+    ["#b0d136", "Good 0.65 - 0.85"],
+    ["#38a800", "Intact > 0.85"]
+  ]
+ },
+ "riparian_veg_departure":{
+  "source":"(reverse order, **check see issue 49**) https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/rip_dep_rme3.json",
+  "edges": [-9999,-1,-0.1,0,0.1,0.33,0.66],
+    "legend": [
+      ["#000000", "Valley Too Narrow to Sample"],
+      ["#00aaa4", "Increase: < 0%"],
+      ["#38a800", "Negligible: < 10%"],
+      ["#94f700", "Minor: 10% to 33%"],
+      ["#f5f500", "Significant: 33% to 66%"],
+    ["#ff0000", "Large: > 66%"]
+  ]
  }
 }

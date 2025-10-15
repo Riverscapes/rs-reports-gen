@@ -64,6 +64,9 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "beaver_dam_capacity_historical_bar": bar_total_x_by_ybins(gdf, 'channel_length', ['brat_hist_capacity']),
         "beaver_dam_capacity_current_bar": bar_total_x_by_ybins(gdf, 'channel_length', ['brat_capacity']),
         "stream_order_bar": bar_group_x_by_y(gdf, 'channel_length', ['stream_order']),
+        "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
+        "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure'])  # need to check these bins, also reverse them
+
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
