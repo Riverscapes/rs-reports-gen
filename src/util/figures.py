@@ -426,21 +426,11 @@ def extract_colours_from_legend(bins_legend_json: str) -> list[str]:
 
 def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     """example of figure with two measures"""
-    # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/lf_ag_rme3.json
-    # lf_dev_rme3.json has the same ones
-    bins_json = """[
-        ["rgb(255, 255, 212)", "0%"],
-        ["rgb(254, 227, 145)", "0 - 5%"],
-        ["rgb(254, 196, 79)", "5 - 15%"],
-        ["rgb(254, 153, 41)", "15 - 30%"],
-        ["rgb(217, 95, 14)", "30 - 60%"],
-        ["rgb(153, 52, 4)", "> 60%"]
-        ]"""
+    # load shared bins
+    bins, labels, colours = get_bins_info("lf_agriculture_prop")
+
     # make a copy and work with that
     chart_data = chart_data[['lf_agriculture_prop', 'lf_developed_prop', 'segment_area']].copy()
-    bins = [0, 0.00001, 0.05, 0.15, 0.30, 0.60, 1.0]
-    labels = extract_labels_from_legend(bins_json)
-    colours = extract_colours_from_legend(bins_json)
     # Bin each metric separately
     chart_data['ag_bin'] = pd.cut(chart_data['lf_agriculture_prop'], bins=bins, labels=labels, include_lowest=True)
     chart_data['dev_bin'] = pd.cut(chart_data['lf_developed_prop'], bins=bins, labels=labels, include_lowest=True)
