@@ -55,7 +55,7 @@ def main():
     # The final argument array we pass back
     return [
         spatialite_path,
-        os.path.join(data_root, "rpt-igo-project", report_name),
+        os.path.join(data_root, "rpt-igo-project", report_name.replace(" ", "_")),
         geojson_file,
         report_name,
     ]

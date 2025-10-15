@@ -13,6 +13,7 @@ def main():
         For all reports:
             DATA_ROOT - Path to the outputs folder. A subfolder rpt-rivers-need-space will be created if it does not exist (REQUIRED)
             UNIT_SYSTEM - unit system to use: "SI" or "imperial" (optional, default is "SI")
+            INCLUDE_PDF - whether to include a PDF version of the report (optional, default is True)
 
         Report-specific variables:
             RSI_AOI_GEOJSON - path to the input geojson file for rpt-rivers-need-space (optional)
@@ -92,13 +93,27 @@ def main():
     else:
         report_name = geojson_file.split(os.path.sep)[-1].replace('.geojson', '').replace(' ', '_') + " - Riverscapes Inventory"
 
+    # Ask for whether or not to include PDF. Default to NO
+    if os.environ.get("INCLUDE_PDF"):
+        include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
+    else:
+        include_pdf_question = inquirer.prompt([
+            inquirer.Confirm(
+                'include_pdf',
+                message="Include a PDF version of the report? (Default is No)",
+                default=False
+            ),
+        ])
+        include_pdf = include_pdf_question['include_pdf']
+
     args = [
-        os.path.join(data_root, "rpt-riverscapes-inventory", report_name),
+        os.path.join(data_root, "rpt-riverscapes-inventory", report_name.replace(" ", "_")),
         geojson_file,
         report_name,
-        "--include_pdf",
         "--unit_system", unit_system,
     ]
+    if include_pdf:
+        args.append("--include_pdf")
     if csv_file.strip():
         args.append("--csv")
         args.append(csv_file.strip())
