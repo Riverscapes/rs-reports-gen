@@ -436,10 +436,10 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     chart_data['dev_bin'] = pd.cut(chart_data['lf_developed_prop'], bins=bins, labels=labels, include_lowest=True)
 
     # Aggregate segment_area by each bin
-    ag_data = chart_data.groupby('ag_bin')['segment_area'].sum().reset_index()
+    ag_data = chart_data.groupby('ag_bin', observed=False)['segment_area'].sum().reset_index()
     ag_data = ag_data.rename(columns={'ag_bin': 'bin', 'segment_area': 'ag_segment_area'})
 
-    dev_data = chart_data.groupby('dev_bin')['segment_area'].sum().reset_index()
+    dev_data = chart_data.groupby('dev_bin', observed=False)['segment_area'].sum().reset_index()
     dev_data = dev_data.rename(columns={'dev_bin': 'bin', 'segment_area': 'dev_segment_area'})
 
     # Merge for grouped bar chart
@@ -487,10 +487,10 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     chart_data['rail_bin'] = pd.cut(chart_data['rail_dens'], bins=bins, labels=labels, include_lowest=True)
 
     # Aggregate segment_area by each bin
-    road_data = chart_data.groupby('road_bin')['segment_area'].sum().reset_index()
+    road_data = chart_data.groupby('road_bin', observed=False)['segment_area'].sum().reset_index()
     road_data = road_data.rename(columns={'road_bin': 'bin', 'segment_area': 'road_segment_area'})
 
-    rail_data = chart_data.groupby('rail_bin')['segment_area'].sum().reset_index()
+    rail_data = chart_data.groupby('rail_bin', observed=False)['segment_area'].sum().reset_index()
     rail_data = rail_data.rename(columns={'rail_bin': 'bin', 'segment_area': 'rail_segment_area'})
 
     # Merge for grouped bar chart
