@@ -358,7 +358,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
         names="fcode_desc",
         values="segment_area",
         labels=baked_header_lookup,  # legend/axis labels use your nice names
-        title='Total Riverscape Area (units) by Feature Code',
+        title='Total Riverscape Area by Flow Type',
     )
 
     # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
