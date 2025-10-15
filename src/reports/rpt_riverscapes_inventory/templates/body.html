@@ -11,7 +11,7 @@
     <li><a href="#ownership-and-flowtypes">Ownership and Flow Types</a></li>
     <li><a href="#flow-types">Flow Types</a></li>
     <li><a href="#stream-names">Stream Names and Lengths</a></li>
-    <li><a href="#condition-and-recovery-potential">Condition and Recovery Potential</a></li>
+    <li><a href="#condition">Condition</a></li>
     <li><a href="#biophysical-settings">Biophysical Settings</a>
       <ol>
         <li><a href="#hydro-geomorphic">Hydro Geomorphic</a>
@@ -111,28 +111,34 @@
     {{ tables['river_names']|safe}}
   </figure>
 </section>
-<section id="condition-and-recovery-potential">
+
+<!-- Condition -->
+<section id="condition">
   <h2>Condition</h2>
-  <figure class="report-figure">
-    {{figures['low_lying_bin_bar']|safe}}
-  </figure>
-  <figure class="report-figure">
-    {{figures['prop_riparian_bin_bar']|safe}}
-  </figure>
-  <figure class="report-figure">
-    {{figures['floodplain_access_bar']|safe}}
-  </figure>
-  <h2>Recovery Potential</h2>
-  <figure class="report-figure">
-    {{figures['land_use_intensity_bar']|safe}}
-  </figure>
-  <figure class="report-figure">
-    {{figures['prop_ag_dev']|safe}}
-  </figure>
-  <figure class="report-figure">
-    {{figures['dens_road_rail']|safe}}
-  </figure>
+  <div>
+    <figure class="report-figure">
+      {{figures['low_lying_bin_bar']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['prop_riparian_bin_bar']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['floodplain_access_bar']|safe}}
+    </figure>
+    <h2>Recovery Potential</h2>
+    <figure class="report-figure">
+      {{figures['land_use_intensity_bar']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['prop_ag_dev']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['dens_road_rail']|safe}}
+    </figure>
+  </div>
 </section>
+
+<!-- Biophysical Settings -->
 <section id="biophysical-settings">
   <h2>Biophysical Settings</h2>
   <h3 id="hydro-geomorphic">Hydro Geomorphic</h3>
@@ -146,17 +152,7 @@
     </figure>
   </div>
   <h3 id="stream-order">Stream Order</h3>
-  <h3>Hydro Geomorphic</h3>
-  <h4>Confinement</h4>
-  <figure class="report-figure">
-    {{figures['confinement_length_bar']|safe}}
-  </figure>
-  <figure class="report-figure">
-    {{figures['confinement_area_bar']|safe}}
-  </figure>
-  <h3>Stream Order</h3>
-
-<div class="section-context">
+  <div class="section-context">
     <p>Stream order is a measure of the relative size of streams. It is determined by the hierarchy of tributaries in a
       drainage basin. In this report, we use the Strahler method to classify stream order, where the smallest tributaries
       are assigned an order of 1. When two streams of the same order merge, the resulting stream is assigned an order
@@ -167,20 +163,24 @@
   </figure>
   <h3 id="ecological">Ecological</h3>
   <h4 id="beaver">Beaver</h4>
-  <figure class="report-figure">
-    {{figures['beaver_dam_capacity_historical_bar']|safe}}
-  </figure>
-  <figure class="report-figure">
-    {{figures['beaver_dam_capacity_current_bar']|safe}}
-  </figure>
+  <div>
+    <figure class="report-figure">
+      {{figures['beaver_dam_capacity_historical_bar']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['beaver_dam_capacity_current_bar']|safe}}
+    </figure>
+  </div>
   <h2>Conditions</h2>
   <h3 id="riparian-conditions">Riparian Conditions</h3>
-  <figure class="report-figure">
-    {{figures['riparian_condition_bin_bar']|safe}}
-  </figure>
-  <figure class="report-figure">
-    {{figures['riparian_departure_bin_bar']|safe}}
-  </figure>
+  <div>
+    <figure class="report-figure">
+      {{figures['riparian_condition_bin_bar']|safe}}
+    </figure>
+    <figure class="report-figure">
+      {{figures['riparian_departure_bin_bar']|safe}}
+    </figure>
+  </div>
 </section>
 
 <section id="appendices" class="appendix">
