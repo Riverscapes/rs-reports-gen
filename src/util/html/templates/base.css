@@ -754,6 +754,30 @@ article.report-meta {
    8) Footer
    ========================================= */
   
+ .copyright-bar {
+      padding: 0.1in 0 !important;
+    }
+    .copyright-inner {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 0 !important; 
+    }
+
+  .copyright-inner > * + * {
+    margin-left: 0.4in !important;
+  }
+  .copyright-inner img {
+    display: inline-block !important;
+    height: 24px !important;   
+    width: auto !important;
+    flex: 0 0 auto !important; 
+  }
+  .copyright-inner .footer-copy {
+  flex: 0 1 auto !important;
+  white-space: nowrap !important; 
+  }
   .footer-inner{
     max-width: var(--page-width);
     margin: 0 auto;
