@@ -62,9 +62,9 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
         )
     )
     fig.update_layout(
-        title="Hypsometry: Total Cell Count by Elevation Bin",
+        title="Hypsometry: Total Cell Count by Elevation",
         xaxis_title="Total Cell Count",
-        yaxis_title="Elevation Bin (m)",
+        yaxis_title="Elevation (m)",
         template="plotly_white"
     )
     return fig
