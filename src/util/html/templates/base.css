@@ -552,17 +552,17 @@ article.report-meta {
   table, .metric, .plotly-graph-div { break-inside: avoid; page-break-inside: avoid; }
 
   /* Page-break helpers */ 
-
   .page-break,
   .page-break-before,
   .page-break-after { display: block; }
   .page-break,
   .page-break-after { break-after: page; page-break-after: always; }
   .page-break-before { break-before: page; page-break-before: always; } 
+  
   /* Avoid breaking headings from their content */
   h1, h2, h3 { break-after: avoid; }
   h1 + *, h2 + *, h3 + * { break-before: avoid; }
-  p, li { orphans: 3; widows: 3; }
+  
   /* Repeat table headers/footers on page breaks */
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
@@ -571,6 +571,7 @@ article.report-meta {
   .report-figure,
   figure,
   img { break-inside: avoid; page-break-inside: avoid; }
+  
   /* Prevent inner grid items from splitting across pages */
   .grid > *,
   .metric-grid > *  { break-inside: avoid; page-break-inside: avoid; }
@@ -718,8 +719,18 @@ article.report-meta {
 /* =========================================
    7) Figures / Captions
    ========================================= */
-  .report-figure{ break-inside: avoid; page-break-inside: avoid; }
-
+  .report-figure,
+  .report-figure img,
+  .report-figure svg {
+    width: 75% !important;    
+    max-width: 75% !important; 
+    height: auto !important;   
+  }
+  .report-figure figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #4a5764;
+  }
 /* =========================================
    8) Footer
    ========================================= */
