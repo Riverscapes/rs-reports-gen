@@ -381,6 +381,46 @@ class RSFieldMeta:
         if self._field_meta is None:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
 
+    def duplicate_meta(
+        self, orig_name: str, new_name: str, new_friendly: str = None, new_description: str = None,
+        new_data_unit: str = None, new_display_unit: str = None, new_dtype: str = None, new_no_convert: Optional[bool] = None
+    ) -> FieldMetaValues:
+        """Duplicate a row of the metadata table, optionally overriding fields.
+
+        Returns:
+            str: The name of the new metadata row.
+        Raises:
+            RuntimeError: If metadata is not set.
+            ValueError: If original does not exist or new already exists.
+        """
+        self._no_data_warning()
+        if self._field_meta is None:
+            raise RuntimeError("No metadata set. You need to instantiate RSFieldMeta and set the .meta property first.")
+        if orig_name not in self._field_meta.index:
+            raise ValueError(f"Original column '{orig_name}' does not exist in metadata.")
+        if new_name in self._field_meta.index:
+            raise ValueError(f"New column '{new_name}' already exists in metadata.")
+
+        new_row = self._field_meta.loc[orig_name].copy()
+        if new_friendly is not None:
+            new_row["friendly_name"] = new_friendly
+        if new_description is not None:
+            new_row["description"] = new_description
+        if new_data_unit is not None:
+            new_row["data_unit"] = ureg.Unit(new_data_unit) if new_data_unit else None
+        if new_display_unit is not None:
+            new_row["display_unit"] = ureg.Unit(new_display_unit) if new_display_unit else None
+        if new_dtype is not None:
+            new_row["dtype"] = new_dtype
+        if new_no_convert is not None:
+            new_row["no_convert"] = bool(new_no_convert)
+
+        # Ensure the index is set to new_name
+        new_row.name = new_name
+        self._field_meta = pd.concat([self._field_meta, pd.DataFrame([new_row], index=[new_name])])
+        self._log.info(f"Duplicated metadata from '{orig_name}' to '{new_name}'.")
+        return self.get_field_meta(new_name)
+
     def get_field_meta(self, column_name: str) -> Optional[FieldMetaValues]:
         """Get the field metadata for a specific column. This returns a FieldMetaValues object.
 
@@ -401,7 +441,7 @@ class RSFieldMeta:
         meta_values.data_unit = self._field_meta.loc[column_name, "data_unit"]
         meta_values.display_unit = self._field_meta.loc[column_name, "display_unit"]
         meta_values.dtype = self._field_meta.loc[column_name, "dtype"]
-        meta_values.no_convert = self._field_meta.loc[column_name, "no_convert"]
+        meta_values.no_convert = bool(self._field_meta.loc[column_name, "no_convert"])
         meta_values.description = self._field_meta.loc[column_name, "description"]
         return meta_values
 

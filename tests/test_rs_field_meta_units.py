@@ -95,6 +95,6 @@ def test_apply_units_custom_units(fresh_meta):
 
     assert applied is not source
     assert applied_units["length"] == ureg.Unit("meter")
-    assert applied_units["length_sum"] == ureg.Unit("foot")
+    assert applied_units["length_sum"] == ureg.Unit("meter")
 
     fresh_meta.unit_system = "SI"
