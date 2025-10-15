@@ -531,7 +531,7 @@ article.report-meta {
   @page:first {
     margin: 0;
   }
-  @page { size: Letter; margin: 0.5in; }
+  @page { size: Letter; margin: 0.5in 0; }
   :root { --page-width: 66rem; --page-gutter: 0; }
 
   body {
