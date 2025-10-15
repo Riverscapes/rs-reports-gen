@@ -22,6 +22,7 @@ import plotly.express as px
 
 from rsxml import Logger
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
+from util.color import DEFAULT_FCODE_COLOR_MAP
 
 
 def get_bins_info(key: str):
@@ -115,14 +116,25 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         group_names = [meta.get_friendly_name(col) for col in group_by_cols]
         fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)} Bins"
 
+    # minimal change: allow color override; if fcode_desc is used, apply DEFAULT_FCODE_COLOR_MAP
+    color_arg = fig_params.pop("color", "bin")
+    color_kwargs = {}
+    if "color_discrete_map" not in fig_params and "color_discrete_sequence" not in fig_params:
+        if color_arg == "fcode_desc":
+            present = set(df["fcode_desc"].astype(str)) if "fcode_desc" in df.columns else set()
+            safe_map = {k: v for k, v in DEFAULT_FCODE_COLOR_MAP.items() if not present or k in present}
+            color_kwargs["color_discrete_map"] = safe_map
+        else:
+            color_kwargs["color_discrete_sequence"] = colours
+
     fig = px.bar(
         baked_agg_data,
         x='bin',
         y=total_col,
-        color='bin',
-        color_discrete_sequence=colours,
+        color=color_arg,
         labels=baked_header_lookup,
         height=400,
+        **color_kwargs,
         **fig_params
     )
 
@@ -435,6 +447,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
         values="segment_area",
         labels=baked_header_lookup,  # legend/axis labels use your nice names
         title=title,
+        color_discrete_map=DEFAULT_FCODE_COLOR_MAP,
     )
 
     # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
