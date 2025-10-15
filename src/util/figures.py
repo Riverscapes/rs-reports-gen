@@ -428,19 +428,9 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     """example of figure with two measures"""
     # from https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/lf_ag_rme3.json
     # lf_dev_rme3.json has the same ones
-    bins_json = """[
-        ["rgb(255, 255, 212)", "0%"],
-        ["rgb(254, 227, 145)", "0 - 5%"],
-        ["rgb(254, 196, 79)", "5 - 15%"],
-        ["rgb(254, 153, 41)", "15 - 30%"],
-        ["rgb(217, 95, 14)", "30 - 60%"],
-        ["rgb(153, 52, 4)", "> 60%"]
-        ]"""
+    bins, labels, colours = get_bins_info("lf_agriculture_prop")
     # make a copy and work with that
     chart_data = chart_data[['lf_agriculture_prop', 'lf_developed_prop', 'segment_area']].copy()
-    bins = [0, 0.00001, 0.05, 0.15, 0.30, 0.60, 1.0]
-    labels = extract_labels_from_legend(bins_json)
-    colours = extract_colours_from_legend(bins_json)
     # Bin each metric separately
     chart_data['ag_bin'] = pd.cut(chart_data['lf_agriculture_prop'], bins=bins, labels=labels, include_lowest=True)
     chart_data['dev_bin'] = pd.cut(chart_data['lf_developed_prop'], bins=bins, labels=labels, include_lowest=True)
@@ -455,8 +445,12 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     # Merge for grouped bar chart
     agg_data = pd.merge(ag_data, dev_data, on='bin', how='outer')
 
-    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+    field_meta = RSFieldMeta()
+    field_meta.duplicate_meta('segment_area', 'ag_segment_area',  new_friendly='Agriculture Area')
+    field_meta.duplicate_meta('segment_area', 'dev_segment_area', new_friendly='Development Area')
+
+    baked_header_lookup = field_meta.get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = field_meta.bake_units(agg_data)    # Plot bar chart
 
     baked_header_lookup['bin'] = 'Land Use Intensity'
 
@@ -467,6 +461,8 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         title='Agriculture and Development Proportion by Bin',
         barmode='group',
+        xaxis_title=baked_header_lookup.get('bin', 'Land Use Intensity'),
+        yaxis_title=baked_header_lookup.get('ag_segment_area', 'Riverscape Area'),
         margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
 
