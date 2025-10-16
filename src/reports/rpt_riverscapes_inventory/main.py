@@ -130,6 +130,10 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
     """
     log = Logger('Load HUC data')
 
+    if not hucs or len(hucs) == 0:
+        log.error('No hucs provided to load_huc_data')
+        return pd.DataFrame()  # return empty dataframe
+
     # Basic input sanitation: ensure all hucs are strings, length 10, digits only, and unique
     clean_hucs = {h for h in hucs if isinstance(h, str) and len(h) == 10 and h.isdigit()}
     if not clean_hucs or (len(clean_hucs) != len(hucs)):

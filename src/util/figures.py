@@ -201,7 +201,6 @@ def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list
     return fig
 
 
-
 def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], with_percent: bool = True) -> RSGeoDataFrame:
     """summarize the dataframe with friendly name and units
 
@@ -468,7 +467,7 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     total_stream_length = subset_df["stream_length"].sum()
 
     # Calculate integrated valley bottom width as ratio of totals
-    integrated_valley_bottom_width = total_segment_area / total_centerline_length if total_centerline_length != 0 else float('nan')
+    integrated_valley_bottom_width = total_segment_area / total_centerline_length if total_centerline_length != 0 else float('nan') * total_segment_area.units / total_centerline_length.units
 
     # if you want different units or descriptions then give them different names and add rsfieldmeta
     # Add field meta if not already present
