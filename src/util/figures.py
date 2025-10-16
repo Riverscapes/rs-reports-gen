@@ -527,10 +527,10 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     ))
     fig.update_layout(
         barmode='group',
-        title='Riverscape Area by Road and Rail Density Bin',
+        title='Riverscape Area by Road and Rail Density',
         margin={"r": 0, "t": 40, "l": 0, "b": 0},
         height=400,
-        yaxis_title='Density Bin',
+        yaxis_title='Density',
         xaxis_title='Total Riverscape Area'
     )
     fig.update_xaxes(tickformat=",")
