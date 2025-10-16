@@ -23,6 +23,7 @@ from util.figures import (
     table_total_x_by_y,
     bar_group_x_by_y,
     bar_total_x_by_ybins,
+    bar_total_x_by_ybins_h,
     make_map_with_aoi,
     make_rs_area_by_featcode,
     prop_ag_dev,
@@ -72,8 +73,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "hypsometry": hypsometry_fig(huc_df),
         "confinement_length_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['confinement_ratio', 'fcode_desc']),
         "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc']),
-        "beaver_dam_capacity_historical_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['brat_hist_capacity']),
-        "beaver_dam_capacity_current_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['brat_capacity']),
+        "beaver_dam_capacity_historical_bar": bar_total_x_by_ybins_h(gdf, 'centerline_length', ['brat_hist_capacity']),
+        "beaver_dam_capacity_current_bar": bar_total_x_by_ybins_h(gdf, 'centerline_length', ['brat_capacity']),
         "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
         "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
         "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure'])  # need to check these bins, also reverse them

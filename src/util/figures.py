@@ -130,6 +130,80 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     return fig
 
 
+def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:
+    """
+    Uses bins.json to lookup the bins
+    If more than one x_col provided, will use the binning identified for the first
+
+    Args:
+        df (pdf.DataFrame): dataframe containing all the data needed
+        x_col (_type_): _description_
+        y_col (_type_): _description_
+
+    Returns:
+        go.Figure: 
+
+    Usage: 
+        bar_total_x_by_ybins_h(data_gdf, 'segment_area', ['low_lying_ratio']) 
+        produces same thing as low_lying_ratio_bins(data_gdf) but horizontal
+
+    future Enhancement: 
+    * separate the dataframe generation from plotting - we might want a table as well
+    * there's also lots of repetition with regular bar chart - mainly the colors are diff
+    """
+    fields: [] = group_by_cols + [total_col]
+    chart_subset_df = df[fields].copy()
+    edges, labels, colours = get_bins_info(group_by_cols[0])
+    # TODO: iterate through the group_by_cols, name each bein col_bin AND ensure it has metadata - units, description etc.
+    chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
+    # Aggregate total_col by bin - NB cut creates a Categorical dtype
+    # TO DO: aggregate by each bin
+    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
+
+    # THIS IS WHERE WE COULD REGURN agg_data TO BE USED BY OTHER FUNCTIONS
+    # however, colurs are not part of the agg_data and are needed - so we'd need to call the get_bins_info again
+    # prepare the data
+    # TODO: for grouped bar chart we should merge the bins and do something different with the colors
+    meta = RSFieldMeta()
+    baked_header_lookup = meta.get_headers_dict(agg_data)
+    baked_agg_data, _baked_headers = RSFieldMeta().bake_units(agg_data)
+
+    # give the axis a friendly name
+    if len(group_by_cols) == 1:
+        baked_header_lookup['bin'] = meta.get_friendly_name(group_by_cols[0])
+    else:
+        baked_header_lookup['bin'] = 'Bin'
+    # do we want to change the header for the total to "Total xxx" ? if so this would be one way
+    # baked_header_lookup[total_col] = f'Total {meta.get_friendly_name(total_col)}'
+    # build the figure
+    # set parameters
+    # TODO if we are doing multiples then it is a grouped and we add multiple traces and barmode='group'
+    if fig_params is None:
+        fig_params = {}
+
+    if "title" not in fig_params:
+        group_names = [meta.get_friendly_name(col) for col in group_by_cols]
+        fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)} Bins"
+
+    # minimal change: allow color override; if fcode_desc is used, apply DEFAULT_FCODE_COLOR_MAP
+    color_arg = fig_params.pop("color", "bin")
+
+    fig = px.bar(
+        baked_agg_data,
+        x=total_col,
+        y='bin',
+        color=color_arg,
+        labels=baked_header_lookup,
+        height=400,
+        orientation='h',
+        **fig_params
+    )
+
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, showlegend=False)
+    return fig
+
+
+
 def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], with_percent: bool = True) -> RSGeoDataFrame:
     """summarize the dataframe with friendly name and units
 
