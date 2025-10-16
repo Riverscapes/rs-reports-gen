@@ -185,14 +185,12 @@ def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list
         group_names = [meta.get_friendly_name(col) for col in group_by_cols]
         fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)} Bins"
 
-    # minimal change: allow color override; if fcode_desc is used, apply DEFAULT_FCODE_COLOR_MAP
-    color_arg = fig_params.pop("color", "bin")
-
     fig = px.bar(
         baked_agg_data,
         x=total_col,
         y='bin',
-        color=color_arg,
+        color='bin',
+        color_discrete_sequence=colours,
         labels=baked_header_lookup,
         height=400,
         orientation='h',
