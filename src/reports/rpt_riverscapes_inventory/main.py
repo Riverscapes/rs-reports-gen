@@ -59,19 +59,19 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "prop_ag_dev": prop_ag_dev(gdf),
         "dens_road_rail": dens_road_rail(gdf),
         "hypsometry": hypsometry_fig(huc_df),
-        "confinement_length_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['confinement_ratio', 'fcode_desc']),
+        "confinement_length_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['confinement_ratio', 'fcode_desc']),
         "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc']),
-        "beaver_dam_capacity_historical_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['brat_hist_capacity']),
-        "beaver_dam_capacity_current_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['brat_capacity']),
-        "stream_order_bar": bar_group_x_by_y(gdf, 'stream_length', ['stream_order']),
+        "beaver_dam_capacity_historical_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['brat_hist_capacity']),
+        "beaver_dam_capacity_current_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['brat_capacity']),
+        "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
         "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
         "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure'])  # need to check these bins, also reverse them
 
     }
     tables = {
-        "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
-        "owners": table_total_x_by_y(gdf, 'stream_length', ['ownership', 'ownership_desc']),
-        "table_of_fcodes": table_total_x_by_y(gdf, 'stream_length', ['fcode_desc'])
+        "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name']),
+        "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
+        "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc'])
     }
     appendices = {
         "project_ids": project_id_list(gdf),
@@ -147,6 +147,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
+    # TODO - this seems to have no effec, ask Matt how preferred_units are supposed to work
+    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)

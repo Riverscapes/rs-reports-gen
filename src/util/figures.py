@@ -81,7 +81,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     * separate the dataframe generation from plotting - we might want a table as well
     * there's also lots of repetition with regular bar chart - mainly the colors are diff
     """
-    fields: [] = group_by_cols + [total_col]
+    fields: list = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     edges, labels, colours = get_bins_info(group_by_cols[0])
     # TODO: iterate through the group_by_cols, name each bein col_bin AND ensure it has metadata - units, description etc.
