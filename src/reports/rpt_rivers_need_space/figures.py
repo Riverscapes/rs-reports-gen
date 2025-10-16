@@ -7,7 +7,6 @@ import pint
 import pandas as pd
 import numpy as np
 
-from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.figures import common_statistics
 
 # assume pint registry has been set up already

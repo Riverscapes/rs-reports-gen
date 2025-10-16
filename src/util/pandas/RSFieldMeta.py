@@ -43,30 +43,16 @@ import pandas as pd
 
 ureg = pint.get_application_registry()
 
-# These are the default preferred units for SI and imperial systems for our report.
-# You can override these by setting RSFieldMeta().preferred_units = { ... }
-PREFERRED_UNIT_DEFAULTS: Dict[str, Dict[str, str]] = {
-    'SI': {
-        'length': 'meter',
-        'area': 'kilometer ** 2',
-        'volume': 'meter ** 3',
-        'mass': 'kilogram',
-        'time': 'second',
-    },
-    'imperial': {
-        'length': 'foot',
-        'area': 'acres',
-        'volume': 'foot ** 3',
-        'mass': 'pound',
-        'time': 'second',
-    },
-}
+SI_SYSTEMS = ['SI', 'imperial']
+
 # I need a lookup table for converting units like meters to feet and km to miles based on the current unit system.
 # So, for example, if I ask for "meters" and the current system is imperial, I should get "feet" back.
 # This will be a mapping of dimensionality to preferred units for each system.
 SI_TO_IMPERIAL: Dict[str, str] = {
     'meter': 'foot',
+    'meter ** 2': 'foot ** 2',
     'kilometer': 'mile',
+    '1 / kilometer': '1 / mile',
     'kilometer ** 2': 'acre',
     'kilogram': 'pound',
 }
@@ -119,8 +105,6 @@ class RSFieldMeta:
         if not hasattr(self, "_unit_system"):
             self._unit_system = 'SI'  # default to SI
             self._log.debug(f'Set default unit system to {self._unit_system}')
-        if not hasattr(self, "_preferred_units"):
-            self._preferred_units = PREFERRED_UNIT_DEFAULTS
 
     def clear(self):
         """ Clear the shared metadata.
@@ -144,15 +128,6 @@ class RSFieldMeta:
             str: The current unit system.
         """
         return self._unit_system
-
-    @property
-    def preferred_units(self) -> Dict[str, Dict[str, str]]:
-        """Get the preferred units mapping.
-
-        Returns:
-            Dict[str, Dict[str, str]]: The preferred units mapping.
-        """
-        return self._preferred_units
 
     @field_meta.setter
     def field_meta(self, value: pd.DataFrame):
@@ -237,51 +212,13 @@ class RSFieldMeta:
             ValueError: If the unit system is invalid.
         """
         normalized = system.strip()
-        valid_systems = set(PREFERRED_UNIT_DEFAULTS.keys())
+        valid_systems = set(SI_SYSTEMS)
         if normalized not in valid_systems:
             raise ValueError(f"Invalid unit system '{system}'. Valid options are: {list(valid_systems)}")
         ureg.default_system = normalized
         canonical = ureg.get_system(normalized).name
         self._unit_system = canonical
         self._log.info(f'Set default unit system to {canonical}')
-
-    @preferred_units.setter
-    def preferred_units(self, mapping: Dict[str, Dict[str, str]]):
-        """Set the preferred units mapping.
-
-        Raise an error if the mapping contains unknown unit systems (i.e. not 'SI' or 'imperial').
-
-        Args:
-            mapping (Dict[str, Dict[str, str]]): The preferred units mapping.
-        """
-        # Test to make sure only SI and imperial are present in the keys
-        if not all(key in PREFERRED_UNIT_DEFAULTS for key in mapping.keys()):
-            raise ValueError("Preferred units mapping contains unknown unit systems. Valid systems are 'SI' and 'imperial'.")
-        self._preferred_units = mapping
-        self._log.info("Preferred units mapping updated.")
-
-    def preferred_unit_for(self, unit_obj: pint.Unit) -> Optional[pint.Unit]:
-        """ Get the preferred unit for a given unit object based on the current unit system.
-
-        Args:
-            unit_obj (pint.Unit): A Pint unit object.
-
-        Returns:
-            Optional[pint.Unit]: The preferred unit (Pint Object) for the given unit object, or None if not found.
-        """
-        system_units = self._preferred_units.get(self._unit_system)
-        if not system_units:
-            self._log.warning(f"No preferred units mapping found for unit system '{self._unit_system}'.")
-            return None
-        dim_name = RSFieldMeta.get_dimensionality_name(unit_obj)
-        if dim_name is None:
-            self._log.warning(f"Could not determine dimensionality for unit '{unit_obj}'.")
-            return None
-        preferred = system_units.get(dim_name)
-        if preferred is None:
-            self._log.warning(f"No preferred unit found for dimensionality '{dim_name}' in system '{self._unit_system}'.")
-
-        return ureg.Unit(preferred) if preferred else None
 
     @staticmethod
     def get_dimensionality_name(unit_obj: pint.Unit) -> Optional[str]:
@@ -580,20 +517,19 @@ class RSFieldMeta:
             return None
         if fm.data_unit:
             # The data unit is always the fallback
-            applied_unit = fm.data_unit
+            applied_unit = ureg.Unit(fm.data_unit)
             try:
-                unit_obj = ureg.Unit(fm.data_unit)
-                preferred_unit = self.preferred_unit_for(unit_obj)
+                if fm.display_unit:
+                    applied_unit = ureg.Unit(fm.display_unit)
                 if fm.no_convert:
                     # If no_convert is true then we use the display_unit if it exists
                     if pd.notnull(fm.display_unit) and str(fm.display_unit).strip() != "":
                         applied_unit = fm.display_unit
                     else:
                         applied_unit = fm.data_unit
-                elif preferred_unit and preferred_unit != fm.data_unit:
-                    applied_unit = preferred_unit
                 else:
                     self._log.debug(f'Applied {fm.data_unit} to {name}')
+                    applied_unit = self.get_system_units(applied_unit)
             except Exception as exc:  # pragma: no cover - log unexpected issues
                 self._log.debug(f"Unable to apply units '{fm.data_unit}' to column '{name}': {exc}")
             return applied_unit
@@ -676,7 +612,42 @@ class RSFieldMeta:
 
         return column_headers
 
-    def get_system_units(self, in_qty: pint.Quantity) -> pint.Quantity:
+    def get_system_units(self, in_units: pint.Unit) -> pint.Unit:
+        """ get system units
+
+        Args:
+            in_units (pint.Unit): _description_
+
+        Returns:
+            pint.Unit: _description_
+        """
+
+        if self._unit_system == 'SI':
+            # We are in SI so convert any imperial units to SI
+            lookup = IMPERIAL_TO_SI
+            reverse_lookup = SI_TO_IMPERIAL
+        else:
+            # We are in imperial so convert any SI units to imperial
+            lookup = SI_TO_IMPERIAL
+            reverse_lookup = IMPERIAL_TO_SI
+
+        lookup_val = lookup.get(str(in_units), None)
+        reverse_val = reverse_lookup.get(str(in_units), None)
+
+        # Test if we need a conversion and if not just return the input
+        if lookup_val is None or lookup_val == in_units:
+            # If we didn't find a conversion and the unit is not in the reverse lookup then warn
+            if lookup_val is None and reverse_val is None:
+                self._log.warning(f"No conversion found for unit '{in_units}' in current system '{self._unit_system}'.")
+            return in_units
+        try:
+            out_unit = ureg.Unit(lookup_val)
+            return out_unit
+        except Exception as exc:  # pragma: no cover - log unexpected issues
+            self._log.warning(f"Unable to convert unit '{in_units}' to '{lookup_val}': {exc}")
+            return in_units
+
+    def get_system_unit_value(self, in_qty: pint.Quantity) -> pint.Quantity:
         """ Use SI_TO_IMPERIAL and IMPERIAL_TO_SI to get explicit units for a given input unit based on the current unit system.
         Fail safely with a warning if the unit is not in the lookup table
 
@@ -689,30 +660,13 @@ class RSFieldMeta:
         if not isinstance(in_qty, pint.Quantity):
             raise ValueError("Input must be a Pint Quantity with units.")
 
-        if self._unit_system == 'SI':
-            # We are in SI so convert any imperial units to SI
-            lookup = IMPERIAL_TO_SI
-            reverse_lookup = SI_TO_IMPERIAL
-        else:
-            # We are in imperial so convert any SI units to imperial
-            lookup = SI_TO_IMPERIAL
-            reverse_lookup = IMPERIAL_TO_SI
-
-        lookup_val = lookup.get(str(in_qty.units), None)
-        reverse_val = reverse_lookup.get(str(in_qty.units), None)
-
-        # Test if we need a conversion and if not just return the input
-        if lookup_val is None or lookup_val == in_qty.units:
-            # If we didn't find a conversion and the unit is not in the reverse lookup then warn
-            if lookup_val is None and reverse_val is None:
-                self._log.warning(f"No conversion found for unit '{in_qty.units}' in current system '{self._unit_system}'.")
-            return in_qty
+        sys_units = self.get_system_units(in_qty.units)
 
         try:
-            out_value = in_qty.to(lookup_val)
+            out_value = in_qty.to(sys_units)
             return out_value
         except Exception as exc:  # pragma: no cover - log unexpected issues
-            self._log.warning(f"Unable to convert unit '{in_qty.units}' to '{lookup_val}': {exc}")
+            self._log.warning(f"Unable to convert unit '{in_qty.units}' to '{sys_units}': {exc}")
             return in_qty
 
     def bake_units(self, df: pd.DataFrame, header_units: bool = True) -> Tuple[pd.DataFrame, List[str]]:

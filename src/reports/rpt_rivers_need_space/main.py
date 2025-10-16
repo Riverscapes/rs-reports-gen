@@ -35,7 +35,16 @@ from reports.rpt_rivers_need_space import __version__ as report_version
 from reports.rpt_rivers_need_space.figures import statistics
 
 
-_FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
+def define_fields(unit_system: str = "SI"):
+    """Set up the fields and units for this report"""
+    _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
+    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
+    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
+
+    # Here's where we can set any preferred units that differ from the data unit
+    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
+
+    return
 
 
 def log_unit_status(df, label):
@@ -131,8 +140,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
 
-    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
-    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
+    # This is where all the initialization happens for fields and units
+    define_fields(unit_system)  # ensure fields are defined
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)

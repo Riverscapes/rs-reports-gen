@@ -87,41 +87,41 @@ def main():
     # Explicitly Setting Units
     ################################################################################
 
-    # If you don't want to use the PREFERRED_UNIT_DEFAULTS but you still want system conversions (i.e. miles to km or acres to hectares)
-    # You can use get_system_units() to convert a Pint quantity to the appropriate unit for the current unit system
+    # If you don't want to use the systems but you still want system conversions (i.e. miles to km or acres to hectares)
+    # You can use get_system_unit_value() to convert a Pint quantity to the appropriate unit for the current unit system
     length_in_miles = 10 * ureg.mile
-    print(f"{_FIELD_META.get_system_units(length_in_miles)}")
+    print(f"{_FIELD_META.get_system_unit_value(length_in_miles)}")
     # 16.09344 kilometer
 
     # If we're already in the desired unit system then it just returns the original quantity
     length_in_km = 20 * ureg.kilometer
-    print(f"{_FIELD_META.get_system_units(length_in_km)}")
+    print(f"{_FIELD_META.get_system_unit_value(length_in_km)}")
     # 20 kilometer
 
     # All of this is dependent on the current unit system having a lookup in the SI_TO_IMPERIAL or IMPERIAL_TO_SI dicts
     # (see RSFieldMeta.py). If there is no mapping it will just return the original quantity with a warning in the console
     volume_in_teaspoons = 5 * ureg.teaspoon
-    print(f"{_FIELD_META.get_system_units(volume_in_teaspoons)}")
+    print(f"{_FIELD_META.get_system_unit_value(volume_in_teaspoons)}")
     # [WARNING] [RSFieldMeta] No conversion found for unit 'teaspoon' in current system 'SI'.
     # 5 teaspoon
 
     # the lookups are bidirectional since we don't always have 1:1 mappings (e.g. acre to hectare, yards or feet to meters etc.)
     length_in_meters = 100 * ureg.meter
-    print(f"{_FIELD_META.get_system_units(length_in_meters)}")
+    print(f"{_FIELD_META.get_system_unit_value(length_in_meters)}")
     # 100 meter
 
     length_in_yards = 100 * ureg.yard
     # Note here how meters convert to yards (not feet)
-    print(f"{_FIELD_META.get_system_units(length_in_yards)}")
+    print(f"{_FIELD_META.get_system_unit_value(length_in_yards)}")
     # 91.44 meter
 
     length_in_feet = 100 * ureg.foot
-    print(f"{_FIELD_META.get_system_units(length_in_feet)}")
+    print(f"{_FIELD_META.get_system_unit_value(length_in_feet)}")
     # 30.479999999999997 meter
 
     _FIELD_META.unit_system = 'imperial'  # valid choices are 'SI' and 'imperial'
     # Note here how meters convert to feet (not yards)
-    print(f"{_FIELD_META.get_system_units(length_in_meters)}")
+    print(f"{_FIELD_META.get_system_unit_value(length_in_meters)}")
     # 328.0839895013123 foot
 
     # End of example. reset to SI

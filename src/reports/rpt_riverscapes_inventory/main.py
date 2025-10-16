@@ -34,7 +34,18 @@ from reports.rpt_riverscapes_inventory import __version__ as report_version
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
 
-_FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
+
+def define_fields(unit_system: str = "SI"):
+    """Set up the fields and units for this report"""
+    _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
+    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
+    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
+
+    # Here's where we can set any preferred units that differ from the data unit
+    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
+    _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
+
+    return
 
 
 def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
@@ -47,7 +58,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
 
     # TODO: Check - beaver_dam_capacity only applies to perennieal - so may need to use filter gdf before building beaver_dam_capacity_bar
     # also can we make the units dams per km or dams per mile
-
+    log.info(f"Generating report in {report_dir} with mode={mode}")
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
@@ -107,6 +118,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         return report.render(fig_mode="png", suffix="_static")
     else:
         return report.render(fig_mode="interactive", suffix="")
+    log.info("Report generation complete")
 
 
 def load_huc_data(hucs: list[str]) -> pd.DataFrame:
@@ -145,10 +157,8 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
 
-    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
-    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
-    # TODO - this seems to have no effec, ask Matt how preferred_units are supposed to work
-    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
+    # This is where all the initialization happens for fields and units
+    define_fields(unit_system)  # ensure fields are defined
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)

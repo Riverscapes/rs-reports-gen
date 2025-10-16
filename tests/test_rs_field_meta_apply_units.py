@@ -97,11 +97,11 @@ def test_apply_units_dtypes_correct(fresh_meta):
 
     # Check the applied_units to make sure we did something
     assert applied_units["distance"] == ureg.Unit("kilometer")
-    assert applied_units["distance_converted"] == ureg.Unit("foot")
+    assert applied_units["distance_converted"] == ureg.Unit("mile")
 
     # Also check the dtype of the column and make sure it's a Pint type
     assert str(applied_df["distance"].dtype) == "pint[kilometer][Float64]"
-    assert str(applied_df["distance_converted"].dtype) == "pint[foot][Float64]"
+    assert str(applied_df["distance_converted"].dtype) == "pint[mile][Float64]"
     assert str(applied_df["no_unit"].dtype) == "float64"
 
 

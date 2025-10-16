@@ -33,7 +33,6 @@ def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
     edges, labels, colours = get_bins_info(binlookupnm)
 
     df[binnedflnm] = pd.cut(df[unbinnedfldnm], bins=edges, labels=labels, include_lowest=True)
-    meta.add_field_meta(name=binnedflnm,
-                        friendly_name=binned_friendly_nm)  # the type usually be categorical text
+    meta.add_field_meta(name=binnedflnm, friendly_name=binned_friendly_nm)  # the type usually be categorical text
 
     return df
