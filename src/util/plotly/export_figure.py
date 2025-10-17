@@ -3,6 +3,7 @@ import os
 import plotly.graph_objects as go
 import plotly.io as pio
 from kaleido._kaleido_tab import KaleidoError
+from rsxml import Logger
 
 
 def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_plotlyjs=False, report_dir=None) -> str:
@@ -10,6 +11,7 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_pl
     either interactive, or with path to static image created at out_dir
     either way returns html fragment
     """
+    log = Logger()
     if mode == "interactive":
         # Enable mode bar for interactivity (zoom, pan, etc.)
         return pio.to_html(
@@ -30,10 +32,16 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_pl
             rel_path = img_filename
         # I've seen this transiently fail - probably network connection issue -
         try:
-            fig.write_image(img_path, scale=4)  # scale of 4 is equivalent to about dpi of 300 for 800x600 image. This should keep the image snappy on print and big screens
+            log.debug(f"Exporting figure to {img_path}")
+            fig.write_image(img_path)  # scale of 4 is equivalent to about dpi of 300 for 800x600 image. This should keep the image snappy on print and big screens
+            log.debug(" ...done")
         except KaleidoError as e:
-            print(f"KaleidoError: {e}. May be due to network and we should add retrying ability...")
+            log.error(f"KaleidoError: {e}. May be due to network and we should add retrying ability...")
+        except TimeoutError as e:
+            log.error(f"Timed out exporting figure to {img_path}: {e}")
+            raise e
         except Exception as e:
+            log.error(f"Error exporting figure to {img_path}: {e}")
             raise e
         html_fragment = f'<img src="{rel_path}">'
         return html_fragment

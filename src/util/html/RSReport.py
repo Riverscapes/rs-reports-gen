@@ -96,6 +96,17 @@ class RSReport:
                 include_plotlyjs=False,
                 report_dir=self.report_dir
             )
+            # If the fig_mode is svg we also write a .png file since that's more useful for
+            # people making powerpoints etc (but we are still rendering the svg in the PDF and the static HTML page)
+            if fig_mode == 'svg':
+                export_figure(
+                    fig,
+                    self.figure_dir,
+                    name,
+                    mode='png',
+                    include_plotlyjs=False,
+                    report_dir=self.report_dir
+                )
 
         templates_pkg = resources.files(__package__).joinpath('templates')
         template = Template(templates_pkg.joinpath('template.html').read_text(encoding='utf-8'))

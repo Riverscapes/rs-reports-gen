@@ -113,10 +113,10 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
 
     if mode == "both":
         interactive_path = report.render(fig_mode="interactive", suffix="")
-        static_path = report.render(fig_mode="png", suffix="_static")
+        static_path = report.render(fig_mode="svg", suffix="_static")
         return {"interactive": interactive_path, "static": static_path}
     elif mode == "static":
-        return report.render(fig_mode="png", suffix="_static")
+        return report.render(fig_mode="svg", suffix="_static")
     else:
         return report.render(fig_mode="interactive", suffix="")
     log.info("Report generation complete")
