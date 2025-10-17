@@ -33,7 +33,7 @@ from util.figures import (
     metric_cards,
 )
 from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
+from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
 
 
@@ -197,13 +197,15 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
         get_data_for_aoi(S3_ATHENA_BUCKET, aoi_gdf, csv_data_path)
 
     data_gdf = load_gdf_from_csv(csv_data_path)
-    data_gdf = add_calculated_cols(data_gdf)
+    data_gdf = add_calculated_rme_cols(data_gdf)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)
-    print(huc_data_df)  # DEBUG ONLY
+    # print(huc_data_df)  # for DEBUG ONLY
 
+    # export the data with the extra columns to inspect with gsheets - NOTE WE DON'T NEED BOTH CSV AND TSV in PROD REPORTS
+    data_gdf.to_csv(os.path.join(report_dir, 'data', 'data.tsv'), sep='\t')
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
