@@ -23,6 +23,7 @@ import plotly.express as px
 from rsxml import Logger
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 from util.color import DEFAULT_FCODE_COLOR_MAP
+from typing import Optional
 
 
 def get_bins_info(key: str):
@@ -61,7 +62,7 @@ def format_value(value, decimals: int) -> str:
     return formatted_val
 
 
-def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:
+def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[str], color_discrete_map: Optional[dict[str, str]] = None, fig_params: dict | None = None) -> go.Figure:
     """
     Uses bins.json to lookup the bins
     If more than one x_col provided, will use the binning identified for the first
@@ -119,13 +120,10 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     # minimal change: allow color override; if fcode_desc is used, apply DEFAULT_FCODE_COLOR_MAP
     color_arg = fig_params.pop("color", "bin")
     color_kwargs = {}
-    if "color_discrete_map" not in fig_params and "color_discrete_sequence" not in fig_params:
-        if color_arg == "fcode_desc":
-            present = set(df["fcode_desc"].astype(str)) if "fcode_desc" in df.columns else set()
-            safe_map = {k: v for k, v in DEFAULT_FCODE_COLOR_MAP.items() if not present or k in present}
-            color_kwargs["color_discrete_map"] = safe_map
-        else:
-            color_kwargs["color_discrete_sequence"] = colours
+    if color_discrete_map:
+        color_kwargs["color_discrete_map"] = color_discrete_map
+    else:
+        color_kwargs["color_discrete_sequence"] = colours
 
     fig = px.bar(
         baked_agg_data,
