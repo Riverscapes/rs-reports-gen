@@ -9,6 +9,8 @@ FUTURE ENHANCEMENTs:
 
 # assume pint registry has been set up already
 
+from typing import Optional, Dict
+import re
 import os
 import json
 from typing import List, Tuple, Optional
@@ -554,8 +556,12 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     # Merge for grouped bar chart
     agg_data = pd.merge(ag_data, dev_data, on='bin', how='outer')
 
-    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar chart
+    field_meta = RSFieldMeta()
+    field_meta.duplicate_meta('segment_area', 'ag_segment_area',  new_friendly='Riverscapes Area')
+    field_meta.duplicate_meta('segment_area', 'dev_segment_area', new_friendly='Riverscapes Area')
+
+    baked_header_lookup = field_meta.get_headers_dict(agg_data)
+    baked_agg_data, baked_headers = field_meta.bake_units(agg_data)    # Plot bar chart
 
     baked_header_lookup['bin'] = 'Land Use Intensity'
 
@@ -566,6 +572,8 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         title='Agriculture and Development Proportion',
         barmode='group',
+        xaxis_title=baked_header_lookup.get('bin', 'Land Use Intensity'),
+        yaxis_title=baked_header_lookup.get('ag_segment_area', 'Riverscape Area'),
         margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
 
