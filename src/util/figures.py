@@ -40,22 +40,22 @@ def get_bins_info(key: str):
     return edges, labels, colours
 
 
-def format_value(value, decimals: int) -> str:
+def format_value(value, decimals: int = 0) -> str:
     """return value formatted with units
 
     Args:
         value (_type_): Quantity or any
-        decimals (int): how many decimals to render
+        decimals (int): how many decimals to render (0 or more)
 
     Returns:
         string: formatted value ready to render
 
     insipired by get_headers and bake
+    Usage and tests in test_figures_format_value.py
     """
     # unit_fmt = " {unit}"  # just the plain unit, no brackets
     if hasattr(value, "magnitude"):
-        unit_text = ""
-        formatted_val = f"{value:~P,.{decimals}f}{unit_text}"
+        formatted_val = f"{value:~P,.{decimals}f}"
     elif isinstance(value, (int, float)):
         formatted_val = f"{value:,.{decimals}f}"
     else:
