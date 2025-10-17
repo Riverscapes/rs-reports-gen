@@ -302,7 +302,7 @@ class RSFieldMeta:
 
         # We need to be really strict here to stop users adding columns and innadvertently clobbering existing ones
         # similar names are really easy to miss
-        if name in self._field_meta.index:
+        elif name in self._field_meta.index:
             self._log.error(f"Column '{name}' already exists in metadata. SKIPPING ADDITION")
 
         self._field_meta.loc[name, "friendly_name"] = friendly_name if friendly_name else name
