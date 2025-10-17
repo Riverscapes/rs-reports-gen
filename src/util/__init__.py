@@ -7,6 +7,10 @@ from .rs_geo_helpers import (
     simplify_gdf,
     simplify_to_size,
 )
+from .math_functions import (
+    round_down,
+    round_up
+)
 
 __all__ = [
     "est_rows_for_csv_file",
@@ -14,4 +18,6 @@ __all__ = [
     "get_bounds_from_gpkg",
     "simplify_gdf",
     "simplify_to_size",
+    "round_up",
+    "round_down"
 ]

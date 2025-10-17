@@ -27,13 +27,12 @@ import json
 import uuid
 import tempfile
 import csv
-import math
 from urllib.parse import urlparse
 import boto3
 import pandas as pd
 from rsxml import Logger
 import geopandas as gpd
-from util import simplify_gdf
+from util import simplify_gdf, round_up, round_down
 
 # buffer, in decimal degrees, on centroids to capture DGO.
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
@@ -385,16 +384,6 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
 
     bounds_where_clause = f'WHERE (latitude between {bufminy} AND {bufmaxy}) AND (longitude between {bufminx} AND {bufmaxx})'
     return bounds_where_clause
-
-
-def round_down(val, decimals=6):
-    factor = 10 ** decimals
-    return math.floor(val * factor) / factor
-
-
-def round_up(val, decimals=6):
-    factor = 10 ** decimals
-    return math.ceil(val * factor) / factor
 
 
 def generate_sql_bbox_where_clause_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox_fld_nm: str) -> str:

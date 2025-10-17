@@ -81,6 +81,7 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     common_stats = common_statistics(gdf)
 
     # create any statistics specific to this report
+    # (THIS is just an example of what we can do; not sure we need count of huc12)
     # copy a subset df to make sure we don't accidentally change the incoming df
     subset_df = RSGeoDataFrame(gdf[["huc12",]].copy())
 

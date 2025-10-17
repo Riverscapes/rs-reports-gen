@@ -98,7 +98,7 @@
   ]
  },
  "brat_capacity":{
-  "source": "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Historic_Capacity_Peren.json",
+  "source": "what if there are > 40 dams/km?? https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Historic_Capacity_Peren.json",
   "edges" : [0,0.000000001,1,5,15,40],
     "legend": [
     ["hsl(0, 100%, 48%)", "None: 0 dams"],
@@ -121,8 +121,8 @@
   ]
  },
  "riparian_veg_departure":{
-  "source":"(reverse order, **check see issue 49**) https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/rip_dep_rme3.json",
-  "edges": [-9999,-1,-0.1,0,0.1,0.33,0.66],
+  "source":"(**check see issue 49**) https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/rip_dep_rme3.json",
+  "edges": [-9999,-9998,0,0.1,0.33,0.66,1],
     "legend": [
       ["#000000", "Valley Too Narrow to Sample"],
       ["#00aaa4", "Increase: < 0%"],
