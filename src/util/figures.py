@@ -11,7 +11,7 @@ FUTURE ENHANCEMENTs:
 
 import os
 import json
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -23,7 +23,6 @@ import plotly.express as px
 from rsxml import Logger
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 from util.color import DEFAULT_FCODE_COLOR_MAP
-from typing import Optional
 
 
 def get_bins_info(key: str):
@@ -117,7 +116,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         group_names = [meta.get_friendly_name(col) for col in group_by_cols]
         fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)} Bins"
 
-    # minimal change: allow color override; if fcode_desc is used, apply DEFAULT_FCODE_COLOR_MAP
+    # minimal change: allow color override; if fcode_desc is used, apply its default color map
     color_arg = fig_params.pop("color", "bin")
     color_kwargs = {}
     if color_discrete_map:

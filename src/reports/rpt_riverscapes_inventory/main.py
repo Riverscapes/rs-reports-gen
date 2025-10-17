@@ -15,6 +15,7 @@ from util.athena import get_data_for_aoi
 from util.rme.field_metadata import get_field_metadata
 from util.athena import athena_unload_to_dataframe
 from util.athena.athena import S3_ATHENA_BUCKET
+from util.color import DEFAULT_FCODE_COLOR_MAP
 
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
@@ -49,17 +50,27 @@ def define_fields(unit_system: str = "SI"):
     return
 
 
-def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame, report_dir, report_name, mode="interactive"):
+def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
+                report_dir, report_name,
+                include_static: bool = True,
+                include_pdf: bool = True
+                ) -> dict[str, str]:
     """
     Generates HTML report(s) in report_dir.
-    mode: "interactive", "static", or "both"
-    Returns path(s) to the generated html file(s).
+    Args:
+        gdf (gpd.GeoDataFrame): The main data geodataframe for the report.
+        huc_df (pd.DataFrame): The HUC data dataframe for the report.
+        aoi_df (gpd.GeoDataFrame): The area of interest geodataframe.
+        report_dir (str): The directory where the report will be saved.
+        report_name (str): The name of the report.
+        include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
+        include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
     """
     log = Logger('make report')
 
     # TODO: Check - beaver_dam_capacity only applies to perennieal - so may need to use filter gdf before building beaver_dam_capacity_bar
     # also can we make the units dams per km or dams per mile
-    log.info(f"Generating report in {report_dir} with mode={mode}")
+    log.info(f"Generating report in {report_dir}")
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
@@ -71,8 +82,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "prop_ag_dev": prop_ag_dev(gdf),
         "dens_road_rail": dens_road_rail(gdf),
         "hypsometry": hypsometry_fig(huc_df),
-        "confinement_length_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['confinement_ratio', 'fcode_desc']),
-        "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc']),
+        "confinement_length_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
+        "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
         "beaver_dam_capacity_historical_bar": bar_total_x_by_ybins_h(gdf, 'centerline_length', ['brat_hist_capacity']),
         "beaver_dam_capacity_current_bar": bar_total_x_by_ybins_h(gdf, 'centerline_length', ['brat_capacity']),
         "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
@@ -111,15 +122,21 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
     report.add_html_elements('appendices', appendices)
 
-    if mode == "both":
-        interactive_path = report.render(fig_mode="interactive", suffix="")
+    interactive_path = report.render(fig_mode="interactive", suffix="")
+    static_path = None
+    pdf_path = None
+    if include_static:
         static_path = report.render(fig_mode="svg", suffix="_static")
-        return {"interactive": interactive_path, "static": static_path}
-    elif mode == "static":
-        return report.render(fig_mode="svg", suffix="_static")
-    else:
-        return report.render(fig_mode="interactive", suffix="")
-    log.info("Report generation complete")
+        if include_pdf:
+            pdf_path = make_pdf_from_html(static_path)
+            log.info(f'PDF report built from static at {pdf_path}')
+
+    log.title('Report Generation Complete')
+    log.info(f'Interactive: {interactive_path}')
+    if static_path:
+        log.info(f'Static: {static_path}')
+    if pdf_path:
+        log.info(f'PDF: {pdf_path}')
 
 
 def load_huc_data(hucs: list[str]) -> pd.DataFrame:
@@ -190,23 +207,14 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
-    # stop at just dynamic report for testing
-    # make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name)
-    # return
-
     # make html report
-    report_paths = make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name, mode="both")
-    html_path = report_paths["interactive"]
-    static_path = report_paths["static"]
-    log.info(f'Interactive HTML report built at {html_path}')
-    log.info(f'Static HTML report built at {static_path}')
+    # If we aren't including pdf we just make interactive report. No need for the static one
+    make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name,
+                include_static=include_pdf,
+                include_pdf=include_pdf
+                )
 
-    if include_pdf:
-        pdf_path = make_pdf_from_html(static_path)
-        log.info(f'PDF report built from static at {pdf_path}')
-
-    log.info(f"Report orchestration complete. Report is available in {report_dir}")
-    return
+    log.info(f"Report Path: {report_dir}")
 
 
 def main():
