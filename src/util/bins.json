@@ -144,5 +144,14 @@
     ["#ed2024", "5-10"],
     ["#cd2021", ">10"]
     ]
+ },
+ "fcode_desc":{
+  "source":"unknown - check if there is one",
+  "edges": [0,0],
+  "legend": [
+    ["#636EFA","Artificial Path"],
+    ["#EF553B","Intermittent Stream / River"],
+    ["#00CC96","Perennial Stream / River"]
+  ]
  }
 }

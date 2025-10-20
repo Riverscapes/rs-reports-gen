@@ -21,6 +21,7 @@ from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.figures import (
+    get_bins_info,
     table_total_x_by_y,
     bar_group_x_by_y,
     bar_total_x_by_ybins,
@@ -71,6 +72,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     # TODO: Check - beaver_dam_capacity only applies to perennieal - so may need to use filter gdf before building beaver_dam_capacity_bar
     # also can we make the units dams per km or dams per mile
     log.info(f"Generating report in {report_dir}")
+    _edges, _labels, land_use_intens_bins_colours = get_bins_info('land_use_intens')
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
@@ -78,7 +80,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
         "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),
         "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access']),
-        "land_use_intensity_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['land_use_intens']),
+        "land_use_intensity_bar": bar_group_x_by_y(gdf, 'segment_area', ['land_use_intens_bins'], {'color': land_use_intens_bins_colours}),
         "prop_ag_dev": prop_ag_dev(gdf),
         "dens_road_rail": dens_road_rail(gdf),
         "hypsometry": hypsometry_fig(huc_df),
@@ -89,7 +91,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
         "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
         "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure']),  # need to check these bins, also reverse them
-        "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bin'])
+        "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bins'])
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name']),
