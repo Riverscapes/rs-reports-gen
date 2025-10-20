@@ -88,8 +88,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "beaver_dam_capacity_current_bar": bar_total_x_by_ybins_h(gdf, 'centerline_length', ['brat_capacity']),
         "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
         "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
-        "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure'])  # need to check these bins, also reverse them
-
+        "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure']),  # need to check these bins, also reverse them
+        "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bin'])
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name']),
