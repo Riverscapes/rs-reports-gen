@@ -46,17 +46,19 @@ def bin_continuous_column(df: pd.DataFrame, field_nm: str,
         input df with new column added
     TODO: check if new column already exists, warn/error otherwise we are probably over-writing it
     """
+    meta = RSFieldMeta()
+
     if not bin_lookup_nm:
         bin_lookup_nm = field_nm
     if not binned_field_nm:
-        binned_field_nm = bin_lookup_nm + "_bin"
+        binned_field_nm = bin_lookup_nm + "_bins"
     if not binned_field_friendly:
-        binned_field_friendly = field_nm + ' (binned)'
+        binned_field_friendly = meta.get_friendly_name(field_nm) + ' (binned)'
     edges, labels, _colours = get_bins_info(bin_lookup_nm)
     df[binned_field_nm] = pd.cut(df[field_nm], bins=edges, labels=labels, include_lowest=True)
 
-    RSFieldMeta().add_field_meta(name=binned_field_nm,
-                                 friendly_name=binned_field_friendly)  # the type is categorical, should we add that?
+    meta.add_field_meta(name=binned_field_nm,
+                        friendly_name=binned_field_friendly)  # the type is categorical, should we add that?
     return df
 
 
@@ -156,4 +158,5 @@ CALCULATED_COLS = {
     'riparian_veg_departure_bins': lambda df: bin_continuous_column(df, 'riparian_veg_departure_as_departure',
                                                                     bin_lookup_nm='riparian_veg_departure',
                                                                     binned_field_friendly='Riparian Vegetation Departure'),
+    'land_use_intens_bins': lambda df: bin_continuous_column(df, 'land_use_intens'),
 }

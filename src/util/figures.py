@@ -523,18 +523,6 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     return stats
 
 
-def extract_labels_from_legend(bins_legend_json: str) -> list[str]:
-    x = json.loads(bins_legend_json)
-    labels = [item[1] for item in x]
-    return labels
-
-
-def extract_colours_from_legend(bins_legend_json: str) -> list[str]:
-    x = json.loads(bins_legend_json)
-    colours = [item[0] for item in x]
-    return colours
-
-
 def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     """example of figure with two measures"""
     # load shared bins
