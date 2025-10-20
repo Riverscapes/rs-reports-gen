@@ -550,7 +550,13 @@ article.report-meta {
   .report-inner {
     padding: 0 0.5in;
   }
-.report-inner li{
+  body,
+  .report-inner,
+  .report-inner p, 
+  .report-inner figcaption {
+      line-height: 2 !important; 
+  }
+.report-inner li {
   line-height: 1.3 !important;
 }
   a { color: inherit; text-decoration: underline; }
