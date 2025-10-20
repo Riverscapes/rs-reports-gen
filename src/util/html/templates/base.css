@@ -550,7 +550,9 @@ article.report-meta {
   .report-inner {
     padding: 0 0.5in;
   }
-
+.report-inner li{
+  line-height: 1.3 !important;
+}
   a { color: inherit; text-decoration: underline; }
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
 
@@ -716,6 +718,10 @@ article.report-meta {
 
 
    /* Avoid awkward table splits in print */
+  table, th, td {
+  line-height: 1.2 !important;
+  }
+
   table,
   table.dataframe {
     break-inside: avoid;
