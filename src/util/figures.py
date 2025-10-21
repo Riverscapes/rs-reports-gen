@@ -139,7 +139,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     return fig
 
 
-def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:
+def horizontal_bar_chart(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:
     """
     Uses bins.json to lookup the bins
     If more than one x_col provided, will use the binning identified for the first
@@ -153,7 +153,7 @@ def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list
         go.Figure: 
 
     Usage: 
-        bar_total_x_by_ybins_h(data_gdf, 'segment_area', ['low_lying_ratio']) 
+        horizontal_bar_chart(data_gdf, 'segment_area', ['low_lying_ratio']) 
         produces same thing as low_lying_ratio_bins(data_gdf) but horizontal
 
     future Enhancement: 
@@ -193,6 +193,10 @@ def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list
     if "title" not in fig_params:
         group_names = [meta.get_friendly_name(col) for col in group_by_cols]
         fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)} Bins"
+
+    # ensure bins appear in the defined order on the y-axis (horizontal bars)
+    fig_params.setdefault("category_orders", {})
+    fig_params["category_orders"]["bin"] = list(labels)
 
     fig = px.bar(
         baked_agg_data,
