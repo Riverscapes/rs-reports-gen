@@ -206,8 +206,6 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
     huc_data_df = load_huc_data(unique_huc10)
     # print(huc_data_df)  # for DEBUG ONLY
 
-    # export the data with the extra columns to inspect with gsheets - NOTE WE DON'T NEED BOTH CSV AND TSV in PROD REPORTS
-    data_gdf.to_csv(os.path.join(report_dir, 'data', 'data.tsv'), sep='\t')
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
