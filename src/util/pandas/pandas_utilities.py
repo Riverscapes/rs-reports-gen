@@ -15,7 +15,7 @@ def load_gdf_from_csv(csv_path) -> gpd.GeoDataFrame:
     Returns:
         _type_: gdf
     """
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, dtype={'huc12': str})
     df.describe()  # outputs some info for debugging
     df['dgo_polygon_geom'] = df['dgo_geom_obj'].apply(wkt.loads)  # pyright: ignore[reportArgumentType, reportCallIssue]
     gdf = gpd.GeoDataFrame(df, geometry='dgo_polygon_geom', crs='EPSG:4326')
