@@ -89,7 +89,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
     # Aggregate total_col by bin - NB cut creates a Categorical dtype
     # TO DO: aggregate by each bin
-    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum().to_frame()
+    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
 
     # THIS IS WHERE WE COULD REGURN agg_data TO BE USED BY OTHER FUNCTIONS
     # however, colurs are not part of the agg_data and are needed - so we'd need to call the get_bins_info again
@@ -167,7 +167,7 @@ def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list
     chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
     # Aggregate total_col by bin - NB cut creates a Categorical dtype
     # TO DO: aggregate by each bin
-    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum().to_frame()
+    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
 
     # THIS IS WHERE WE COULD REGURN agg_data TO BE USED BY OTHER FUNCTIONS
     # however, colurs are not part of the agg_data and are needed - so we'd need to call the get_bins_info again
