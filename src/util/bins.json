@@ -146,12 +146,12 @@
     ]
  },
  "fcode_desc":{
-  "source":"unknown - check if there is one",
+  "source":"partially from shared FLOWLINES",
   "edges": [0,0],
   "legend": [
-    ["#636EFA","Artificial Path"],
-    ["#EF553B","Intermittent Stream / River"],
-    ["#00CC96","Perennial Stream / River"]
+    ["hsl(351, 55%, 58%)","Artificial Path"],
+    ["hsl(80, 100%, 50%)","Intermittent Stream / River"],
+    ["hsl(0, 100%, 45%)","Perennial Stream / River"]
   ]
  }
 }
