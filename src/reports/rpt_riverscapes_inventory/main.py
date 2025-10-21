@@ -145,7 +145,7 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
     """Queries rscontext_huc10 for all the huc10 watersheds that intersect the aoi
     * this could be a spatial query but we already have the huc12 from data_gdf so this is much faster
     * FUTURE ENHANCEMENT - take the aoi and join with huc geometries to produce some statistics about the amount of intersection between them
-    * FUTURE ENHANCEMENT - use unload instead of select
+    * FUTURE ENHANCEMENT: check if we got data for all the hucs we were looking for
     """
     log = Logger('Load HUC data')
 

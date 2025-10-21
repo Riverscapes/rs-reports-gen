@@ -9,16 +9,14 @@ FUTURE ENHANCEMENTs:
 
 # assume pint registry has been set up already
 
-from typing import Optional, Dict
-import re
 import os
 import json
-from typing import List, Tuple, Optional
-
+from typing import Optional
 import numpy as np
 import pandas as pd
 import pint
 import geopandas as gpd
+from shapely.geometry import Polygon, MultiPolygon
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -91,7 +89,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
     # Aggregate total_col by bin - NB cut creates a Categorical dtype
     # TO DO: aggregate by each bin
-    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
+    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum().to_frame()
 
     # THIS IS WHERE WE COULD REGURN agg_data TO BE USED BY OTHER FUNCTIONS
     # however, colurs are not part of the agg_data and are needed - so we'd need to call the get_bins_info again
@@ -162,14 +160,14 @@ def bar_total_x_by_ybins_h(df: pd.DataFrame, total_col: str, group_by_cols: list
     * separate the dataframe generation from plotting - we might want a table as well
     * there's also lots of repetition with regular bar chart - mainly the colors are diff
     """
-    fields: [] = group_by_cols + [total_col]
+    fields: list[str] = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     edges, labels, colours = get_bins_info(group_by_cols[0])
     # TODO: iterate through the group_by_cols, name each bein col_bin AND ensure it has metadata - units, description etc.
     chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
     # Aggregate total_col by bin - NB cut creates a Categorical dtype
     # TO DO: aggregate by each bin
-    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
+    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum().to_frame()
 
     # THIS IS WHERE WE COULD REGURN agg_data TO BE USED BY OTHER FUNCTIONS
     # however, colurs are not part of the agg_data and are needed - so we'd need to call the get_bins_info again
@@ -310,7 +308,14 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     return bar_fig
 
 
-def check_for_pdna(df, label):
+def check_for_pdna(df: pd.DataFrame, label: str):
+    """check for NAs in pandas dataframe
+    simply logs these as errors
+
+    Args:
+        df (DataFrame): dataframe to check
+        label (string): a message for the error log
+    """
     if df.isna().any().any():
         Logger('NATypeCheck').error(f"pd.NA found in DataFrame before plotting: {label}")
         # Optionally, print which columns/rows
@@ -377,17 +382,27 @@ def make_map_with_aoi(gdf, aoi_gdf):
         zoom=zoom
     )
 
-    # Add AOI outlines using go.Scattermap
+    # Add AOI outlines using a single go.Scattermap trace
+    lons, lats = [], []
     for _, row in aoi_gdf.iterrows():
-        x, y = row['geometry'].exterior.xy
-        fig.add_trace(go.Scattermap(
-            lon=list(x),
-            lat=list(y),
-            mode='lines',
-            line=dict(color='red', width=3),
-            name='AOI',
-            showlegend=True
-        ))
+        geom = row['geometry']
+        polygons = []
+        if isinstance(geom, Polygon):
+            polygons = [geom]
+        elif isinstance(geom, MultiPolygon):
+            polygons = list(geom.geoms)
+        for poly in polygons:
+            x, y = poly.exterior.xy
+            lons.extend(list(x) + [None])  # None separates polygons
+            lats.extend(list(y) + [None])
+    fig.add_trace(go.Scattermap(
+        lon=lons,
+        lat=lats,
+        mode='lines',
+        line={'color': 'red', 'width': 3},
+        name='AOI',
+        showlegend=True
+    ))
 
     fig.update_maps(
         style="open-street-map"
@@ -614,7 +629,7 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def project_id_list(df: pd.DataFrame) -> List[Tuple[str, str]]:
+def project_id_list(df: pd.DataFrame) -> list[tuple[str, str]]:
     """generate html fragment representing the projects used
 
     Args:
