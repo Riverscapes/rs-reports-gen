@@ -332,7 +332,7 @@ def check_for_pdna(df: pd.DataFrame, label: str):
 # =========================
 
 
-def make_map_with_aoi(gdf, aoi_gdf):
+def make_map_with_aoi(gdf, aoi_gdf, color_discrete_map: Optional[dict[str, str]] = None):
     """ make a map with the data and the AOI outlined
 
     Args:
@@ -372,6 +372,10 @@ def make_map_with_aoi(gdf, aoi_gdf):
     # baked.columns = baked_headers
 
     # Create choropleth map with Plotly Express
+    color_kwargs = {}
+    if color_discrete_map:
+        color_kwargs["color_discrete_map"] = color_discrete_map
+
     fig = px.choropleth_map(
         baked_df,
         geojson=geojson,
@@ -383,7 +387,8 @@ def make_map_with_aoi(gdf, aoi_gdf):
         hover_name="fcode_desc",
         hover_data={"segment_area": True, "ownership_desc": True},
         center=center,
-        zoom=zoom
+        zoom=zoom,
+        **color_kwargs
     )
 
     # Add AOI outlines using a single go.Scattermap trace
