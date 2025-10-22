@@ -74,7 +74,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     log.info(f"Generating report in {report_dir}")
     _edges, _labels, land_use_intens_bins_colours = get_bins_info('land_use_intens')
     figures = {
-        "map": make_map_with_aoi(gdf, aoi_df),
+        "map": make_map_with_aoi(gdf, aoi_df, color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
