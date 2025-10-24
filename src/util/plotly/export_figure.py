@@ -1,12 +1,53 @@
-# System imports
 import os
+import multiprocessing as mp
+
 import plotly.graph_objects as go
 import plotly.io as pio
 from kaleido._kaleido_tab import KaleidoError
+
 from rsxml import Logger
 
 
-def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_plotlyjs=False, report_dir=None) -> str:
+def _write_image_worker(fig_json: str, img_path: str, q):
+    """Worker runs in a separate process to avoid hangs."""
+    try:
+        # Reconstruct the figure in the child process
+        fig = pio.from_json(fig_json)
+        fig.write_image(img_path)
+        q.put(("ok", None))
+    except Exception as e:
+        q.put(("err", repr(e)))
+
+
+def write_image_with_timeout(fig: go.Figure, img_path: str, timeout_s: int = 15):
+    """
+    Write a Plotly image with a hard timeout.
+    Uses a child process so we can terminate it if it hangs.
+    """
+    # Use 'spawn' to be safe on Windows
+    ctx = mp.get_context("spawn")
+    q = ctx.Queue()
+    p = ctx.Process(target=_write_image_worker, args=(fig.to_json(), img_path, q))
+    p.start()
+    p.join(timeout_s)
+
+    if p.is_alive():
+        p.terminate()
+        p.join()
+        raise TimeoutError(f"Writing image timed out after {timeout_s}s")
+
+    # Collect worker result
+    if not q.empty():
+        status, payload = q.get()
+        if status == "err":
+            raise RuntimeError(f"Image export failed: {payload}")
+    else:
+        # No response from worker—treat as failure
+        raise RuntimeError("Image export failed: no response from worker")
+
+
+def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str,
+                  include_plotlyjs=False, report_dir=None) -> str:
     """export plotly figure html
     either interactive, or with path to static image created at out_dir
     either way returns html fragment
@@ -33,7 +74,8 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str, include_pl
         # I've seen this transiently fail - probably network connection issue -
         try:
             log.debug(f"Exporting figure to {img_path}")
-            fig.write_image(img_path)  # scale of 4 is equivalent to about dpi of 300 for 800x600 image. This should keep the image snappy on print and big screens
+            # ---- the only behavioral change: enforce timeout cross-platform ----
+            write_image_with_timeout(fig, img_path, timeout_s=15)
             log.debug(" ...done")
         except KaleidoError as e:
             log.error(f"KaleidoError: {e}. May be due to network and we should add retrying ability...")
