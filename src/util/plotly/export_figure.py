@@ -19,7 +19,7 @@ def _write_image_worker(fig_json: str, img_path: str, q):
         q.put(("err", repr(e)))
 
 
-def write_image_with_timeout(fig: go.Figure, img_path: str, timeout_s: int = 45):
+def write_image_with_timeout(fig: go.Figure, img_path: str, timeout_s: int = 120):
     """
     Write a Plotly image with a hard timeout.
     Uses a child process so we can terminate it if it hangs.
@@ -75,7 +75,7 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str,
         try:
             log.debug(f"Exporting figure to {img_path}")
             # ---- the only behavioral change: enforce timeout cross-platform ----
-            write_image_with_timeout(fig, img_path, timeout_s=45)
+            write_image_with_timeout(fig, img_path, timeout_s=120)
             log.debug(" ...done")
         except KaleidoError as e:
             log.error(f"KaleidoError: {e}. May be due to network and we should add retrying ability...")
