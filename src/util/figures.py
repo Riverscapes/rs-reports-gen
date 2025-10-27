@@ -89,7 +89,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
     # Aggregate total_col by bin - NB cut creates a Categorical dtype
     # TO DO: aggregate by each bin
-    agg_data = chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
+    agg_data = chart_subset_df.groupby(['bin', group_by_cols[1]], as_index=False, observed=False)[total_col].sum() if len(group_by_cols) >= 2 else chart_subset_df.groupby('bin', as_index=False, observed=False)[total_col].sum()
 
     # THIS IS WHERE WE COULD REGURN agg_data TO BE USED BY OTHER FUNCTIONS
     # however, colurs are not part of the agg_data and are needed - so we'd need to call the get_bins_info again
@@ -117,12 +117,15 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)} Bins"
 
     # minimal change: allow color override; if fcode_desc is used, apply its default color map
-    color_arg = fig_params.pop("color", "bin")
+    color_arg = fig_params.pop("color", group_by_cols[1] if len(group_by_cols) >= 2 else "bin")
     color_kwargs = {}
     if color_discrete_map:
         color_kwargs["color_discrete_map"] = color_discrete_map
     else:
-        color_kwargs["color_discrete_sequence"] = colours
+        if len(group_by_cols) >= 2 and group_by_cols[1] == "fcode_desc":
+            color_kwargs["color_discrete_map"] = {k: v for k, v in DEFAULT_FCODE_COLOR_MAP.items() if k in set(chart_subset_df["fcode_desc"].astype(str))}
+        else:
+            color_kwargs["color_discrete_sequence"] = colours
 
     fig = px.bar(
         baked_agg_data,
@@ -134,6 +137,9 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         **color_kwargs,
         **fig_params
     )
+
+    if len(group_by_cols) >= 2:
+        fig.update_layout(barmode='stack')
 
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     return fig
