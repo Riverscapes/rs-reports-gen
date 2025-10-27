@@ -81,7 +81,6 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str,
             log.error(f"KaleidoError: {e}. May be due to network and we should add retrying ability...")
         except TimeoutError as e:
             log.error(f"Timed out exporting figure to {img_path}: {e}")
-            raise e
         except Exception as e:
             log.error(f"Error exporting figure to {img_path}: {e}")
             raise e
