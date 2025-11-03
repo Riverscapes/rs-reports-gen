@@ -32,6 +32,7 @@ import boto3
 import pandas as pd
 from rsxml import Logger
 import geopandas as gpd
+import awswrangler as wr
 from util import simplify_gdf, round_up, round_down
 
 # buffer, in decimal degrees, on centroids to capture DGO.
@@ -279,6 +280,18 @@ def athena_unload_to_dataframe(query: str, s3_output: str | None = None, max_wai
     """Run an UNLOAD query and return results as a pandas DataFrame."""
     rows = athena_unload_to_dict(query, s3_output, max_wait)
     return pd.DataFrame(rows)
+
+
+def athena_unload_pq_to_dataframe(query: str):
+    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+    df = wr.athena.read_sql_query(
+        query,
+        database='default',
+        ctas_approach=False,
+        unload_approach=True,
+        s3_output=s3_output,
+    )
+    return df
 
 
 # def athena_query_get_parsed(s3_bucket: str, query: str, max_wait: int = 600) -> list[dict] | None:
