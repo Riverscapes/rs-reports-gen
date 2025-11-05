@@ -323,15 +323,26 @@ def create_igos_project(project_dir: str, project_name: str, spatialite_path: st
     # dgos table has point geom; using that and buffering them didn't work well
     # Alternate approach : we could use the AOI that was used to select the dgos to begin with
     bounds, centroid, bounding_rect = get_bounds_from_gdf(bounds_gdf)
-    output_bounds_path = os.path.join(project_dir, 'project_bounds.geojson')
-    with open(output_bounds_path, "w", encoding='utf8') as f:
+    project_dir_path = Path(project_dir)
+    gpkg_path_obj = Path(gpkg_path)
+    log_path_obj = Path(log_path)
+
+    def _relative_posix_strict(target: Path, start: Path = project_dir_path) -> str:
+        """return path relative to project dir as posix-style string, for writing to project.rs.xml
+        target must be contained with start or raises ValueError"""
+        rel_path = target.relative_to(start)
+        return rel_path.as_posix()
+
+    output_bounds_path = project_dir_path / 'project_bounds.geojson'
+    with output_bounds_path.open("w", encoding='utf8') as f:
         json.dump(bounds, f, indent=2)
     print(f"centroid = {centroid}")
+
     rs_project = Project(
         project_name,
         project_type='igos',
         description="""This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data Exchange produced as part of the 2025 CONUS run of Riverscapes tools. See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative. 
-        At the time of extraction this dataset has *not* yet been thoroughly quality controlled and may contain errors or gaps. 
+        At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps. 
         """,
         meta_data=MetaData(values=[
             Meta('Report Type', 'IGO Scraper'),
@@ -341,7 +352,7 @@ def create_igos_project(project_dir: str, project_name: str, spatialite_path: st
         bounds=ProjectBounds(
             Coords(centroid[0], centroid[1]),
             BoundingBox(bounding_rect[0], bounding_rect[1], bounding_rect[2], bounding_rect[3]),
-            os.path.basename(gpkg_path)),
+            output_bounds_path.name),
         realizations=[Realization(
             name='Realization1',
             xml_id='REALIZATION1',
@@ -351,21 +362,21 @@ def create_igos_project(project_dir: str, project_name: str, spatialite_path: st
                 Geopackage(
                     name='Riverscapes Metrics',
                     xml_id='RME',
-                    path=os.path.relpath(gpkg_path, project_dir),
-                    layers=get_datasets(gpkg_path)
+                    path=_relative_posix_strict(gpkg_path_obj),
+                    layers=get_datasets(str(gpkg_path_obj))
                 ),
                 Dataset(
                     xml_id='LOG',
                     ds_type='LogFile',
                     name='Log File',
                     description='Processing log file',
-                    path=os.path.relpath(log_path, project_dir),
+                    path=_relative_posix_strict(log_path_obj),
                 ),
             ]
         )]
     )
-    merged_project_xml = os.path.join(project_dir, 'project.rs.xml')
-    rs_project.write(merged_project_xml)
+    merged_project_xml = project_dir_path / 'project.rs.xml'
+    rs_project.write(str(merged_project_xml))
     log.info(f'Project XML file written to {merged_project_xml}')
 
 
@@ -453,14 +464,17 @@ def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv:
     defs_path = Path(__file__).resolve().parent / "rme_table_column_defs.csv"
     table_schema_map, table_col_order, fk_tables = parse_table_defs(str(defs_path))
 
-    gpkg_path = os.path.join(project_dir, 'outputs', 'riverscape_metrics.gpkg')
-    safe_makedirs(os.path.join(project_dir, 'outputs'))
+    project_dir_path = Path(project_dir)
+    outputs_dir = project_dir_path / 'outputs'
+    safe_makedirs(str(outputs_dir))
 
-    conn = create_geopackage(gpkg_path, table_schema_map, table_col_order, fk_tables, spatialite_path)
+    gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
+
+    conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
     populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
     create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
-    return gpkg_path
+    return str(gpkg_path)
 
 
 def main():
