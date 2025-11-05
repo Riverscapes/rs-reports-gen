@@ -4,15 +4,14 @@
 
 Internal use only
 
-### 0.1.1 In progress 2025 Oct 08
+### 0.1.2 2025-11-05
 
-Plans:
+* [x] fix to project.rs.xml to be compliant - GH issue #94
+
+### 0.1.1 In progress 2025 Oct 08
 
 * [x] change to use new scrape of raw_rme that exports to parquet and includes project id
 * [x] add projects from which it was scraped to readme
-* [ ] get metadata (list of fields, data types and tables they go in) from shared table in Athena
-* [ ] add column metadata to geopackage
-* [ ] add column metadata to readme
 
 ### 0.1.0
 
