@@ -2,10 +2,10 @@
 a version/copy of these functions can be found in multiple Riverscapes repositories
 * data-exchange-scripts
 * rs-reports-gen (this one)
-* athena 
+* athena
 * cybercastor_scripts
 
-Consider porting any improvements to these other repositories. 
+Consider porting any improvements to these other repositories.
 
 ---
 
@@ -27,12 +27,13 @@ import json
 import uuid
 import tempfile
 import csv
+from pathlib import Path
 from urllib.parse import urlparse
 import boto3
 import pandas as pd
 from rsxml import Logger
 import geopandas as gpd
-from util import simplify_gdf, round_up, round_down
+from util import prepare_gdf_for_athena, round_up, round_down
 
 # buffer, in decimal degrees, on centroids to capture DGO.
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
@@ -51,7 +52,7 @@ def _run_athena_query(
     Run an Athena query and wait for completion.
 
     Args:
-        s3_bucket (str): S3 bucket AND prefix for Athena output e.g. s3://my-bucket/my-prefix . For UNLOAD-type queries has to be empty folder. 
+        s3_bucket (str): S3 bucket AND prefix for Athena output e.g. s3://my-bucket/my-prefix . For UNLOAD-type queries has to be empty folder.
         query (str): SQL query string.
         max_wait (int): Maximum wait time in seconds.
 
@@ -119,9 +120,9 @@ def _run_athena_query(
 
 def fix_s3_uri(argstr: str) -> str:
     """the parser is messing up s3 paths. this should fix them
-    launch.json value (a valid s3 string): "s3://riverscapes-athena/athena_query_results/d40eac38-0d04-4249-8d55-ad34901fee82.csv" 
+    launch.json value (a valid s3 string): "s3://riverscapes-athena/athena_query_results/d40eac38-0d04-4249-8d55-ad34901fee82.csv"
     agrstr (input to this function) 's3:\\\\riverscapes-athena\\\\athena_query_results\\\\d40eac38-0d04-4249-8d55-ad34901fee82.csv'
-    Returns: a valid s3 string 
+    Returns: a valid s3 string
     """
     # Replace all backslashes with slashes
     uri = argstr.replace("\\", "/")
@@ -173,7 +174,7 @@ def download_file_from_s3(s3_uri: str, local_path: str) -> None:
 def parse_athena_results(rows):
     """Convert Athena result rows to a list of dicts.
 
-    Args: 
+    Args:
         rows (list): Raw Athena result rows.
 
     Returns:
@@ -202,7 +203,7 @@ def _parse_csv_from_s3(s3_uri: str) -> list[dict]:
 
 
 def _parse_json_from_s3_prefix(s3_prefix: str) -> list[dict]:
-    """Download and parse all JSON files from an S3 prefix into a list of dicts. 
+    """Download and parse all JSON files from an S3 prefix into a list of dicts.
     Handles both .json and .json.gz files, and paginates for large result sets.
     """
 
@@ -281,27 +282,10 @@ def athena_unload_to_dataframe(query: str, s3_output: str | None = None, max_wai
     return pd.DataFrame(rows)
 
 
-# def athena_query_get_parsed(s3_bucket: str, query: str, max_wait: int = 600) -> list[dict] | None:
-#     """
-#     Run an Athena query and return parsed results as a list of dictionaries.
-
-#     Args:
-#         s3_bucket (str): S3 bucket for Athena output.
-#         query (str): SQL query string.
-#         max_wait (int): Maximum wait time in seconds.
-
-#     Returns:
-#         list[dict] | None: Parsed Athena results, or None on failure.
-#     """
-#     rows = athena_query_get_rows(s3_bucket, query, max_wait)
-#     if rows:
-#         return parse_athena_results(rows)
-#     return None
-
 # === SPECIALIZED QUERIES FOR SPATIAL INTERSECTION =====
 
 def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: str):
-    """given aoi in gdf format (assume 4326), run SELECTion from raw_rme_pq 
+    """given aoi in gdf format (assume 4326), run SELECTion from raw_rme_pq
     side effect: populate output_path (local path) with the data csv file
     TO DO -  fix we're not using s3_bucket because it's better to let the downstream function decide where to put it
     """
@@ -319,10 +303,10 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
 
 
 def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) -> str | None:
-    """check the geometry, union 
+    """check the geometry, union
     maximum size of athena query is 256 kb or 262144 bytes
     the default max_size assumes we need just under 5000 bytes for the rest of the query so this part needs to be under
-    if it is too big returns None 
+    if it is too big returns None
     returns a SQL expression for the geometry
     future improvement - check but i think it's almost *always* shorter as WKB so we don't really need to do both every time
     """
@@ -356,14 +340,14 @@ def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) ->
 def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     """
     Get the total bounds (minx, miny, maxx, maxy)
-    'buffer' by BUFFER_CENTROID_TO_BB_DD and 
+    'buffer' by BUFFER_CENTROID_TO_BB_DD and
     return SQL where clause for latitude and longitude within this expanded box
-    we round to 6 decimal places (<10cm) to control size of the SQL string 
+    we round to 6 decimal places (<10cm) to control size of the SQL string
 
-    Assumes the geodataframe is in decimal degrees 
-    Todo: check the assumption 
+    Assumes the geodataframe is in decimal degrees
+    Todo: check the assumption
 
-    Previously: tried buffering the bounding box with buffer, but 
+    Previously: tried buffering the bounding box with buffer, but
     that produces rounded corners and smooth edges - no longer a straightforward box
     # from shapely.geometry import box
     # Create a bounding box geometry
@@ -408,17 +392,17 @@ def generate_sql_bbox_where_clause_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox_fl
     return bounds_where_clause
 
 
-def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq", geometry_field_clause: str | None = 'ST_GeomFromBinary(dgo_geom)', bbox_field: str | None = None) -> str | None:
+def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq",
+                         geometry_field_clause: str | None = 'ST_GeomFromBinary(dgo_geom)', bbox_field: str | None = None) -> str | None:
     """Run Athena query `select (field_str) from (source_table)` on supplied AOI geojson
-    also includes the dgo geometry (polygon) 
-    the source table must have fields: 
-     * latitude, longitude 
-     * dgo_geom (WKB)
+    also includes the dgo geometry (polygon)
+    the source table must have fields:
+     * latitude, longitude OR bbox_field (bounding box structure)
+     * dgo_geom (WKB) OR geometry_field_clause specifying the geometry field to use that is an actual geometry, not WKB or WKT
     return path to results on S3
-    returns None if the shape can't be converted to suitably sized geometry sql expression. 
-    Future Enhancements: 
-    - if the source has bounds struct field (comes default with qgis geoparquet exports) we can use that instead of the BUFFER 
-    - use the same multiple-resizing strategy from simplify_to_size in `rs_geo_helpers.py`
+    Raises ValueError if the AOI geometry exceeds Athena query limits. Callers should
+    simplify the AOI (for example via util.prepare_gdf_for_athena) before invoking this
+    function. 
     """
     log = Logger('Run AOI Query on Athena')
 
@@ -440,22 +424,14 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
     results = athena_select_to_dict(query_str, s3_output_path)
     log.debug(f'Prefiltered records: {results}')
 
-    # Try with original geometry
     aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
-    simplified = False
-
-    # If too large, try with simplified geometry
     if not aoi_geom_str:
-        log.info("AOI geometry too large, simplifying and retrying...")
-        aoi_gdf = simplify_gdf(aoi_gdf, tolerance_meters=11)  # Adjust tolerance as needed
-        aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
-        simplified = True
+        raise ValueError(
+            "AOI geometry exceeds the maximum supported size for Athena. "
+            "Simplify the AOI with util.prepare_gdf_for_athena before calling run_aoi_athena_query."
+        )
 
-    if not aoi_geom_str:
-        log.error('Could not create suitable geometry from supplied value, even after simplification.')
-        return
-
-    log.info(f'Built AOI geometry string for query. Length {len(aoi_geom_str):,} bytes ({"simplified" if simplified else "did not need to simplify"})')
+    log.info(f'Built AOI geometry string for query. Length {len(aoi_geom_str):,} bytes')
 
     # For a query to pull just the lat/lon of DGOs that intersect, use this instead
     # fields_str = "longitude, latitude"
@@ -472,10 +448,10 @@ WITH pre_filtered_rme AS (
     {prefilter_where_clause}
     )
 SELECT
-    * 
-FROM 
+    *
+FROM
     pre_filtered_rme AS t1
-WHERE 
+WHERE
     ST_Intersects(
         t1.dgo_geom_obj,
         {aoi_geom_str}
@@ -511,59 +487,45 @@ def test_run_aoi_athena_query():
     print(path_to_results)
 
 
+def test_prepare_example_geojsons(
+    example_root_path: Path | None = None,
+    size_bytes: int = 261_000,
+    max_attempts: int = 5
+) -> list[dict]:
+    """Prepare example AOIs for Athena
+    parameters: 
+        example_root: path that contains folder(s) named `example` which in turn have .geojson files
+    Returns metadata for each GeoJSON processed so callers can review any simplification.
+    """
+    log = Logger('Prepare example AOIs')
+    if example_root_path is None:
+        example_root_path = Path(__file__).resolve().parents[3] / 'src' / 'reports'
+
+    test_results: list[dict] = []
+    for geojson_path in sorted(example_root_path.rglob('example/*.geojson')):
+        log.info(f'Processing example AOI: {geojson_path}')
+        gdf = gpd.read_file(geojson_path)
+        prepared_gdf, meta = prepare_gdf_for_athena(gdf, size_bytes=size_bytes, max_attempts=max_attempts)
+        record = {
+            'path': str(geojson_path),
+            **meta,
+        }
+
+        if meta.get("simplified"):
+            simplified_path = geojson_path.with_name(f"{geojson_path.stem}_simplified.geojson")
+            prepared_gdf.to_file(simplified_path, driver="GeoJSON")
+            record['prepared_path'] = str(simplified_path)
+            log.info(f'Wrote simplified AOI to {simplified_path}')
+
+        test_results.append(record)
+
+    log.info(f'Processed {len(test_results)} example AOIs from {example_root_path}')
+    return test_results
+
+
+# do not normally run as a module, but if we want to run certain functions, this is a way to do it
 if __name__ == '__main__':
-    test_unload_query()
-
-# =================
-# CRUFT TO REMOVE WHEN TESTED
-# =================
-
-# def run_athena_aoi_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str, select_fields: str, select_from: str,
-#                          geometry_field_nm: str = "geometry", geometry_bbox_field_nm: str = "geometry_bbox"):
-#     """
-#     Executes an Athena query to select features from select_from table that intersect the AOI geometry,
-#     using geometry_bbox for efficient prefiltering.
-
-#     Args:
-#         aoi_gdf: AOI as GeoDataFrame
-#         s3_bucket: S3 bucket for Athena results
-#         select_fields: Comma-separated fields to select
-#         select_from: Table name
-#         geometry_field_nm: Name of geometry field (default 'geometry')
-#         geometry_bbox_field_nm: Name of bbox field (default 'geometry_bbox')
-#     Returns:
-#         Athena results (parsed or S3 path)
-#     """
-#     log = Logger('run_athena_aoi_query')
-#     # Get AOI bounding box
-#     minx, miny, maxx, maxy = aoi_gdf.total_bounds
-
-#     bbox_where = (
-#         f"WHERE "
-#         f"{geometry_bbox_field_nm}.xmax >= {minx} AND "
-#         f"{geometry_bbox_field_nm}.xmin <= {maxx} AND "
-#         f"{geometry_bbox_field_nm}.ymax >= {miny} AND "
-#         f"{geometry_bbox_field_nm}.ymin <= {maxy}"
-#     )
-
-#     # Get AOI geometry SQL expression (WKT or WKB)
-#     aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
-#     if not aoi_geom_str:
-#         log.error('Could not create suitable geometry from AOI.')
-#         return None
-
-#     # Compose query
-#     query_str = f"""
-# WITH pre_filtered AS (
-#     SELECT {select_fields}, ST_GeomFromBinary({geometry_field_nm}) AS {geometry_field_nm}_geom
-#     FROM {select_from}
-#     {bbox_where}
-# )
-# SELECT * FROM pre_filtered
-# WHERE ST_Intersects({geometry_field_nm}_geom, {aoi_geom_str});
-# """
-
-#     log.info("Running Athena AOI query with bbox prefilter and spatial intersection.")
-#     # Use athena_query_get_path to execute and get S3 path
-#     results = athena_query_get_path(s3_bucket, query_str)
-#     return results
+    main_results = test_prepare_example_geojsons()
+    import pprint
+    pprint.pprint(main_results)
+    # test_unload_query()

@@ -29,11 +29,11 @@ def simplify_gdf(gdf: gpd.GeoDataFrame, tolerance_meters: float = 11) -> gpd.Geo
     return gdf_simplified
 
 
-def simplify_to_size(gdf: gpd.GeoDataFrame, size_bytes: int, max_attempts=3) -> tuple[gpd.GeoDataFrame, float, bool]:
+def simplify_to_size(gdf: gpd.GeoDataFrame, size_bytes: int, start_tolerance_m: float = 5.0, max_attempts=3) -> tuple[gpd.GeoDataFrame, float, bool]:
     """
     checks size of gdf as format geojson 
     if needed, tries to simplify it to get to within provided size 
-    each attempt the tolerance grows exponentially starting at 5m x 1, x4, x9, x16 etc. so 5, 20, 45, 80 etc. 
+    each attempt the tolerance grows exponentially starting at start_tolerance_m e.g. 5m x 1, x4, x9, x16 etc. so 5, 20, 45, 80 etc. 
     returns the geodataframe, the final simplification tolerance used (0 means none), and boolean if is under
     """
     log = Logger("simplify to size")
@@ -45,7 +45,7 @@ def simplify_to_size(gdf: gpd.GeoDataFrame, size_bytes: int, max_attempts=3) -> 
         return gdf, 0, True
 
     for attempt in range(1, max_attempts + 1):
-        tolerance_m = 5.0 * (attempt ** 2)
+        tolerance_m = start_tolerance_m * (attempt ** 2)
         log.debug(f'GeoJSON size {size:,} bytes exceeds {size_bytes:,}, attempt {attempt} to simplify will use {tolerance_m} m tolerance')
         simplified_gdf = simplify_gdf(gdf, tolerance_m)
         geojson_geom = simplified_gdf.to_json()
@@ -55,6 +55,24 @@ def simplify_to_size(gdf: gpd.GeoDataFrame, size_bytes: int, max_attempts=3) -> 
 
     log.warning(f'GeoJSON size {size:,} bytes still exceeds {size_bytes:,} bytes. Stopping after {max_attempts} attempts.')
     return (simplified_gdf, tolerance_m, False)
+
+
+def prepare_gdf_for_athena(
+        gdf: gpd.GeoDataFrame,
+        size_bytes: int = 261_000,
+        max_attempts: int = 5
+) -> tuple[gpd.GeoDataFrame, dict]:
+    """Simplify a GeoDataFrame for Athena if needed and report the simplification metadata.
+    """
+    sized_gdf, tolerance_m, success = simplify_to_size(gdf, size_bytes, max_attempts)
+    final_size = len(sized_gdf.to_json().encode('utf-8'))
+    metadata = {
+        "tolerance_m": tolerance_m,
+        "simplified": tolerance_m > 0,
+        "success": success,
+        "final_size_bytes": final_size,
+    }
+    return sized_gdf, metadata
 
 
 def get_bounds_from_gdf(
