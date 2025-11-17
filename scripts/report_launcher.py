@@ -19,6 +19,7 @@ import traceback
 import logging
 import inquirer
 from termcolor import colored
+from util.prompt import prompt_for
 
 BASE_PACKAGE = "reports"
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
@@ -72,18 +73,15 @@ def choose_report() -> ReportEntry:
         ("📋 " + entry.display_name, entry) for entry in reports
     ]
 
-    try:
-        answer = inquirer.prompt([
-            inquirer.List(
-                "report",
-                message="Select a report to launch",
-                choices=question_choices,
-            )
-        ])
-    except Exception:
-        answer = None
+    report = prompt_for([
+        inquirer.List(
+            "report",
+            message="Select a report to launch",
+            choices=question_choices,
+        ),
+    ], 'report')
 
-    return answer.get("report")
+    return report
 
 
 def gather_arguments(entry: ReportEntry) -> list[str]:

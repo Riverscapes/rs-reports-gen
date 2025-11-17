@@ -22,7 +22,7 @@ def safe_prompt(
     try:
         answers = inquirer.prompt(list(questions))
     except KeyboardInterrupt as exc:
-        print(colored(f"\n{exit_message}\n", message_color))
+        print(colored(f"KeyboardInterrupt \n{exit_message}\n", message_color))
         raise SystemExit(exit_code) from exc
 
     if answers is None:
