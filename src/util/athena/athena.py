@@ -307,7 +307,6 @@ def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame, csv_data_path: Path):
     and populate csv_data_path (local path) with the data csv file
     based on get_data_for_aoi in util.athena
     TODO - a specialized function like this should in the report module not util
-    TODO - fix: we are getting dgo_geom_obj and dgo_polygon_geom -- duplicate fields, TWICE the size needed
     """
     log = Logger("Run AOI query on Athena WC edition")
     querystr = """
