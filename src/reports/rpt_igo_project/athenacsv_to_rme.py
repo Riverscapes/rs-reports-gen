@@ -313,7 +313,7 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
     return datasets
 
 
-def create_igos_project(project_dir: str, project_name: str, spatialite_path: str, gpkg_path: str, log_path: str, bounds_gdf: gpd.GeoDataFrame):
+def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log_path: str, bounds_gdf: gpd.GeoDataFrame):
     """
     Create a Riverscapes project of type IGOS
     Modelled after scrape_rme2.py in data-exchange-scripts
