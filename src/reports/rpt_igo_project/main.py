@@ -87,7 +87,7 @@ def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, 
     get_s3_file(path_to_results, local_csv_path)
     log.info('Downloaded results csv from s3 successfully.')
     gpkg_path = create_gpkg_igos_from_csv(project_dir, spatialite_path, local_csv_path)
-    create_igos_project(project_dir, project_name, spatialite_path, gpkg_path, log_path, aoi_gdf)
+    create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
     generate_report(project_dir, local_csv_path)
 
     log.info(f'IGO project created successfully in {project_dir}.')
