@@ -1,0 +1,34 @@
+<!-- This is simply everything that exists inside the report's body 
+ 
+  refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
+-->
+<section>
+  <div class="section-context">
+    <p>The riverscapes stream names report provides insight into the current state and health of riverine ecosystems. It
+      pulls together data from a variety of public sources and combines them with the results from several models
+      covering a range of topics from valley bottom identification, beaver restoration and riparian condition. The goal
+      is to provide a broad overview of the riverscape and the landscape context in which it resides.</p>
+  </div>
+</section>
+
+<section id="map-of-polygons">
+  <h2>Report Area of Interest</h2>
+  <div class="section-context">
+    <p>The following map shows the riverscapes that were selected for this report. These polygons represent the areas of
+      interest for the analysis. The charts and tables that follow provide further insights into these areas.</p>
+  </div>
+  <figure class="report-figure map">
+    <p>Maybe we put a map here later? ... figures['map']|safe </p>
+  </figure>
+</section>
+<section id="word-cloud">
+  <h2>Stream Names</h2>
+  <div class="section-context">
+    <p>The stream names come from NHD.... The size of the name is proportional to ... and the colour ...</p>
+  </div>
+  <figure class="report-figure">
+    {{ figures['word_cloud']|safe}}
+  </figure>
+</section>
+
+</section>
