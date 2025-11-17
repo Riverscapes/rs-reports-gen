@@ -14,6 +14,7 @@ def load_gdf_from_csv(csv_path) -> gpd.GeoDataFrame:
 
     Returns:
         _type_: gdf
+    TODO: the resulting dataframe ends up having two geometry columns which seems unnecessary - only keep one
     """
     df = pd.read_csv(csv_path, dtype={'huc12': str})
     df.describe()  # outputs some info for debugging
