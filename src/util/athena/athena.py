@@ -296,9 +296,33 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
     fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
     s3_csv_path = run_aoi_athena_query(gdf, None, fields_str=fields_str, source_table="rpt_rme_pq")
     if s3_csv_path is None:
-        log.error("Didn't get a result from athena")
+        log.error("Didn't get a result from Athena")
         raise NotImplementedError
     get_s3_file(s3_csv_path, output_path)
+    return
+
+
+def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame, csv_data_path: Path):
+    """get word cloud data for an area of interest
+    and populate csv_data_path (local path) with the data csv file
+    based on get_data_for_aoi in util.athena
+    TODO - a specialized function like this should in the report module not util
+    TODO - fix: we are getting dgo_geom_obj and dgo_polygon_geom -- duplicate fields, TWICE the size needed
+    """
+    log = Logger("Run AOI query on Athena WC edition")
+    querystr = """
+select stream_name, round(sum(centerline_length),0) as riverscape_length, round(avg(stream_order),1) as avg_stream_order -- stream order goes from 1 to 11. 
+from raw_rme_pq2 
+where substr(huc12,1,10) = '1802015702'
+and stream_name is not null
+group by stream_name
+"""
+    s3_csv_path = run_aoi_athena_query(aoi_gdf, None, "stream_name, centerline_length, stream_order", "raw_rme_pq2",
+                                       geometry_field_clause="ST_GeomFromBinary(dgo_geom)", bbox_field="dgo_geom_bbox")
+    if s3_csv_path is None:
+        log.error("Didn't get a result from Athena")
+        raise NotImplementedError
+    get_s3_file(s3_csv_path, csv_data_path)
     return
 
 
