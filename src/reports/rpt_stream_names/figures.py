@@ -6,15 +6,18 @@ import plotly.express as px
 from wordcloud import WordCloud, STOPWORDS
 
 from util.pandas import RSFieldMeta
+from reports.rpt_stream_names.colour_gradient import stream_colour_from_order
 
 
 def word_cloud_data(df: pd.DataFrame) -> pd.DataFrame:
     """process to go from raw df to just what we need"""
     meta = RSFieldMeta()
-    df_copy = df[['stream_name', 'centerline_length']].copy()
-    agg_data = df_copy.groupby('stream_name', as_index=False, observed=False)[
-        'centerline_length'].sum()
-
+    df_copy = df[['stream_name', 'centerline_length', 'stream_order']].copy()
+    agg_data = df_copy.groupby('stream_name', as_index=False, observed=False).agg({
+        'centerline_length': 'sum',
+        'stream_order': max
+    })
+    agg_data['stream_order_colour'] = agg_data['stream_order'].apply(stream_colour_from_order)
     df_baked, _headers = meta.bake_units(agg_data)
     return df_baked
 
