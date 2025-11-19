@@ -4,6 +4,10 @@
 
 Internal use only
 
+### 0.1.3 2025-11-18
+
+* Add input AOI to project - GH issue #101
+
 ### 0.1.2 2025-11-05
 
 * [x] fix to project.rs.xml to be compliant - GH issue #94

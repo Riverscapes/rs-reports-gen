@@ -11,6 +11,7 @@ from util import prepare_gdf_for_athena, simplify_to_size
 
 
 def _circle_polygon(radius: float, vertices: int = 200) -> Polygon:
+    """this is a quick way of generating a polygon with lots of vertices within a small space"""
     points = [
         (
             math.cos(theta) * radius,
@@ -22,6 +23,7 @@ def _circle_polygon(radius: float, vertices: int = 200) -> Polygon:
 
 
 def test_simplify_to_size_returns_original_when_below_threshold():
+    """simplify to size should not make any changes if original is already below the supplied threshold"""
     polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     gdf = gpd.GeoDataFrame(geometry=[polygon], crs="EPSG:4326")
 

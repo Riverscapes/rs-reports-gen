@@ -51,6 +51,7 @@ def simplify_to_size(gdf: gpd.GeoDataFrame, size_bytes: int, start_tolerance_m: 
         geojson_geom = simplified_gdf.to_json()
         size = len(geojson_geom.encode('utf-8'))
         if size <= size_bytes:
+            log.debug(f'After {attempt} attempts at resizing, final size is {size:,} which is less than {size_bytes:,}.')
             return simplified_gdf, tolerance_m, True
 
     log.warning(f'GeoJSON size {size:,} bytes still exceeds {size_bytes:,} bytes. Stopping after {max_attempts} attempts.')

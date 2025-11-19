@@ -319,13 +319,17 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
     Modelled after scrape_rme2.py in data-exchange-scripts
     """
     log = Logger('Create IGOS project')
-    # Build the bounds for the new RME scrape project
-    # dgos table has point geom; using that and buffering them didn't work well
-    # Alternate approach : we could use the AOI that was used to select the dgos to begin with
+
+    # Build the bounds for the new RME scrape project using the AOI that was used to select the dgos to begin with
     bounds, centroid, bounding_rect = get_bounds_from_gdf(bounds_gdf)
     project_dir_path = Path(project_dir)
     gpkg_path_obj = Path(gpkg_path)
     log_path_obj = Path(log_path)
+
+    # export the original AOI as a geopackage layer so it can be displayed in the project
+    aoi_path = project_dir_path / 'aoi.gpkg'
+    bounds_gdf.to_file(aoi_path, driver='GPKG', layer='AOI', use_arrow=True)
+    log.debug(f"Wrote AOI to {aoi_path} for inclusion in project")
 
     def _relative_posix_strict(target: Path, start: Path = project_dir_path) -> str:
         """return path relative to project dir as posix-style string, for writing to project.rs.xml
@@ -346,7 +350,7 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
         """,
         meta_data=MetaData(values=[
             Meta('Report Type', 'IGO Scraper'),
-            Meta('Model Version', __version__),
+            Meta('ModelVersion', __version__),
             Meta('Date Created', datetime.now().isoformat(timespec='seconds'))
         ]),
         bounds=ProjectBounds(
@@ -372,6 +376,12 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
                     description='Processing log file',
                     path=_relative_posix_strict(log_path_obj),
                 ),
+                Geopackage(
+                    name="Input Area of Interest",
+                    xml_id='InputAOI',
+                    path=_relative_posix_strict(aoi_path),
+                    layers=get_datasets(str(aoi_path))
+                )
             ]
         )]
     )
