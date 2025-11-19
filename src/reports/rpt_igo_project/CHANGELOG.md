@@ -7,6 +7,7 @@ Internal use only
 ### 0.1.3 2025-11-18
 
 * Add input AOI to project - GH issue #101
+* Change structure of the project.rs.xml to match business logic (which is also shifting)
 
 ### 0.1.2 2025-11-05
 
