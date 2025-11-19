@@ -63,8 +63,10 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame,
     log.info(f"Generating report in {report_dir}")
     figures = {
         # "map": make_map_with_aoi(gdf, aoi_df, color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
-        "word_cloud": word_cloud(gdf)
     }
+    
+    word_cloud(gdf, os.path.join(report_dir, 'figures'))
+
     tables = {
         "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name']),
     }
