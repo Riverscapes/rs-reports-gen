@@ -27,6 +27,7 @@ import geopandas as gpd
 from rsxml import Logger, ProgressBar, dotenv
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
+    Log,
     Project,
     MetaData,
     Meta,
@@ -369,18 +370,25 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
                     path=_relative_posix_strict(gpkg_path_obj),
                     layers=get_datasets(str(gpkg_path_obj))
                 ),
-                Dataset(
-                    xml_id='LOG',
-                    ds_type='LogFile',
-                    name='Log File',
-                    description='Processing log file',
-                    path=_relative_posix_strict(log_path_obj),
-                ),
                 Geopackage(
                     name="Input Area of Interest",
                     xml_id='InputAOI',
                     path=_relative_posix_strict(aoi_path),
                     layers=get_datasets(str(aoi_path))
+                )
+            ],
+            logs=[
+                Log(
+                    xml_id='LOG',
+                    name='Log File',
+                    description='Processing log file',
+                    path=_relative_posix_strict(log_path_obj),
+                ),
+                Log(
+                    xml_id="source_projects",
+                    name="Source Projects CSV",
+                    description="List of projects from Riverscapes Data Exchange",
+                    path="source_projects.csv"
                 )
             ]
         )]
