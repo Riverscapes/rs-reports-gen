@@ -1,5 +1,4 @@
 import json
-import apsw
 from rsxml import Logger
 import geopandas as gpd
 
@@ -32,7 +31,7 @@ def simplify_gdf(gdf: gpd.GeoDataFrame, tolerance_meters: float = 11) -> gpd.Geo
 def simplify_gdf_to_size(
         gdf: gpd.GeoDataFrame,
         size_bytes: int,
-        format: str = "geojson",
+        target_format: str = "geojson",
         start_tolerance_m: float = 5.0,
         max_attempts=3,
 ) -> tuple[gpd.GeoDataFrame, dict]:
@@ -70,7 +69,7 @@ def simplify_gdf_to_size(
         "simplified": tolerance_m > 0,
         "success": True,
         "final_size_bytes": size,
-        "format": format,
+        "format": target_format,
     }
     return simplified_gdf, metadata
 
@@ -82,7 +81,7 @@ def prepare_gdf_for_athena(
 ) -> tuple[gpd.GeoDataFrame, dict]:
     """Simplify a GeoDataFrame for Athena if needed and report the simplification metadata.
     """
-    sized_gdf, tolerance_m, success = simplify_gdf_to_size(gdf, size_bytes, format="wkb", max_attempts=max_attempts)
+    sized_gdf, tolerance_m, success = simplify_gdf_to_size(gdf, size_bytes, target_format="wkb", max_attempts=max_attempts)
     final_size = len(sized_gdf.to_json().encode('utf-8'))
     metadata = {
         "tolerance_m": tolerance_m,
