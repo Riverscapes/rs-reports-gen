@@ -36,7 +36,7 @@ def simplify_gdf_to_size(
         max_attempts=3,
 ) -> tuple[gpd.GeoDataFrame, dict]:
     """
-    Simplifies gdf so its serialized size (GeoJSON or WKB) is under size_limit_bytes.
+    Simplifies gdf so its serialized size (GeoJSON or WKB) is under size_bytes.
 
     Args: 
         target_format (str): geojson or wkb
@@ -132,8 +132,8 @@ def get_bounds_from_gdf(
 
     union_gdf = gpd.GeoDataFrame(geometry=[union_geom], crs=gdf.crs)
 
-    sized_gdf, _tolerance_m, success = simplify_gdf_to_size(union_gdf, MAX_GEOJSON_SIZE, 3)
-    if not success:
+    sized_gdf, metadata = simplify_gdf_to_size(union_gdf, MAX_GEOJSON_SIZE, target_format="geojson", max_attempts=5)
+    if not metadata["success"]:
         log.warning('Bounds may be too big (complex) for Riverscapes Projects use.')
 
     json_str = sized_gdf.to_json()
