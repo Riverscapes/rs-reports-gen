@@ -534,7 +534,7 @@ def main():
     # TODO: if you don't have a bounds gdf, create one from gpkg_path
     # bounds_gdf = pt_gpkg_to_poly_gdf(gpkg_path)
     bounds_gdf = gpd.read_file("/mnt/c/nardata/work/rme_extraction/20250827-rkymtn/physio_rky_mtn_system_4326.geojson")
-    create_igos_project(project_dir, project_name, args.spatialite_path, gpkg_path, log_path, bounds_gdf)
+    create_igos_project(project_dir, project_name, gpkg_path, log_path, bounds_gdf)
 
     log.info('Process complete.')
 
