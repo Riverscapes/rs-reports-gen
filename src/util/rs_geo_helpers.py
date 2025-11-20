@@ -82,7 +82,7 @@ def prepare_gdf_for_athena(
 ) -> tuple[gpd.GeoDataFrame, dict]:
     """Simplify a GeoDataFrame for Athena if needed and report the simplification metadata.
     """
-    sized_gdf, tolerance_m, success = simplify_to_size(gdf, size_bytes, max_attempts)
+    sized_gdf, tolerance_m, success = simplify_gdf_to_size(gdf, size_bytes, format="wkb", max_attempts=max_attempts)
     final_size = len(sized_gdf.to_json().encode('utf-8'))
     metadata = {
         "tolerance_m": tolerance_m,
@@ -110,7 +110,7 @@ def get_bounds_from_gdf(
 
     union_gdf = gpd.GeoDataFrame(geometry=[union_geom], crs=gdf.crs)
 
-    sized_gdf, _tolerance_m, success = simplify_to_size(union_gdf, MAX_GEOJSON_SIZE, 3)
+    sized_gdf, _tolerance_m, success = simplify_gdf_to_size(union_gdf, MAX_GEOJSON_SIZE, 3)
     if not success:
         log.warning('Bounds may be too big (complex) for Riverscapes Projects use.')
 
