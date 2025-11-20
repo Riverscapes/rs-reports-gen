@@ -37,37 +37,67 @@ def simplify_gdf_to_size(
 ) -> tuple[gpd.GeoDataFrame, dict]:
     """
     Simplifies gdf so its serialized size (GeoJSON or WKB) is under size_limit_bytes.
-    Returns: (simplified_gdf, tolerance_used, success)
+
+    Args: 
+        target_format (str): geojson or wkb
+    Returns: simplified_gdf, metadata dictionary
 
     If if needed, tries to simplify it to get to within provided size 
     each attempt the tolerance grows exponentially starting at start_tolerance_m e.g. 5m x 1, x4, x9, x16 etc. so 5, 20, 45, 80 etc. 
     returns the geodataframe, the final simplification tolerance used (0 means none), and boolean if is under
+
     TODO: size as geojson not the same thing as size as WKB - perhaps take a parameter
     TODO: no point in converting to desired output format to check the size, but then passing back gdf and then calling function has to convert again
     """
     log = Logger("simplify to size")
-    geojson_geom = gdf.to_json()
-    size = len(geojson_geom.encode('utf-8'))
+
+    if target_format.lower() == "geojson":
+        target_format = "GeoJSON"
+        geojson_geom = gdf.to_json()
+        size = len(geojson_geom.encode('utf-8'))
+    elif target_format.lower() == "wkb":
+        target_format = "WKB"
+        size = len(gdf.wkb.hex())
+    else:
+        raise ValueError(f"Unknown target_format '{target_format}'. Supported formats are 'geojson' and 'wkb'.")
 
     if size <= size_bytes:
-        log.debug(f'Supplied gdf is {size:,} which is less than {size_bytes:,}. All good')
-        return gdf, 0, True
+        log.debug(f'Supplied gdf will be {size:,} {target_format} which is less than {size_bytes:,}. All good')
+        metadata = {
+            "tolerance_m": 0,
+            "simplified": False,
+            "success": True,
+            "final_size_bytes": size,
+            "format": target_format,
+        }
+        return gdf, metadata
 
     for attempt in range(1, max_attempts + 1):
         tolerance_m = start_tolerance_m * (attempt ** 2)
-        log.debug(f'GeoJSON size {size:,} bytes exceeds {size_bytes:,}, attempt {attempt} to simplify will use {tolerance_m} m tolerance')
+        log.debug(f'{target_format} size {size:,} bytes exceeds {size_bytes:,}, attempt {attempt} to simplify will use {tolerance_m} m tolerance')
         simplified_gdf = simplify_gdf(gdf, tolerance_m)
-        geojson_geom = simplified_gdf.to_json()
-        size = len(geojson_geom.encode('utf-8'))
+        if target_format == "GeoJSON":
+            geojson_geom = simplified_gdf.to_json()
+            size = len(geojson_geom.encode('utf-8'))
+        else:
+            size = len(simplified_gdf.wkb.hex())
+
         if size <= size_bytes:
             log.debug(f'After {attempt} attempts at resizing, final size is {size:,} which is less than {size_bytes:,}.')
-            return simplified_gdf, tolerance_m, True
+            metadata = {
+                "tolerance_m": tolerance_m,
+                "simplified": True,
+                "success": True,
+                "final_size_bytes": size,
+                "format": target_format,
+            }
+            return simplified_gdf, metadata
 
     log.warning(f'GeoJSON size {size:,} bytes still exceeds {size_bytes:,} bytes. Stopping after {max_attempts} attempts.')
     metadata = {
         "tolerance_m": tolerance_m,
-        "simplified": tolerance_m > 0,
-        "success": True,
+        "simplified": True,
+        "success": False,
         "final_size_bytes": size,
         "format": target_format,
     }
@@ -81,14 +111,7 @@ def prepare_gdf_for_athena(
 ) -> tuple[gpd.GeoDataFrame, dict]:
     """Simplify a GeoDataFrame for Athena if needed and report the simplification metadata.
     """
-    sized_gdf, tolerance_m, success = simplify_gdf_to_size(gdf, size_bytes, target_format="wkb", max_attempts=max_attempts)
-    final_size = len(sized_gdf.to_json().encode('utf-8'))
-    metadata = {
-        "tolerance_m": tolerance_m,
-        "simplified": tolerance_m > 0,
-        "success": success,
-        "final_size_bytes": final_size,
-    }
+    sized_gdf, metadata = simplify_gdf_to_size(gdf, size_bytes, target_format="wkb", max_attempts=max_attempts)
     return sized_gdf, metadata
 
 
