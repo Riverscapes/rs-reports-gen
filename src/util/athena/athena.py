@@ -554,7 +554,7 @@ def test_prepare_example_geojsons(
             **meta,
         }
 
-        if meta.get("simplified"):
+        if meta.simplified:
             simplified_path = geojson_path.with_name(f"{geojson_path.stem}_simplified.geojson")
             prepared_gdf.to_file(simplified_path, driver="GeoJSON")
             record['prepared_path'] = str(simplified_path)
