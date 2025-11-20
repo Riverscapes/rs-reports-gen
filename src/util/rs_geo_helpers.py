@@ -69,7 +69,7 @@ def simplify_gdf_to_size(
         size = len(geojson_geom.encode('utf-8'))
     elif target_format.lower() == "wkb":
         target_format = "WKB"
-        size = len(gdf.wkb.hex())
+        size = sum(len(geom.wkb.hex()) for geom in gdf.geometry if geom is not None)
     else:
         raise ValueError(f"Unknown target_format '{target_format}'. Supported formats are 'geojson' and 'wkb'.")
 
@@ -92,7 +92,7 @@ def simplify_gdf_to_size(
             geojson_geom = simplified_gdf.to_json()
             size = len(geojson_geom.encode('utf-8'))
         else:
-            size = len(simplified_gdf.wkb.hex())
+            size = sum(len(geom.wkb.hex()) for geom in simplified_gdf.geometry if geom is not None)
 
         if size <= size_bytes:
             log.debug(f'After {attempt} attempts at resizing, final size is {size:,} which is less than {size_bytes:,}.')
