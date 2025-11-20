@@ -12,6 +12,7 @@ import geopandas as gpd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
+from util import prepare_gdf_for_athena
 from util.pandas import load_gdf_from_csv
 from util.athena import get_data_for_aoi, athena_unload_to_dataframe
 from util.rme.field_metadata import get_field_metadata
@@ -64,7 +65,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame,
     figures = {
         # "map": make_map_with_aoi(gdf, aoi_df, color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
     }
-    
+
     word_cloud(gdf, os.path.join(report_dir, 'figures'))
 
     tables = {
@@ -129,6 +130,12 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
+    query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
+    if not simplification_results.success:
+        raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
+    if simplification_results.simplified:
+        log.warning(
+            f"Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.")
     # get data first as csv
     safe_makedirs(os.path.join(report_dir, 'data'))
     csv_data_path = os.path.join(report_dir, 'data', 'data.csv')
@@ -139,13 +146,13 @@ def make_report_orchestrator(report_name: str, report_dir: str, path_to_shape: s
             shutil.copyfile(existing_csv_path, csv_data_path)
     else:
         log.info("Querying athena for data for AOI")
-        get_wcdata_for_aoi(aoi_gdf, csv_data_path)
+        get_wcdata_for_aoi(query_gdf, csv_data_path)
 
     data_gdf = load_gdf_from_csv(csv_data_path)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
-    # Export the data to Excel
-    RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
+    # Export the data to Excel -- we should only export the summarized data. Heck we should only get the summarized data
+    # RSGeoDataFrame(data_gdf).export_excel(os.path.join(report_dir, 'data', 'data.xlsx'))
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
