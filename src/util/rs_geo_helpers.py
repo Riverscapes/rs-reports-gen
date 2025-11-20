@@ -29,12 +29,22 @@ def simplify_gdf(gdf: gpd.GeoDataFrame, tolerance_meters: float = 11) -> gpd.Geo
     return gdf_simplified
 
 
-def simplify_to_size(gdf: gpd.GeoDataFrame, size_bytes: int, start_tolerance_m: float = 5.0, max_attempts=3) -> tuple[gpd.GeoDataFrame, float, bool]:
+def simplify_to_size(
+        gdf: gpd.GeoDataFrame,
+        size_bytes: int,
+        format: str = "geojson",
+        start_tolerance_m: float = 5.0,
+        max_attempts=3,
+) -> tuple[gpd.GeoDataFrame, dict]:
     """
-    checks size of gdf as format geojson 
-    if needed, tries to simplify it to get to within provided size 
+    Simplifies gdf so its serialized size (GeoJSON or WKB) is under size_limit_bytes.
+    Returns: (simplified_gdf, tolerance_used, success)
+
+    If if needed, tries to simplify it to get to within provided size 
     each attempt the tolerance grows exponentially starting at start_tolerance_m e.g. 5m x 1, x4, x9, x16 etc. so 5, 20, 45, 80 etc. 
     returns the geodataframe, the final simplification tolerance used (0 means none), and boolean if is under
+    TODO: size as geojson not the same thing as size as WKB - perhaps take a parameter
+    TODO: no point in converting to desired output format to check the size, but then passing back gdf and then calling function has to convert again
     """
     log = Logger("simplify to size")
     geojson_geom = gdf.to_json()
@@ -55,7 +65,14 @@ def simplify_to_size(gdf: gpd.GeoDataFrame, size_bytes: int, start_tolerance_m: 
             return simplified_gdf, tolerance_m, True
 
     log.warning(f'GeoJSON size {size:,} bytes still exceeds {size_bytes:,} bytes. Stopping after {max_attempts} attempts.')
-    return (simplified_gdf, tolerance_m, False)
+    metadata = {
+        "tolerance_m": tolerance_m,
+        "simplified": tolerance_m > 0,
+        "success": True,
+        "final_size_bytes": size,
+        "format": format,
+    }
+    return simplified_gdf, metadata
 
 
 def prepare_gdf_for_athena(
