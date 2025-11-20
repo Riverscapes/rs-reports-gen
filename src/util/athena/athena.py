@@ -389,14 +389,17 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
 
     Previously: tried buffering the bounding box with buffer, but
     that produces rounded corners and smooth edges - no longer a straightforward box
-    # from shapely.geometry import box
-    # Create a bounding box geometry
-    # bbox = box(minx, miny, maxx, maxy)
 
-    # print("Unbuffered bounding box WKT:", bbox.wkt)
+    ```
+     from shapely.geometry import box
+     # Create a bounding box geometry
+     bbox = box(minx, miny, maxx, maxy)
 
-    # buffered_bbox = bbox.buffer(0.01)
-    # print("Buffered bounding box WKT:", buffered_bbox.wkt)
+     print("Unbuffered bounding box WKT:", bbox.wkt)
+
+     buffered_bbox = bbox.buffer(0.01)
+     print("Buffered bounding box WKT:", buffered_bbox.wkt)
+    ```
     """
 
     # these are fun variable names :-)
