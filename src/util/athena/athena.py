@@ -537,7 +537,7 @@ def test_prepare_example_geojsons(
 ) -> list[dict]:
     """Prepare example AOIs for Athena
     parameters:
-        example_root: path that contains folder(s) named `example` which in turn have .geojson files
+        example_root: any path that contains folder(s) named `example` which in turn have .geojson files (e.g. our report source is default)
     Returns metadata for each GeoJSON processed so callers can review any simplification.
     """
     log = Logger('Prepare example AOIs')
@@ -551,7 +551,7 @@ def test_prepare_example_geojsons(
         prepared_gdf, meta = prepare_gdf_for_athena(gdf, size_bytes=size_bytes, max_attempts=max_attempts)
         record = {
             'path': str(geojson_path),
-            **meta,
+            **vars(meta),
         }
 
         if meta.simplified:
