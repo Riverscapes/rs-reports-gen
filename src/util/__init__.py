@@ -3,10 +3,9 @@
 from .csvhelper import est_rows_for_csv_file
 from .rs_geo_helpers import (
     get_bounds_from_gdf,
-    get_bounds_from_gpkg,
     prepare_gdf_for_athena,
     simplify_gdf,
-    simplify_to_size,
+    simplify_gdf_to_size,
 )
 from .math_functions import (
     round_down,
@@ -16,10 +15,9 @@ from .math_functions import (
 __all__ = [
     "est_rows_for_csv_file",
     "get_bounds_from_gdf",
-    "get_bounds_from_gpkg",
     "prepare_gdf_for_athena",
     "simplify_gdf",
-    "simplify_to_size",
+    "simplify_gdf_to_size",
     "round_up",
     "round_down"
 ]
