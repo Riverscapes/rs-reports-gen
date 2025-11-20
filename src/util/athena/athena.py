@@ -57,7 +57,7 @@ def _run_athena_query(
         max_wait (int): Maximum wait time in seconds.
 
     Returns:
-        tuple[str, str] | None: (output_path, query_execution_id) on success, or None on failure.
+    * tuple[str, str] | None: (output_path, query_execution_id) on success, or None on failure.
 
     This is core function called by `athena_query_get_path` and `athena_query_get_rows` and
     """
@@ -310,8 +310,8 @@ def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame, csv_data_path: Path):
     """
     log = Logger("Run AOI query on Athena WC edition")
     querystr = """
-select stream_name, round(sum(centerline_length),0) as riverscape_length, round(avg(stream_order),1) as avg_stream_order -- stream order goes from 1 to 11. 
-from raw_rme_pq2 
+select stream_name, round(sum(centerline_length),0) as riverscape_length, round(avg(stream_order),1) as avg_stream_order -- stream order goes from 1 to 11.
+from raw_rme_pq2
 where substr(huc12,1,10) = '1802015702'
 and stream_name is not null
 group by stream_name
@@ -325,15 +325,11 @@ group by stream_name
     return
 
 
-def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) -> str | None:
-    """check the geometry, union
-    maximum size of athena query is 256 kb or 262144 bytes
-    the default max_size assumes we need just under 5000 bytes for the rest of the query so this part needs to be under
-    if it is too big returns None
-    returns a SQL expression for the geometry
-    future improvement - check but i think it's almost *always* shorter as WKB so we don't really need to do both every time
+def compare_wkb_wkt(gdf: gpd.GeoDataFrame):
+    """check the geometry (union all)
+    to see if a wkb or wkt would be smaller
     """
-    log = Logger('check aoi')
+    log = Logger('check geometry size')
     # Get the union of all geometries in the GeoDataFrame
     aoi_geom = gdf.union_all()
 
@@ -345,19 +341,40 @@ def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) ->
     aoi_wkb = aoi_geom.wkb.hex()
     wkb_length = len(aoi_wkb) + 31  # this is to account for the text ST_GeomFromBinary(from_hex(''))
 
-    log.debug(f"WKT length: {wkt_length} bytes")
-    log.debug(f"WKB hex length: {wkb_length} bytes")
+    log.info(f"WKT length: {wkt_length} bytes")
+    log.info(f"WKB hex length: {wkb_length} bytes")
 
-    if wkt_length > max_size_bytes and wkb_length > max_size_bytes:
+    log.info("WKT version:")
+    log.info(f"ST_GeometryFromText('{aoi_wkt}')")
+    log.info("WKB version:")
+    log.info(f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))")
+
+
+def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) -> str | None:
+    """check the geometry, union and return expression for a geometry object to be used in SQL
+
+    maximum size of athena query is 256 kb or 262144 bytes
+    the default max_size assumes we need just under 5000 bytes for the rest of the query so this part needs to be under
+    if it is too big returns None
+    returns a SQL expression for the geometry
+    According to the internet (and my experience), WKB is **almost always** smaller than WKT
+     (extremely simple geometries sometimes are bigger but in those cases we don't care)
+     see compare_wkb_wkt function
+    """
+    log = Logger('check aoi')
+    # Get the union of all geometries in the GeoDataFrame
+    aoi_geom = gdf.union_all()
+
+    # WKB representation (as hex string)
+    aoi_wkb = aoi_geom.wkb.hex()
+    wkb_length = len(aoi_wkb) + 31  # this is to account for the text ST_GeomFromBinary(from_hex(''))
+
+    log.debug(f"WKB hex length: {wkb_length} bytes")
+    if wkb_length > max_size_bytes:
         log.error(f"aoi geometry results in too big a query (greater than {max_size_bytes} bytes) - simplify it and try again")
         return
 
-    # return the smaller representation as an SQL expression for Athena
-    if wkt_length <= wkb_length:
-        log.info("returning WKT as it is smaller ")
-        return f"ST_GeometryFromText('{aoi_wkt}')"
-    else:
-        return f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))"
+    return f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))"
 
 
 def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
@@ -417,15 +434,15 @@ def generate_sql_bbox_where_clause_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox_fl
 
 def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq",
                          geometry_field_clause: str | None = 'ST_GeomFromBinary(dgo_geom)', bbox_field: str | None = None) -> str | None:
-    """Run Athena query `select (field_str) from (source_table)` on supplied AOI geojson
+    """Run Athena query `select (field_str) from (source_table)` on supplied AOI geodataframe
     also includes the dgo geometry (polygon)
     the source table must have fields:
-     * latitude, longitude OR bbox_field (bounding box structure)
+     * latitude + longitude OR bbox_field (bounding box structure)
      * dgo_geom (WKB) OR geometry_field_clause specifying the geometry field to use that is an actual geometry, not WKB or WKT
     return path to results on S3
-    Raises ValueError if the AOI geometry exceeds Athena query limits. Callers should
-    simplify the AOI (for example via util.prepare_gdf_for_athena) before invoking this
-    function. 
+    Raises ValueError if the AOI geometry exceeds Athena query limits.
+    Callers should simplify the AOI (for example via util.prepare_gdf_for_athena)
+    before invoking this function.
     """
     log = Logger('Run AOI Query on Athena')
 
@@ -441,11 +458,11 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
         # So we need to buffer by the maximum distance between a centroid and its bounding polygon
         prefilter_where_clause = generate_sql_where_clause_for_bounds(aoi_gdf)
 
-    # count the prefiltered records - these 3 lines are only needed for debugging
-    # TODO: IN production comment this out for better performance
-    query_str = f'SELECT count(*) AS record_count FROM {source_table} {prefilter_where_clause}'
-    results = athena_select_to_dict(query_str, s3_output_path)
-    log.debug(f'Prefiltered records: {results}')
+    # # To count the prefiltered records (e.g. for diagnostic purposes), uncomment these lines.
+    # # In production this is unncessary extra overhead & should be not be used.
+    # query_str = f'SELECT count(*) AS record_count FROM {source_table} {prefilter_where_clause}'
+    # results = athena_select_to_dict(query_str, s3_output_path)
+    # log.debug(f'Prefiltered records: {results}')
 
     aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
     if not aoi_geom_str:
@@ -516,7 +533,7 @@ def test_prepare_example_geojsons(
     max_attempts: int = 5
 ) -> list[dict]:
     """Prepare example AOIs for Athena
-    parameters: 
+    parameters:
         example_root: path that contains folder(s) named `example` which in turn have .geojson files
     Returns metadata for each GeoJSON processed so callers can review any simplification.
     """
