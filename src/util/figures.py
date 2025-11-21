@@ -338,15 +338,50 @@ def check_for_pdna(df: pd.DataFrame, label: str):
 # =========================
 
 
-def make_map_with_aoi(gdf, aoi_gdf, color_discrete_map: Optional[dict[str, str]] = None):
+def get_aoi_outline_trace(aoi_gdf, color='red', width=3, name='AOI'):
+    """Return a Plotly Scattermap trace for AOI outline."""
+    lons, lats = [], []
+    for _, row in aoi_gdf.iterrows():
+        geom = row['geometry']
+        polygons = []
+        if isinstance(geom, Polygon):
+            polygons = [geom]
+        elif isinstance(geom, MultiPolygon):
+            polygons = list(geom.geoms)
+        for poly in polygons:
+            x, y = poly.exterior.xy
+            lons.extend(list(x) + [None])  # None separates polygons
+            lats.extend(list(y) + [None])
+    return go.Scattermap(
+        lon=lons,
+        lat=lats,
+        mode='lines',
+        line={'color': color, 'width': width},
+        name=name,
+        showlegend=True
+    )
+
+
+def make_aoi_outline_map(aoi_gdf):
+    """Create a map with only the AOI outline."""
+    trace = get_aoi_outline_trace(aoi_gdf)
+    zoom, center = get_zoom_and_center(aoi_gdf, "geometry")
+    fig = go.Figure(trace)
+    fig.update_maps(style="open-street-map", center=center, zoom=zoom)
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
+    return fig
+
+
+def make_map_with_aoi(gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame,
+                      color_discrete_map: Optional[dict[str, str]] = None):
     """ make a map with the data and the AOI outlined
 
     Args:
-        gdf (_type_): _description_
-        aoi_gdf (_type_): _description_
+        gdf (GeoDataFrame): containing DGO polygons and attributes
+        aoi_gdf (GeoDataFrame): containing area of interest polygon
 
     Returns:
-        _type_: _description_
+        plotly Figure: figure with dgos and aoi
     """
     # Prepare plotting DataFrame and geojson
     log = Logger("Make map with AOI")
@@ -374,7 +409,7 @@ def make_map_with_aoi(gdf, aoi_gdf, color_discrete_map: Optional[dict[str, str]]
 
     # Bake in the units and names
     baked_header_lookup = RSFieldMeta().get_headers_dict(plot_gdf)
-    baked_df, baked_headers = RSFieldMeta().bake_units(plot_gdf)
+    baked_df, _baked_headers = RSFieldMeta().bake_units(plot_gdf)
     # baked.columns = baked_headers
 
     # Create choropleth map with Plotly Express
@@ -442,6 +477,7 @@ def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int,
         bounds = gdf[geom_field_nm].total_bounds  # [minx, miny, maxx, maxy]
         center = {"lat": (bounds[1] + bounds[3]) / 2, "lon": (bounds[0] + bounds[2]) / 2}
         # Estimate zoom: smaller area = higher zoom
+        # TODO: try a smoother approach e.g. https://stackoverflow.com/a/65043576/3112914
         lon_span = bounds[2] - bounds[0]
         if lon_span < 0.01:
             zoom = 14

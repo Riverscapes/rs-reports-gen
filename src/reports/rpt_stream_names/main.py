@@ -13,16 +13,10 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util import prepare_gdf_for_athena
-from util.pandas import load_gdf_from_csv
-from util.athena import get_data_for_aoi, athena_unload_to_dataframe
-from util.rme.field_metadata import get_field_metadata
-from util.athena.athena import S3_ATHENA_BUCKET, get_wcdata_for_aoi
-from util.color import DEFAULT_FCODE_COLOR_MAP
+from util.athena.athena import get_wcdata_for_aoi
 
 from util.figures import (
-    make_map_with_aoi,
-    table_total_x_by_y,
-    project_id_list,
+    make_aoi_outline_map,
 )
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
@@ -32,6 +26,7 @@ from reports.rpt_stream_names.figures import word_cloud
 
 
 def make_report(gdf: gpd.GeoDataFrame,
+                aoi_gdf: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
                 include_static: bool = True,
                 include_pdf: bool = True
@@ -50,7 +45,7 @@ def make_report(gdf: gpd.GeoDataFrame,
 
     log.info(f"Generating report in {report_dir}")
     figures = {
-        # "map": make_map_with_aoi(gdf, aoi_df, color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
+        "map": make_aoi_outline_map(aoi_gdf),
     }
 
     figure_dir = report_dir / 'figures'
@@ -136,7 +131,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
-    make_report(data_df, report_dir, report_name,
+    make_report(data_df, aoi_gdf, report_dir, report_name,
                 include_static=include_pdf,
                 include_pdf=include_pdf
                 )

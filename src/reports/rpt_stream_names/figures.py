@@ -73,35 +73,38 @@ def word_cloud(indf: pd.DataFrame, output_dir: Path):
 
     module_dir = Path(__file__).parent
     font_path = module_dir / "fonts" / "JetBrainsMono-VariableFont_wght.ttf"
-    # 3. Generate word cloud from frequencies
-    wc = WordCloud(
-        width=800,
-        height=500,
-        scale=9,  # higher-res rendering to reduce blur but increase file size. 2 is too low and 10 too high
-        font_path=font_path,
-        background_color='white',
-        stopwords=None,  # ignored anyway since we are using generate_from_frequencies
-        max_words=200,  # this is the default anyway
-        # colormap is effectively overridden by colour func below
-        colormap='viridis',
-        prefer_horizontal=0.1,  # mix of horizontal & vertical words
-    ).generate_from_frequencies(freq_dict)
 
     # 3b. Apply per-word colours from colour_lookup
     def colour_func(word, **kwargs):
         # If a colour is defined for this word, use it; else default to black
         return colour_lookup.get(word, "#000000")
 
-    wc = wc.recolor(color_func=colour_func)
+    # 3. Generate word cloud from frequencies
+    # generate 3 different resolutions
+    scales = [2, 5, 9]
+    for scale in scales:
+        wc = WordCloud(
+            width=800,
+            height=500,
+            scale=scale,  # higher-res rendering to reduce blur but increase file size. 2 is too low and 10 too high
+            font_path=font_path,
+            background_color='white',
+            stopwords=None,  # ignored anyway since we are using generate_from_frequencies
+            max_words=200,  # this is the default anyway
+            prefer_horizontal=0.1,  # mix of horizontal & vertical words
+        ).generate_from_frequencies(freq_dict)
 
-    # 4. Save to disk
-    base_name = "stream_names"
+        wc = wc.recolor(color_func=colour_func)
+
+        # 4. Save to disk
+        outputfilename = f"stream_names_scale{scale}.png"
+
+        # PNG output
+        wc.to_file(output_dir / outputfilename)
 
     # 4a. Create SVG markup and write to file
+    # SVG doesn't look good, unless we embed the same font somehow
     # svg_xml = wc.to_svg()
     # svg_path = output_dir / f"{base_name}.svg"
     # with open(svg_path, "w", encoding="utf-8") as f:
     #     f.write(svg_xml)
-
-    # PNG output
-    wc.to_file(output_dir / f"{base_name}.png")
