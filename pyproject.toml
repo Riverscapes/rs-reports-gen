@@ -11,6 +11,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "apsw>=3.50.4.0",
+    "awswrangler>=3.10.1",
     "boto3>=1.40.30",
     "folium>=0.20.0",
     "geopandas>=1.1.1",
