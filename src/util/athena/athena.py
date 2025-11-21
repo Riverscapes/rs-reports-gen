@@ -30,6 +30,7 @@ import csv
 from pathlib import Path
 from urllib.parse import urlparse
 import boto3
+import awswrangler as wr
 import pandas as pd
 from rsxml import Logger
 import geopandas as gpd
@@ -282,7 +283,47 @@ def athena_unload_to_dataframe(query: str, s3_output: str | None = None, max_wai
     return pd.DataFrame(rows)
 
 
+def athena_unload_pq_to_dataframe(query: str) -> pd.DataFrame:
+    """uses awswrangler to return a dataframe for a given query
+
+    * ctas False, unload True is "approach 2"
+    Does an UNLOAD query on Athena and parse the Parquet result on s3
+    see docs for details https://aws-sdk-pandas.readthedocs.io/en/3.14.0/stubs/awswrangler.athena.read_sql_query.html
+
+    PROS:
+    *   Faster for mid and big result sizes.
+    *   Can handle some level of nested types.
+    *   Does not modify Glue Data Catalog
+
+    CONS:
+    *   Output S3 path must be empty.
+    *   Does not support timestamp with time zone.
+    *   Does not support columns with repeated names.
+    *   Does not support columns with undefined data types.
+    """
+    log = Logger("Athena unload query to dataframe")
+    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+
+    query_bytes = len(query.encode('utf-8'))
+    if query_bytes > 262144:
+        raise ValueError(f"Query exceeds Athena's 256 KB limit ({query_bytes} bytes).")
+
+    try:
+        df = wr.athena.read_sql_query(
+            query,
+            database='default',
+            ctas_approach=False,
+            unload_approach=True,  # only PARQUET format is supported with this option
+            s3_output=s3_output,
+        )
+        return df
+    except Exception as e:
+        log.warning(f"Athena query failed or returned no results: {e}")
+        return pd.DataFrame()  # Return empty DataFrame for downstream code
+
+
 # === SPECIALIZED QUERIES FOR SPATIAL INTERSECTION =====
+
 
 def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: str):
     """given aoi in gdf format (assume 4326), run SELECTion from raw_rme_pq
@@ -302,31 +343,43 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
     return
 
 
-def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame, csv_data_path: Path):
+def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     """get word cloud data for an area of interest
-    and populate csv_data_path (local path) with the data csv file
-    based on get_data_for_aoi in util.athena
+    and return dataframe 
+    -- stream order goes from 1 to 11.
     TODO - a specialized function like this should in the report module not util
     """
     log = Logger("Run AOI query on Athena WC edition")
-    querystr = """
-select stream_name, round(sum(centerline_length),0) as riverscape_length, round(avg(stream_order),1) as avg_stream_order -- stream order goes from 1 to 11.
-from raw_rme_pq2
-where substr(huc12,1,10) = '1802015702'
-and stream_name is not null
-group by stream_name
+    geom_field_clause = "ST_GeomFromBinary(dgo_geom)"  # must be a geometry, not a WKT or WKB
+    geom_bbox_field = "dgo_geom_bbox"
+    max_size_bytes = 261_000  # TODO DON'T LIKE THIS HERE and its not the exact number
+    aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf, max_size_bytes)
+    if not aoi_geom_str:
+        raise ValueError("AOI geometry exceeds Athena size limit. Simplify and try again.")
+    # NOTE THE prefilter_clause includes the word WHERE ... may want to change but have to change everywhere use it
+    prefilter_clause = generate_sql_bbox_where_clause_for_bounds(aoi_gdf, geom_bbox_field)
+    intersects_clause = f"ST_Intersects({geom_field_clause}, {aoi_geom_str})"
+    querystr = f"""
+SELECT stream_name, round(sum(centerline_length),0) AS total_riverscape_length, max(stream_order) AS max_stream_order
+FROM raw_rme_pq2
+{prefilter_clause} AND {intersects_clause} AND (stream_name IS NOT NULL)
+GROUP BY stream_name
 """
-    s3_csv_path = run_aoi_athena_query(aoi_gdf, None, "stream_name, centerline_length, stream_order", "raw_rme_pq2",
-                                       geometry_field_clause="ST_GeomFromBinary(dgo_geom)", bbox_field="dgo_geom_bbox")
-    if s3_csv_path is None:
-        log.error("Didn't get a result from Athena")
-        raise NotImplementedError
-    get_s3_file(s3_csv_path, csv_data_path)
-    return
+    log.info(f"Query is \n{querystr}")
+    df = athena_unload_pq_to_dataframe(querystr)
+    if df.empty:
+        df = pd.DataFrame(
+            columns=["stream_name", "total_riverscape_length", "max_stream_order"],
+            data=[["No stream names found", 10.0, 3]]
+        )
+        df["stream_name"] = df["stream_name"].astype(str)
+        df["total_riverscape_length"] = df["total_riverscape_length"].astype(float)
+        df["max_stream_order"] = df["max_stream_order"].astype(int)
+    return df
 
 
 def compare_wkb_wkt(gdf: gpd.GeoDataFrame):
-    """check the geometry (union all)
+    """check the geometry(union all)
     to see if a wkb or wkt would be smaller
     """
     log = Logger('check geometry size')
@@ -357,11 +410,11 @@ def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) ->
     the default max_size assumes we need just under 5000 bytes for the rest of the query so this part needs to be under
     if it is too big returns None
     returns a SQL expression for the geometry
-    According to the internet (and my experience), WKB is **almost always** smaller than WKT
+    According to the internet ( and my experience), WKB is **almost always ** smaller than WKT
      (extremely simple geometries sometimes are bigger but in those cases we don't care)
      see compare_wkb_wkt function
     """
-    log = Logger('check aoi')
+    log = Logger('build aoi geom expression')
     # Get the union of all geometries in the GeoDataFrame
     aoi_geom = gdf.union_all()
 
