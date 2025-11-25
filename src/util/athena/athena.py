@@ -343,40 +343,29 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
     return
 
 
-def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
-    """get word cloud data for an area of interest
-    and return dataframe 
-    -- stream order goes from 1 to 11.
-    TODO - a specialized function like this should in the report module not util
+def get_anydata_for_aoi(querystr: str, geom_field_clause: str, geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
+    """run any query against athena for an area of interest, building the required clauses from the supplied aoi_gdf
+        and return dataframe
+        querystr: format string with prefilter_clause and intersects_clause in curly braces
+        geom_field_clause : must be a string that evaluates to a geometry, not WKT or WKB e.g. 'ST_GeomFromBinary(dgo_geom)'
     """
-    log = Logger("Run AOI query on Athena WC edition")
-    geom_field_clause = "ST_GeomFromBinary(dgo_geom)"  # must be a geometry, not a WKT or WKB
-    geom_bbox_field = "dgo_geom_bbox"
-    max_size_bytes = 261_000  # TODO DON'T LIKE THIS HERE and its not the exact number
+    log = Logger("Get AOI query on Athena")
+    geom_field_clause = "ST_GeomFromBinary(dgo_geom)"
+    prefilter_clause = generate_sql_bbox_where_clause_for_bounds(aoi_gdf, geom_bbox_field)
+    # this is not precise but I think it's a little conservative so we should be ok
+    length_of_query_less_aoi = len(querystr) + len(geom_field_clause) + len(prefilter_clause)
+    max_size_bytes = 262144 - length_of_query_less_aoi
     aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf, max_size_bytes)
+
     if not aoi_geom_str:
         raise ValueError("AOI geometry exceeds Athena size limit. Simplify and try again.")
-    # NOTE THE prefilter_clause includes the word WHERE ... may want to change but have to change everywhere use it
-    prefilter_clause = generate_sql_bbox_where_clause_for_bounds(aoi_gdf, geom_bbox_field)
+        # NOTE THE prefilter_clause includes the word WHERE ... may want to change but have to change everywhere use it
+
     intersects_clause = f"ST_Intersects({geom_field_clause}, {aoi_geom_str})"
-    querystr = f"""
-SELECT stream_name, round(sum(centerline_length),0) AS total_riverscape_length, max(stream_order) AS max_stream_order, count(distinct level_path) as level_path_count, round(sum(segment_area) / sum(centerline_length),1) as rs_area_per_length
-FROM raw_rme_pq2
-{prefilter_clause} AND {intersects_clause} AND (stream_name IS NOT NULL)
-GROUP BY stream_name
-"""
-    log.info(f"Query is \n{querystr}")
-    df = athena_unload_pq_to_dataframe(querystr)
-    if df.empty:
-        df = pd.DataFrame(
-            columns=["stream_name", "total_riverscape_length", "max_stream_order", "level_path_count", "rs_area_per_length"],
-            data=[["No stream names found", 10.0, 3, 1]]
-        )
-        df["stream_name"] = df["stream_name"].astype(str)
-        df["total_riverscape_length"] = df["total_riverscape_length"].astype(float)
-        df["max_stream_order"] = df["max_stream_order"].astype(int)
-        df["level_path_count"] = df["level_path_count"].astype(int)
-        df["rs_area_per_length"] = df["rs_area_per_length"].astype(float)
+
+    prepared_query = querystr.format(prefilter_clause=prefilter_clause, intersects_clause=intersects_clause)
+    log.info(f"Query is \n{prepared_query}")
+    df = athena_unload_pq_to_dataframe(prepared_query)
     return df
 
 

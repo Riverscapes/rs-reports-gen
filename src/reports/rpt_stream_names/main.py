@@ -13,13 +13,12 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util import prepare_gdf_for_athena
-from util.athena.athena import get_wcdata_for_aoi
-
 from util.figures import (
     make_aoi_outline_map,
 )
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
+from reports.rpt_stream_names.dataprep import get_wcdata_for_aoi
 from reports.rpt_stream_names import __version__ as report_version
 from reports.rpt_stream_names.figures import word_cloud
 
@@ -156,7 +155,7 @@ def main():
     args = dotenv.parse_args_env(parser)
 
     # Set up some reasonable folders to store things
-    output_path = args.output_path
+    output_path = Path(args.output_path)
     # new version of safe_makedirs will take a Path but for now all Paths are converted to string for this function
     safe_makedirs(str(output_path))
 
@@ -172,7 +171,7 @@ def main():
         csvpath = Path(args.csv)
         log.info(f"Using existing CSV: {csvpath}")
     else:
-        log.info("No existing CSV provided, will query Athena")
+        log.debug("No existing CSV provided, will query Athena")
         csvpath = None
 
     try:
