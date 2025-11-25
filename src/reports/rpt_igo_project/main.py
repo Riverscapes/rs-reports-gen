@@ -2,6 +2,7 @@
 
 # Standard library imports
 import os
+from pathlib import Path
 import argparse
 import logging
 import sys
@@ -58,7 +59,7 @@ def generate_report(project_dir: str, local_csv_path: str):
         f.write(readme_contents)
 
 
-def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, project_name, log_path):
+def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir: Path, project_name, log_path: Path):
     """ Get and process AOI orchestrator
 
     Args:
@@ -81,6 +82,7 @@ def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir, 
         log.warning(
             f"Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.")
     fields_we_need = "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, confinement_ratio, constriction_ratio, confining_margins, constricting_margins, lf_evt, lf_bps, lf_agriculture_prop, lf_agriculture, lf_conifer_prop, lf_conifer, lf_conifer_hardwood_prop, lf_conifer_hardwood, lf_developed_prop, lf_developed, lf_exotic_herbaceous_prop, lf_exotic_herbaceous, lf_exotic_tree_shrub_prop, lf_exotic_tree_shrub, lf_grassland_prop, lf_grassland, lf_hardwood_prop, lf_hardwood, lf_riparian_prop, lf_riparian, lf_shrubland_prop, lf_shrubland, lf_sparsely_vegetated_prop, lf_sparsely_vegetated, lf_hist_conifer_prop, lf_hist_conifer, lf_hist_conifer_hardwood_prop, lf_hist_conifer_hardwood, lf_hist_grassland_prop, lf_hist_grassland, lf_hist_hardwood_prop, lf_hist_hardwood, lf_hist_hardwood_conifer_prop, lf_hist_hardwood_conifer, lf_hist_peatland_forest_prop, lf_hist_peatland_forest, lf_hist_peatland_nonforest_prop, lf_hist_peatland_nonforest, lf_hist_riparian_prop, lf_hist_riparian, lf_hist_savanna_prop, lf_hist_savanna, lf_hist_shrubland_prop, lf_hist_shrubland, lf_hist_sparsely_vegetated_prop, lf_hist_sparsely_vegetated, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, riparian_veg_departure, ag_conversion, develop, grass_shrub_conversion, conifer_encroachment, invasive_conversion, riparian_condition, qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
+
     path_to_results = run_aoi_athena_query(query_gdf, s3_bucket,
                                            fields_str=fields_we_need,
                                            source_table='raw_rme_pq2',
@@ -108,7 +110,7 @@ def main():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('spatialite_path', help='Path to the mod_spatialite library', type=str)
-    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
+    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('project_name', help='name for the new project')
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
@@ -118,11 +120,11 @@ def main():
     s3_bucket = S3_ATHENA_BUCKET
 
     # Set up some reasonable folders to store things
-    output_path = args.output_path
-    safe_makedirs(output_path)
+    output_path = Path(args.output_path)
+    safe_makedirs(str(output_path))
 
     log = Logger('Setup')
-    log_path = os.path.join(output_path, 'report.log')
+    log_path = output_path / 'report.log'
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rpt-igo-project')
     log.info(f"Version: {__version__}")
