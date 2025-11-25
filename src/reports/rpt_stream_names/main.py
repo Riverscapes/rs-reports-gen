@@ -20,7 +20,6 @@ from util.figures import (
 )
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
-from util.pandas import RSFieldMeta, RSGeoDataFrame
 from reports.rpt_stream_names import __version__ as report_version
 from reports.rpt_stream_names.figures import word_cloud
 
@@ -51,7 +50,9 @@ def make_report(gdf: gpd.GeoDataFrame,
     figure_dir = report_dir / 'figures'
     safe_makedirs(str(figure_dir))
 
-    word_cloud(gdf, figure_dir)
+    word_cloud(gdf, figure_dir, frequency_field='total_riverscape_length')
+    word_cloud(gdf, figure_dir, frequency_field='level_path_count')
+    word_cloud(gdf, figure_dir, frequency_field='rs_area_per_length')
 
     report = RSReport(
         report_name=report_name,
@@ -144,18 +145,18 @@ def main():
 """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=str)
+    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
-    parser.add_argument('--csv', help='Path to a local CSV of AOI data to use instead of querying Athena', type=str, default=None)
+    parser.add_argument('--csv', help='Path to a local CSV of downloaded data for the AOI to use instead of querying Athena', type=str, default=None)
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
 
     # Set up some reasonable folders to store things
-    output_path = Path(args.output_path)
+    output_path = args.output_path
     # new version of safe_makedirs will take a Path but for now all Paths are converted to string for this function
     safe_makedirs(str(output_path))
 

@@ -14,15 +14,50 @@
 
 <section id="word-cloud">
   <h2>Stream Names</h2>
+  <h3>Name diversity</h3>
   <div class="section-context">
-    <p>The stream names come from NHD data aggregated as part of the Riverscapes Context project. The size of the name
+    <p>When setlers were naming streams, lives were much more local than they are today. There was no national registry
+      like the <a href="https://www.usgs.gov/tools/geographic-names-information-system-gnis">Geographic Names
+        Information System</a>. As a result, many different stream share names. This word cloud illustrates this by
+      making the size of the name proportional to the number of individual <b>level paths</b> that use that name within
+      the area of interest. Only the 200 named streams (by distinct level paths) are shown; the full list can be found
+      in the report data folder. Note - the word cloud algorithm adjusts word sizes to fit the shape and this effect is
+      more pronounced for small areas with just a few stream names. Consult the included data files for accurate values.
+    </p>
+  </div>
+  <figure class="report-figure">
+    <a href="figures/stream_names_level_path_count_scale9.png"><img
+        src="figures/stream_names_level_path_count_scale5.png"
+        alt="Word cloud of stream names (medium resolution). Click through for higher resolution version; lower resolution also available in Figures folder" /></a>
+  </figure>
+  <h3>Riverscape Length</h3>
+  <div class="section-context">
+    <p>The stream names come from NHD data aggregated as part of the Riverscapes Context project. In this word cloud,
+      the size of the name
       is proportional to Riverscape length and the colour represents the maximum stream order for this stream within the
       area of interest (darker colour = larger stream order). Only top 200 named streams (by Riverscape length) are
       shown; the full list can be found in the report data folder.</p>
   </div>
+
   <figure class="report-figure">
-    <a href="figures/stream_names_scale9.png"><img src="figures/stream_names_scale5.png"
-        alt="Word cloud of stream names (medium resolution). Low and High  resolution versions available in Figures folder" /></a>
+    <a href="figures/stream_names_total_riverscape_length_scale9.png"><img
+        src="figures/stream_names_total_riverscape_length_scale5.png"
+        alt="Word cloud of stream names (medium resolution). Click through for higher resolution version; lower resolution also available in Figures folder" /></a>
+  </figure>
+  <h3>Riverscape Area per length</h3>
+  <div class="section-context">
+    <p>The stream names come from NHD data aggregated as part of the Riverscapes Context project. In this word cloud,
+      the size of the name
+      is proportional to Riverscape area divided by riverscape length and the colour represents the maximum stream order
+      for this stream within the
+      area of interest (darker colour = larger stream order). Only top 200 named streams (by this metric) are
+      shown; the full list can be found in the report data folder.</p>
+  </div>
+
+  <figure class="report-figure">
+    <a href="figures/stream_names_rs_area_per_length_scale9.png"><img
+        src="figures/stream_names_rs_area_per_length_scale5.png"
+        alt="Word cloud of stream names (medium resolution). Click through for higher resolution version; lower resolution also available in Figures folder" /></a>
   </figure>
 </section>
 

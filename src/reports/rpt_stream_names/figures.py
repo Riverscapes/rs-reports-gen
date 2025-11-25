@@ -7,9 +7,9 @@ from wordcloud import WordCloud
 from reports.rpt_stream_names.colour_gradient import stream_colour_from_order
 
 
-def word_cloud_data(df: pd.DataFrame) -> pd.DataFrame:
+def word_cloud_data(df: pd.DataFrame, frequency_field: str) -> pd.DataFrame:
     """process to go from raw df to just what we need"""
-    df_copy = df[['stream_name', 'total_riverscape_length', 'max_stream_order']].copy()
+    df_copy = df[['stream_name', frequency_field, 'max_stream_order']].copy()
     df_copy['stream_order_colour'] = df_copy['max_stream_order'].apply(
         stream_colour_from_order
     )
@@ -17,37 +17,37 @@ def word_cloud_data(df: pd.DataFrame) -> pd.DataFrame:
     return df_copy
 
 
-def word_cloud(indf: pd.DataFrame, output_dir: Path):
+def word_cloud(indf: pd.DataFrame, output_dir: Path, frequency_field: str):
     """
     Generate a word cloud from stream names and:
 
       * write one SVG to `output_dir` named stream_names.svg
 
     Args:
-        indf (pd.DataFrame): Input dataframe with at least stream_name, total_riverscape_length, max_stream_order
+        indf (pd.DataFrame): Input dataframe with at least stream_name, {frequency_field}, max_stream_order
         output_dir (str): Directory where SVG and PNG files will be written (assumed to already exist)
 
     Returns:
         str: HTML <img> tag pointing at the generated SVG (relative filename)
     """
     print('WORD CLOUD')
-    print(indf)  # debug only
+    # print(indf)  # debug only
 
     # 1. Prepare aggregated / unit-baked data
-    df = word_cloud_data(indf)
+    df = word_cloud_data(indf, frequency_field)
 
     # Safety checks
-    if df.empty or 'stream_name' not in df.columns or 'total_riverscape_length' not in df.columns:
+    if df.empty or 'stream_name' not in df.columns or frequency_field not in df.columns:
         # Fallback tiny dummy word cloud so the report doesn't break
         freq_dict = {"no_stream_names": 1.0}
         colour_lookup = {"no_stream_names": "#000000"}
     else:
-        # 2. Build frequency dict: { stream_name: total_riverscape_length }
-        #    total_riverscape_length is already aggregated & unit-baked.
+        # 2. Build frequency dict: { stream_name: {frequency_field} }
+        #    Assumes frequency field is already aggregated & unit-baked (we don't need units).
         freq_series = (
             df
-            .dropna(subset=['stream_name', 'total_riverscape_length'])
-            .set_index('stream_name')['total_riverscape_length']
+            .dropna(subset=['stream_name', frequency_field])
+            .set_index('stream_name')[frequency_field]
         )
 
         # Convert to plain dict with float values
@@ -59,6 +59,8 @@ def word_cloud(indf: pd.DataFrame, output_dir: Path):
 
         if not freq_dict:
             freq_dict = {"no_stream_names": 1.0}
+
+        print(freq_dict)  # debug only
 
         # 2b. Build colour lookup dict: { stream_name: stream_order_colour }
         if 'stream_order_colour' in df.columns:
@@ -97,7 +99,7 @@ def word_cloud(indf: pd.DataFrame, output_dir: Path):
         wc = wc.recolor(color_func=colour_func)
 
         # 4. Save to disk
-        outputfilename = f"stream_names_scale{scale}.png"
+        outputfilename = f"stream_names_{frequency_field}_scale{scale}.png"
 
         # PNG output
         wc.to_file(output_dir / outputfilename)
