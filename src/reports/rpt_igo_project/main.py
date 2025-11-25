@@ -59,7 +59,7 @@ def generate_report(project_dir: str, local_csv_path: str):
         f.write(readme_contents)
 
 
-def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir: Path, project_name, log_path: Path):
+def get_and_process_aoi(path_to_shape: Path, s3_bucket, spatialite_path, project_dir: Path, project_name: str, log_path: Path):
     """ Get and process AOI orchestrator
 
     Args:
@@ -88,6 +88,7 @@ def get_and_process_aoi(path_to_shape, s3_bucket, spatialite_path, project_dir: 
                                            source_table='raw_rme_pq2',
                                            bbox_field='dgo_geom_bbox'
                                            )
+
     if not isinstance(path_to_results, str):
         log.error('Did not get result from run_aoi_athena_query that we were expecting')
         raise ValueError("No valid S3 path returned from Athena query; cannot download file.")
@@ -111,7 +112,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('spatialite_path', help='Path to the mod_spatialite library', type=str)
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
-    parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
+    parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=Path)
     parser.add_argument('project_name', help='name for the new project')
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
