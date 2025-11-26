@@ -402,7 +402,24 @@ def make_map_with_aoi(gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame,
     for col in plot_gdf.columns:
         if hasattr(plot_gdf[col], "pint"):
             plot_gdf[col] = plot_gdf[col].pint.magnitude
+
+    # Fallback thresholds
+    MAX_POLYGONS = 5000
+    MAX_GEOJSON_SIZE = 4_000_000  # 4 MB
+
+    # Check number of polygons
+    num_polygons = len(plot_gdf)
+    if num_polygons > MAX_POLYGONS:
+        log.warning(f"Too many polygons ({num_polygons} exceeds {MAX_POLYGONS}); falling back to AOI outline map.")
+        return make_aoi_outline_map(aoi_gdf)
+    # Check GeoJSON size
+
     geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
+    geojson_bytes = len(json.dumps(geojson).encode("utf-8"))
+
+    if geojson_bytes > MAX_GEOJSON_SIZE:
+        log.warning(f"GeoJSON too large ({geojson_bytes} bytes exceeds {MAX_GEOJSON_SIZE}); falling back to AOI outline map.")
+        return make_aoi_outline_map(aoi_gdf)
 
     # Calculate zoom and center
     zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")

@@ -114,7 +114,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
             shutil.copyfile(existing_csv_path, csv_data_path)
         data_df = pd.read_csv(csv_data_path)
     else:
-        # use shape to query athena
+        # use shape to query Athena
         query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
         if not simplification_results.success:
             raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
@@ -162,7 +162,7 @@ def main():
     log = Logger('Setup')
     log_path = output_path / 'report.log'
     log.setup(log_path=log_path, log_level=logging.DEBUG)
-    log.title('rs-rpt-riverscapes-inventory')
+    log.title('rs-rpt-stream-names')
     log.info(f"Output path: {output_path}")
     log.info(f"AOI shape: {args.path_to_shape}")
     log.info(f"Report name: {args.report_name}")

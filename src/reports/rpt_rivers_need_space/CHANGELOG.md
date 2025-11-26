@@ -4,6 +4,10 @@
 
 Internal use only
 
+### 0.2.0 2025-11-26
+
+* better handling of large/complex input areas of interest
+
 ### 0.1.1 In progress 2025 Oct 09
 
 Changes:

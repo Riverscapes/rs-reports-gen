@@ -685,15 +685,11 @@ class RSFieldMeta:
         df_baked, _ = self.apply_units(df)
         # Now get the headers
         headers = self.get_headers(df, include_units=header_units)
-        # Now we have a dataframe with unit objects where appropriate
 
-        # A little function to return the magnitudes if it's a Pint object
-        def _to_magnitude(val):
-            return val.magnitude if hasattr(val, 'magnitude') else val
-
-        # Now we need to convert any Pint objects to their magnitudes
+        # Vectorized conversion for pint columns (robust check)
         for column in list(df_baked.columns):
-            df_baked[column] = df_baked[column].apply(_to_magnitude)
+            if isinstance(df_baked[column].dtype, pint_pandas.PintType):
+                df_baked[column] = df_baked[column].pint.magnitude
 
         self._log.debug('Baked units into dataframe using meta info')
 
