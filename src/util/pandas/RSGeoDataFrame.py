@@ -63,15 +63,24 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         return RSGeoDataFrame(df_copy, footer=footer)
 
     def export_excel(self, output_path: str):
-        """ Export the GeoDataFrame to an Excel file with metadata.
+        """ Export the GeoDataFrame to an Excel file with metadata, omitting geometry columns.
 
         Args:
             output_path (str): The path to save the Excel file.
+        extra debugs added as this seems to be taking long time
+        todo: optimize and remove them
         """
         self.log.info(f"Exporting data to Excel at {output_path}")
 
         baked_gdf, baked_headers = self._meta_df.bake_units(self)
         baked_gdf.columns = baked_headers
+        self.log.debug("Baked GDF prepared")
+
+        # Drop geometry columns (GeoPandas convention: any column with geometry dtype)
+        geometry_cols = [col for col in baked_gdf.columns if baked_gdf[col].dtype.name == "geometry"]
+        if geometry_cols:
+            self.log.info(f"Dropping geometry columns for Excel export: {geometry_cols}")
+            baked_gdf = baked_gdf.drop(columns=geometry_cols)
 
         # Now add the footer columns if there are any
         if not self._footer.empty:
@@ -85,8 +94,10 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             baked_gdf = pd.concat([baked_gdf, footer], ignore_index=True)
 
         # excel version
+        # TODO: if we expect to write large files and want to improve performance,
+        # try using enginge="xlsxwriter" instead of the default. Adds another dependency but should be faster
         with pd.ExcelWriter(output_path) as writer:
-            baked_gdf.to_excel(writer, sheet_name="data")
+            baked_gdf.to_excel(writer, sheet_name="data", index=False)
             self._meta_df.field_meta.to_excel(writer, sheet_name="metadata")
         self.log.info(f"Excel export complete. See it here: {output_path}")
 

@@ -1,5 +1,9 @@
 # Riverscapes Inventory Report Changes
 
+## Version 0.2.0
+
+* [ ] better handling for large/complex inputs
+
 ## Version 0.1.1
 
 Started 2025-10-15
