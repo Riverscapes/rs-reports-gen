@@ -264,6 +264,36 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
     log.info("Table population complete.")
 
 
+def _list_unload_payload_files(root: Path) -> list[Path]:
+    """Return local data files for an Athena UNLOAD output, honoring manifest.json when present."""
+
+    manifest_path = root / 'manifest.json'
+    data_files: list[Path] = []
+
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+            entries = manifest.get('files') or manifest.get('entries') or manifest.get('objects') or []
+            for entry in entries:
+                candidate = entry.get('filename') or entry.get('file') or entry.get('path') or entry.get('location')
+                if not candidate:
+                    continue
+                candidate_name = Path(candidate).name
+                local_path = root / candidate_name
+                if local_path.exists():
+                    data_files.append(local_path)
+        except json.JSONDecodeError:
+            Logger('Populate Tables (Parquet)').warning('manifest.json is not valid JSON; falling back to file globbing')
+
+    if not data_files:
+        data_files = [
+            p for p in sorted(root.iterdir())
+            if p.is_file() and not p.name.startswith('_') and p.suffix.lower() != '.json'
+        ]
+
+    return data_files
+
+
 def populate_tables_from_parquet(
     parquet_path: str | Path,
     conn: apsw.Connection,
@@ -282,10 +312,10 @@ def populate_tables_from_parquet(
 
     log = Logger('Populate Tables (Parquet)')
     parquet_path = Path(parquet_path)
-    if parquet_path.is_file() and parquet_path.suffix.lower() == '.parquet':
+    if parquet_path.is_file():
         parquet_files = [parquet_path]
     else:
-        parquet_files = sorted(parquet_path.glob('*.parquet'))
+        parquet_files = _list_unload_payload_files(parquet_path)
 
     if not parquet_files:
         raise FileNotFoundError(f"No Parquet files found in {parquet_path}")
