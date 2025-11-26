@@ -4,6 +4,10 @@
 
 Internal use only
 
+### 0.2.0 2025-11-25
+
+* downloading parquet not csv and using the raw_rme metadata from athena
+
 ### 0.1.3 2025-11-18
 
 * Add input AOI to project - GH issue #101
