@@ -447,7 +447,7 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
     return datasets
 
 
-def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log_path: str, bounds_gdf: gpd.GeoDataFrame):
+def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, log_path: Path, bounds_gdf: gpd.GeoDataFrame):
     """
     Create a Riverscapes project of type IGOS
     Modelled after scrape_rme2.py in data-exchange-scripts
@@ -456,22 +456,23 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
 
     # Build the bounds for the new RME scrape project using the AOI that was used to select the dgos to begin with
     bounds, centroid, bounding_rect = get_bounds_from_gdf(bounds_gdf)
-    project_dir_path = Path(project_dir)
-    gpkg_path_obj = Path(gpkg_path)
-    log_path_obj = Path(log_path)
+    # we should be getting Path objects from caller but just in case
+    project_dir = Path(project_dir)
+    gpkg_path = Path(gpkg_path)
+    log_path = Path(log_path)
 
     # export the original AOI as a geopackage layer so it can be displayed in the project
-    aoi_path = project_dir_path / 'aoi.gpkg'
+    aoi_path = project_dir / 'aoi.gpkg'
     bounds_gdf.to_file(aoi_path, driver='GPKG', layer='AOI', use_arrow=True)
     log.debug(f"Wrote AOI to {aoi_path} for inclusion in project")
 
-    def _relative_posix_strict(target: Path, start: Path = project_dir_path) -> str:
+    def _relative_posix_strict(target: Path, start: Path = project_dir) -> str:
         """return path relative to project dir as posix-style string, for writing to project.rs.xml
         target must be contained with start or raises ValueError"""
         rel_path = target.relative_to(start)
         return rel_path.as_posix()
 
-    output_bounds_path = project_dir_path / 'project_bounds.geojson'
+    output_bounds_path = project_dir / 'project_bounds.geojson'
     with output_bounds_path.open("w", encoding='utf8') as f:
         json.dump(bounds, f, indent=2)
     print(f"centroid = {centroid}")
@@ -500,8 +501,8 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
                 Geopackage(
                     name='Riverscapes Metrics',
                     xml_id='RME',
-                    path=_relative_posix_strict(gpkg_path_obj),
-                    layers=get_datasets(str(gpkg_path_obj))
+                    path=_relative_posix_strict(gpkg_path),
+                    layers=get_datasets(str(gpkg_path))
                 ),
                 Geopackage(
                     name="Input Area of Interest",
@@ -515,7 +516,7 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
                     xml_id='LOG',
                     name='Log File',
                     description='Processing log file',
-                    path=_relative_posix_strict(log_path_obj),
+                    path=_relative_posix_strict(log_path),
                 ),
                 Log(
                     xml_id="source_projects",
@@ -526,7 +527,7 @@ def create_igos_project(project_dir: str, project_name: str, gpkg_path: str, log
             ]
         )]
     )
-    merged_project_xml = project_dir_path / 'project.rs.xml'
+    merged_project_xml = project_dir / 'project.rs.xml'
     rs_project.write(str(merged_project_xml))
     log.info(f'Project XML file written to {merged_project_xml}')
 
@@ -628,7 +629,7 @@ def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv:
     return str(gpkg_path)
 
 
-def create_gpkg_igos_from_parquet(project_dir: str, spatialite_path: str, parquet_path: str | Path) -> str:
+def create_gpkg_igos_from_parquet(project_dir: str, spatialite_path: str, parquet_path: str | Path) -> Path:
     """Parquet counterpart to ``create_gpkg_igos_from_csv``."""
 
     defs_path = Path(__file__).resolve().parent / 'rme_table_column_defs.csv'
@@ -644,7 +645,7 @@ def create_gpkg_igos_from_parquet(project_dir: str, spatialite_path: str, parque
     populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
     create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
-    return str(gpkg_path)
+    return gpkg_path
 
 
 def main():
