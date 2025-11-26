@@ -24,6 +24,8 @@ import tempfile
 from pathlib import Path
 import apsw
 import geopandas as gpd
+import pandas as pd
+import pyarrow.parquet as pq
 from rsxml import Logger, ProgressBar, dotenv
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
@@ -262,6 +264,98 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
     log.info("Table population complete.")
 
 
+def populate_tables_from_parquet(
+    parquet_path: str | Path,
+    conn: apsw.Connection,
+    table_schema_map: dict,
+    table_col_order: dict,
+    batch_size: int = 50_000,
+) -> None:
+    """Insert rows into tables from one or more Parquet files.
+
+    Args:
+        parquet_path: Directory containing Parquet files or a single Parquet file path.
+        conn: Open APSW connection.
+        table_schema_map / table_col_order: Outputs from ``parse_table_defs``.
+        batch_size: Row batch size when streaming Parquet content.
+    """
+
+    log = Logger('Populate Tables (Parquet)')
+    parquet_path = Path(parquet_path)
+    if parquet_path.is_file() and parquet_path.suffix.lower() == '.parquet':
+        parquet_files = [parquet_path]
+    else:
+        parquet_files = sorted(parquet_path.glob('*.parquet'))
+
+    if not parquet_files:
+        raise FileNotFoundError(f"No Parquet files found in {parquet_path}")
+
+    try:
+        total_rows = sum(max(pq.ParquetFile(p).metadata.num_rows, 0) for p in parquet_files)
+    except Exception as exc:  # pragma: no cover - metadata failures are rare
+        log.warning(f"Unable to inspect Parquet metadata for progress tracking: {exc}")
+        total_rows = 0
+
+    progress_total = total_rows if total_rows > 0 else 1
+    prog_bar = ProgressBar(progress_total, text='Transfer from parquet to database table')
+    curs = conn.cursor()
+    inserted_rows = 0
+
+    conn.execute('BEGIN')
+    try:
+        for parquet_file in parquet_files:
+            pq_file = pq.ParquetFile(parquet_file)
+            for batch in pq_file.iter_batches(batch_size=batch_size):
+                batch_df = batch.to_pandas()
+                for row in batch_df.to_dict(orient='records'):
+                    inserted_rows += 1
+                    for table, columns in table_schema_map.items():
+                        insert_cols: list[str] = []
+                        insert_values: list[object] = []
+                        for col in table_col_order[table]:
+                            coltype = columns[col]
+                            if col == 'dgoid':
+                                insert_cols.append(col)
+                                insert_values.append(inserted_rows)
+                            elif coltype in GEOMETRY_COL_TYPES:
+                                lon = row.get('longitude')
+                                lat = row.get('latitude')
+                                if lon is None or lat is None or pd.isna(lon) or pd.isna(lat):
+                                    raise ValueError(f"Missing longitude/latitude for row {inserted_rows}")
+                                insert_cols.append(col)
+                                insert_values.append(f"POINT({float(lon)} {float(lat)})")
+                            else:
+                                val = row.get(col)
+                                if pd.isna(val):
+                                    val = None
+                                if val is None:
+                                    raise ValueError(f"Missing required column '{col}' in row {inserted_rows}")
+                                insert_cols.append(col)
+                                insert_values.append(val)
+
+                        sql_placeholders = []
+                        for col in insert_cols:
+                            if columns[col] in GEOMETRY_COL_TYPES:
+                                sql_placeholders.append("AsGPB(GeomFromText(?, 4326))")
+                            else:
+                                sql_placeholders.append("?")
+                        sqlstatement = (
+                            f"INSERT INTO {table} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
+                        )
+                        curs.execute(sqlstatement, insert_values)
+                    prog_bar.update(inserted_rows)
+        conn.execute('COMMIT')
+        prog_bar.finish()
+        log.info(f"Inserted {inserted_rows} rows from Parquet.")
+    except Exception as exc:
+        conn.execute('ROLLBACK')
+        log.error(f"Error while loading Parquet data: {exc}")
+        raise
+    finally:
+        if inserted_rows == 0:
+            prog_bar.finish()
+
+
 def add_geopackage_tables(conn: apsw.Connection):
     """
     Create required GeoPackage spatial_ref_sys and metadata tables: gpkg_contents and gpkg_geometry_columns.
@@ -490,6 +584,25 @@ def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv:
 
     conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
     populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
+    create_indexes(conn, table_col_order)
+    create_views(conn, table_col_order)
+    return str(gpkg_path)
+
+
+def create_gpkg_igos_from_parquet(project_dir: str, spatialite_path: str, parquet_path: str | Path) -> str:
+    """Parquet counterpart to ``create_gpkg_igos_from_csv``."""
+
+    defs_path = Path(__file__).resolve().parent / 'rme_table_column_defs.csv'
+    table_schema_map, table_col_order, fk_tables = parse_table_defs(str(defs_path))
+
+    project_dir_path = Path(project_dir)
+    outputs_dir = project_dir_path / 'outputs'
+    safe_makedirs(str(outputs_dir))
+
+    gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
+
+    conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
+    populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
     create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
     return str(gpkg_path)

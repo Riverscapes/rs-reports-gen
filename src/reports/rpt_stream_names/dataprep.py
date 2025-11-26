@@ -1,7 +1,7 @@
 import pandas as pd
 import geopandas as gpd
 from rsxml import Logger
-from util.athena.athena import get_anydata_for_aoi
+from util.athena import aoi_query_to_dataframe
 
 
 def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
@@ -16,10 +16,10 @@ def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     querystr = """
 SELECT stream_name, round(sum(centerline_length),0) AS total_riverscape_length, max(stream_order) AS max_stream_order, count(distinct level_path) as level_path_count, round(sum(segment_area) / sum(centerline_length),1) as rs_area_per_length
 FROM raw_rme_pq2
-{prefilter_clause} AND {intersects_clause} AND (stream_name IS NOT NULL)
+WHERE {prefilter_condition} AND {intersects_condition} AND (stream_name IS NOT NULL)
 GROUP BY stream_name
 """
-    df = get_anydata_for_aoi(querystr, geom_field_clause, geom_bbox_field, aoi_gdf)
+    df = aoi_query_to_dataframe(querystr, geom_field_clause, geom_bbox_field, aoi_gdf)
     if df.empty:
         df = pd.DataFrame(
             columns=["stream_name", "total_riverscape_length", "max_stream_order", "level_path_count", "rs_area_per_length"],
