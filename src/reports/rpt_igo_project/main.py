@@ -41,12 +41,13 @@ def project_list_to_file(local_csv_path, output_path: str):
     df.to_csv(output_path, index=False)
 
 
-def generate_report(project_dir: str, local_csv_path: str):
-    """Make a readme file. Include links to metadata and list of projects as separate files"""
+def generate_report(project_dir: str, local_csv_path: str | None):
+    """Make a readme file plus metadata artifacts; project list is optional if already written."""
     # column_meta
     field_metadata_to_file(os.path.join(project_dir, 'column_metadata.csv'))
     # list of projects
-    project_list_to_file(local_csv_path, os.path.join(project_dir, 'source_projects.csv'))
+    if local_csv_path:
+        project_list_to_file(local_csv_path, os.path.join(project_dir, 'source_projects.csv'))
     # build readme
     src_dir = os.path.dirname(__file__)
     template_path = os.path.join(src_dir, 'templates', 'template_readme.md')
