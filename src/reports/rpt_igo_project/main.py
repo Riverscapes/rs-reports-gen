@@ -8,7 +8,6 @@ import logging
 import sys
 import traceback
 import shutil
-# import tempfile
 # Third party imports
 import pandas as pd
 import geopandas as gpd
@@ -17,11 +16,9 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 # Local imports
 from util import prepare_gdf_for_athena
-# from util.athena.athena import get_s3_file, S3_ATHENA_BUCKET
-from util.athena import aoi_query_to_local_parquet, run_aoi_athena_query
+from util.athena import aoi_query_to_local_parquet
 from util.rme.field_metadata import get_field_metadata
-# from util.html import RSReport
-from .athenacsv_to_rme import create_gpkg_igos_from_parquet, create_gpkg_igos_from_csv, create_igos_project, list_of_source_projects
+from .athenacsv_to_rme import create_gpkg_igos_from_parquet, create_igos_project, list_of_source_projects
 from .__version__ import __version__
 
 
