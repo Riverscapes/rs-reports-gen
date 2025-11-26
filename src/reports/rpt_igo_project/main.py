@@ -125,7 +125,6 @@ def get_and_process_aoi(
     if not keep_parquet and not used_override:
         try:
             if parquet_data_source.exists():
-                import shutil
                 shutil.rmtree(parquet_data_source)
                 log.info(f"Deleted Parquet staging folder {parquet_data_source}")
         except Exception as cleanup_err:
