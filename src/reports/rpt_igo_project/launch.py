@@ -14,6 +14,9 @@ def main():
 
         IGO_AOI_GEOJSON - path to the input geojson file for rpt-igo-project (optional)
         IGO_REPORT_NAME - name for the report (optional)
+        IGO_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
+        IGO_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
+
     """
     if not os.environ.get("DATA_ROOT"):
         raise RuntimeError("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n")
@@ -53,10 +56,50 @@ def main():
     else:
         report_name = geojson_file.split(os.path.sep)[-1].replace('.geojson', '').replace(' ', '_') + " - IGO Scrape"
 
+    parquet_path = os.environ.get("IGO_PARQUET_PATH")
+    if parquet_path and not os.path.exists(parquet_path):
+        raise RuntimeError(
+            f"\nIGO_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n"
+        )
+
+    else:
+        parquet_prompt = inquirer.prompt([
+            inquirer.Text(
+                'parquet_path',
+                message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
+                default="",
+            )
+        ])
+        if parquet_prompt:
+            parquet_path = parquet_prompt.get('parquet_path')
+            parquet_path = parquet_path.strip().strip('"').strip("'")
+
     # The final argument array we pass back
-    return [
+    args = [
         spatialite_path,
         os.path.join(data_root, "rpt-igo-project", report_name.replace(" ", "_")),
         geojson_file,
         report_name,
     ]
+
+    if parquet_path:
+        args.append("--use-parquet")
+        args.append(parquet_path)
+
+    keep_parquet_env = os.environ.get("IGO_KEEP_PARQUET")
+    if keep_parquet_env is not None:
+        keep_parquet = keep_parquet_env.lower() in {"1", "true", "yes"}
+    else:
+        keep_answer = inquirer.prompt([
+            inquirer.Confirm(
+                'keep_parquet',
+                message='Keep downloaded Parquet files after processing?',
+                default=False,
+            )
+        ])
+        keep_parquet = bool(keep_answer and keep_answer.get('keep_parquet'))
+
+    if keep_parquet:
+        args.append("--keep-parquet")
+
+    return args

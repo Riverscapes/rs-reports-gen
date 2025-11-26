@@ -22,6 +22,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 import apsw
 import geopandas as gpd
 import pandas as pd
@@ -265,30 +266,37 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
 
 
 def _list_unload_payload_files(root: Path) -> list[Path]:
-    """Return local data files for an Athena UNLOAD output, honoring manifest.json when present."""
+    """Return local data files for an Athena UNLOAD output, honoring CSV manifests."""
 
-    manifest_path = root / 'manifest.json'
+    manifest_candidates = sorted(root.glob('*manifest*.csv'))
     data_files: list[Path] = []
 
-    if manifest_path.exists():
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-            entries = manifest.get('files') or manifest.get('entries') or manifest.get('objects') or []
-            for entry in entries:
-                candidate = entry.get('filename') or entry.get('file') or entry.get('path') or entry.get('location')
+    for manifest_path in manifest_candidates:
+        with manifest_path.open(newline='', encoding='utf-8') as manifest_file:
+            reader = csv.reader(manifest_file)
+            for row in reader:
+                if not row:
+                    continue
+                candidate = row[0].strip()
                 if not candidate:
                     continue
-                candidate_name = Path(candidate).name
+                parsed = urlparse(candidate)
+                candidate_name = Path(parsed.path).name if parsed.scheme else Path(candidate).name
+                if not candidate_name:
+                    continue
                 local_path = root / candidate_name
                 if local_path.exists():
                     data_files.append(local_path)
-        except json.JSONDecodeError:
-            Logger('Populate Tables (Parquet)').warning('manifest.json is not valid JSON; falling back to file globbing')
+        if data_files:
+            break
 
     if not data_files:
         data_files = [
             p for p in sorted(root.iterdir())
-            if p.is_file() and not p.name.startswith('_') and p.suffix.lower() != '.json'
+            if (
+                p.is_file()
+                and 'manifest' not in p.stem.lower()
+            )
         ]
 
     return data_files
@@ -335,6 +343,7 @@ def populate_tables_from_parquet(
     try:
         for parquet_file in parquet_files:
             pq_file = pq.ParquetFile(parquet_file)
+            log.debug(f"Processing file {parquet_file}")
             for batch in pq_file.iter_batches(batch_size=batch_size):
                 batch_df = batch.to_pandas()
                 for row in batch_df.to_dict(orient='records'):
@@ -355,11 +364,11 @@ def populate_tables_from_parquet(
                                 insert_cols.append(col)
                                 insert_values.append(f"POINT({float(lon)} {float(lat)})")
                             else:
+                                if col not in row:
+                                    raise ValueError(f"Missing required column '{col}' in row {inserted_rows}")
                                 val = row.get(col)
                                 if pd.isna(val):
                                     val = None
-                                if val is None:
-                                    raise ValueError(f"Missing required column '{col}' in row {inserted_rows}")
                                 insert_cols.append(col)
                                 insert_values.append(val)
 

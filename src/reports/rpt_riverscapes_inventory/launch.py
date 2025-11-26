@@ -53,11 +53,10 @@ def main():
         geojson_filename = geojson_question['geojson']
         geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
 
-    if os.environ.get("RSI_CSV"):
-        if not os.path.exists(os.path.join(os.environ.get("RSI_CSV"))):
-            raise RuntimeError(
-                colored(f"\nThe RSI_CSV environment variable is set to '{os.environ.get('RSI_CSV')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-        csv_file = os.environ.get("RSI_CSV")
+    csv_file = os.environ.get("RSI_CSV")
+    if csv_file and not os.path.exists(csv_file):
+        raise RuntimeError(
+            colored(f"\nThe RSI_CSV environment variable is set to '{os.environ.get('RSI_CSV')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # No CSV file provided. Ask for an optional csv path
         csv_question = inquirer.prompt([
@@ -117,8 +116,8 @@ def main():
     ]
     if include_pdf:
         args.append("--include_pdf")
-    if csv_file.strip():
+    if csv_file:
         args.append("--csv")
-        args.append(csv_file.strip())
+        args.append(csv_file)
 
     return args
