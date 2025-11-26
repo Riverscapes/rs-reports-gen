@@ -7,6 +7,7 @@ import argparse
 import logging
 import sys
 import traceback
+import shutil
 # import tempfile
 # Third party imports
 import pandas as pd
@@ -59,7 +60,15 @@ def generate_report(project_dir: str, local_csv_path: str):
         f.write(readme_contents)
 
 
-def get_and_process_aoi(path_to_shape: Path, spatialite_path, project_dir: Path, project_name: str, log_path: Path):
+def get_and_process_aoi(
+    path_to_shape: Path,
+    spatialite_path,
+    project_dir: Path,
+    project_name: str,
+    log_path: Path,
+    parquet_override: Path | None = None,
+    keep_parquet: bool = False,
+):
     """ Get and process AOI orchestrator
 
     Args:
@@ -82,16 +91,24 @@ def get_and_process_aoi(path_to_shape: Path, spatialite_path, project_dir: Path,
         log.warning(
             f"Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.")
     fields_we_need = "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, confinement_ratio, constriction_ratio, confining_margins, constricting_margins, lf_evt, lf_bps, lf_agriculture_prop, lf_agriculture, lf_conifer_prop, lf_conifer, lf_conifer_hardwood_prop, lf_conifer_hardwood, lf_developed_prop, lf_developed, lf_exotic_herbaceous_prop, lf_exotic_herbaceous, lf_exotic_tree_shrub_prop, lf_exotic_tree_shrub, lf_grassland_prop, lf_grassland, lf_hardwood_prop, lf_hardwood, lf_riparian_prop, lf_riparian, lf_shrubland_prop, lf_shrubland, lf_sparsely_vegetated_prop, lf_sparsely_vegetated, lf_hist_conifer_prop, lf_hist_conifer, lf_hist_conifer_hardwood_prop, lf_hist_conifer_hardwood, lf_hist_grassland_prop, lf_hist_grassland, lf_hist_hardwood_prop, lf_hist_hardwood, lf_hist_hardwood_conifer_prop, lf_hist_hardwood_conifer, lf_hist_peatland_forest_prop, lf_hist_peatland_forest, lf_hist_peatland_nonforest_prop, lf_hist_peatland_nonforest, lf_hist_riparian_prop, lf_hist_riparian, lf_hist_savanna_prop, lf_hist_savanna, lf_hist_shrubland_prop, lf_hist_shrubland, lf_hist_sparsely_vegetated_prop, lf_hist_sparsely_vegetated, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, riparian_veg_departure, ag_conversion, develop, grass_shrub_conversion, conifer_encroachment, invasive_conversion, riparian_condition, qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
-    query_str = f"SELECT {fields_we_need} FROM raw_rme_pq2 WHERE {{prefilter_condition}} AND {{intersects_condition}}"""
-    # path_to_results = run_aoi_athena_query(query_gdf, s3_bucket,
-    #                                        fields_str=fields_we_need,
-    #                                        source_table='raw_rme_pq2',
-    #                                        bbox_field='dgo_geom_bbox'
-    #                                        )
+    query_str = f"SELECT {fields_we_need} FROM raw_rme_pq2 WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
-    parquet_data_folder = project_dir / "pq"
-    aoi_query_to_local_parquet(query_str, 'ST_GeomFromBinary(dgo_geom)',
-                               'dgo_geom_bbox', query_gdf, parquet_data_folder)
+    used_override = parquet_override is not None
+    if parquet_override:
+        parquet_data_source = Path(parquet_override)
+        if not parquet_data_source.exists():
+            raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
+        log.info(f"Using pre-existing Parquet data at {parquet_data_source}")
+    else:
+        parquet_data_source = project_dir / "pq"
+        log.info(f"Running AOI query and writing Parquet output to {parquet_data_source}")
+        aoi_query_to_local_parquet(
+            query_str,
+            'ST_GeomFromBinary(dgo_geom)',
+            'dgo_geom_bbox',
+            query_gdf,
+            parquet_data_source
+        )
     # if not isinstance(path_to_results, str):
     #     log.error('Did not get result from run_aoi_athena_query that we were expecting')
     #     raise ValueError("No valid S3 path returned from Athena query; cannot download file.")
@@ -100,10 +117,19 @@ def get_and_process_aoi(path_to_shape: Path, spatialite_path, project_dir: Path,
     #     local_csv_path = tmpfile.name
     # get_s3_file(path_to_results, local_csv_path)
     # log.info('Downloaded results csv from s3 successfully.')
-    gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_folder)
+    gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source)
     # gpkg_path = create_gpkg_igos_from_csv(project_dir, spatialite_path, local_csv_path)
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
-    generate_report(project_dir, local_csv_path)
+    generate_report(project_dir, None)
+
+    if not keep_parquet and not used_override:
+        try:
+            if parquet_data_source.exists():
+                import shutil
+                shutil.rmtree(parquet_data_source)
+                log.info(f"Deleted Parquet staging folder {parquet_data_source}")
+        except Exception as cleanup_err:
+            log.warning(f"Failed to delete Parquet folder {parquet_data_source}: {cleanup_err}")
 
     log.info(f'IGO project created successfully in {project_dir}.')
 
@@ -118,6 +144,18 @@ def main():
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=Path)
     parser.add_argument('project_name', help='name for the new project')
+    parser.add_argument(
+        '--use-parquet',
+        dest='parquet_path',
+        type=Path,
+        default=None,
+        help='Use an existing Parquet file or directory instead of running the Athena AOI query'
+    )
+    parser.add_argument(
+        '--keep-parquet',
+        action='store_true',
+        help='Keep the downloaded AOI Parquet files instead of deleting the pq folder'
+    )
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -133,7 +171,15 @@ def main():
     log.info(f"Version: {__version__}")
 
     try:
-        get_and_process_aoi(args.path_to_shape, args.spatialite_path, output_path, args.project_name, log_path)
+        get_and_process_aoi(
+            args.path_to_shape,
+            args.spatialite_path,
+            output_path,
+            args.project_name,
+            log_path,
+            parquet_override=args.parquet_path,
+            keep_parquet=args.keep_parquet,
+        )
         # print(path_to_results)
         print("done")
         sys.exit(0)
