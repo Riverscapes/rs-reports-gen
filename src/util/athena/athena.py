@@ -237,7 +237,6 @@ def aoi_query_to_local_parquet(
     log = Logger("AOI Query to Local PQ")
 
     fullquerystr = prepare_aoi_query(querystr, geometry_field_expression, geom_bbox_field, aoi_gdf)
-    log.debug(f"Constructed Query: {fullquerystr}")
 
     # 4. Execute the unload to local Parquet files
     query_to_local_parquet(fullquerystr, local_path)
