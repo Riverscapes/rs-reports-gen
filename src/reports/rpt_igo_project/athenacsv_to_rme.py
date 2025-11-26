@@ -190,6 +190,16 @@ def list_of_source_projects(local_csv_path: str) -> list[dict[str, str]]:
     return [{"project_id": x, "project_url": f'https://data.riverscapes.net/p/{x}'} for x in project_ids]
 
 
+def write_source_projects_csv(project_ids: set[str], output_path: Path) -> None:
+    """Persist deduplicated project IDs with matching portal URLs."""
+    rows = [
+        {"project_id": project_id, "project_url": f'https://data.riverscapes.net/p/{project_id}'}
+        for project_id in sorted(project_ids)
+    ]
+    df = pd.DataFrame(rows)
+    df.to_csv(output_path, index=False)
+
+
 def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_map: dict, table_col_order: dict) -> None:
     """
     Read the CSV and insert rows into the appropriate tables based on column mapping.
@@ -307,7 +317,7 @@ def populate_tables_from_parquet(
     table_schema_map: dict,
     table_col_order: dict,
     batch_size: int = 50_000,
-) -> None:
+) -> set[str]:
     """Insert rows into tables from one or more Parquet files.
 
     Args:
@@ -315,6 +325,8 @@ def populate_tables_from_parquet(
         conn: Open APSW connection.
         table_schema_map / table_col_order: Outputs from ``parse_table_defs``.
         batch_size: Row batch size when streaming Parquet content.
+    Returns:
+        Set of distinct ``rme_project_id`` values observed during ingestion.
     """
 
     log = Logger('Populate Tables (Parquet)')
@@ -337,6 +349,7 @@ def populate_tables_from_parquet(
     prog_bar = ProgressBar(progress_total, text='Transfer from parquet to database table')
     curs = conn.cursor()
     inserted_rows = 0
+    project_ids: set[str] = set()  # track unique source projects during ingestion
 
     conn.execute('BEGIN')
     try:
@@ -347,6 +360,9 @@ def populate_tables_from_parquet(
                 batch_df = batch.to_pandas()
                 for row in batch_df.to_dict(orient='records'):
                     inserted_rows += 1
+                    project_id = row.get('rme_project_id')
+                    if project_id is not None and not pd.isna(project_id):
+                        project_ids.add(str(project_id))
                     for table, columns in table_schema_map.items():
                         insert_cols: list[str] = []
                         insert_values: list[object] = []
@@ -384,7 +400,9 @@ def populate_tables_from_parquet(
                     prog_bar.update(inserted_rows)
         conn.execute('COMMIT')
         prog_bar.finish()
-        log.info(f"Inserted {inserted_rows} rows from Parquet.")
+        log.info(
+            f"Inserted {inserted_rows} rows from Parquet and tracked {len(project_ids)} distinct source projects."
+        )
     except Exception as exc:
         conn.execute('ROLLBACK')
         log.error(f"Error while loading Parquet data: {exc}")
@@ -392,6 +410,8 @@ def populate_tables_from_parquet(
     finally:
         if inserted_rows == 0:
             prog_bar.finish()
+
+    return project_ids
 
 
 def add_geopackage_tables(conn: apsw.Connection):
@@ -641,55 +661,8 @@ def create_gpkg_igos_from_parquet(project_dir: str, spatialite_path: str, parque
     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
 
     conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
-    populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
+    project_ids = populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
     create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
+    write_source_projects_csv(project_ids, project_dir_path / 'source_projects.csv')
     return gpkg_path
-
-
-def main():
-    """
-    Main entry point for the second part: parses arguments, downloads CSV. Normally just used for testing otherwise functions are called from main.py
-    Requirement rme_table_column_defs.csv in the same path as the python
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('spatialite_path', help='Path to the mod_spatialite library', type=str)
-    parser.add_argument('raw_rme_csv_path', help='full path to csv file containing the raw_rme extract (can be s3 URI e.g. s3://riverscapes-athena/adhoc/yct_sample4.csv)')
-    parser.add_argument('working_folder', help='top level folder for downloads and output', type=str)
-    # note rsxml.dotenv screws up s3 paths! we'll need to address that see issue #895 in RiverscapesXML repo - meanwhile we'll fix it
-    args = dotenv.parse_args_env(parser)
-    # instead, can use standard parser. However this doesn't handle {env:DATA_ROOT} the way rsxml does
-    # args = parser.parse_args()
-
-    # Set up some reasonable folders to store things
-    working_folder = args.working_folder
-    # download_folder = os.path.join(working_folder, 'downloads') # not used - i only download the csv and use temp
-    project_dir = os.path.join(working_folder, 'project')  # , 'outputs', 'riverscapes_metrics.gpkg')
-    safe_makedirs(project_dir)
-    project_name = os.path.basename(args.raw_rme_csv_path)
-
-    log = Logger('Setup')
-    log_path = os.path.join(project_dir, 'athenacsv-to-rme-scrape.log')
-    log.setup(log_path=log_path, log_level=logging.DEBUG)
-
-    # csv can be either a local path or an s3 path. parse and handle accordingly
-    # TODO (enhancement) - stream and process file without storing the tempfile
-    if args.raw_rme_csv_path.startswith('s3:'):
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile:
-            local_csv = tmpfile.name
-        get_s3_file(args.raw_rme_csv_path, local_csv)
-    else:
-        local_csv = args.raw_rme_csv_path
-
-    # 2 steps - make geopackage, then make riverscapes project
-    gpkg_path = create_gpkg_igos_from_csv(project_dir, args.spatialite_path, local_csv)
-    # TODO: if you don't have a bounds gdf, create one from gpkg_path
-    # bounds_gdf = pt_gpkg_to_poly_gdf(gpkg_path)
-    bounds_gdf = gpd.read_file("/mnt/c/nardata/work/rme_extraction/20250827-rkymtn/physio_rky_mtn_system_4326.geojson")
-    create_igos_project(project_dir, project_name, gpkg_path, log_path, bounds_gdf)
-
-    log.info('Process complete.')
-
-
-if __name__ == '__main__':
-    main()
