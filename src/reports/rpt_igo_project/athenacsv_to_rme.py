@@ -493,7 +493,7 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
 
     output_bounds_path = project_dir / 'project_bounds.geojson'
     with output_bounds_path.open("w", encoding='utf8') as f:
-        json.dump(bounds, f, indent=2)
+        json.dump(bounds, f)
     print(f"centroid = {centroid}")
 
     rs_project = Project(

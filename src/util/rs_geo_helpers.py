@@ -144,12 +144,12 @@ def get_bounds_from_gdf(
     """
     log = Logger('get bounds from gdf')
     union_geom = gdf.union_all()
-    MAX_GEOJSON_SIZE: int = 300_000
-    # check the size as a geojson is under 300 kb (docs says "well under 500 kb")
+    MAX_GEOJSON_SIZE: int = 200_000
+    # check the size as a geojson is under 200 kb rscli limit
 
     union_gdf = gpd.GeoDataFrame(geometry=[union_geom], crs=gdf.crs)
 
-    sized_gdf, metadata = simplify_gdf_to_size(union_gdf, MAX_GEOJSON_SIZE, target_format="geojson", max_attempts=5)
+    sized_gdf, metadata = simplify_gdf_to_size(union_gdf, MAX_GEOJSON_SIZE, target_format="geojson", max_attempts=6)
     if not metadata.success:
         log.warning('Bounds may be too big (complex) for Riverscapes Projects use.')
 
