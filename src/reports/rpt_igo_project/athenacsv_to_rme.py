@@ -251,10 +251,9 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
                     #     log.debug(sqlstatement)
                     #     log.debug(insert_values)
                     curs.execute(sqlstatement, insert_values)
-                # two ways of updating user
+
                 prog_bar.update(idx)
-                # if idx % 25000 == 0:
-                #     print(f"Inserted {idx} rows.")
+
             conn.execute('COMMIT')
             prog_bar.finish()
             log.info(f"Inserted {idx} rows.")
