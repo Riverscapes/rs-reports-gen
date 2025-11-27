@@ -1,4 +1,5 @@
 import os
+# import psutil  # for debugging
 import multiprocessing as mp
 
 import plotly.graph_objects as go
@@ -52,7 +53,7 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str,
     either interactive, or with path to static image created at out_dir
     either way returns html fragment
     """
-    log = Logger()
+    log = Logger('Export fig')
     if mode == "interactive":
         # Enable mode bar for interactivity (zoom, pan, etc.)
         return pio.to_html(
@@ -73,9 +74,14 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str,
             rel_path = img_filename
         # I've seen this transiently fail - probably network connection issue -
         try:
+            # process = psutil.Process(os.getpid())
+            # mem_mb = process.memory_info().rss / 1024 / 1024
+            # log.debug(f"Memory usage before image export: {mem_mb:.2f} MB")
             log.debug(f"Exporting figure to {img_path}")
             # ---- the only behavioral change: enforce timeout cross-platform ----
             write_image_with_timeout(fig, img_path, timeout_s=120)
+            # mem_mb_after = process.memory_info().rss / 1024 / 1024
+            # log.debug(f"Memory usage after image export: {mem_mb_after:.2f} MB")
             log.debug(" ...done")
         except KaleidoError as e:
             log.error(f"KaleidoError: {e}. May be due to network and we should add retrying ability...")

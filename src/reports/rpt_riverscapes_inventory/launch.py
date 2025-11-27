@@ -34,10 +34,7 @@ def main():
                 colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
         geojson_file = os.environ.get("RSI_AOI_GEOJSON")
     else:
-        # If it's not set we need to ask for it. We choose from a list of preset shapes in the example folder
         base_dir = os.path.dirname(__file__)
-
-        # Use inquirer to choose a geojson file in the  "{env:DATA_ROOT}/rpt-rivers-need-space/example" directory
         geojson_question = inquirer.prompt([
             inquirer.List(
                 'geojson',
@@ -47,9 +44,9 @@ def main():
                 ],
             ),
         ])
-        if geojson_question is None:
+        if not geojson_question or 'geojson' not in geojson_question:
             print("\nNo geojson file selected. Exiting.\n")
-            exit(0)
+            return
         geojson_filename = geojson_question['geojson']
         geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
 
@@ -58,7 +55,6 @@ def main():
         if unit_system not in ["SI", "imperial"]:
             raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
     else:
-        # Ask for unit system
         unit_system_question = inquirer.prompt([
             inquirer.List(
                 'unit_system',
@@ -70,6 +66,9 @@ def main():
                 default="SI"
             ),
         ])
+        if not unit_system_question or 'unit_system' not in unit_system_question:
+            print("\nNo unit system selected. Exiting.\n")
+            return
         unit_system = unit_system_question['unit_system']
 
     if os.environ.get("RSI_REPORT_NAME"):
@@ -88,6 +87,9 @@ def main():
                 default=False
             ),
         ])
+        if not include_pdf_question or 'include_pdf' not in include_pdf_question:
+            print("\nNo PDF option selected. Exiting.\n")
+            return None
         include_pdf = include_pdf_question['include_pdf']
 
     parquet_path = os.environ.get("RSI_PARQUET_PATH")
@@ -104,9 +106,11 @@ def main():
                 default="",
             )
         ])
-        if parquet_prompt:
-            parquet_path = parquet_prompt.get('parquet_path')
-            parquet_path = parquet_path.strip().strip('"').strip("'")
+        if not parquet_prompt or 'parquet_path' not in parquet_prompt:
+            print("\nNo Parquet path selected. Exiting.\n")
+            return
+        parquet_path = parquet_prompt.get('parquet_path')
+        parquet_path = parquet_path.strip().strip('"').strip("'")
 
     args = [
         os.path.join(data_root, "rpt-riverscapes-inventory", report_name.replace(" ", "_")),
@@ -136,7 +140,10 @@ def main():
                     default=False,
                 )
             ])
-            keep_parquet = bool(keep_answer and keep_answer.get('keep_parquet'))
+            if not keep_answer or 'keep_parquet' not in keep_answer:
+                print("\nNo keep_parquet option selected. Exiting.\n")
+                return
+            keep_parquet = bool(keep_answer.get('keep_parquet'))
 
     if keep_parquet:
         args.append("--keep-parquet")
