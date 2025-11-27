@@ -648,14 +648,13 @@ def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv:
     return str(gpkg_path)
 
 
-def create_gpkg_igos_from_parquet(project_dir: str, spatialite_path: str, parquet_path: str | Path) -> Path:
+def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: str | Path) -> Path:
     """Parquet counterpart to ``create_gpkg_igos_from_csv``."""
 
     defs_path = Path(__file__).resolve().parent / 'rme_table_column_defs.csv'
     table_schema_map, table_col_order, fk_tables = parse_table_defs(str(defs_path))
 
-    project_dir_path = Path(project_dir)
-    outputs_dir = project_dir_path / 'outputs'
+    outputs_dir = project_dir / 'outputs'
     safe_makedirs(str(outputs_dir))
 
     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
@@ -664,5 +663,5 @@ def create_gpkg_igos_from_parquet(project_dir: str, spatialite_path: str, parque
     project_ids = populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
     create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
-    write_source_projects_csv(project_ids, project_dir_path / 'source_projects.csv')
+    write_source_projects_csv(project_ids, project_dir / 'source_projects.csv')
     return gpkg_path

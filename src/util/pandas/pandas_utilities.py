@@ -23,3 +23,10 @@ def load_gdf_from_csv(csv_path) -> gpd.GeoDataFrame:
     gdf = gpd.GeoDataFrame(df, geometry='dgo_polygon_geom', crs='EPSG:4326')
     gdf = gdf.drop(columns=['dgo_geom_obj'])
     return gdf
+
+
+def load_gdf_from_pq(pq_path) -> gpd.GeoDataFrame:
+    log = Logger('load gdf from parquet')
+    log.debug(f'Reading from {pq_path}')
+    # call _list_unload_payload_files
+    raise NotImplementedError

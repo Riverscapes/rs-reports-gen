@@ -207,9 +207,24 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
                 If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.""")
 
         log.info("Querying Athena for data for AOI")
+        # old way
         get_data_for_aoi(None, query_gdf, csv_data_path)
+        # new way
+        parquet_data_source = report_dir / "pq"
+        fields_we_need = fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
+        query_str = f"SELECT {fields_we_need} FROM rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+        from util.athena import aoi_query_to_local_parquet
+        aoi_query_to_local_parquet(query_str,
+                                   geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
+                                   geom_bbox_field='dgo_geom_bin',
+                                   aoi_gdf=query_gdf,
+                                   local_path=parquet_data_source
+                                   )
 
+    # old way
     data_gdf = load_gdf_from_csv(csv_data_path)
+    # new way
+
     data_gdf = add_calculated_rme_cols(data_gdf)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
@@ -218,6 +233,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # print(huc_data_df)  # for DEBUG ONLY
 
     # Export the data to Excel
+    # dumping all the raw data is not appropriate especially for very large areas
     RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
 
     # make html report
