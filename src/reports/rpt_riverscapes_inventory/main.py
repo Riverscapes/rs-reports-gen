@@ -301,12 +301,11 @@ def main():
                                  args.unit_system,
                                  parquet_override=args.parquet_path,
                                  keep_parquet=args.keep_parquet,)
-        # # for checking locally
-        # import psutil
-        # process = psutil.Process(os.getpid())
-        # mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), 'peak_wset') else process.memory_info().rss / 1024 / 1024
-        # with open(output_path / "memory_usage.log", "w") as f:
-        #     f.write(f"Peak memory usage: {mem_mb:.2f} MB\n")
+        # for checking locally
+        import psutil
+        process = psutil.Process(os.getpid())
+        mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), 'peak_wset') else process.memory_info().rss / 1024 / 1024
+        log.info(f"Peak memory usage: {mem_mb:.2f} MB\n")
 
     except Exception as e:
         log.error(e)
