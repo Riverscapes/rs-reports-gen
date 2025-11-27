@@ -74,7 +74,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         self.log.info(f"Exporting data to Excel at {output_path}")
 
         if len(self) > EXCEL_ROW_LIMIT:
-            self.log.error(f"Export to Excel not intended to be used with extremely large datasets (over {EXCEL_ROW_LIMIT}). Skipping export.")
+            self.log.error(f"Dataframe has {len(self)} rows. Export to Excel not intended to be used with extremely large datasets (over {EXCEL_ROW_LIMIT}). Skipping export.")
             return
 
         # Drop geometry columns (GeoPandas convention: any column with geometry dtype) first
