@@ -72,6 +72,10 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         """
         self.log.info(f"Exporting data to Excel at {output_path}")
 
+        if len(self) > 1_000_000:
+            self.log.error("Export to Excel not intended to be used with datasets over 1M rows. Skipping export.")
+            return
+
         baked_gdf, baked_headers = self._meta_df.bake_units(self)
         baked_gdf.columns = baked_headers
         self.log.debug("Baked GDF prepared")
