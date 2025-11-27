@@ -76,15 +76,24 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             self.log.error("Export to Excel not intended to be used with datasets over 1M rows. Skipping export.")
             return
 
-        baked_gdf, baked_headers = self._meta_df.bake_units(self)
-        baked_gdf.columns = baked_headers
-        self.log.debug("Baked GDF prepared")
-
-        # Drop geometry columns (GeoPandas convention: any column with geometry dtype)
-        geometry_cols = [col for col in baked_gdf.columns if baked_gdf[col].dtype.name == "geometry"]
+        # Drop geometry columns (GeoPandas convention: any column with geometry dtype) first
+        geometry_cols = [col for col in self.columns if self[col].dtype.name == "geometry"]
         if geometry_cols:
             self.log.info(f"Dropping geometry columns for Excel export: {geometry_cols}")
-            baked_gdf = baked_gdf.drop(columns=geometry_cols)
+            df_no_geom = self.drop(columns=geometry_cols)
+        else:
+            df_no_geom = self
+
+        # Check if any columns have pint dtype (units already applied)
+        has_pint = any(isinstance(df_no_geom[col].dtype, pint_pandas.PintType) for col in df_no_geom.columns)
+        if has_pint:
+            baked_gdf = df_no_geom
+            baked_headers = baked_gdf.columns
+            self.log.debug("Units already applied; skipping bake_units.")
+        else:
+            baked_gdf, baked_headers = self._meta_df.bake_units(df_no_geom)
+            baked_gdf.columns = baked_headers
+            self.log.debug("Baked GDF prepared")
 
         # Now add the footer columns if there are any
         if not self._footer.empty:
