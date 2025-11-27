@@ -99,7 +99,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
 
         # excel version
         # TODO: if we expect to write large files and want to improve performance,
-        # try using enginge="xlsxwriter" instead of the default. Adds another dependency but should be faster
+        # try using engine="xlsxwriter" instead of the default. Adds another dependency but should be faster
         with pd.ExcelWriter(output_path) as writer:
             baked_gdf.to_excel(writer, sheet_name="data", index=False)
             self._meta_df.field_meta.to_excel(writer, sheet_name="metadata")
