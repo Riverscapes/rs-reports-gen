@@ -15,19 +15,15 @@ Foreign key constraints are defined but not enforced unless PRAGMA foreign_keys=
 """
 
 from datetime import datetime
-import argparse
 import csv
 import json
-import logging
 import os
-import tempfile
 from pathlib import Path
-from urllib.parse import urlparse
 import apsw
 import geopandas as gpd
 import pandas as pd
 import pyarrow.parquet as pq
-from rsxml import Logger, ProgressBar, dotenv
+from rsxml import Logger, ProgressBar
 from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
     Log,
@@ -41,11 +37,10 @@ from rsxml.project_xml import (
     Geopackage,
     GeopackageLayer,
     GeoPackageDatasetTypes,
-    Dataset
 )
 
 from util import est_rows_for_csv_file, get_bounds_from_gdf
-from util.athena.athena import get_s3_file
+from util.file_utils import list_unload_payload_files
 from .__version__ import __version__
 
 
@@ -274,43 +269,6 @@ def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_
     log.info("Table population complete.")
 
 
-def _list_unload_payload_files(root: Path) -> list[Path]:
-    """Return local data files for an Athena UNLOAD output, honoring CSV manifests."""
-
-    manifest_candidates = sorted(root.glob('*manifest*.csv'))
-    data_files: list[Path] = []
-
-    for manifest_path in manifest_candidates:
-        with manifest_path.open(newline='', encoding='utf-8') as manifest_file:
-            reader = csv.reader(manifest_file)
-            for row in reader:
-                if not row:
-                    continue
-                candidate = row[0].strip()
-                if not candidate:
-                    continue
-                parsed = urlparse(candidate)
-                candidate_name = Path(parsed.path).name if parsed.scheme else Path(candidate).name
-                if not candidate_name:
-                    continue
-                local_path = root / candidate_name
-                if local_path.exists():
-                    data_files.append(local_path)
-        if data_files:
-            break
-
-    if not data_files:
-        data_files = [
-            p for p in sorted(root.iterdir())
-            if (
-                p.is_file()
-                and 'manifest' not in p.stem.lower()
-            )
-        ]
-
-    return data_files
-
-
 def populate_tables_from_parquet(
     parquet_path: str | Path,
     conn: apsw.Connection,
@@ -334,7 +292,7 @@ def populate_tables_from_parquet(
     if parquet_path.is_file():
         parquet_files = [parquet_path]
     else:
-        parquet_files = _list_unload_payload_files(parquet_path)
+        parquet_files = list_unload_payload_files(parquet_path)
 
     if not parquet_files:
         raise FileNotFoundError(f"No Parquet files found in {parquet_path}")

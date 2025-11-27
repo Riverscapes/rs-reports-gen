@@ -1,8 +1,8 @@
 # Riverscapes Inventory Report Changes
 
-## Version 0.2.0
+## Version 0.2.1
 
-* [ ] better handling for large/complex inputs
+* [ ] Better handling for large/complex inputs. We no longer pull down or use DGO geometry
 
 ## Version 0.1.1
 

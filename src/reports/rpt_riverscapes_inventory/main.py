@@ -12,12 +12,13 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util import prepare_gdf_for_athena
-from util.pandas import load_gdf_from_csv
+from util.pandas import load_gdf_from_csv, load_gdf_from_pq
 from util.athena import get_data_for_aoi
 from util.rme.field_metadata import get_field_metadata
 from util.athena import athena_unload_to_dataframe
 from util.color import DEFAULT_FCODE_COLOR_MAP
 
+from util.athena import aoi_query_to_local_parquet
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
@@ -27,7 +28,7 @@ from util.figures import (
     bar_group_x_by_y,
     bar_total_x_by_ybins,
     horizontal_bar_chart,
-    make_map_with_aoi,
+    make_aoi_outline_map,
     make_rs_area_by_featcode,
     prop_ag_dev,
     dens_road_rail,
@@ -75,7 +76,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     log.info(f"Generating report in {report_dir}")
     _edges, _labels, land_use_intens_bins_colours = get_bins_info('land_use_intens')
     figures = {
-        "map": make_map_with_aoi(gdf, aoi_df, color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
+        "map": make_aoi_outline_map(aoi_df),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
@@ -208,23 +209,23 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
         log.info("Querying Athena for data for AOI")
         # old way
-        get_data_for_aoi(None, query_gdf, csv_data_path)
+        # get_data_for_aoi(None, query_gdf, csv_data_path)
         # new way
         parquet_data_source = report_dir / "pq"
-        fields_we_need = fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
+        fields_we_need = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
         query_str = f"SELECT {fields_we_need} FROM rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
-        from util.athena import aoi_query_to_local_parquet
+
         aoi_query_to_local_parquet(query_str,
                                    geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
-                                   geom_bbox_field='dgo_geom_bin',
+                                   geom_bbox_field='dgo_geom_bbox',
                                    aoi_gdf=query_gdf,
                                    local_path=parquet_data_source
                                    )
 
     # old way
-    data_gdf = load_gdf_from_csv(csv_data_path)
+    # data_gdf = load_gdf_from_csv(csv_data_path)
     # new way
-
+    data_gdf = load_gdf_from_pq(parquet_data_source)
     data_gdf = add_calculated_rme_cols(data_gdf)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
