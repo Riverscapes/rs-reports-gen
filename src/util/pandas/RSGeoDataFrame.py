@@ -8,6 +8,7 @@ import geopandas as gpd
 from util.pandas.RSFieldMeta import RSFieldMeta
 
 ureg = pint.get_application_registry()
+EXCEL_ROW_LIMIT = 65_000  # although modern Excel can handle 1048576, for performance let's stick to old limit (65,536)
 
 
 class RSGeoDataFrame(gpd.GeoDataFrame):
@@ -72,8 +73,8 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         """
         self.log.info(f"Exporting data to Excel at {output_path}")
 
-        if len(self) > 1_000_000:
-            self.log.error("Export to Excel not intended to be used with datasets over 1M rows. Skipping export.")
+        if len(self) > EXCEL_ROW_LIMIT:
+            self.log.error(f"Export to Excel not intended to be used with extremely large datasets (over {EXCEL_ROW_LIMIT}). Skipping export.")
             return
 
         # Drop geometry columns (GeoPandas convention: any column with geometry dtype) first

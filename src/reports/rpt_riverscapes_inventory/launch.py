@@ -18,8 +18,8 @@ def main():
         Report-specific variables:
             RSI_AOI_GEOJSON - path to the input geojson file for rpt-rivers-need-space (optional)
             RSI_REPORT_NAME - name for the report (optional)
-            RSI_CSV - optional path to a CSV file to use instead of querying Athena (optional)
-
+            RSI_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
+            RSI_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
 
     """
 
@@ -52,24 +52,6 @@ def main():
             exit(0)
         geojson_filename = geojson_question['geojson']
         geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
-
-    csv_file = os.environ.get("RSI_CSV")
-    if csv_file and not os.path.exists(csv_file):
-        raise RuntimeError(
-            colored(f"\nThe RSI_CSV environment variable is set to '{os.environ.get('RSI_CSV')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        # No CSV file provided. Ask for an optional csv path
-        csv_question = inquirer.prompt([
-            inquirer.Text(
-                'csv',
-                message="Optional: Enter a path to a CSV file to use for results (leave blank to query Athena)",
-                default="",
-            ),
-        ])
-        csv_file = csv_question['csv']
-        # Strip leading/trailing quotes if present
-        if csv_file:
-            csv_file = csv_file.strip().strip('"').strip("'")
 
     if os.environ.get("UNIT_SYSTEM"):
         unit_system = os.environ.get("UNIT_SYSTEM")
@@ -108,6 +90,24 @@ def main():
         ])
         include_pdf = include_pdf_question['include_pdf']
 
+    parquet_path = os.environ.get("RSI_PARQUET_PATH")
+    if parquet_path and not os.path.exists(parquet_path):
+        raise RuntimeError(
+            f"\nRSI_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n"
+        )
+
+    else:
+        parquet_prompt = inquirer.prompt([
+            inquirer.Text(
+                'parquet_path',
+                message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
+                default="",
+            )
+        ])
+        if parquet_prompt:
+            parquet_path = parquet_prompt.get('parquet_path')
+            parquet_path = parquet_path.strip().strip('"').strip("'")
+
     args = [
         os.path.join(data_root, "rpt-riverscapes-inventory", report_name.replace(" ", "_")),
         geojson_file,
@@ -116,8 +116,29 @@ def main():
     ]
     if include_pdf:
         args.append("--include_pdf")
-    if csv_file:
-        args.append("--csv")
-        args.append(csv_file)
+
+    if parquet_path:
+        args.append("--use-parquet")
+        args.append(parquet_path)
+
+    keep_parquet_env = os.environ.get("RSI_KEEP_PARQUET")
+    if keep_parquet_env is not None:
+        keep_parquet = keep_parquet_env.lower() in {"1", "true", "yes"}
+    else:
+        # if we were supplied Parquet let's assume we want to keep it
+        if parquet_path:
+            keep_parquet = True
+        else:
+            keep_answer = inquirer.prompt([
+                inquirer.Confirm(
+                    'keep_parquet',
+                    message='Keep downloaded Parquet files after processing?',
+                    default=False,
+                )
+            ])
+            keep_parquet = bool(keep_answer and keep_answer.get('keep_parquet'))
+
+    if keep_parquet:
+        args.append("--keep-parquet")
 
     return args
