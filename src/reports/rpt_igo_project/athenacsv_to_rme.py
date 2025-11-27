@@ -40,7 +40,7 @@ from rsxml.project_xml import (
 )
 
 from util import est_rows_for_csv_file, get_bounds_from_gdf
-from util.file_utils import list_unload_payload_files
+from util.athena.athena_unload_utils import list_athena_unload_payload_files
 from .__version__ import __version__
 
 
@@ -292,7 +292,7 @@ def populate_tables_from_parquet(
     if parquet_path.is_file():
         parquet_files = [parquet_path]
     else:
-        parquet_files = list_unload_payload_files(parquet_path)
+        parquet_files = list_athena_unload_payload_files(parquet_path)
 
     if not parquet_files:
         raise FileNotFoundError(f"No Parquet files found in {parquet_path}")
