@@ -70,33 +70,37 @@ def get_and_process_aoi(
     """ Get and process AOI orchestrator
 
     Args:
-        path_to_shape (str): Path to the AOI shapefile.
-        s3_bucket (str): Name of the S3 bucket.
+        path_to_shape (Path): Path to the AOI shapefile.
         spatialite_path (str): Path to the mod_spatialite library.
         project_dir (Path): Directory for the project.
         project_name (str): Name of the project. 
         log_path (str): Path to the log file.
+        parquet_override (Path or None): for running multiple times in developement/test can supply path to previously downloaded data and skip athena query
+        keep_parquet (bool, default False): keep parquet files, e.g. for debugging purposes
 
     Raises:
         ValueError: If no valid S3 path is returned from Athena query.
     """
     log = Logger('Get and Process AOI orchestrator')
-    aoi_gdf = gpd.read_file(path_to_shape)
-    query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
-    if not simplification_results.success:
-        raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
-    if simplification_results.simplified:
-        log.warning(
-            f"Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.")
+    log.info("Report orchestration begun")
 
-    used_override = parquet_override is not None
+    aoi_gdf = gpd.read_file(path_to_shape)
+
     if parquet_override:
         parquet_data_source = Path(parquet_override)
         if not parquet_data_source.exists():
             raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
-        log.info(f"Using pre-existing Parquet data at {parquet_data_source}")
+        log.info(f"Using supplied Parquet data files at {parquet_data_source}")
     else:
         parquet_data_source = project_dir / "pq"
+        # use shape to query Athena
+        query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
+        if not simplification_results.success:
+            raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
+        if simplification_results.simplified:
+            log.warning(
+                f"Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.")
+
         log.info(f"Running AOI query and writing Parquet output to {parquet_data_source}")
         fields_we_need = "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, confinement_ratio, constriction_ratio, confining_margins, constricting_margins, lf_evt, lf_bps, lf_agriculture_prop, lf_agriculture, lf_conifer_prop, lf_conifer, lf_conifer_hardwood_prop, lf_conifer_hardwood, lf_developed_prop, lf_developed, lf_exotic_herbaceous_prop, lf_exotic_herbaceous, lf_exotic_tree_shrub_prop, lf_exotic_tree_shrub, lf_grassland_prop, lf_grassland, lf_hardwood_prop, lf_hardwood, lf_riparian_prop, lf_riparian, lf_shrubland_prop, lf_shrubland, lf_sparsely_vegetated_prop, lf_sparsely_vegetated, lf_hist_conifer_prop, lf_hist_conifer, lf_hist_conifer_hardwood_prop, lf_hist_conifer_hardwood, lf_hist_grassland_prop, lf_hist_grassland, lf_hist_hardwood_prop, lf_hist_hardwood, lf_hist_hardwood_conifer_prop, lf_hist_hardwood_conifer, lf_hist_peatland_forest_prop, lf_hist_peatland_forest, lf_hist_peatland_nonforest_prop, lf_hist_peatland_nonforest, lf_hist_riparian_prop, lf_hist_riparian, lf_hist_savanna_prop, lf_hist_savanna, lf_hist_shrubland_prop, lf_hist_shrubland, lf_hist_sparsely_vegetated_prop, lf_hist_sparsely_vegetated, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, riparian_veg_departure, ag_conversion, develop, grass_shrub_conversion, conifer_encroachment, invasive_conversion, riparian_condition, qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
         query_str = f"SELECT {fields_we_need} FROM raw_rme_pq2 WHERE {{prefilter_condition}} AND {{intersects_condition}}"
@@ -108,20 +112,12 @@ def get_and_process_aoi(
             query_gdf,
             parquet_data_source
         )
-    # if not isinstance(path_to_results, str):
-    #     log.error('Did not get result from run_aoi_athena_query that we were expecting')
-    #     raise ValueError("No valid S3 path returned from Athena query; cannot download file.")
-    # log.info('Athena query to extract data for AOI completed successfully.')
-    # with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmpfile:
-    #     local_csv_path = tmpfile.name
-    # get_s3_file(path_to_results, local_csv_path)
-    # log.info('Downloaded results csv from s3 successfully.')
+
     gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source)
-    # gpkg_path = create_gpkg_igos_from_csv(project_dir, spatialite_path, local_csv_path)
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
     generate_report(project_dir, None)
 
-    if not keep_parquet and not used_override:
+    if not keep_parquet:
         try:
             if parquet_data_source.exists():
                 shutil.rmtree(parquet_data_source)

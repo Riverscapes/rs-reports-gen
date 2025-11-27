@@ -12,8 +12,7 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util import prepare_gdf_for_athena
-from util.pandas import load_gdf_from_csv, load_gdf_from_pq
-from util.athena import get_data_for_aoi
+from util.pandas import load_gdf_from_pq
 from util.rme.field_metadata import get_field_metadata
 from util.athena import athena_unload_to_dataframe
 from util.color import DEFAULT_FCODE_COLOR_MAP
@@ -169,8 +168,10 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
 
 
 def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: str,
-                             existing_csv_path: Path | None = None,
-                             include_pdf: bool = True, unit_system: str = "SI"):
+                             include_pdf: bool = True, unit_system: str = "SI",
+                             parquet_override: Path | None = None,
+                             keep_parquet: bool = False,
+                             ):
     """ Orchestrates the report generation process:
 
     Args:
@@ -180,6 +181,9 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
         existing_csv_path (Path | None, optional): Path to an existing CSV file to use instead of querying Athena. Defaults to None.
         include_pdf (bool, optional): Whether to generate a PDF version of the report. Defaults to True.
         unit_system (str, optional): The unit system to use ("SI" or "imperial"). Defaults to "SI".
+        parquet_override (Path or None): for running multiple times in developement/test can supply path to previously downloaded data and skip athena query
+        keep_parquet (bool, default False): keep parquet files, e.g. for debugging purposes
+
     """
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
@@ -187,17 +191,17 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # This is where all the initialization happens for fields and units
     define_fields(unit_system)  # ensure fields are defined
 
-    # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
     # make place for the data to go (as csv)
     safe_makedirs(str(report_dir / 'data'))
-    csv_data_path = report_dir / 'data' / 'data.csv'
 
-    if existing_csv_path:
-        log.info(f"Using supplied csv file at {csv_data_path}")
-        if existing_csv_path != csv_data_path:
-            shutil.copyfile(existing_csv_path, csv_data_path)
+    if parquet_override:
+        parquet_data_source = Path(parquet_override)
+        if not parquet_data_source.exists():
+            raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
+        log.info(f"Using supplied Parquet data files at {parquet_override}")
     else:
+        parquet_data_source = report_dir / "pq"
         # use shape to query Athena
         query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
         if not simplification_results.success:
@@ -208,23 +212,18 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
                 If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.""")
 
         log.info("Querying Athena for data for AOI")
-        # old way
-        # get_data_for_aoi(None, query_gdf, csv_data_path)
-        # new way
-        parquet_data_source = report_dir / "pq"
+
         fields_we_need = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
         query_str = f"SELECT {fields_we_need} FROM rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
-        aoi_query_to_local_parquet(query_str,
-                                   geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
-                                   geom_bbox_field='dgo_geom_bbox',
-                                   aoi_gdf=query_gdf,
-                                   local_path=parquet_data_source
-                                   )
+        aoi_query_to_local_parquet(
+            query_str,
+            geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
+            geom_bbox_field='dgo_geom_bbox',
+            aoi_gdf=query_gdf,
+            local_path=parquet_data_source
+        )
 
-    # old way
-    # data_gdf = load_gdf_from_csv(csv_data_path)
-    # new way
     data_gdf = load_gdf_from_pq(parquet_data_source)
     data_gdf = add_calculated_rme_cols(data_gdf)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
@@ -243,6 +242,15 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
                 include_static=include_pdf,
                 include_pdf=include_pdf
                 )
+
+    if not keep_parquet:
+        try:
+            if parquet_data_source.exists():
+                shutil.rmtree(parquet_data_source)
+                log.info(f"Deleted Parquet staging folder {parquet_data_source}")
+        except Exception as cleanup_err:
+            log.warning(f"Failed to delete Parquet folder {parquet_data_source}: {cleanup_err}")
+
     log.info(f"Report Path: {report_dir}")
 
 
@@ -255,7 +263,18 @@ def main():
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
-    parser.add_argument('--csv', help='Path to a local CSV of AOI data to use instead of querying Athena', type=str, default=None)
+    parser.add_argument(
+        '--use-parquet',
+        dest='parquet_path',
+        type=Path,
+        default=None,
+        help='Use an existing Parquet file or directory instead of running the Athena AOI query'
+    )
+    parser.add_argument(
+        '--keep-parquet',
+        action='store_true',
+        help='Keep the downloaded AOI Parquet files instead of deleting the pq folder'
+    )
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -273,20 +292,21 @@ def main():
     log.info(f"AOI shape: {args.path_to_shape}")
     log.info(f"Report name: {args.report_name}")
     log.info(f"Report Version: {report_version}")
-    if args.csv:
-        csv_path = Path(args.csv)
-        log.info(f"Using existing CSV: {csv_path}")
-    else:
-        log.info("No existing CSV provided, will query Athena")
-        csv_path = None
 
     try:
         make_report_orchestrator(args.report_name,
                                  output_path,
                                  args.path_to_shape,
-                                 csv_path,
                                  args.include_pdf,
-                                 args.unit_system)
+                                 args.unit_system,
+                                 parquet_override=args.parquet_path,
+                                 keep_parquet=args.keep_parquet,)
+        # # for checking locally
+        # import psutil
+        # process = psutil.Process(os.getpid())
+        # mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), 'peak_wset') else process.memory_info().rss / 1024 / 1024
+        # with open(output_path / "memory_usage.log", "w") as f:
+        #     f.write(f"Peak memory usage: {mem_mb:.2f} MB\n")
 
     except Exception as e:
         log.error(e)

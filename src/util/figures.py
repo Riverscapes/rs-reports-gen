@@ -239,7 +239,7 @@ def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], wit
     fields = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     # Pint-enabled DataFrame for calculation
-    df = RSGeoDataFrame(chart_subset_df.groupby(group_by_cols, as_index=False)[total_col].sum())
+    df = RSGeoDataFrame(chart_subset_df.groupby(group_by_cols, as_index=False, observed=False)[total_col].sum())
     if with_percent:
 
         # add the grand_total metadata
