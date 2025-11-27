@@ -5,7 +5,7 @@ from shapely import wkt, wkb
 from rsxml import Logger
 import pint
 import pyarrow.parquet as pq
-from util.file_utils import list_unload_payload_files
+from util.athena.athena_unload_utils import list_athena_unload_payload_files
 ureg = pint.UnitRegistry()
 
 
@@ -48,7 +48,7 @@ def load_gdf_from_pq(
     if pq_path.is_file():
         parquet_files = [pq_path]
     else:
-        parquet_files = list_unload_payload_files(pq_path)
+        parquet_files = list_athena_unload_payload_files(pq_path)
     if not parquet_files:
         raise FileNotFoundError(f"No Parquet files found in {pq_path}")
     dfs = [pq.ParquetFile(p).read().to_pandas() for p in parquet_files]
