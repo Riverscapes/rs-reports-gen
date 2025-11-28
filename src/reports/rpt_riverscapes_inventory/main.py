@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import shutil
 import traceback
+import psutil  # for checking locally
 import pandas as pd
 import geopandas as gpd
 from rsxml import Logger, dotenv
@@ -301,8 +302,8 @@ def main():
                                  args.unit_system,
                                  parquet_override=args.parquet_path,
                                  keep_parquet=args.keep_parquet,)
-        # for checking locally
-        import psutil
+
+        # While we work on performance, this is helpful
         process = psutil.Process(os.getpid())
         mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), 'peak_wset') else process.memory_info().rss / 1024 / 1024
         log.info(f"Peak memory usage: {mem_mb:.2f} MB\n")
