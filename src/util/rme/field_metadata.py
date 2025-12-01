@@ -15,6 +15,7 @@ def get_field_metadata(where_clause: str = "") -> pd.DataFrame:
 
     Example:
         metadata_df = get_field_metadata()
+    TODO: change to query from `layer_definitions_latest` for the columns we need for the query
     """
     log = Logger('Get field metadata')
     log.info("Getting field metadata from athena")

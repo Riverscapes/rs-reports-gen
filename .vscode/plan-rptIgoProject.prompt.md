@@ -15,7 +15,7 @@ Switch `rpt_igo_project` to source its main data and metadata directly from Athe
 3. Prefer shorter, cleaner final code rather than keeping old legacy approaches. Ie do not keep CSV fallback for legacy or debugging purposes.
 4. Build out reusable functions in the athnea.py module 
 5. we currently have an option to use a local csv file instead of downloading it from athena - keep that but it would be a local parquet file instead
-6. Build reusable functions and patterns that all the report generates can use. 
+6. Build reusable functions and patterns that all the report generators can use. 
 7. Everything about the project is in early stages and can be revisited if there is a compelling case
 
 ## Athena Metadata table
