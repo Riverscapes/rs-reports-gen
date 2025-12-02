@@ -1,0 +1,23 @@
+<!-- This is simply everything that exists inside the report's body 
+ 
+  refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
+-->
+<section>
+  <div class="section-context">
+    <p>The Watershed Report summarizes key characteristics and metrics of the watershed within a specific area of interest.</p>
+  </div>
+</section>
+
+
+<section id="watershed">
+  <h2>Watershed</h2>
+  
+<section id="map-of-polygons">
+  <h2>Report Area of Interest</h2>
+  <div class="section-context">
+    <p>The following map shows the area of interest for which the report was generated.</p>
+  </div>
+  <figure class="report-figure map">
+    <div>{{ figures['map']|safe }}</div>
+  </figure>
+</section>
