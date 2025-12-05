@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from importlib import import_module
 import sys
 import shlex
-import traceback
 import logging
 import inquirer
 from termcolor import colored
@@ -95,7 +94,11 @@ def gather_arguments(entry: ReportEntry) -> list[str]:
         module = import_module(entry.launch_path)
         env_defaults = getattr(module, "main", None)
         if callable(env_defaults):
-            defaults = [str(arg) for arg in env_defaults()]
+            result = env_defaults()
+            if result is None:
+                print(colored("Report setup was cancelled by user. Exiting.", "yellow"))
+                sys.exit(0)
+            defaults = [str(arg) for arg in result]
     except Exception as exc:  # pragma: no cover - defensive safety net
         print(colored(exc, "red"))
         sys.exit(1)

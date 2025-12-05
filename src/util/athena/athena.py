@@ -8,16 +8,6 @@ a version/copy of these functions can be found in multiple Riverscapes repositor
 Consider porting any improvements to these other repositories.
 
 ---
-
-## Summary of 'public' functions
-
-| Function Name                  | Query Type | Output Format | Use Case                        |
-|------------------------------- |------------|--------------|---------------------------------|
-| athena_select_to_dict          | SELECT     | list[dict]    | Small/simple queries            |
-| athena_select_to_dataframe     | SELECT     | DataFrame     | Small/simple queries            |
-| athena_unload_to_dict          | UNLOAD     | list[dict]    | Large/complex/nested data       |
-| athena_unload_to_dataframe     | UNLOAD     | DataFrame     | Large/complex/nested data       |
-
 REFACTOR proposal 2025-11-25 
 We don't need to name them 'athena' -- they are in the athena module so that is assumed
 
@@ -31,12 +21,20 @@ query_to_local_parquet
 aoi_query_to_dataframe
 aoi_query_to_local_parquet
 
-
 legacy:
 query_to_dict (it is more lightweight)
 
 do we need both awswrangler and boto3 versions - perhaps not, but we can keep as legacy 
 they do not require pandas/pyarrow and can do csv/json parsing 
+
+## Older 'public' functions
+
+| Function Name                  | Query Type | Output Format | Use Case                        |
+|------------------------------- |------------|---------------|---------------------------------|
+| athena_select_to_dict          | SELECT     | list[dict]    | Small/simple queries            |
+| athena_select_to_dataframe     | SELECT     | DataFrame     | Small/simple queries            |
+| athena_unload_to_dict          | UNLOAD     | list[dict]    | Large/complex/nested data       |
+| athena_unload_to_dataframe     | UNLOAD     | DataFrame     | Large/complex/nested data       |
 
 """
 import time
