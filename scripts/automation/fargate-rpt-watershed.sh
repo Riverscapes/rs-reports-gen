@@ -56,7 +56,7 @@ try() {
   fi
 
   echo "======================  Running rpt-watershed ======================="
-  python -m reports.rpt_watershed.main \
+  python -m reports.rpt_watershed_summary.main \
     "$OUTPUTS_DIR" \
     "$INPUTS_DIR/input.geojson" \
     "$REPORT_NAME" \
