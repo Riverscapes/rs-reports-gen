@@ -1,10 +1,11 @@
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, Optional
+from pathlib import Path
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !?
 from rsxml import Logger
-# Custom DataFrame accessor for metadata - to be moved to util
 import pandas as pd
 import geopandas as gpd
+# Custom DataFrame accessor for metadata - to be moved to util
 from util.pandas.RSFieldMeta import RSFieldMeta
 
 ureg = pint.get_application_registry()
@@ -21,10 +22,11 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         1. Overrides the to_html method to provide friendly column names and units
         2. Provides a convenient property for adding footer rows to your dataframes
 
-
+    Note a GeoDataFrame does not necessarily have a geometry column - and can behaves just like a DataFrame
+    So we can accept DataFrame or GeoDataFrames, and convert either to a RSGeoDataFrame objects
     """
 
-    def __init__(self, df: gpd.GeoDataFrame, *args,
+    def __init__(self, df: gpd.GeoDataFrame | pd.DataFrame, *args,
                  footer: Optional[pd.DataFrame] = None,
                  **kwargs):
         super().__init__(df, *args, **kwargs)
@@ -63,7 +65,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         # Make sure the footer comes along for the ride
         return RSGeoDataFrame(df_copy, footer=footer)
 
-    def export_excel(self, output_path: str):
+    def export_excel(self, output_path: str | Path):
         """ Export the GeoDataFrame to an Excel file with metadata, omitting geometry columns.
 
         Args:
@@ -119,8 +121,8 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
                 include_units=True,
                 use_friendly=True,
                 unit_fmt=" ({unit})",
-                include_columns: Optional[List[str]] = None,
-                exclude_columns: Optional[List[str]] = None,
+                include_columns: list[str] | None = None,
+                exclude_columns: list[str] | None = None,
                 **kwargs):
         """Render the DataFrame as HTML with friendly column headings.
 
@@ -128,8 +130,8 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             include_units(bool): Append unit text for columns that have units.
             use_friendly(bool): Replace raw column names with friendly names when available.
             unit_fmt(str): Format string applied when appending units(must include ``{unit}``).
-            include_columns(Optional[List[str]]): If provided, limit output to these columns.
-            exclude_columns(Optional[List[str]]): Columns to drop from the output.
+            include_columns(list[str] | None): If provided, limit output to these columns.
+            exclude_columns(list[str] | None): Columns to drop from the output.
             **kwargs: Forwarded to: meth: `pandas.DataFrame.to_html`.
         """
 
@@ -226,7 +228,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         # Now we loop over all the columns and apply formatting and units if necessary
         for column in list(display_df.columns):
             # These are the classes we apply to the columns
-            class_tokens: List[str] = []
+            class_tokens: list[str] = []
 
             if include_units:
                 unit_obj = applied_units.get(column)

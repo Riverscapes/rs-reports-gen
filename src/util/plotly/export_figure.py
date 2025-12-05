@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 # import psutil  # for debugging
 import multiprocessing as mp
 
@@ -9,7 +10,7 @@ from kaleido._kaleido_tab import KaleidoError
 from rsxml import Logger
 
 
-def _write_image_worker(fig_json: str, img_path: str, q):
+def _write_image_worker(fig_json: str, img_path: Path, q):
     """Worker runs in a separate process to avoid hangs."""
     try:
         # Reconstruct the figure in the child process
@@ -20,7 +21,7 @@ def _write_image_worker(fig_json: str, img_path: str, q):
         q.put(("err", repr(e)))
 
 
-def write_image_with_timeout(fig: go.Figure, img_path: str, timeout_s: int = 120):
+def write_image_with_timeout(fig: go.Figure, img_path: Path, timeout_s: int = 120):
     """
     Write a Plotly image with a hard timeout.
     Uses a child process so we can terminate it if it hangs.
@@ -47,13 +48,14 @@ def write_image_with_timeout(fig: go.Figure, img_path: str, timeout_s: int = 120
         raise RuntimeError("Image export failed: no response from worker")
 
 
-def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str,
+def export_figure(fig: go.Figure, out_dir: str | Path, name: str, mode: str,
                   include_plotlyjs=False, report_dir=None) -> str:
     """export plotly figure html
     either interactive, or with path to static image created at out_dir
     either way returns html fragment
     """
     log = Logger('Export fig')
+    out_dir = Path(out_dir)
     if mode == "interactive":
         # Enable mode bar for interactivity (zoom, pan, etc.)
         return pio.to_html(
@@ -65,7 +67,7 @@ def export_figure(fig: go.Figure, out_dir: str, name: str, mode: str,
     # will this work? make case insensitive
     elif mode in ('png', 'jpeg', 'svg', 'pdf', 'webp'):
         img_filename = f"{name}.{mode}"
-        img_path = os.path.join(out_dir, img_filename)
+        img_path = out_dir / img_filename
         # requires kaleido (python packge) to be installed
         # and that requires Google Chrome to be installed - plotly_get_chrome or kaleido.get_chrome() or kaleido.get_chrome_sync()
         if report_dir:

@@ -1,5 +1,6 @@
 # System imports
 import os
+from pathlib import Path
 from datetime import datetime
 from importlib import resources
 from typing import Any
@@ -17,10 +18,10 @@ class RSReport:
     def __init__(self,
                  report_name: str,
                  report_type: str,
-                 report_dir: str,
-                 figure_dir: str,
+                 report_dir: Path | str,
+                 figure_dir: Path | str,
                  body_template_path: str = None,
-                 css_paths: list[str] = None,
+                 css_paths: list[Path | str] = None,
                  report_version: str = "1.0"):
         """_summary_
 
