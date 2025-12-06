@@ -20,8 +20,8 @@ class RSReport:
                  report_type: str,
                  report_dir: Path | str,
                  figure_dir: Path | str,
-                 body_template_path: str = None,
-                 css_paths: list[Path | str] = None,
+                 body_template_path: Path | str | None = None,
+                 css_paths: list[Path | str] | None = None,
                  report_version: str = "1.0"):
         """_summary_
 

@@ -2,13 +2,19 @@
 import argparse
 import logging
 from pathlib import Path
-
+# 3rd party imports
 import pandas as pd
-
+# RSxml imports
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
+# Repo imports
 from util.athena import query_to_dataframe
+from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.pdf import make_pdf_from_html
+# Report type imports
+from reports.rpt_watershed_summary import __version__ as report_version
+from reports.rpt_watershed_summary.figures import waterbody_summary_table
 
 
 def get_field_metadata(fields: str = '*',
@@ -18,10 +24,11 @@ def get_field_metadata(fields: str = '*',
                        ) -> pd.DataFrame:
     """new version of util.rme.field_metadata.py 
     TODO: move to util.athena (not rme) once tested & generalized
-    Query athena for metadata 
+    Query athena for metadata. 
 
     Returns: 
         pd.DataFrame - DataFrame of metadata
+
     """
     log = Logger('Get metadata')
     log.info("Getting metadata from Athena")
@@ -31,9 +38,9 @@ def get_field_metadata(fields: str = '*',
     else:
         and_name = "AND name in ({fields})"
     query = f"""
-SELECT layer_id, layer_name, name, friendly_name, data_unit, description
+SELECT layer_id, layer_name AS table_name, name, friendly_name, data_unit, description
 FROM layer_definitions_latest
-WHERE authority = {authority} AND authority_name = {authority_name} AND layer_id = {layer_id}
+WHERE authority = '{authority}' AND authority_name = '{authority_name}' AND layer_id = '{layer_id}'
 {and_name}
 """
     df = query_to_dataframe(query)
@@ -49,15 +56,72 @@ def define_fields(unit_system: str = "SI"):
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
-    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
-    _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
+    # _FIELD_META.set_display_unit('centerline_length', 'kilometer')
+    # _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
 
     return
 
 
+def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
+                include_static: bool = True,
+                include_pdf: bool = True):
+    """
+    Generates HTML report(s) in report_dir.
+    Args:
+        df (pd.DataFrame): The main data dataframe for the report.
+        report_dir (Path): The directory where the report will be saved.
+        report_name (str): The name of the report.
+        include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
+        include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
+    """
+    log = Logger('make report')
+
+    # figures must be plotly objects
+    figures = {
+    }
+    # tables are html strings
+    tables = {
+        "waterbodies": waterbody_summary_table(df)
+    }
+
+    figure_dir = report_dir / 'figures'
+    report = RSReport(
+        report_name=report_name,
+        report_type="Watershed Summary",
+        report_dir=report_dir,
+        figure_dir=figure_dir,
+        report_version=report_version,
+        body_template_path=Path(__file__).parent / 'templates' / 'body.html',
+        css_paths=[Path(__file__).parent / 'templates' / 'report.css']
+    )
+    for (name, fig) in figures.items():
+        report.add_figure(name, fig)
+
+    report.add_html_elements('tables', tables)
+
+    interactive_path = report.render(fig_mode="interactive", suffix="")
+    static_path = None
+    pdf_path = None
+    if include_static:
+        static_path = report.render(fig_mode="svg", suffix="_static")
+        if include_pdf:
+            pdf_path = make_pdf_from_html(static_path)
+            log.info(f'PDF report built from static at {pdf_path}')
+
+    log.title('Report Generation Complete')
+    log.info(f'Interactive: {interactive_path}')
+    if static_path:
+        log.info(f'Static: {static_path}')
+    if pdf_path:
+        log.info(f'PDF: {pdf_path}')
+
+
 def get_waterbody_data(huc_condition: str) -> pd.DataFrame:
-    """get waterbody summaries"""
+    """get waterbody summary data"""
+    meta = RSFieldMeta()
     sum_fields = [
+        'waterbodyAreaSqKm',
+        'waterbodyFeatureCount',
         'waterbodyLakesPondsAreaSqKm',
         'waterbodyLakesPondsFeatureCount',
         'waterbodyReservoirAreaSqKm',
@@ -78,7 +142,13 @@ FROM rs_context_huc10
 WHERE {huc_condition}
 """
     df = query_to_dataframe(query_str)
-    # TODO get the metadata
+    # transfer/add metadata for the new aggregated columns
+    for orig_fld_nm in sum_fields:
+        meta.add_field_meta(name=f'sum_{orig_fld_nm}',
+                            table_name='rs_context_huc10',
+                            data_unit=meta.get_field_unit(orig_fld_nm),
+                            friendly_name=f"Total {meta.get_friendly_name(orig_fld_nm)}"
+                            )
 
     return df
 
@@ -98,7 +168,7 @@ WHERE {huc_condition}
 
 
 def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
-                             include_pdf: bool = True, unit_system: str = "both"):
+                             include_pdf: bool = True, unit_system: str = "SI"):
     """Orcestratest the report generation process: 
     * get the data
     * make the report
@@ -106,12 +176,19 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
     """
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
+    meta = RSFieldMeta()
     huc_condition = parse_hucs(hucs, 'huc', 10)
-    log.debug(f"{huc_condition}")
-    df = get_data(huc_condition)
+    log.debug(f"huc condition: {huc_condition}")
+    define_fields(unit_system)
+    # df = get_data(huc_condition)
+    # print(df)
     df_waterbodies = get_waterbody_data(huc_condition)
-    print(df)
+    df_waterbodies, _ = meta.apply_units(df_waterbodies)
     print(df_waterbodies)
+    make_report(df_waterbodies, report_dir, report_name, include_pdf, include_pdf)
+    safe_makedirs(str(report_dir / 'data'))
+    # Export the data to Excel
+    RSGeoDataFrame(df_waterbodies).export_excel(report_dir / 'data' / 'data.xlsx')
 
 
 def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> str:

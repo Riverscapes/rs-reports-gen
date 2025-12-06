@@ -85,7 +85,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     fields: list = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     edges, labels, colours = get_bins_info(group_by_cols[0])
-    # TODO: iterate through the group_by_cols, name each bein col_bin AND ensure it has metadata - units, description etc.
+    # TODO: iterate through the group_by_cols, name each bin col_bin AND ensure it has metadata - units, description etc.
     chart_subset_df['bin'] = pd.cut(chart_subset_df[group_by_cols[0]], bins=edges, labels=labels, include_lowest=True)
     # Aggregate total_col by bin - NB cut creates a Categorical dtype
     # TO DO: aggregate by each bin

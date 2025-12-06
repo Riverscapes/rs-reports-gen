@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from importlib import import_module
 import sys
 import shlex
+import traceback
 import logging
 import inquirer
 from termcolor import colored
@@ -137,6 +138,7 @@ def launch_report(entry: ReportEntry, extra_args: list[str]) -> int:
             return exc.code if isinstance(exc.code, int) else 1
         except Exception as exc:
             print(colored(f"Error running report: {exc}", "red"))
+            traceback.print_exc()
             return 1
     else:
         print(colored(f"Module {entry.module_path} does not have a callable main() function.", "red"))

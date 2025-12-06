@@ -181,6 +181,7 @@ def query_to_dataframe(query: str) -> pd.DataFrame:
     if query_bytes > 262144:
         raise ValueError(f"Query exceeds Athena's 256 KB limit ({query_bytes} bytes).")
 
+    log.debug(f"Query:\n{query}")
     try:
         df = wr.athena.read_sql_query(
             query,
@@ -189,6 +190,7 @@ def query_to_dataframe(query: str) -> pd.DataFrame:
             unload_approach=True,  # only PARQUET format is supported with this option
             s3_output=s3_output,
         )
+        log.debug("Query to dataframe completed.")
         return df
     except Exception as e:
         log.warning(f"Athena query failed or returned no results: {e}")

@@ -83,7 +83,7 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # create any statistics specific to this report
     # (THIS is just an example of what we can do; not sure we need count of huc12)
     # copy a subset df to make sure we don't accidentally change the incoming df
-    subset_df = RSGeoDataFrame(gdf[["huc12",]].copy())
+    subset_df = gdf[["huc12",]].copy()
 
     # e.g. Calculate totals
     count_huc12s = subset_df['huc12'].nunique()
