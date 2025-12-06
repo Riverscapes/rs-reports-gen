@@ -67,6 +67,15 @@ IMPERIAL_TO_SI: Dict[str, str] = {
 }
 
 
+def _get_unique_id(table_name: Optional[str], column_name: str) -> str:
+    """Create a unique, case-insensitive identifier for a field."""
+    if not column_name:
+        raise ValueError("column_name cannot be empty.")
+    if table_name:
+        return f"{str(table_name).lower()}.{str(column_name).lower()}"
+    return str(column_name).lower()
+
+
 class FieldMetaValues:
     """ A simple class to hold metadata values for a single field.
         """
@@ -176,11 +185,11 @@ class RSFieldMeta:
                 # If the column is missing add it with default None values
                 value[col] = None
 
-        # Make our unit objects a little easier to work with
-        if "data_unit" in value.columns:
-            value["data_unit"] = value["data_unit"].apply(_try_apply_unit)
-        if "display_unit" in value.columns:
-            value["display_unit"] = value["display_unit"].apply(_try_apply_unit)
+        # Preserve original case of the name column
+        if 'name' in value.columns:
+            value['name_orig'] = value['name']
+        else:
+            value['name_orig'] = None
 
         # We explicitly set the no_convert column to boolean and convert any possible values
         if "no_convert" in value.columns:
@@ -190,15 +199,28 @@ class RSFieldMeta:
         else:
             value["no_convert"] = False
 
+        # Create the unique ID for indexing
+        value['_unique_id'] = value.apply(
+            lambda row: _get_unique_id(row.get('table_name'), row.get('name')),
+            axis=1
+        )
+
+        # Make our unit objects a little easier to work with
+        if "data_unit" in value.columns:
+            value["data_unit"] = value["data_unit"].apply(_try_apply_unit)
+        if "display_unit" in value.columns:
+            value["display_unit"] = value["display_unit"].apply(_try_apply_unit)
+
         # IF there is no meta then set it
         if self._field_meta is None:
             self._log.info("Setting metadata for the first time.")
             self._field_meta = value
-            self._field_meta.set_index("name", inplace=True)
+            self._field_meta.set_index("_unique_id", inplace=True)
         else:
             # otherwise extend the existing metadata with the new dataframe
             self._log.warning("Extending existing metadata. This may overwrite existing columns.")
-            self._field_meta = pd.concat([self._field_meta, value]).drop_duplicates().set_index("name")
+            value.set_index("_unique_id", inplace=True)
+            self._field_meta = pd.concat([self._field_meta, value]).drop_duplicates()
             self._log.info("Metadata extended successfully.")
 
     @unit_system.setter
@@ -296,22 +318,27 @@ class RSFieldMeta:
                 NOTE: If this is TRUE the units will be display_units and then data_units as a fallback.
             description (str, optional): a description of the column to be displayed to end-users for example in tool-tips
 
+        # TODO data_unit should accept a Unit object as well as string
         """
+        unique_id = _get_unique_id(table_name, name)
+
         if self._field_meta is None:
-            self._field_meta = pd.DataFrame(index=[name], columns=FieldMetaValues.VALID_COLUMNS)
+            self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS + ['name_orig'])
 
         # We need to be really strict here to stop users adding columns and innadvertently clobbering existing ones
         # similar names are really easy to miss
-        elif name in self._field_meta.index:
-            self._log.error(f"Column '{name}' already exists in metadata. SKIPPING ADDITION")
+        elif unique_id in self._field_meta.index:
+            self._log.error(f"Column '{unique_id}' already exists in metadata. SKIPPING ADDITION")
+            return
 
-        self._field_meta.loc[name, "friendly_name"] = friendly_name if friendly_name else name
-        self._field_meta.loc[name, "table_name"] = table_name
-        self._field_meta.loc[name, "data_unit"] = ureg.Unit(data_unit) if data_unit else None
-        self._field_meta.loc[name, "display_unit"] = ureg.Unit(display_unit) if display_unit else None
-        self._field_meta.loc[name, "dtype"] = dtype
-        self._field_meta.loc[name, "no_convert"] = no_convert
-        self._field_meta.loc[name, "description"] = description
+        self._field_meta.loc[unique_id, "name_orig"] = name
+        self._field_meta.loc[unique_id, "friendly_name"] = friendly_name if friendly_name else name
+        self._field_meta.loc[unique_id, "table_name"] = table_name
+        self._field_meta.loc[unique_id, "data_unit"] = ureg.Unit(data_unit) if data_unit else None
+        self._field_meta.loc[unique_id, "display_unit"] = ureg.Unit(display_unit) if display_unit else None
+        self._field_meta.loc[unique_id, "dtype"] = dtype
+        self._field_meta.loc[unique_id, "no_convert"] = no_convert
+        self._field_meta.loc[unique_id, "description"] = description
 
     def _no_data_warning(self):
         """ Warn if no metadata is set."""
@@ -319,9 +346,12 @@ class RSFieldMeta:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
 
     def duplicate_meta(
-        self, orig_name: str, new_name: str, new_friendly: str = None, new_description: str = None,
-        new_data_unit: str = None, new_display_unit: str = None, new_dtype: str = None, new_no_convert: Optional[bool] = None
-    ) -> FieldMetaValues:
+        self, orig_name: str, new_name: str,
+        orig_table_name: Optional[str] = None, new_table_name: Optional[str] = None,
+        new_friendly: Optional[str] = None, new_description: Optional[str] = None,
+        new_data_unit: Optional[str] = None, new_display_unit: Optional[str] = None,
+        new_dtype: Optional[str] = None, new_no_convert: Optional[bool] = None
+    ) -> Optional['FieldMetaValues']:
         """Duplicate a row of the metadata table, optionally overriding fields.
 
         Returns:
@@ -333,12 +363,19 @@ class RSFieldMeta:
         self._no_data_warning()
         if self._field_meta is None:
             raise RuntimeError("No metadata set. You need to instantiate RSFieldMeta and set the .meta property first.")
-        if orig_name not in self._field_meta.index:
-            raise ValueError(f"Original column '{orig_name}' does not exist in metadata.")
-        if new_name in self._field_meta.index:
-            raise ValueError(f"New column '{new_name}' already exists in metadata.")
 
-        new_row = self._field_meta.loc[orig_name].copy()
+        orig_id = _get_unique_id(orig_table_name, orig_name)
+        new_id = _get_unique_id(new_table_name, new_name)
+
+        if orig_id not in self._field_meta.index:
+            raise ValueError(f"Original column ID '{orig_id}' does not exist in metadata.")
+        if new_id in self._field_meta.index:
+            raise ValueError(f"New column ID '{new_id}' already exists in metadata.")
+
+        new_row = self._field_meta.loc[orig_id].copy()
+        new_row['name_orig'] = new_name
+        new_row['table_name'] = new_table_name
+
         if new_friendly is not None:
             new_row["friendly_name"] = new_friendly
         if new_description is not None:
@@ -353,12 +390,12 @@ class RSFieldMeta:
             new_row["no_convert"] = bool(new_no_convert)
 
         # Ensure the index is set to new_name
-        new_row.name = new_name
-        self._field_meta = pd.concat([self._field_meta, pd.DataFrame([new_row], index=[new_name])])
-        self._log.info(f"Duplicated metadata from '{orig_name}' to '{new_name}'.")
-        return self.get_field_meta(new_name)
+        new_row.name = new_id
+        self._field_meta = pd.concat([self._field_meta, pd.DataFrame([new_row])])
+        self._log.info(f"Duplicated metadata from '{orig_id}' to '{new_id}'.")
+        return self.get_field_meta(new_name, new_table_name)
 
-    def get_field_meta(self, column_name: str) -> Optional[FieldMetaValues]:
+    def get_field_meta(self, column_name: str, table_name: Optional[str] = None) -> Optional[FieldMetaValues]:
         """Get the field metadata for a specific column. This returns a FieldMetaValues object.
 
         Args:
@@ -368,70 +405,89 @@ class RSFieldMeta:
         TODO: include tablename
         """
         self._no_data_warning()
-        if self._field_meta is None or column_name not in self._field_meta.index:
+        if self._field_meta is None:
             return None
 
+        unique_id = _get_unique_id(table_name, column_name)
+        if unique_id not in self._field_meta.index:
+            # If table name was provided and not found, don't try again
+            if table_name:
+                return None
+            # If no table name, check for ambiguous matches
+            possible_matches = self._field_meta[self._field_meta['name_orig'].str.lower() == column_name.lower()]
+            if len(possible_matches) > 1:
+                self._log.warning(f"Ambiguous column '{column_name}'. Found in tables: {possible_matches['table_name'].tolist()}. Provide a table_name.")
+                return None
+            elif len(possible_matches) == 1:
+                unique_id = possible_matches.index[0]
+            else:
+                return None
+
+        meta_row = self._field_meta.loc[unique_id]
         meta_values = FieldMetaValues()
-        meta_values.name = column_name
-        meta_values.friendly_name = self._field_meta.loc[column_name, "friendly_name"]
-        meta_values.table_name = self._field_meta.loc[column_name, "table_name"]
-        meta_values.data_unit = self._field_meta.loc[column_name, "data_unit"]
-        meta_values.display_unit = self._field_meta.loc[column_name, "display_unit"]
-        meta_values.dtype = self._field_meta.loc[column_name, "dtype"]
-        meta_values.no_convert = bool(self._field_meta.loc[column_name, "no_convert"])
-        meta_values.description = self._field_meta.loc[column_name, "description"]
+        meta_values.name = meta_row.get('name_orig', column_name)
+        meta_values.friendly_name = str(meta_row.get("friendly_name", ''))
+        meta_values.table_name = str(meta_row.get("table_name", ''))
+        meta_values.data_unit = meta_row.get("data_unit")
+        meta_values.display_unit = meta_row.get("display_unit")
+        meta_values.dtype = str(meta_row.get("dtype", ''))
+        meta_values.no_convert = bool(meta_row.get("no_convert", False))
+        meta_values.description = str(meta_row.get("description", ''))
         return meta_values
 
-    def get_friendly_name(self, column_name: str) -> str:
+    def get_friendly_name(self, column_name: str, table_name: Optional[str] = None) -> str:
         """Get the friendly name for a column, or format version of column name if not found."""
-        fm = self.get_field_meta(column_name)
-        if fm and hasattr(fm, "friendly_name"):
+        fm = self.get_field_meta(column_name, table_name)
+        if fm and hasattr(fm, "friendly_name") and fm.friendly_name:
             friendly = fm.friendly_name
         else:
             friendly = column_name.replace('_', ' ').title()
         return friendly
 
-    def get_description(self, column_name: str) -> str:
+    def get_description(self, column_name: str, table_name: Optional[str] = None) -> str:
         """Get the description for a column, or an empty string if not found."""
-        fm = self.get_field_meta(column_name)
+        fm = self.get_field_meta(column_name, table_name)
         if fm and hasattr(fm, "description") and fm.description:
             return fm.description
         return ""
 
-    def __set_value(self, row_name, col_name, value):
+    def __set_value(self, row_name, col_name, value, table_name: Optional[str] = None):
         """Generic Property setter. Use this for all the specific setters below."""
         self._no_data_warning()
         # Make sure col_name is a valid property of FieldMetaValues
         if col_name not in FieldMetaValues.VALID_COLUMNS:
             raise ValueError(f"Invalid metadata column '{col_name}'. Valid columns are: {FieldMetaValues.VALID_COLUMNS}")
+
+        unique_id = _get_unique_id(table_name, row_name)
         if self._field_meta is None:
             # Initialize with just this column if needed
-            self._field_meta = pd.DataFrame(index=[row_name], columns=FieldMetaValues.VALID_COLUMNS)
-        if row_name not in self._field_meta.index:
-            raise ValueError(f"Row '{row_name}' does not exist in metadata.")
-        self._field_meta.loc[row_name, col_name] = value
+            self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS)
+        if unique_id not in self._field_meta.index:
+            raise ValueError(f"Row ID '{unique_id}' does not exist in metadata.")
+        self._field_meta.loc[unique_id, col_name] = value
 
-    def set_friendly_name(self, col, friendly_name):
+    def set_friendly_name(self, col, friendly_name, table_name: Optional[str] = None):
         """Set the friendly name for a column in the metadata."""
-        self.__set_value(col, "friendly_name", friendly_name)
+        self.__set_value(col, "friendly_name", friendly_name, table_name)
 
-    def set_data_unit(self, col, data_unit):
+    def set_data_unit(self, col, data_unit, table_name: Optional[str] = None):
         """Set the data unit for a column in the metadata."""
-        self.__set_value(col, "data_unit", data_unit)
+        self.__set_value(col, "data_unit", data_unit, table_name)
 
-    def set_display_unit(self, col, display_unit):
+    def set_display_unit(self, col, display_unit, table_name: Optional[str] = None):
         """Set the display unit for a column in the metadata."""
-        self.__set_value(col, "display_unit", display_unit)
+        self.__set_value(col, "display_unit", display_unit, table_name)
 
-    def set_dtype(self, col, dtype):
+    def set_dtype(self, col, dtype, table_name: Optional[str] = None):
         """Set the field type for a column in the metadata."""
-        self.__set_value(col, "dtype", dtype)
+        self.__set_value(col, "dtype", dtype, table_name)
 
-    def apply_units(self, df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    def apply_units(self, df: pd.DataFrame, table_name: Optional[str] = None) -> tuple[pd.DataFrame, dict]:
         """ Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is NOT modified in place.
+            table_name (Optional[str]): The specific table context for applying units. If None, will match columns case-insensitively.
 
         Returns:
             tuple(pd.DataFrame,dict) : A new DataFrame with units applied, a dict of applied units
@@ -444,12 +500,9 @@ class RSFieldMeta:
         df_copy = df.copy()
         applied_units = {}
 
-        # Now loop over the metadata and apply units where possible
-        for col in self._field_meta.index:
-            # Only apply if the column exists in the dataframe.
-            if col not in df_copy.columns:
-                continue
-            fm = self.get_field_meta(col)
+        # Now loop over the dataframe columns and apply units
+        for col in df_copy.columns:
+            fm = self.get_field_meta(col, table_name)
             if not fm:  # just to be sure it exists
                 continue
 
