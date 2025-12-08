@@ -170,6 +170,7 @@ class RSFieldMeta:
             return str(val).strip()
 
         def _try_apply_unit(unittext: str) -> pint.Unit | None:
+            # NOTE: empty string does not get parsed as dimensionless (normally Pint would)
             try:
                 if not unittext or pd.isna(unittext):
                     return None
@@ -202,7 +203,9 @@ class RSFieldMeta:
 
         # Make our unit objects a little easier to work with
         if "data_unit" in value.columns:
-            value["data_unit"] = value["data_unit"].apply(_try_apply_unit)
+            # Select rows where data_unit is not 'NA' and apply the function
+            mask = value["data_unit"] != 'NA'
+            value.loc[mask, "data_unit"] = value.loc[mask, "data_unit"].map(_try_apply_unit)
         if "display_unit" in value.columns:
             value["display_unit"] = value["display_unit"].apply(_try_apply_unit)
 
@@ -552,18 +555,24 @@ class RSFieldMeta:
         self._log.debug('Applied units to dataframe using meta info')
         return df_copy, applied_units
 
-    def get_field_unit(self, name: str) -> Optional[pint.Unit]:
+    def get_field_unit(self, name: str, no_convert: bool = False) -> Optional[pint.Unit]:
         """ Get the display unit for a specific column based on the metadata and current unit system.
 
         This will take into account the display_unit, data_unit, no_convert, and preferred units for the current system.
 
         Args:
             name (str): The column name to get the display unit for.
+            no_convert (bool, optional): If True, return the raw `data_unit` without any conversion. Defaults to False.
         """
         fm = self.get_field_meta(name)
         if not fm:
             return None
+
         if fm.data_unit:
+            # If no_convert is requested, return the raw data_unit immediately.
+            if no_convert:
+                return fm.data_unit
+
             # The data unit is always the fallback
             applied_unit = ureg.Unit(fm.data_unit)
             try:
