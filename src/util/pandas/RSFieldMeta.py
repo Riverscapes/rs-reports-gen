@@ -296,8 +296,8 @@ class RSFieldMeta:
                        name: str,
                        table_name: str = "",
                        friendly_name: str = "",
-                       data_unit: str = "",
-                       display_unit: str = "",
+                       data_unit: str | pint.Unit | None = None,
+                       display_unit: str | pint.Unit | None = None,
                        dtype: str = "",
                        no_convert: bool = False,
                        description: str = ""):
@@ -307,8 +307,8 @@ class RSFieldMeta:
             name (str): The name of the column to add.
             table_name (str, optional): The name of the table the column belongs to. Defaults to "".
             friendly_name (str, optional): The friendly name for the column. Defaults to "".
-            data_unit (str, optional): The data unit for the actual data in the column. Defaults to "".
-            display_unit (str, optional): The display unit for the column. Defaults to "".
+            data_unit (str | pint.Unit | None, optional): The data unit for the actual data in the column. Defaults to None.
+            display_unit (str | pint.Unit | None, optional): The display unit for the column. Defaults to None.
                 NOTE 1: If this is empty the units will be "Preferred Units"
                 NOTE 2: This will be ignored if no_convert is FALSE
             dtype (str, optional): The field type for the column. Defaults to "".
@@ -316,13 +316,15 @@ class RSFieldMeta:
                 NOTE: If this is TRUE the units will be display_units and then data_units as a fallback.
             description (str, optional): a description of the column to be displayed to end-users for example in tool-tips
 
-        TODO data_unit should accept a Unit object as well as string
         TODO make table_name mandatory
         """
         unique_id = _get_unique_id(table_name, name)
 
         if self._field_meta is None:
             self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS)
+            # Ensure the unit columns can hold pint objects
+            for col in ['data_unit', 'display_unit']:
+                self._field_meta[col] = self._field_meta[col].astype(object)
 
         # We need to be really strict here to stop users adding columns and innadvertently clobbering existing ones
         # similar names are really easy to miss
@@ -330,10 +332,21 @@ class RSFieldMeta:
             self._log.error(f"Column '{unique_id}' already exists in metadata. SKIPPING ADDITION")
             return
 
+        def to_unit(u: str | pint.Unit | None) -> pint.Unit | None:
+            if isinstance(u, pint.Unit) or u is None:
+                return u
+            if u:
+                try:
+                    return ureg.Unit(u)
+                except Exception as e:
+                    self._log.warning(f"Could not parse unit '{u}': {e}")
+                    return None
+            return None
+
         self._field_meta.loc[unique_id, "friendly_name"] = friendly_name if friendly_name else name
         self._field_meta.loc[unique_id, "table_name"] = table_name
-        self._field_meta.loc[unique_id, "data_unit"] = ureg.Unit(data_unit) if data_unit else None
-        self._field_meta.loc[unique_id, "display_unit"] = ureg.Unit(display_unit) if display_unit else None
+        self._field_meta.loc[unique_id, "data_unit"] = to_unit(data_unit)
+        self._field_meta.loc[unique_id, "display_unit"] = to_unit(display_unit)
         self._field_meta.loc[unique_id, "dtype"] = dtype
         self._field_meta.loc[unique_id, "no_convert"] = no_convert
         self._field_meta.loc[unique_id, "description"] = description
@@ -580,7 +593,7 @@ class RSFieldMeta:
                     applied_unit = ureg.Unit(fm.display_unit)
                 if fm.no_convert:
                     # If no_convert is true then we use the display_unit if it exists
-                    if pd.notnull(fm.display_unit) and str(fm.display_unit).strip() != "":
+                    if fm.display_unit is not None and str(fm.display_unit).strip() != "":
                         applied_unit = fm.display_unit
                     else:
                         applied_unit = fm.data_unit
@@ -588,7 +601,7 @@ class RSFieldMeta:
                     self._log.debug(f'Applied {fm.data_unit} to {name}')
                     applied_unit = self.get_system_units(applied_unit)
             except Exception as exc:  # pragma: no cover - log unexpected issues
-                self._log.debug(f"Unable to apply units '{fm.data_unit}' to column '{name}': {exc}")
+                self._log.warning(f"Unable to apply units '{fm.data_unit}' to column '{name}': {exc}")
             return applied_unit
         return None
 
@@ -717,7 +730,7 @@ class RSFieldMeta:
         if not isinstance(in_qty, pint.Quantity):
             raise ValueError("Input must be a Pint Quantity with units.")
 
-        sys_units = self.get_system_units(in_qty.units)
+        sys_units = self.get_system_units(ureg.Unit(in_qty.units))
 
         try:
             out_value = in_qty.to(sys_units)
@@ -752,4 +765,4 @@ class RSFieldMeta:
 
         # We return the object and its nice headers separately so the user
         # can decide when they want to overwrite the headers
-        return [df_baked, headers]
+        return df_baked, headers
