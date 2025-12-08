@@ -186,9 +186,6 @@ class RSFieldMeta:
                 # If the column is missing add it with default None values
                 value[col] = None
 
-        # Preserve original case of the name column. I'm not convinced this is necessary
-        value['name_orig'] = value['name']
-
         # We explicitly set the no_convert column to boolean and convert any possible values
         if "no_convert" in value.columns:
             # It's coming in possibly as object/string so we need to convert it
@@ -322,7 +319,7 @@ class RSFieldMeta:
         unique_id = _get_unique_id(table_name, name)
 
         if self._field_meta is None:
-            self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS + ['name_orig'])
+            self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS)
 
         # We need to be really strict here to stop users adding columns and innadvertently clobbering existing ones
         # similar names are really easy to miss
@@ -330,7 +327,6 @@ class RSFieldMeta:
             self._log.error(f"Column '{unique_id}' already exists in metadata. SKIPPING ADDITION")
             return
 
-        self._field_meta.loc[unique_id, "name_orig"] = name
         self._field_meta.loc[unique_id, "friendly_name"] = friendly_name if friendly_name else name
         self._field_meta.loc[unique_id, "table_name"] = table_name
         self._field_meta.loc[unique_id, "data_unit"] = ureg.Unit(data_unit) if data_unit else None
@@ -413,7 +409,7 @@ class RSFieldMeta:
             if table_name:
                 return None
             # If no table name, check for ambiguous matches
-            possible_matches = self._field_meta[self._field_meta['name_orig'].str.lower() == column_name.lower()]
+            possible_matches = self._field_meta[self._field_meta['name'].str.lower() == column_name.lower()]
             if len(possible_matches) > 1:
                 self._log.warning(f"Ambiguous column '{column_name}'. Found in tables: {possible_matches['table_name'].tolist()}. Provide a table_name.")
                 return None
@@ -424,7 +420,7 @@ class RSFieldMeta:
 
         meta_row = self._field_meta.loc[unique_id]
         meta_values = FieldMetaValues()
-        meta_values.name = meta_row.get('name_orig', column_name)
+        meta_values.name = meta_row.get('name', '')
         meta_values.friendly_name = str(meta_row.get("friendly_name", ''))
         meta_values.table_name = str(meta_row.get("table_name", ''))
         meta_values.data_unit = meta_row.get("data_unit")
