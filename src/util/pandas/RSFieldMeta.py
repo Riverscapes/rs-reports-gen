@@ -20,6 +20,7 @@ Key Features:
 - Support for SI and imperial unit systems, with preferred unit mappings.
 - Automatic unit conversion and header formatting for DataFrames.
 - Integration with Pint for unit handling.
+- columns are identified by both `table_name` and `name`, combined into an always-lowercase identifier `_unique_id`
 
 Typical Usage:
     meta = RSFieldMeta()
@@ -93,7 +94,7 @@ class FieldMetaValues:
 
     # Make it printable for easier debugging
     def __repr__(self):
-        return (f"FieldMetaValues(name='{self.name}', friendly_name='{self.friendly_name}', "
+        return (f"FieldMetaValues(table_name='{self.table_name}', name='{self.name}', friendly_name='{self.friendly_name}', "
                 f"data_unit='{self.data_unit}', display_unit='{self.display_unit}', "
                 f"dtype='{self.dtype}', no_convert={self.no_convert})")
 
@@ -185,11 +186,8 @@ class RSFieldMeta:
                 # If the column is missing add it with default None values
                 value[col] = None
 
-        # Preserve original case of the name column
-        if 'name' in value.columns:
-            value['name_orig'] = value['name']
-        else:
-            value['name_orig'] = None
+        # Preserve original case of the name column. I'm not convinced this is necessary
+        value['name_orig'] = value['name']
 
         # We explicitly set the no_convert column to boolean and convert any possible values
         if "no_convert" in value.columns:
@@ -318,7 +316,8 @@ class RSFieldMeta:
                 NOTE: If this is TRUE the units will be display_units and then data_units as a fallback.
             description (str, optional): a description of the column to be displayed to end-users for example in tool-tips
 
-        # TODO data_unit should accept a Unit object as well as string
+        TODO data_unit should accept a Unit object as well as string
+        TODO make table_name mandatory
         """
         unique_id = _get_unique_id(table_name, name)
 
@@ -395,7 +394,7 @@ class RSFieldMeta:
         self._log.info(f"Duplicated metadata from '{orig_id}' to '{new_id}'.")
         return self.get_field_meta(new_name, new_table_name)
 
-    def get_field_meta(self, column_name: str, table_name: Optional[str] = None) -> Optional[FieldMetaValues]:
+    def get_field_meta(self, column_name: str, table_name: str | None = None) -> Optional[FieldMetaValues]:
         """Get the field metadata for a specific column. This returns a FieldMetaValues object.
 
         Args:
