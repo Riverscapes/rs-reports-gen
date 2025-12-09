@@ -80,8 +80,8 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> pd.DataFrame:
         "Waterbodies": "Total Waterbodies",
         "Area": total_area,
         "Count": total_count,
-        "% Area": 1.0,
-        "% Count": 1.0,
+        "% Area": 100.0,
+        "% Count": 100.0,
         "Avg. Area": (total_area / total_count) if total_count > 0 else 0,
     }])
     # Also convert the total row percentages to pint quantities
