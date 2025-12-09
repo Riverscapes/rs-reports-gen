@@ -44,10 +44,13 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> pd.DataFrame:
 
     # 4. Vectorized Calculations (Percentages and Averages)
     #    We use numpy to handle division by zero safely
-    report_df["% Area"] = (report_df["Area"] / total_area).fillna(0)
-    report_df["% Count"] = (report_df["Count"] / total_count).fillna(0)
+    # pint-pandas does not support broadcasting a scalar Quantity, so we create a Series of the total for both Area and Count
+    report_df["% Area"] = (report_df["Area"] / pd.Series([total_area] * len(report_df), index=report_df.index)).fillna(0).astype('pint[percent]')
+    report_df["% Count"] = (report_df["Count"] / pd.Series([total_count] * len(report_df), index=report_df.index)).fillna(0).astype('pint[percent]')
     report_df["Avg. Area"] = (report_df["Area"] / report_df["Count"]).fillna(0)
     meta.add_field_meta(name="Avg. Area", data_unit=area_unit)
+    meta.add_field_meta(name="% Area", data_unit='percent')
+    meta.add_field_meta(name="% Count", data_unit='percent')
 
     # 5. Formatting (Optional: Create the "Total" row)
     total_row = pd.DataFrame([{
@@ -58,6 +61,9 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> pd.DataFrame:
         "% Count": 1.0,
         "Avg. Area": (total_area / total_count) if total_count > 0 else 0,
     }])
+    # Also convert the total row percentages to pint quantities
+    total_row['% Area'] = total_row['% Area'].astype('pint[percent]')
+    total_row['% Count'] = total_row['% Count'].astype('pint[percent]')
 
     # Combine main data with total row
     final_df = pd.concat([report_df, total_row], ignore_index=True)

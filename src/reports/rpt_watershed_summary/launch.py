@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import inquirer
 from termcolor import colored
 
@@ -23,7 +24,7 @@ def main():
 
     if not os.environ.get("DATA_ROOT"):
         raise RuntimeError(colored("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n", "red"))
-    data_root = os.environ.get("DATA_ROOT")
+    data_root = os.environ.get("DATA_ROOT", ".")
 
     # IF we have everything we need from environment variables then we can skip the prompts
 
@@ -88,8 +89,11 @@ def main():
         if len(huc_list2) > 1:
             report_name += " and others"
 
+    # Create a clean, combined folder name for the report output
+    report_folder_name = f"{report_name[:50].replace(' ', '_')}_{unit_system}"
+
     args = [
-        os.path.join(data_root, "rpt-watershed-summary", report_name.replace(" ", "_")),
+        Path(data_root) / "rpt-watershed-summary" / report_folder_name,
         hucs,
         report_name,
         "--unit_system", unit_system,
