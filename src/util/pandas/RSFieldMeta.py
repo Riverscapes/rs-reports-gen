@@ -57,7 +57,7 @@ SI_TO_IMPERIAL: Dict[str, str] = {
     'kilometer ** 2': 'acre',
     'kilogram': 'pound',
     # no conversion
-    '%': '%',
+    'percent': 'percent',
     'count': 'count'
 }
 IMPERIAL_TO_SI: Dict[str, str] = {
