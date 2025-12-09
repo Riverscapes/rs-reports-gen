@@ -56,6 +56,9 @@ SI_TO_IMPERIAL: Dict[str, str] = {
     '1 / kilometer': '1 / mile',
     'kilometer ** 2': 'acre',
     'kilogram': 'pound',
+    # no conversion
+    '%': '%',
+    'count': 'count'
 }
 IMPERIAL_TO_SI: Dict[str, str] = {
     # Start by just reversing the SI_TO_IMPERIAL mapping
@@ -343,6 +346,7 @@ class RSFieldMeta:
                     return None
             return None
 
+        self._field_meta.loc[unique_id, "name"] = name
         self._field_meta.loc[unique_id, "friendly_name"] = friendly_name if friendly_name else name
         self._field_meta.loc[unique_id, "table_name"] = table_name
         self._field_meta.loc[unique_id, "data_unit"] = to_unit(data_unit)
@@ -531,8 +535,7 @@ class RSFieldMeta:
                 if not isinstance(df_copy[col].dtype, pint_pandas.PintType):
                     df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce', downcast='float').astype('Float64')
             else:
-                self._log.warning(f"Unknown field type '{fm.dtype}' for column '{col}'. Skipping type coercion.")
-            dtype = df_copy[col].dtype
+                self._log.debug(f"Unknown field type '{fm.dtype}' for column '{col}'. Skipping type coercion.")
             # If there is any kind of data unit we can work with it
             applied_unit = None
             try:

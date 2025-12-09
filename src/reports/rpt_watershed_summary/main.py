@@ -144,11 +144,19 @@ WHERE {huc_condition}
     df = query_to_dataframe(query_str)
     # transfer/add metadata for the new aggregated columns
     for orig_fld_nm in sum_fields:
-        raw_unit = meta.get_field_unit(orig_fld_nm, no_convert=True)
+        orig_meta = meta.get_field_meta(orig_fld_nm)
+        if not orig_meta:
+            meta.add_field_meta(name=f'sum_{orig_fld_nm}',
+                                table_name='rs_context_huc10',
+                                friendly_name=f"Total {orig_fld_nm.replace('_', ' ').title()}"
+                                )
+            continue
+
         meta.add_field_meta(name=f'sum_{orig_fld_nm}',
                             table_name='rs_context_huc10',
-                            data_unit=raw_unit,
-                            friendly_name=f"Total {meta.get_friendly_name(orig_fld_nm)}"
+                            data_unit=orig_meta.data_unit,
+                            dtype=orig_meta.dtype,
+                            friendly_name=f"Total {orig_meta.friendly_name}"
                             )
 
     return df
