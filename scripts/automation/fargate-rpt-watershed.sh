@@ -55,7 +55,7 @@ try() {
     return 1
   fi
 
-  HUCID = $(python3 -c "import json,sys; print(json.load(sys.stdin).get('properties').get('id',None))" < "$INPUTS_DIR/input.geojson")
+  HUCID=$(python3 -c "import json,sys; print(json.load(sys.stdin).get('properties').get('id',None))" < "$INPUTS_DIR/input.geojson")
   echo "======================  Running rpt-watershed-summary ======================="
   python -m reports.rpt_watershed_summary.main \
     "$OUTPUTS_DIR" \
