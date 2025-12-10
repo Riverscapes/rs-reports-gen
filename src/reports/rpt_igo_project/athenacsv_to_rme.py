@@ -78,16 +78,29 @@ def get_table_defs() -> pd.DataFrame:
     )
     # remap theme to table name, preserving row order
     df = layerdefs.copy()
-    df['table_name'].df['theme'].map(THEME_TO_TABLE)
+    df['table_name'] = df['theme'].map(THEME_TO_TABLE)
 
-    # Warn if we have themes we don't know how to map to tables, we will drop them
+    # Warn of any themes we don't know how to map to tables, we will drop those rows
     missing_mask = df['table_name'].isna()
     if missing_mask.any():
         missing = sorted(df.loc[missing_mask, 'theme'].unique())
         log.warning(f"Missing THEME_TO_TABLE mapping for themes: {missing}.")
+        log.warning("The following rows will be ignored:")
+        log.info(f"{df[df['table_name'].isna()]}")
         df = df.dropna(subset=['table_name']).copy()
 
-
+    # Add dgoid for each table that doesn't have it
+    new_rows = []
+    for table_nm in df['table_name'].unique():
+        if 'dgoid' not in df.loc[df['table_name'] == table_nm, 'name'].values:
+            new_rows.append({
+                'layer_id': 'raw_rme',
+                'table_name': table_nm,
+                'name': 'dgoid',
+                'dtype': 'INTEGER'
+            })
+    if new_rows:
+        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
 
     return df
 
@@ -122,7 +135,7 @@ def parse_table_defs(defs_csv_path) -> tuple[dict, dict, set]:
     return table_schema_map, table_col_order, fk_tables
 
 
-def create_geopackage(gpkg_path: str, table_schema_map: dict, table_col_order: dict, spatialite_path: str) -> apsw.Connection:
+def create_geopackage(gpkg_path: Path, table_schema_map: dict, table_col_order: dict, spatialite_path: str) -> apsw.Connection:
     """
     Create a GeoPackage (SQLite) file and tables as specified in table_schema_map.
     Returns the APSW connection.
@@ -132,11 +145,11 @@ def create_geopackage(gpkg_path: str, table_schema_map: dict, table_col_order: d
     # apsw.Connection = The database is opened for reading and writing, and is created if it does not already exist.
     # this can be a problem if this script is run more than once
     # Delete the file if it exists
-    if os.path.exists(gpkg_path):
+    if Path(gpkg_path).exists():
         os.remove(gpkg_path)
         log.info(f"Deleted existing file {gpkg_path}")
 
-    conn = apsw.Connection(gpkg_path)
+    conn = apsw.Connection(str(gpkg_path))
     # Enable spatialite extension and initialize spatial metadata
     conn.enable_load_extension(True)
     conn.load_extension(spatialite_path)
@@ -664,7 +677,7 @@ def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parqu
 
     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
 
-    conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, spatialite_path)
+    conn = create_geopackage(gpkg_path, table_schema_map, table_col_order, spatialite_path)
     project_ids = populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
     create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
