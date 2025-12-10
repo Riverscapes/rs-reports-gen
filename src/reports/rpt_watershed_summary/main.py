@@ -17,7 +17,7 @@ from reports.rpt_watershed_summary import __version__ as report_version
 from reports.rpt_watershed_summary.figures import waterbody_summary_table
 
 
-def get_field_metadata(fields: str = '*',
+def get_field_metadata(column_names: str = '*',
                        authority: str = 'data-exchange-scripts',
                        authority_name: str = 'rscontext_to_athena',
                        layer_id='rs_context_huc10'
@@ -25,6 +25,8 @@ def get_field_metadata(fields: str = '*',
     """new version of util.rme.field_metadata.py 
     TODO: move to util.athena (not rme) once tested & generalized
     Query athena for metadata. 
+    Parameters: 
+        column_names - comma list of columns names, if you only want to return records for a subset of columns (but usually easiest to get all of them)
 
     Returns: 
         pd.DataFrame - DataFrame of metadata
@@ -33,12 +35,12 @@ def get_field_metadata(fields: str = '*',
     log = Logger('Get metadata')
     log.info("Getting metadata from Athena")
 
-    if fields == '*':
+    if column_names == '*':
         and_name = ""
     else:
         and_name = "AND name in ({fields})"
     query = f"""
-SELECT layer_id, layer_name AS table_name, name, friendly_name, data_unit, description
+SELECT layer_id, layer_name AS table_name, name, friendly_name, data_unit, description, theme, dtype
 FROM layer_definitions_latest
 WHERE authority = '{authority}' AND authority_name = '{authority_name}' AND layer_id = '{layer_id}'
 {and_name}

@@ -42,11 +42,54 @@ from rsxml.project_xml import (
 from util import est_rows_for_csv_file, get_bounds_from_gdf
 from util.athena.athena_unload_utils import list_athena_unload_payload_files
 from .__version__ import __version__
-
+from reports.rpt_watershed_summary.main import get_field_metadata  # MOVE
 
 GEOMETRY_COL_TYPES = ('MULTIPOLYGON', 'POINT')
 # TODO: change athena to not return geometry object if not needed  and use UNLOAD to parquet instead of CSV
 csv.field_size_limit(10**7)  # temporary solution
+
+THEME_TO_TABLE = {
+    'Beaver': 'dgo_beaver',
+    'Descriptive': 'dgo_desc',
+    'Geomorphic': 'dgo_geomorph',
+    'Hydrologic context': 'dgo_hydro',
+    'Anthropogenic Impact': 'dgo_impacts',
+    'Vegetation Context': 'dgo_veg',
+    'DGOS': 'dgos'
+}
+
+
+def get_table_defs() -> pd.DataFrame:
+    """Gets the table definitions from layer_definitions in Athena
+
+    Also adds sequential integer dgoid to all tables.
+
+    Returns: 
+        ordered dataframe containing table_name, col_name, dtype (possibly other columns in future)
+        table_names are taken from theme in layer_definitions and then remapped using THEME_TO_TABLE
+
+    """
+    log = Logger('Get table defs')
+    layerdefs = get_field_metadata(
+        column_names='*',
+        authority='data-exchange-scripts',
+        authority_name='rme_to_athena',
+        layer_id='raw_rme'
+    )
+    # remap theme to table name, preserving row order
+    df = layerdefs.copy()
+    df['table_name'].df['theme'].map(THEME_TO_TABLE)
+
+    # Warn if we have themes we don't know how to map to tables, we will drop them
+    missing_mask = df['table_name'].isna()
+    if missing_mask.any():
+        missing = sorted(df.loc[missing_mask, 'theme'].unique())
+        log.warning(f"Missing THEME_TO_TABLE mapping for themes: {missing}.")
+        df = df.dropna(subset=['table_name']).copy()
+
+
+
+    return df
 
 
 def parse_table_defs(defs_csv_path) -> tuple[dict, dict, set]:
@@ -79,7 +122,7 @@ def parse_table_defs(defs_csv_path) -> tuple[dict, dict, set]:
     return table_schema_map, table_col_order, fk_tables
 
 
-def create_geopackage(gpkg_path: str, table_schema_map: dict, table_col_order: dict, fk_tables: set, spatialite_path: str) -> apsw.Connection:
+def create_geopackage(gpkg_path: str, table_schema_map: dict, table_col_order: dict, spatialite_path: str) -> apsw.Connection:
     """
     Create a GeoPackage (SQLite) file and tables as specified in table_schema_map.
     Returns the APSW connection.
@@ -195,78 +238,79 @@ def write_source_projects_csv(project_ids: set[str], output_path: Path) -> None:
     df.to_csv(output_path, index=False)
 
 
-def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_map: dict, table_col_order: dict) -> None:
-    """
-    Read the CSV and insert rows into the appropriate tables based on column mapping.
+# def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_map: dict, table_col_order: dict) -> None:
+#     """
+#     # DEPRECATED
+#     Read the CSV and insert rows into the appropriate tables based on column mapping.
 
-    IMPLEMENTED: Sequential dgoid, geometry handling for dgo_geom (called geom in dgos table), error handling, debug output for skipped/invalid rows.
-    """
-    log = Logger('Populate Tables')
-    log.info(f"Populating tables from {csv_path}")
-    rows = est_rows_for_csv_file(csv_path)
-    log.debug(f"Estimated number of rows: {rows}")
-    prog_bar = ProgressBar(rows, text="Transfer from csv to database table")
-    curs = conn.cursor()
-    with open(csv_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        conn.execute('BEGIN')
-        try:
-            for idx, row in enumerate(reader, start=1):
-                # Use index as sequential dgoid -- assumes there is no existing data
-                dgoid = idx
-                for table, columns in table_schema_map.items():
-                    insert_cols = []
-                    insert_values = []
-                    # geom_col_idx = None
-                    for col in table_col_order[table]:
-                        coltype = columns[col]
-                        if col == 'dgoid':
-                            insert_cols.append(col)
-                            insert_values.append(dgoid)
-                        elif coltype in GEOMETRY_COL_TYPES:
-                            insert_cols.append(col)
-                            # assume the only col of this coltype is geom, which we will build from
-                            geom_wkt = f"POINT({row.get('longitude')} {row.get('latitude')})"
-                            # assume the only col of this coltype is geom, which we want to pop with dgo_geom
-                            # geom_wkt = wkt_from_csv(row.get('dgo_geom', ''))
-                            # if not geom_wkt:
-                            #     raise ValueError(f"Missing or malformed geometry in row {idx}")
-                            insert_values.append(geom_wkt)
-                        else:
-                            val = row.get(col, None)
-                            # Check for required columns (notnull)
-                            if val is None:
-                                raise ValueError(f"Missing required column '{col}' in row {idx}")
-                                # alternatively, warn and keep going
-                                # print (f"Missing required column '{col}' in row {idx}")
-                                # values.append(None)
-                            else:
-                                insert_cols.append(col)
-                                insert_values.append(val)
-                    sql_placeholders = []
-                    for i, col in enumerate(insert_cols):
-                        coltype = columns[col]
-                        if coltype in GEOMETRY_COL_TYPES:
-                            sql_placeholders.append("AsGPB(GeomFromText(?, 4326))")
-                        else:
-                            sql_placeholders.append("?")
-                    sqlstatement = f"INSERT INTO {table} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
-                    # uncomment for debug printing first SQL statement - noisy
-                    # if idx == 1:
-                    #     log.debug(sqlstatement)
-                    #     log.debug(insert_values)
-                    curs.execute(sqlstatement, insert_values)
+#     IMPLEMENTED: Sequential dgoid, geometry handling for dgo_geom (called geom in dgos table), error handling, debug output for skipped/invalid rows.
+#     """
+#     log = Logger('Populate Tables')
+#     log.info(f"Populating tables from {csv_path}")
+#     rows = est_rows_for_csv_file(csv_path)
+#     log.debug(f"Estimated number of rows: {rows}")
+#     prog_bar = ProgressBar(rows, text="Transfer from csv to database table")
+#     curs = conn.cursor()
+#     with open(csv_path, newline='', encoding='utf-8') as csvfile:
+#         reader = csv.DictReader(csvfile)
+#         conn.execute('BEGIN')
+#         try:
+#             for idx, row in enumerate(reader, start=1):
+#                 # Use index as sequential dgoid -- assumes there is no existing data
+#                 dgoid = idx
+#                 for table, columns in table_schema_map.items():
+#                     insert_cols = []
+#                     insert_values = []
+#                     # geom_col_idx = None
+#                     for col in table_col_order[table]:
+#                         coltype = columns[col]
+#                         if col == 'dgoid':
+#                             insert_cols.append(col)
+#                             insert_values.append(dgoid)
+#                         elif coltype in GEOMETRY_COL_TYPES:
+#                             insert_cols.append(col)
+#                             # assume the only col of this coltype is geom, which we will build from
+#                             geom_wkt = f"POINT({row.get('longitude')} {row.get('latitude')})"
+#                             # assume the only col of this coltype is geom, which we want to pop with dgo_geom
+#                             # geom_wkt = wkt_from_csv(row.get('dgo_geom', ''))
+#                             # if not geom_wkt:
+#                             #     raise ValueError(f"Missing or malformed geometry in row {idx}")
+#                             insert_values.append(geom_wkt)
+#                         else:
+#                             val = row.get(col, None)
+#                             # Check for required columns (notnull)
+#                             if val is None:
+#                                 raise ValueError(f"Missing required column '{col}' in row {idx}")
+#                                 # alternatively, warn and keep going
+#                                 # print (f"Missing required column '{col}' in row {idx}")
+#                                 # values.append(None)
+#                             else:
+#                                 insert_cols.append(col)
+#                                 insert_values.append(val)
+#                     sql_placeholders = []
+#                     for i, col in enumerate(insert_cols):
+#                         coltype = columns[col]
+#                         if coltype in GEOMETRY_COL_TYPES:
+#                             sql_placeholders.append("AsGPB(GeomFromText(?, 4326))")
+#                         else:
+#                             sql_placeholders.append("?")
+#                     sqlstatement = f"INSERT INTO {table} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
+#                     # uncomment for debug printing first SQL statement - noisy
+#                     # if idx == 1:
+#                     #     log.debug(sqlstatement)
+#                     #     log.debug(insert_values)
+#                     curs.execute(sqlstatement, insert_values)
 
-                prog_bar.update(idx)
+#                 prog_bar.update(idx)
 
-            conn.execute('COMMIT')
-            prog_bar.finish()
-            log.info(f"Inserted {idx} rows.")
-        except Exception as e:
-            log.error(f"Error at row {idx}: {e}\nRow data: {row}\nSQL: {sqlstatement}")
-            conn.execute('ROLLBACK')
-            raise
-    log.info("Table population complete.")
+#             conn.execute('COMMIT')
+#             prog_bar.finish()
+#             log.info(f"Inserted {idx} rows.")
+#         except Exception as e:
+#             log.error(f"Error at row {idx}: {e}\nRow data: {row}\nSQL: {sqlstatement}")
+#             conn.execute('ROLLBACK')
+#             raise
+#     log.info("Table population complete.")
 
 
 def populate_tables_from_parquet(
@@ -584,40 +628,43 @@ def create_indexes(conn: apsw.Connection, table_col_order: dict):
             curs.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table}(dgoid)")
     log.info("Indexes created for dgoids.")
 
+# DEPRECATED
+# def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: str) -> str:
+#     """ orchestration of all the things we need to do ie
+#         parse table defs, create GeoPackage, and populate tables.
+#         return path to the geopackage
+#     """
+#     defs_path = Path(__file__).resolve().parent / "rme_table_column_defs.csv"
+#     table_schema_map, table_col_order, fk_tables = parse_table_defs(str(defs_path))
 
-def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: str) -> str:
-    """ orchestration of all the things we need to do ie 
-        parse table defs, create GeoPackage, and populate tables.
-        return path to the geopackage
-    """
-    defs_path = Path(__file__).resolve().parent / "rme_table_column_defs.csv"
-    table_schema_map, table_col_order, fk_tables = parse_table_defs(str(defs_path))
+#     project_dir_path = Path(project_dir)
+#     outputs_dir = project_dir_path / 'outputs'
+#     safe_makedirs(str(outputs_dir))
 
-    project_dir_path = Path(project_dir)
-    outputs_dir = project_dir_path / 'outputs'
-    safe_makedirs(str(outputs_dir))
+#     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
 
-    gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
-
-    conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
-    populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
-    create_indexes(conn, table_col_order)
-    create_views(conn, table_col_order)
-    return str(gpkg_path)
+#     conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
+#     populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
+#     create_indexes(conn, table_col_order)
+#     create_views(conn, table_col_order)
+#     return str(gpkg_path)
 
 
 def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: str | Path) -> Path:
     """Parquet counterpart to ``create_gpkg_igos_from_csv``."""
 
+    # OLD WAY
     defs_path = Path(__file__).resolve().parent / 'rme_table_column_defs.csv'
-    table_schema_map, table_col_order, fk_tables = parse_table_defs(str(defs_path))
+    table_schema_map, table_col_order, _fk_tables = parse_table_defs(str(defs_path))
+    # NEW WAY
+    table_defs = get_table_defs()
 
     outputs_dir = project_dir / 'outputs'
     safe_makedirs(str(outputs_dir))
 
     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
 
-    conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
+    conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, spatialite_path)
     project_ids = populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
     create_indexes(conn, table_col_order)
     create_views(conn, table_col_order)
