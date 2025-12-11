@@ -8,7 +8,7 @@ from util.athena.athena import athena_select_to_dataframe
 
 def get_field_metadata(where_clause: str = "") -> pd.DataFrame:
     """
-    DEPRECATED - Switch to using more generic version that queries `layer_definitions`
+    DEPRECATED - Switch to using more generic version in athena.py that queries `layer_definitions`
     Query Athena for column metadata from rme_table_column_defs and return as a DataFrame.
 
     Returns:

@@ -8,7 +8,7 @@ import pandas as pd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 # Repo imports
-from util.athena import query_to_dataframe
+from util.athena import query_to_dataframe, get_field_metadata
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
@@ -17,44 +17,10 @@ from reports.rpt_watershed_summary import __version__ as report_version
 from reports.rpt_watershed_summary.figures import waterbody_summary_table
 
 
-def get_field_metadata(column_names: str = '*',
-                       authority: str = 'data-exchange-scripts',
-                       authority_name: str = 'rscontext_to_athena',
-                       layer_id='rs_context_huc10'
-                       ) -> pd.DataFrame:
-    """new version of util.rme.field_metadata.py 
-    TODO: move to util.athena (not rme) once tested & generalized
-    Query athena for metadata. 
-    Parameters: 
-        column_names - comma list of columns names, if you only want to return records for a subset of columns (but usually easiest to get all of them)
-
-    Returns: 
-        pd.DataFrame - DataFrame of metadata
-
-    """
-    log = Logger('Get metadata')
-    log.info("Getting metadata from Athena")
-
-    if column_names == '*':
-        and_name = ""
-    else:
-        and_name = "AND name in ({fields})"
-    query = f"""
-SELECT layer_id, layer_name AS table_name, name, friendly_name, data_unit, description, theme, dtype
-FROM layer_definitions_latest
-WHERE authority = '{authority}' AND authority_name = '{authority_name}' AND layer_id = '{layer_id}'
-{and_name}
-"""
-    df = query_to_dataframe(query)
-    if df.empty:
-        raise RuntimeError("Failed to retrieve metadata from Athena.")
-    return df
-
-
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
+    _FIELD_META.field_meta = get_field_metadata(layer_id='rs_context_huc10')  # Set the field metadata for the report
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit

@@ -1,21 +1,24 @@
 """
-Reads a CSV file (optionally, first copies it from S3) and generates a GeoPackage (SQLite) file with tables
+Using data from Athena, generates a GeoPackage (SQLite) file with tables
 such as dgos, dgos_veg, dgo_hydro, etc.,
-column-to-table-and-type mapping extracted from rme geopackage pragma
-into rme_table_column_defs.csv. All tables will include a sequentially generated dgoid column.
+column-to-table-and-type mapping extracted from rme geopackage pragma and included in the layer_definitions for raw_rme
+ All tables will include a sequentially generated dgoid column.
 
 Lorin Gaertner (with copilot)
-August/Sept 2025
+August/Sept 2025. 
+Revised Dec 2025 See CHANGELOG. 
+- move away from CSV for data transfer between our systems (we still write to CSV for user convenience)
+* use layer_definitions
 
-IMPLEMENTED: Sequential dgoid (integer), geometry handling for dgo_geom (SRID 4326, WKT conversion), foreign key syntax in table creation, error handling (throws on missing/malformed required columns), debug output for skipped/invalid rows.
-Actual column names/types must be supplied in rme_table_column_defs.csv.
-No batching/optimization for very large CSVs - but it handled 1.5 M records okay and managed 7M too.
+IMPLEMENTED: Sequential dgoid (integer), geometry handling for dgo_geom (SRID 4326, WKT conversion), 
+foreign key syntax in table creation, error handling (throws on missing/malformed required columns), 
+debug output for skipped/invalid rows.
+Actual column names/types must be supplied in layer_definitions on Athena.
 No advanced validation or transformation beyond geometry and required columns.
 Foreign key constraints are defined but not enforced unless PRAGMA foreign_keys=ON is set.
 """
 
 from datetime import datetime
-import csv
 import json
 import os
 from pathlib import Path
@@ -39,106 +42,25 @@ from rsxml.project_xml import (
     GeoPackageDatasetTypes,
 )
 
-from util import est_rows_for_csv_file, get_bounds_from_gdf
+from util import get_bounds_from_gdf
 from util.athena.athena_unload_utils import list_athena_unload_payload_files
 from .__version__ import __version__
-from reports.rpt_watershed_summary.main import get_field_metadata  # MOVE
 
 GEOMETRY_COL_TYPES = ('MULTIPOLYGON', 'POINT')
-# TODO: change athena to not return geometry object if not needed  and use UNLOAD to parquet instead of CSV
-csv.field_size_limit(10**7)  # temporary solution
-
-THEME_TO_TABLE = {
-    'Beaver': 'dgo_beaver',
-    'Descriptive': 'dgo_desc',
-    'Geomorphic': 'dgo_geomorph',
-    'Hydrologic context': 'dgo_hydro',
-    'Anthropogenic Impact': 'dgo_impacts',
-    'Vegetation Context': 'dgo_veg',
-    'DGOS': 'dgos'
-}
+SQLiteValue = None | int | float | str | bytes
 
 
-def get_table_defs() -> pd.DataFrame:
-    """Gets the table definitions from layer_definitions in Athena
-
-    Also adds sequential integer dgoid to all tables.
-
-    Returns: 
-        ordered dataframe containing table_name, col_name, dtype (possibly other columns in future)
-        table_names are taken from theme in layer_definitions and then remapped using THEME_TO_TABLE
-
-    """
-    log = Logger('Get table defs')
-    layerdefs = get_field_metadata(
-        column_names='*',
-        authority='data-exchange-scripts',
-        authority_name='rme_to_athena',
-        layer_id='raw_rme'
-    )
-    # remap theme to table name, preserving row order
-    df = layerdefs.copy()
-    df['table_name'] = df['theme'].map(THEME_TO_TABLE)
-
-    # Warn of any themes we don't know how to map to tables, we will drop those rows
-    missing_mask = df['table_name'].isna()
-    if missing_mask.any():
-        missing = sorted(df.loc[missing_mask, 'theme'].unique())
-        log.warning(f"Missing THEME_TO_TABLE mapping for themes: {missing}.")
-        log.warning("The following rows will be ignored:")
-        log.info(f"{df[df['table_name'].isna()]}")
-        df = df.dropna(subset=['table_name']).copy()
-
-    # Add dgoid for each table that doesn't have it
-    new_rows = []
-    for table_nm in df['table_name'].unique():
-        if 'dgoid' not in df.loc[df['table_name'] == table_nm, 'name'].values:
-            new_rows.append({
-                'layer_id': 'raw_rme',
-                'table_name': table_nm,
-                'name': 'dgoid',
-                'dtype': 'INTEGER'
-            })
-    if new_rows:
-        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
-
-    return df
-
-
-def parse_table_defs(defs_csv_path) -> tuple[dict, dict, set]:
-    """
-    Parse rme_table_column_defs.csv and return a dict of table schemas; a list of column order; list of foreign key tables
-    Returns: {table_name: {col_name: col_type, ...}, ...}, {table_name: [col_order]}, set(table_names)
-    Adds sequential integer dgoid to all tables.
-    """
-    table_schema_map = {}
-    table_col_order = {}
-    fk_tables = set()
-    with open(defs_csv_path, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            table = row['table_name']
-            col = row['name']
-            col_type = row['type']
-            if table not in table_schema_map:
-                table_schema_map[table] = {}
-                table_col_order[table] = []
-            table_schema_map[table][col] = col_type
-            table_col_order[table].append(col)
-            if table != 'dgos':
-                fk_tables.add(table)
-        # Ensure dgoid is present in all tables
-        for table in table_schema_map:
-            table_schema_map[table]['dgoid'] = 'INTEGER'
-            if 'dgoid' not in table_col_order[table]:
-                table_col_order[table].insert(0, 'dgoid')
-    return table_schema_map, table_col_order, fk_tables
-
-
-def create_geopackage(gpkg_path: Path, table_schema_map: dict, table_col_order: dict, spatialite_path: str) -> apsw.Connection:
+def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path: str) -> apsw.Connection:
     """
     Create a GeoPackage (SQLite) file and tables as specified in table_schema_map.
     Returns the APSW connection.
+    dgos.dgoid will be made primary key
+    geometry columns will be registered
+
+    Args:
+        gpkg_path: path to where the geopackage will be created (will delete any existing!)
+        table_defs: dataframe containing the table_name, (column) name, and dtype (datatype) to create.    
+        spatialite_path: where to find the extension
     """
     log = Logger('Create GeoPackage')
     log.info(f"Creating GeoPackage at {gpkg_path}")
@@ -155,90 +77,46 @@ def create_geopackage(gpkg_path: Path, table_schema_map: dict, table_col_order: 
     conn.load_extension(spatialite_path)
     add_geopackage_tables(conn)
     curs = conn.cursor()
-    # create tables
-    for table, columns in table_schema_map.items():
+
+    # create tables from definitions df
+    for table_name, group in table_defs.groupby('table_name'):
         col_defs = []
-        for col in table_col_order[table]:
-            coltype = columns[col]
-            # treat dgoid specially
-            if col == 'dgoid' and table == 'dgos':
-                col_defs.append(f"{col} {coltype} PRIMARY KEY")
-            # don't add geometry cols here - we'll do it
-            elif coltype not in GEOMETRY_COL_TYPES:
-                col_defs.append(f"{col} {coltype}")
+        for _, row in group.iterrows():
+            col_name = row['name']
+            col_type = row['dtype']
 
-        # Add FK syntax for child tables
-        fk = ''
-        # if table in fk_tables:
-        #     fk = ', FOREIGN KEY(dgoid) REFERENCES dgos(dgoid)'
-        curs.execute(f"CREATE TABLE IF NOT EXISTS {table} ({', '.join(col_defs)}{fk})")
-        log.info(f"Created table {table}")
+            # Treat `dgoid` specially
+            if col_name == 'dgoid' and table_name == 'dgos':
+                col_defs.append(f"{col_name} {col_type} PRIMARY KEY")
+            elif col_type not in GEOMETRY_COL_TYPES:
+                col_defs.append(f"{col_name} {col_type}")
 
-    # register relations
-    # for table in fk_tables:
-    #     curs.execute("""
-    #         INSERT INTO gpkg_relations (
-    #             name, type, base_table_name, base_primary_column, related_table_name, related_primary_column
-    #         ) VALUES (?, 'association', ?, ?, ?, ?)
-    #     """, (
-    #         f'dgos_{table}',
-    #         'dgos', 'dgoid',
-    #         table, 'dgoid'
-    #     ))
+        # Create the table
+        curs.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(col_defs)})")
+        log.info(f"Created table {table_name}")
 
     # add and register geometry columns
-    for table, columns in table_schema_map.items():
-        for col, coltype in columns.items():
-            if coltype in GEOMETRY_COL_TYPES:
-                curs.execute(
-                    "SELECT gpkgAddGeometryColumn (?, ?, ?, 0, 0, 4326)",
-                    (table, col, coltype)
-                )
-                curs.execute(
-                    "SELECT gpkgAddSpatialIndex(?, ?);",
-                    (table, col)
-                )
-                log.info(f"Registered {table} as a spatial layer in GeoPackage with {col} as {coltype}.")
+    geometry_rows = table_defs[table_defs['dtype'].isin(GEOMETRY_COL_TYPES)]
+    for _, row in geometry_rows.iterrows():
+        table_name = row['table_name']
+        col_name = row['name']
+        col_type = row['dtype']
+
+        # Add the geometry column
+        curs.execute(
+            "SELECT gpkgAddGeometryColumn (?, ?, ?, 0, 0, 4326)",
+            (table_name, col_name, col_type)
+        )
+
+        # Add the spatial index
+        curs.execute(
+            "SELECT gpkgAddSpatialIndex(?, ?);",
+            (table_name, col_name)
+        )
+
+        log.info(f"Registered {table_name} as a spatial layer in GeoPackage with {col_name} as {col_type}.")
 
     return conn
-
-
-def wkt_from_csv(csv_geom: str) -> str | None:
-    """
-    Convert geometry string from CSV (with | instead of ,) back to WKT.
-    """
-    if not csv_geom:
-        return None
-    return csv_geom.replace('|', ',')
-
-
-def list_of_source_projects(local_csv_path: str) -> list[dict[str, str]]:
-    """
-    Iterate over a CSV to get unique project IDs and return a list of dicts with project_id and project_url.
-
-    Args:
-        local_csv_path (str): Path to the local CSV file.
-
-    Returns:
-        list[dict[str, str]]: List of dictionaries with keys 'project_id' and 'project_url'.
-
-    Notes:
-        - Could use project_id_list function in rivers_need_space but we don't use a dataframe for IGOs because the size can get huge (maybe if we switch to polars).
-        - Would be more efficient to extract this as part of populate_tables_from_csv while we're looping over it there, but keeping it here for better separation of duties.
-        - To get the name we'd need to join to conus_projects.
-    """
-    log = Logger('Get source projects')
-    project_ids = set()
-    with open(local_csv_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        rows = est_rows_for_csv_file(local_csv_path)
-        prog_bar = ProgressBar(rows, text="Transfer from csv to database table")
-        for idx, row in enumerate(reader, start=1):
-            project_ids.add(row['rme_project_id'])
-            prog_bar.update(idx)
-        prog_bar.finish()
-    log.debug(f"{len(project_ids)} projects identified")
-    return [{"project_id": x, "project_url": f'https://data.riverscapes.net/p/{x}'} for x in project_ids]
 
 
 def write_source_projects_csv(project_ids: set[str], output_path: Path) -> None:
@@ -251,86 +129,10 @@ def write_source_projects_csv(project_ids: set[str], output_path: Path) -> None:
     df.to_csv(output_path, index=False)
 
 
-# def populate_tables_from_csv(csv_path: str, conn: apsw.Connection, table_schema_map: dict, table_col_order: dict) -> None:
-#     """
-#     # DEPRECATED
-#     Read the CSV and insert rows into the appropriate tables based on column mapping.
-
-#     IMPLEMENTED: Sequential dgoid, geometry handling for dgo_geom (called geom in dgos table), error handling, debug output for skipped/invalid rows.
-#     """
-#     log = Logger('Populate Tables')
-#     log.info(f"Populating tables from {csv_path}")
-#     rows = est_rows_for_csv_file(csv_path)
-#     log.debug(f"Estimated number of rows: {rows}")
-#     prog_bar = ProgressBar(rows, text="Transfer from csv to database table")
-#     curs = conn.cursor()
-#     with open(csv_path, newline='', encoding='utf-8') as csvfile:
-#         reader = csv.DictReader(csvfile)
-#         conn.execute('BEGIN')
-#         try:
-#             for idx, row in enumerate(reader, start=1):
-#                 # Use index as sequential dgoid -- assumes there is no existing data
-#                 dgoid = idx
-#                 for table, columns in table_schema_map.items():
-#                     insert_cols = []
-#                     insert_values = []
-#                     # geom_col_idx = None
-#                     for col in table_col_order[table]:
-#                         coltype = columns[col]
-#                         if col == 'dgoid':
-#                             insert_cols.append(col)
-#                             insert_values.append(dgoid)
-#                         elif coltype in GEOMETRY_COL_TYPES:
-#                             insert_cols.append(col)
-#                             # assume the only col of this coltype is geom, which we will build from
-#                             geom_wkt = f"POINT({row.get('longitude')} {row.get('latitude')})"
-#                             # assume the only col of this coltype is geom, which we want to pop with dgo_geom
-#                             # geom_wkt = wkt_from_csv(row.get('dgo_geom', ''))
-#                             # if not geom_wkt:
-#                             #     raise ValueError(f"Missing or malformed geometry in row {idx}")
-#                             insert_values.append(geom_wkt)
-#                         else:
-#                             val = row.get(col, None)
-#                             # Check for required columns (notnull)
-#                             if val is None:
-#                                 raise ValueError(f"Missing required column '{col}' in row {idx}")
-#                                 # alternatively, warn and keep going
-#                                 # print (f"Missing required column '{col}' in row {idx}")
-#                                 # values.append(None)
-#                             else:
-#                                 insert_cols.append(col)
-#                                 insert_values.append(val)
-#                     sql_placeholders = []
-#                     for i, col in enumerate(insert_cols):
-#                         coltype = columns[col]
-#                         if coltype in GEOMETRY_COL_TYPES:
-#                             sql_placeholders.append("AsGPB(GeomFromText(?, 4326))")
-#                         else:
-#                             sql_placeholders.append("?")
-#                     sqlstatement = f"INSERT INTO {table} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
-#                     # uncomment for debug printing first SQL statement - noisy
-#                     # if idx == 1:
-#                     #     log.debug(sqlstatement)
-#                     #     log.debug(insert_values)
-#                     curs.execute(sqlstatement, insert_values)
-
-#                 prog_bar.update(idx)
-
-#             conn.execute('COMMIT')
-#             prog_bar.finish()
-#             log.info(f"Inserted {idx} rows.")
-#         except Exception as e:
-#             log.error(f"Error at row {idx}: {e}\nRow data: {row}\nSQL: {sqlstatement}")
-#             conn.execute('ROLLBACK')
-#             raise
-#     log.info("Table population complete.")
-
-
 def populate_tables_from_parquet(
     parquet_path: str | Path,
     conn: apsw.Connection,
-    table_schema_map: dict,
-    table_col_order: dict,
+    table_defs: pd.DataFrame,
     batch_size: int = 50_000,
 ) -> set[str]:
     """Insert rows into tables from one or more Parquet files.
@@ -338,6 +140,7 @@ def populate_tables_from_parquet(
     Args:
         parquet_path: Directory containing Parquet files or a single Parquet file path.
         conn: Open APSW connection.
+        table_defs: tables and columns we are populating 
         table_schema_map / table_col_order: Outputs from ``parse_table_defs``.
         batch_size: Row batch size when streaming Parquet content.
     Returns:
@@ -378,11 +181,14 @@ def populate_tables_from_parquet(
                     project_id = row.get('rme_project_id')
                     if project_id is not None and not pd.isna(project_id):
                         project_ids.add(str(project_id))
-                    for table, columns in table_schema_map.items():
+                    # group table_defs by table_name and process each table
+                    for table_name, group in table_defs.groupby('table_name'):
                         insert_cols: list[str] = []
-                        insert_values: list[object] = []
-                        for col in table_col_order[table]:
-                            coltype = columns[col]
+                        insert_values: list[SQLiteValue] = []
+                        sql_placeholders = []
+                        for _, col_row in group.iterrows():
+                            col = col_row['name']
+                            coltype = col_row['dtype']
                             if col == 'dgoid':
                                 insert_cols.append(col)
                                 insert_values.append(inserted_rows)
@@ -402,14 +208,13 @@ def populate_tables_from_parquet(
                                 insert_cols.append(col)
                                 insert_values.append(val)
 
-                        sql_placeholders = []
-                        for col in insert_cols:
-                            if columns[col] in GEOMETRY_COL_TYPES:
+                            if coltype in GEOMETRY_COL_TYPES:
                                 sql_placeholders.append("AsGPB(GeomFromText(?, 4326))")
                             else:
                                 sql_placeholders.append("?")
+
                         sqlstatement = (
-                            f"INSERT INTO {table} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
+                            f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
                         )
                         curs.execute(sqlstatement, insert_values)
                     prog_bar.update(inserted_rows)
@@ -514,7 +319,7 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
     rs_project = Project(
         project_name,
         project_type='igos',
-        description="""This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data Exchange produced as part of the 2025 CONUS run of Riverscapes tools. See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative. 
+        description="""This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data Exchange produced as part of the 2025 CONUS run of Riverscapes tools. See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative.
         At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps. 
         """,
         meta_data=MetaData(values=[
@@ -566,7 +371,7 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
     log.info(f'Project XML file written to {merged_project_xml}')
 
 
-def create_views(conn: apsw.Connection, table_col_order: dict):
+def create_views(conn: apsw.Connection, table_defs: pd.DataFrame):
     """
     create spatial views for each attribute table joined with the dgos (spatial) table 
     also creates a combined view 'vw_dgo_metrics' joining all attribute tables and `dgos`
@@ -576,7 +381,9 @@ def create_views(conn: apsw.Connection, table_col_order: dict):
     log = Logger('Create views')
     curs = conn.cursor()
 
-    dgo_tables = [t for t in table_col_order.keys() if t != 'dgos']
+    # Get unique table names from table_defs, excluding 'dgos'
+    dgo_tables = table_defs['table_name'].unique()
+    dgo_tables = [t for t in dgo_tables if t != 'dgos']
     log.debug(f'Attribute tables to create views for: {dgo_tables}')
 
     # Get the columns from the dgos table, but not the dgoid or geom because we'll add them manually
@@ -628,58 +435,34 @@ def create_views(conn: apsw.Connection, table_col_order: dict):
     log.info(f"{len(new_views)} views created and registered as spatial layers.")
 
 
-def create_indexes(conn: apsw.Connection, table_col_order: dict):
+def create_indexes(conn: apsw.Connection, table_defs: pd.DataFrame):
     """
     Create indexes on dgoid columns for all tables except 'dgos'.
     """
     log = Logger('Create Indexes')
     curs = conn.cursor()
-    for table in table_col_order:
-        if table != 'dgos':
-            index_name = f"idx_{table}_dgoid"
-            log.debug(f"Creating index {index_name} on {table}(dgoid)")
-            curs.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table}(dgoid)")
+    # Get unique table names from table_defs, excluding 'dgos'
+    dgo_tables = table_defs['table_name'].unique()
+    dgo_tables = [t for t in dgo_tables if t != 'dgos']
+    for table_name in dgo_tables:
+        index_name = f"idx_{table_name}_dgoid"
+        log.debug(f"Creating index {index_name} on {table_name}(dgoid)")
+        curs.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name}(dgoid)")
     log.info("Indexes created for dgoids.")
 
-# DEPRECATED
-# def create_gpkg_igos_from_csv(project_dir: str, spatialite_path: str, local_csv: str) -> str:
-#     """ orchestration of all the things we need to do ie
-#         parse table defs, create GeoPackage, and populate tables.
-#         return path to the geopackage
-#     """
-#     defs_path = Path(__file__).resolve().parent / "rme_table_column_defs.csv"
-#     table_schema_map, table_col_order, fk_tables = parse_table_defs(str(defs_path))
 
-#     project_dir_path = Path(project_dir)
-#     outputs_dir = project_dir_path / 'outputs'
-#     safe_makedirs(str(outputs_dir))
-
-#     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
-
-#     conn = create_geopackage(str(gpkg_path), table_schema_map, table_col_order, fk_tables, spatialite_path)
-#     populate_tables_from_csv(local_csv, conn, table_schema_map, table_col_order)
-#     create_indexes(conn, table_col_order)
-#     create_views(conn, table_col_order)
-#     return str(gpkg_path)
-
-
-def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: str | Path) -> Path:
-    """Parquet counterpart to ``create_gpkg_igos_from_csv``."""
-
-    # OLD WAY
-    defs_path = Path(__file__).resolve().parent / 'rme_table_column_defs.csv'
-    table_schema_map, table_col_order, _fk_tables = parse_table_defs(str(defs_path))
-    # NEW WAY
-    table_defs = get_table_defs()
+def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str,
+                                  parquet_path: Path, table_defs: pd.DataFrame) -> Path:
+    """Create geopackage from parquet file"""
 
     outputs_dir = project_dir / 'outputs'
     safe_makedirs(str(outputs_dir))
 
     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
 
-    conn = create_geopackage(gpkg_path, table_schema_map, table_col_order, spatialite_path)
-    project_ids = populate_tables_from_parquet(parquet_path, conn, table_schema_map, table_col_order)
-    create_indexes(conn, table_col_order)
-    create_views(conn, table_col_order)
+    conn = create_geopackage(gpkg_path, table_defs, spatialite_path)
+    project_ids = populate_tables_from_parquet(parquet_path, conn, table_defs)
+    create_indexes(conn, table_defs)
+    create_views(conn, table_defs)
     write_source_projects_csv(project_ids, project_dir / 'source_projects.csv')
     return gpkg_path

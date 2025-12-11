@@ -5,6 +5,7 @@ from .athena import (
     aoi_query_to_dataframe,
     query_to_local_parquet,
     aoi_query_to_local_parquet,
+    get_field_metadata,
     # legacy
     athena_select_to_dict,
     athena_select_to_dataframe,
@@ -19,6 +20,7 @@ __all__ = [
     "aoi_query_to_dataframe",
     "query_to_local_parquet",
     "aoi_query_to_local_parquet",
+    "get_field_metadata",
     # legacy
     "athena_select_to_dict",
     "athena_select_to_dataframe",

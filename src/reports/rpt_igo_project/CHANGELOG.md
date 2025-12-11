@@ -4,6 +4,10 @@
 
 Internal use only
 
+### 0.3.0 2025-12-10
+
+* use layer definitions data from Athena (which is populated by the rme scraper script's `layer_definitions.json`)
+
 ### 0.2.0 2025-11-25
 
 * downloading parquet not csv and using the raw_rme metadata from athena
