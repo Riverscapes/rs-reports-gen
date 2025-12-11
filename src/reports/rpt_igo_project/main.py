@@ -57,9 +57,9 @@ def get_igo_table_defs() -> pd.DataFrame:
     missing_mask = df['table_name'].isna()
     if missing_mask.any():
         missing = sorted(df.loc[missing_mask, 'theme'].unique())
-        log.warning(f"Missing THEME_TO_TABLE mapping for themes: {missing}.")
-        log.warning("The following rows will not be added to the GeoPackage:")
-        log.info(f"{df[df['table_name'].isna()]}")
+        log.debug(f"Missing THEME_TO_TABLE mapping for themes: {missing}.")
+        log.debug("The following rows will not be added to the GeoPackage:")
+        log.debug(f"{df[df['table_name'].isna()]}")
         df = df.dropna(subset=['table_name']).copy()
 
     # Add dgoid for each table that doesn't have it
@@ -219,7 +219,7 @@ def main():
 
     log = Logger('Setup')
     log_path = output_path / 'report.log'
-    log.setup(log_path=log_path, log_level=logging.DEBUG)
+    log.setup(log_path=log_path, log_level=logging.DEBUG)  # NOTE in future, parameterize level and reduce log size in prod
     log.title('rpt-igo-project')
     log.info(f"Version: {__version__}")
 
