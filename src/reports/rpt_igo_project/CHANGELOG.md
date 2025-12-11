@@ -4,9 +4,10 @@
 
 Internal use only
 
-### 0.3.0 2025-12-10
+### 0.3.1 2025-12-11
 
-* use layer definitions data from Athena (which is populated by the rme scraper script's `layer_definitions.json`)
+* use layer definitions data from Athena (which is populated by the `layer_definitions.json` in `data-exchange-script` where the scrape occurs)
+* add metadata to the output geopackage for tables and views
 
 ### 0.2.0 2025-11-25
 

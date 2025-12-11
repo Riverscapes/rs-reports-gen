@@ -5,13 +5,13 @@ column-to-table-and-type mapping extracted from rme geopackage pragma and includ
  All tables will include a sequentially generated dgoid column.
 
 Lorin Gaertner (with copilot)
-August/Sept 2025. 
-Revised Dec 2025 See CHANGELOG. 
+August/Sept 2025.
+Revised Dec 2025 See CHANGELOG.
 - move away from CSV for data transfer between our systems (we still write to CSV for user convenience)
 * use layer_definitions
 
-IMPLEMENTED: Sequential dgoid (integer), geometry handling for dgo_geom (SRID 4326, WKT conversion), 
-foreign key syntax in table creation, error handling (throws on missing/malformed required columns), 
+IMPLEMENTED: Sequential dgoid (integer), geometry handling for dgo_geom (SRID 4326, WKT conversion),
+foreign key syntax in table creation, error handling (throws on missing/malformed required columns),
 debug output for skipped/invalid rows.
 Actual column names/types must be supplied in layer_definitions on Athena.
 No advanced validation or transformation beyond geometry and required columns.
@@ -59,7 +59,7 @@ def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path
 
     Args:
         gpkg_path: path to where the geopackage will be created (will delete any existing!)
-        table_defs: dataframe containing the table_name, (column) name, and dtype (datatype) to create.    
+        table_defs: dataframe containing the table_name, (column) name, and dtype (datatype) to create.
         spatialite_path: where to find the extension
     """
     log = Logger('Create GeoPackage')
@@ -140,7 +140,7 @@ def populate_tables_from_parquet(
     Args:
         parquet_path: Directory containing Parquet files or a single Parquet file path.
         conn: Open APSW connection.
-        table_defs: tables and columns we are populating 
+        table_defs: tables and columns we are populating
         table_schema_map / table_col_order: Outputs from ``parse_table_defs``.
         batch_size: Row batch size when streaming Parquet content.
     Returns:
@@ -258,8 +258,8 @@ def populate_tables_from_parquet(
 def add_geopackage_tables(conn: apsw.Connection):
     """
     Create required GeoPackage spatial_ref_sys and metadata tables: gpkg_contents and gpkg_geometry_columns.
-    # initially I inserted with CREATE TABLE statements but the single spatialite function `gpkgCreateBaseTables` does all this 
-    the Spatialite function gpkgInsertEpsgSRID(4326) is not needed because CreateBaseTables inserts that one already 
+    # initially I inserted with CREATE TABLE statements but the single spatialite function `gpkgCreateBaseTables` does all this
+    the Spatialite function gpkgInsertEpsgSRID(4326) is not needed because CreateBaseTables inserts that one already
     """
     curs = conn.cursor()
     curs.execute("SELECT gpkgCreateBaseTables();")
@@ -285,7 +285,7 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
     """
     Returns a list of the datasets from the output GeoPackage.
     These are the spatial views that are created from the igos and dgos tables.
-    ***COPIED FROM scrape_rme2.py*** and then 
+    ***COPIED FROM scrape_rme2.py*** and then
     """
 
     conn = apsw.Connection(output_gpkg)
@@ -341,7 +341,7 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
         project_name,
         project_type='igos',
         description="""This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data Exchange produced as part of the 2025 CONUS run of Riverscapes tools. See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative.
-        At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps. 
+        At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps.
         """,
         meta_data=MetaData(values=[
             Meta('Report Type', 'IGO Scraper'),
@@ -394,7 +394,7 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
 
 def create_views(conn: apsw.Connection, table_defs: pd.DataFrame):
     """
-    create spatial views for each attribute table joined with the dgos (spatial) table 
+    create spatial views for each attribute table joined with the dgos (spatial) table
     also creates a combined view 'vw_dgo_metrics' joining all attribute tables and `dgos`
     Registers each view in gpkg_contents and gpkg_geometry_columns so GIS tools recognize them as spatial layers.
     modeled after clean_up_gpkg in scrape_rme2 but using the dgo geom (which is a point)
@@ -472,6 +472,115 @@ def create_indexes(conn: apsw.Connection, table_defs: pd.DataFrame):
     log.info("Indexes created for dgoids.")
 
 
+def create_gpkg_schema_tables(conn: apsw.Connection):
+    """
+    Create tables to implement the Geopackage _Schema_ extension
+    ie `gpkg_data_columns` and `gpkg_data_column_constraints`, if they don't exist.
+    See https://www.geopackage.org/spec140/index.html#gpkg_data_columns_sql
+
+    Args:
+        conn: connection to a Geopackage database
+
+    NOTE: we don't need this in this module because spatialite in `create_geopackage` does it for us
+    """
+    curs = conn.cursor()
+    curs.execute(
+        """
+CREATE TABLE IF NOT EXISTS gpkg_data_columns (
+    table_name TEXT NOT NULL,
+    column_name TEXT NOT NULL,
+    name TEXT,
+    title TEXT,
+    description TEXT,
+    mime_type TEXT,
+    constraint_name TEXT,
+    CONSTRAINT pk_gdc PRIMARY KEY (table_name, column_name),
+    CONSTRAINT gdc_tn UNIQUE (table_name, name)
+);
+"""
+    )
+    curs.execute(
+        """
+CREATE TABLE IF NOT EXISTS gpkg_data_column_constraints (
+  constraint_name TEXT NOT NULL,
+  constraint_type TEXT NOT NULL, // 'range' | 'enum' | 'glob'
+  value TEXT,
+  min NUMERIC,
+  min_is_inclusive BOOLEAN, // 0 = false, 1 = true
+  max NUMERIC,
+  max_is_inclusive BOOLEAN, // 0 = false, 1 = true
+  description TEXT,
+  CONSTRAINT gdcc_ntv UNIQUE (constraint_name, constraint_type, value)
+)
+"""
+    )
+
+
+def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame, aliases: list[tuple[str, str]] | None = None):
+    """
+    Document tables and views in the GeoPackage using the GeoPackage Schema Extension.
+    Populates gpkg_data_columns with metadata from table_defs using executemany.
+    Args:
+        conn: APSW connection to the GeoPackage.
+        table_defs: DataFrame with table/column metadata (must include table_name, name, description, data_unit, friendly_name).
+        aliases: Optional list [(viewname, tablename)] to additionally apply definitions to viewname using matching columns in tablename
+    """
+    log = Logger('Populate Geopackage metadata')
+    curs = conn.cursor()
+
+    # We have some Pandas NA values in Description, which are not the same as NULL and sqlite doesn't like them
+    columns_needed = ['table_name', 'name', 'friendly_name', 'data_unit', 'description']
+    table_defs_clean = table_defs[columns_needed].copy()
+    table_defs_clean = table_defs_clean.applymap(lambda x: None if pd.isna(x) else x)
+
+    def make_title(name, friendly_name, data_unit):
+        if not friendly_name:
+            friendly_name = name
+        if data_unit and str(data_unit).strip() and str(data_unit).strip() != 'NA':
+            return f"{friendly_name} ({data_unit})"
+        return str(friendly_name)
+
+    # Prepare rows for gpkg_data_columns
+    def build_rows(df, table_name_override=None) -> list[tuple]:
+        rows = []
+        # Use itertuples for performance and attribute access
+        for row in df.itertuples(index=False, name='Row'):
+            table_name = table_name_override if table_name_override else getattr(row, 'table_name', None)
+            column_name = getattr(row, 'name', None)
+            key = (table_name, column_name)
+            if key in table_column_set:
+                log.debug(f"Duplicate gkpg_data_columns would be created for ({table_name}, {column_name}); skipping.")
+                continue
+            table_column_set.add(key)
+            name = str(column_name).replace('_', ' ') if column_name is not None else None
+            friendly_name = getattr(row, 'friendly_name', None)
+            data_unit = getattr(row, 'data_unit', None)
+            description = getattr(row, 'description', None)
+            title = make_title(name, friendly_name, data_unit)
+            rows.append((table_name, column_name, name, title, description, None, None))
+        return rows
+
+    # NOTE No two rows can have the same `name` value (unless it is NULL). BUT WE AREN'T Checking that yet.
+    table_column_set = set()  # no two rows can have the same (table_name, column_name)
+    data_columns_rows = build_rows(table_defs_clean)
+
+    # Optionally, document views
+    if aliases:
+        for viewname, tablename in aliases:
+            view_cols = table_defs_clean[table_defs_clean['table_name'] == tablename]
+            data_columns_rows.extend(build_rows(view_cols, table_name_override=viewname))
+
+    curs.executemany(
+        """
+        INSERT INTO gpkg_data_columns (
+            table_name, column_name, name, title, description, mime_type, constraint_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        data_columns_rows
+    )
+    log.info("GeoPackage data_columns table populated with metadata.")
+
+
 def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str,
                                   parquet_path: Path, table_defs: pd.DataFrame) -> Path:
     """Create geopackage from parquet file"""
@@ -485,5 +594,18 @@ def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str,
     project_ids = populate_tables_from_parquet(parquet_path, conn, table_defs)
     create_indexes(conn, table_defs)
     create_views(conn, table_defs)
+
+    # Document tables/views using geopackage schema extension
+    dgo_tables = table_defs['table_name'].unique()
+
+    view_aliases = [(f'vw_{t}_metrics', t) for t in dgo_tables if t != 'dgos']
+    # views are made by joining dgos with other tables so we'll add columns from the dgos
+    view_aliases += [(f'vw_{t}_metrics', 'dgos') for t in dgo_tables if t != 'dgos']
+    # vw_dgo_metrics combines everything together (and honestly I don't like it; it's too big, and unnecessary)
+    view_aliases += [('vw_dgo_metrics', t) for t in dgo_tables]
+
+    populate_geopackage_metadata(conn, table_defs, view_aliases)
+
     write_source_projects_csv(project_ids, project_dir / 'source_projects.csv')
+
     return gpkg_path
