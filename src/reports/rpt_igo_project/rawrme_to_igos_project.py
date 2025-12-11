@@ -133,7 +133,7 @@ def populate_tables_from_parquet(
     parquet_path: str | Path,
     conn: apsw.Connection,
     table_defs: pd.DataFrame,
-    batch_size: int = 50_000,
+    batch_size: int = 75_000,
 ) -> set[str]:
     """Insert rows into tables from one or more Parquet files.
 
@@ -145,6 +145,8 @@ def populate_tables_from_parquet(
         batch_size: Row batch size when streaming Parquet content.
     Returns:
         Set of distinct ``rme_project_id`` values observed during ingestion.
+
+    Possible enhancement - we can get point from the source rather than building it
     """
 
     log = Logger('Populate Tables (Parquet)')
@@ -170,54 +172,73 @@ def populate_tables_from_parquet(
     project_ids: set[str] = set()  # track unique source projects during ingestion
 
     conn.execute('BEGIN')
+    # Step 2: Precompute table groupings
+    table_groups = {name: group for name, group in table_defs.groupby('table_name')}
+    # Step 3: Precompute column indices for each table
+    table_col_indices = {}
+    for table_name, group in table_groups.items():
+        indices = []
+        geom_col = None
+        for _, col_row in group.iterrows():
+            col = col_row['name']
+            if col in ['dgoid', '__geom_point'] or col in group['name'].values:
+                indices.append(col)
+            if col_row['dtype'] in GEOMETRY_COL_TYPES:
+                geom_col = col
+        table_col_indices[table_name] = (indices, geom_col)
+
     try:
         for parquet_file in parquet_files:
             pq_file = pq.ParquetFile(parquet_file)
             log.debug(f"Processing file {parquet_file}")
             for batch in pq_file.iter_batches(batch_size=batch_size):
                 batch_df = batch.to_pandas()
-                for row in batch_df.to_dict(orient='records'):
-                    inserted_rows += 1
-                    project_id = row.get('rme_project_id')
-                    if project_id is not None and not pd.isna(project_id):
-                        project_ids.add(str(project_id))
-                    # group table_defs by table_name and process each table
-                    for table_name, group in table_defs.groupby('table_name'):
-                        insert_cols: list[str] = []
-                        insert_values: list[SQLiteValue] = []
-                        sql_placeholders = []
-                        for _, col_row in group.iterrows():
-                            col = col_row['name']
-                            coltype = col_row['dtype']
+
+                # Step 1: Vectorized geometry processing
+                if 'longitude' in batch_df.columns and 'latitude' in batch_df.columns:
+                    batch_df['__geom_point'] = batch_df[['longitude', 'latitude']].apply(
+                        lambda x: f"POINT({float(x['longitude'])} {float(x['latitude'])})"
+                        if pd.notna(x['longitude']) and pd.notna(x['latitude']) else None,
+                        axis=1
+                    )
+
+                # Track project_ids in batch (vectorized)
+                if 'rme_project_id' in batch_df.columns:
+                    project_ids.update(batch_df['rme_project_id'].dropna().astype(str).unique())
+
+                # Step 4: Use itertuples for row iteration
+                for table_name, group in table_groups.items():
+                    insert_cols: list[str] = [col_row['name'] for _, col_row in group.iterrows()]
+                    sql_placeholders = [
+                        "AsGPB(GeomFromText(?, 4326))" if col_row['dtype'] in GEOMETRY_COL_TYPES else "?"
+                        for _, col_row in group.iterrows()
+                    ]
+                    sqlstatement = (
+                        f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
+                    )
+
+                    batch_inserts = []
+                    col_idx_map = {col: batch_df.columns.get_loc(col) for col in insert_cols if col in batch_df.columns}
+                    geom_col = table_col_indices[table_name][1]
+                    for idx, row in enumerate(batch_df.itertuples(index=False, name=None)):
+                        row_values: list[SQLiteValue] = []
+                        for col in insert_cols:
                             if col == 'dgoid':
-                                insert_cols.append(col)
-                                insert_values.append(inserted_rows)
-                            elif coltype in GEOMETRY_COL_TYPES:
-                                lon = row.get('longitude')
-                                lat = row.get('latitude')
-                                if lon is None or lat is None or pd.isna(lon) or pd.isna(lat):
-                                    raise ValueError(f"Missing longitude/latitude for row {inserted_rows}")
-                                insert_cols.append(col)
-                                insert_values.append(f"POINT({float(lon)} {float(lat)})")
+                                row_values.append(inserted_rows + idx + 1)
+                            elif col == '__geom_point' and geom_col:
+                                # Always use vectorized geometry column if present
+                                row_values.append(row[batch_df.columns.get_loc('__geom_point')])
                             else:
-                                if col not in row:
-                                    raise ValueError(f"Missing required column '{col}' in row {inserted_rows}")
-                                val = row.get(col)
+                                i = col_idx_map.get(col)
+                                val = row[i] if i is not None else None
                                 if pd.isna(val):
                                     val = None
-                                insert_cols.append(col)
-                                insert_values.append(val)
+                                row_values.append(val)
+                        batch_inserts.append(tuple(row_values))
+                    curs.executemany(sqlstatement, batch_inserts)
 
-                            if coltype in GEOMETRY_COL_TYPES:
-                                sql_placeholders.append("AsGPB(GeomFromText(?, 4326))")
-                            else:
-                                sql_placeholders.append("?")
-
-                        sqlstatement = (
-                            f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
-                        )
-                        curs.execute(sqlstatement, insert_values)
-                    prog_bar.update(inserted_rows)
+                inserted_rows += len(batch_df)
+                prog_bar.update(inserted_rows)
         conn.execute('COMMIT')
         prog_bar.finish()
         log.info(
