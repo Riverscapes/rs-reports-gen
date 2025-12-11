@@ -16,35 +16,89 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 # Local imports
 from util import prepare_gdf_for_athena
-from util.athena import aoi_query_to_local_parquet
-from util.rme.field_metadata import get_field_metadata
-from .athenacsv_to_rme import create_gpkg_igos_from_parquet, create_igos_project, list_of_source_projects
+from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from .rawrme_to_igos_project import create_gpkg_igos_from_parquet, create_igos_project
 from .__version__ import __version__
 
 
-def field_metadata_to_file(output_path: str):
+THEME_TO_TABLE = {
+    'Beaver': 'dgo_beaver',
+    'Descriptive': 'dgo_desc',
+    'Geomorphic': 'dgo_geomorph',
+    'Hydrologic context': 'dgo_hydro',
+    'Anthropogenic Impact': 'dgo_impacts',
+    'Vegetation Context': 'dgo_veg',
+    'DGOS': 'dgos'
+}
+
+
+def get_igo_table_defs() -> pd.DataFrame:
+    """Gets the table definitions from layer_definitions in Athena
+
+    Also adds sequential integer dgoid to all tables.
+
+    Returns: 
+        ordered dataframe containing table_name, col_name, dtype (possibly other columns in future)
+        table_names are taken from theme in layer_definitions and then remapped using THEME_TO_TABLE
+
+    """
+    log = Logger('Get table defs')
+    layerdefs = get_field_metadata(
+        column_names='*',
+        authority='data-exchange-scripts',
+        authority_name='rme_to_athena',
+        layer_id='raw_rme'
+    )
+    # remap theme to table name, preserving row order
+    df = layerdefs.copy()
+    df['table_name'] = df['theme'].map(THEME_TO_TABLE)
+
+    # Warn of any themes we don't know how to map to tables, we will drop those rows
+    missing_mask = df['table_name'].isna()
+    if missing_mask.any():
+        missing = sorted(df.loc[missing_mask, 'theme'].unique())
+        log.warning(f"Missing THEME_TO_TABLE mapping for themes: {missing}.")
+        log.warning("The following rows will not be added to the GeoPackage:")
+        log.info(f"{df[df['table_name'].isna()]}")
+        df = df.dropna(subset=['table_name']).copy()
+
+    # Add dgoid for each table that doesn't have it
+    # 1. Identify tables that ALREADY have 'dgoid'
+    # We filter once to find the 'dgoid' rows, then get the unique table names.
+    tables_with_dgoid = df.loc[df['name'] == 'dgoid', 'table_name'].unique()
+
+    # 2. Identify tables that represent the 'universe' (all tables)
+    all_tables = df['table_name'].unique()
+
+    # 3. Find the difference (Tables MISSING dgoid)
+    missing_tables = list(set(all_tables) - set(tables_with_dgoid))
+
+    # 4. Create and append the new rows in one batch
+    if missing_tables:
+        # Pandas will automatically broadcast the scalar values (layer_id, name, etc.)
+        # to match the length of the 'table_name' list (missing_tables).
+        new_rows_df = pd.DataFrame({
+            'table_name': missing_tables,
+            'layer_id': 'raw_rme',
+            'name': 'dgoid',
+            'dtype': 'INTEGER'
+        })
+
+        df = pd.concat([df, new_rows_df], ignore_index=True)
+
+    return df
+
+
+def field_metadata_to_file(output_path: Path, table_defs: pd.DataFrame):
     """Export field metadata from Athena to a CSV file."""
-    df = get_field_metadata("WHERE table_name='raw_rme'")
     # users won't understand all columsn
-    df = df[['name', 'theme_name', 'friendly_name', 'data_unit', 'description']].copy()
+    df = table_defs[['table_name', 'name', 'friendly_name', 'data_unit', 'description']].copy()
     df = df.rename(columns={'name': 'column_name'})
     df.to_csv(output_path, index=False)
 
 
-def project_list_to_file(local_csv_path, output_path: str):
-    """export the list of projects to a file"""
-    sp_list = list_of_source_projects(local_csv_path)
-    df = pd.DataFrame(sp_list)
-    df.to_csv(output_path, index=False)
-
-
-def generate_report(project_dir: Path, local_csv_path: str | None):
-    """Make a readme file plus metadata artifacts; project list is optional if already written."""
-    # column_meta
-    field_metadata_to_file(os.path.join(project_dir, 'column_metadata.csv'))
-    # list of projects
-    if local_csv_path:
-        project_list_to_file(local_csv_path, os.path.join(project_dir, 'source_projects.csv'))
+def generate_report(project_dir: Path):
+    """Make a readme file plus metadata artifacts. """
     # build readme
     src_dir = os.path.dirname(__file__)
     template_path = os.path.join(src_dir, 'templates', 'template_readme.md')
@@ -113,9 +167,14 @@ def get_and_process_aoi(
             parquet_data_source
         )
 
-    gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source)
+    # Retrieve table definitions
+    table_defs = get_igo_table_defs()
+
+    gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source, table_defs)
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
-    generate_report(project_dir, None)
+    # column_meta
+    field_metadata_to_file(project_dir / 'column_metadata.csv', table_defs)
+    generate_report(project_dir)
 
     if not keep_parquet:
         try:
