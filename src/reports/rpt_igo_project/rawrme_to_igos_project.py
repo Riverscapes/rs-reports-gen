@@ -225,7 +225,7 @@ def populate_tables_from_parquet(
                         for col in insert_cols:
                             if col == 'dgoid':
                                 row_values.append(inserted_rows + idx + 1)
-                            elif col == '__geom_point' and geom_col:
+                            elif col == geom_col and '__geom_point' in batch_df.columns:
                                 # Always use vectorized geometry column if present
                                 row_values.append(row[batch_df.columns.get_loc('__geom_point')])
                             else:
@@ -524,6 +524,9 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
         conn: APSW connection to the GeoPackage.
         table_defs: DataFrame with table/column metadata (must include table_name, name, description, data_unit, friendly_name).
         aliases: Optional list [(viewname, tablename)] to additionally apply definitions to viewname using matching columns in tablename
+
+    NOTE: we populate name, title, and description, but it looks like QGIS only really uses name and description. 
+    TODO: Move to use this more broadly in riverscapes tools, adjust as currently only the title includes the unit
     """
     log = Logger('Populate Geopackage metadata')
     curs = conn.cursor()
