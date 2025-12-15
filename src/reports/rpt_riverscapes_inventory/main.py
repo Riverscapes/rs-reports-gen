@@ -57,7 +57,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
                 report_dir: Path, report_name: str,
                 include_static: bool = True,
                 include_pdf: bool = True
-                ) -> dict[str, str]:
+                ):
     """
     Generates HTML report(s) in report_dir.
     Args:
