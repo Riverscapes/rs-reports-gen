@@ -1,5 +1,9 @@
 # Riverscapes Inventory Report Changes
 
+## Version 0.2.2
+
+* Using new Riverscapes `layer_definitions` from Athena instead of the older rme-specific tabledefs
+
 ## Version 0.2.1
 
 * [ ] Better handling for large/complex inputs. We no longer pull down or use DGO geometry

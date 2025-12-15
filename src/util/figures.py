@@ -632,7 +632,7 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     field_meta.duplicate_meta('segment_area', 'dev_segment_area', new_friendly='Riverscapes Area')
 
     baked_header_lookup = field_meta.get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = field_meta.bake_units(agg_data)    # Plot bar chart
+    baked_agg_data, _baked_headers = field_meta.bake_units(agg_data)    # Plot bar chart
 
     baked_header_lookup['bin'] = 'Land Use Intensity'
 

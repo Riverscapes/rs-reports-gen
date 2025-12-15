@@ -46,6 +46,7 @@ import uuid
 import tempfile
 import csv
 from pathlib import Path
+from typing import Sequence
 from urllib.parse import urlparse
 import boto3
 import awswrangler as wr
@@ -117,37 +118,75 @@ def prepare_aoi_query(querystr: str, geom_field_expression: str,
     return prepared_query
 
 
+def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
+    """Convert user-friendly filter input into a SQL-ready, quoted list.
+
+    Accepts either a comma-delimited string ("a,b,c"), an explicit list/tuple (['a','b']), or
+    the sentinel '*' to indicate no filtering. Returned string is safe for IN (...) clauses.
+    """
+    if arg == '*':
+        return None
+    if isinstance(arg, str):
+        values = [part.strip() for part in arg.split(',') if part.strip()]
+    else:
+        values = [str(part).strip() for part in arg if str(part).strip()]
+    if not values:
+        return None
+    escaped = [val.replace("'", "''") for val in values]
+    return ", ".join(f"'{val}'" for val in escaped)
+
 # ===== New Public API (uses awswrangler) =====
 
 
 def get_field_metadata(
     authority: str = 'data-exchange-scripts',
     authority_name: str = 'rscontext_to_athena',
-    layer_id: str = 'rs_context_huc10',
+    layer_id: str = '*',
     column_names: str = '*'
 ) -> pd.DataFrame:
-    """Query athena for metadata. 
-    Parameters: 
-        authority, authority_name = filter for the source partitions
-        layer_id - layer or comma sep list of layers
-        column_names - column or comma sep list of column names, if you only want to return records for a subset of columns (but usually easiest to get all of them)
+    """Fetch field metadata records filtered by authority/layer/column info.
 
-    Returns: 
-        pd.DataFrame - DataFrame of metadata
+    Parameters
+    ----------
+    authority: str
+        Partition authority to filter on (exact match).
+    authority_name: str | Sequence[str]
+        Pipeline/name filter. Accepts '*', comma-delimited string, or iterable of names.
+    layer_id: str | Sequence[str]
+        Layer/layer-group identifier(s). Same input rules as authority_name.
+    column_names: str | Sequence[str]
+        Specific column names to include. Same input rules as authority_name.
 
+    Returns
+    -------
+    pandas.DataFrame
+        Metadata rows satisfying the provided filters.
     """
     log = Logger('Get metadata')
     log.info("Getting metadata from Athena")
 
-    if column_names == '*':
-        and_name = ""
+    authority_name_clause = _normalize_to_sql_list(authority_name)
+    if authority_name_clause:
+        and_auth_name = f" AND authority_name IN ({authority_name_clause})"
     else:
-        and_name = "AND name in ({fields})"
+        and_auth_name = ""
+
+    layer_clause = _normalize_to_sql_list(layer_id)
+    if layer_clause:
+        and_layer_id = f" AND layer_id IN ({layer_clause})"
+    else:
+        and_layer_id = ""
+
+    column_clause = _normalize_to_sql_list(column_names)
+    if column_clause:
+        and_col_name = f" AND name IN ({column_clause})"
+    else:
+        and_col_name = ""
+
     query = f"""
 SELECT layer_id, layer_name AS table_name, name, friendly_name, data_unit, description, theme, dtype
 FROM layer_definitions_latest
-WHERE authority = '{authority}' AND authority_name = '{authority_name}' AND layer_id IN ('{layer_id}')
-{and_name}
+WHERE authority = '{authority}' {and_auth_name} {and_layer_id} {and_col_name}
 """
     df = query_to_dataframe(query)
     if df.empty:

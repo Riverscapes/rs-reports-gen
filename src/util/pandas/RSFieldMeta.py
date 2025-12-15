@@ -58,7 +58,8 @@ SI_TO_IMPERIAL: Dict[str, str] = {
     'kilogram': 'pound',
     # no conversion
     'percent': 'percent',
-    'count': 'count'
+    'count': 'count',
+    'dimensionless': 'dimensionless'
 }
 IMPERIAL_TO_SI: Dict[str, str] = {
     # Start by just reversing the SI_TO_IMPERIAL mapping
@@ -172,15 +173,6 @@ class RSFieldMeta:
                 return None
             return str(val).strip()
 
-        def _try_apply_unit(unittext: str) -> pint.Unit | None:
-            # NOTE: empty string does not get parsed as dimensionless (normally Pint would)
-            try:
-                if not unittext or pd.isna(unittext):
-                    return None
-                return ureg.Unit(unittext)
-            except Exception as e:
-                self._log.warning(f"Could not apply {unittext}: {e}")
-
         # First clean all the values as if they were strings
         value = value.copy()
         for col in FieldMetaValues.VALID_COLUMNS:
@@ -206,11 +198,9 @@ class RSFieldMeta:
 
         # Make our unit objects a little easier to work with
         if "data_unit" in value.columns:
-            # Select rows where data_unit is not 'NA' and apply the function
-            mask = value["data_unit"] != 'NA'
-            value.loc[mask, "data_unit"] = value.loc[mask, "data_unit"].map(_try_apply_unit)
+            value["data_unit"] = value["data_unit"].apply(self._coerce_unit)
         if "display_unit" in value.columns:
-            value["display_unit"] = value["display_unit"].apply(_try_apply_unit)
+            value["display_unit"] = value["display_unit"].apply(self._coerce_unit)
 
         # IF there is no meta then set it
         if self._field_meta is None:
@@ -335,22 +325,11 @@ class RSFieldMeta:
             self._log.error(f"Column '{unique_id}' already exists in metadata. SKIPPING ADDITION")
             return
 
-        def to_unit(u: str | pint.Unit | None) -> pint.Unit | None:
-            if isinstance(u, pint.Unit) or u is None:
-                return u
-            if u:
-                try:
-                    return ureg.Unit(u)
-                except Exception as e:
-                    self._log.warning(f"Could not parse unit '{u}': {e}")
-                    return None
-            return None
-
         self._field_meta.loc[unique_id, "name"] = name
         self._field_meta.loc[unique_id, "friendly_name"] = friendly_name if friendly_name else name
         self._field_meta.loc[unique_id, "table_name"] = table_name
-        self._field_meta.loc[unique_id, "data_unit"] = to_unit(data_unit)
-        self._field_meta.loc[unique_id, "display_unit"] = to_unit(display_unit)
+        self._field_meta.loc[unique_id, "data_unit"] = self._coerce_unit(data_unit)
+        self._field_meta.loc[unique_id, "display_unit"] = self._coerce_unit(display_unit)
         self._field_meta.loc[unique_id, "dtype"] = dtype
         self._field_meta.loc[unique_id, "no_convert"] = no_convert
         self._field_meta.loc[unique_id, "description"] = description
@@ -359,6 +338,81 @@ class RSFieldMeta:
         """ Warn if no metadata is set."""
         if self._field_meta is None:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
+
+    @staticmethod
+    def _normalize_unit_value(unit_value):
+        """Normalize user-provided unit text, treating 'NA' as missing."""
+        if unit_value is None:
+            return None
+        if isinstance(unit_value, pint.Unit):
+            return unit_value
+        if isinstance(unit_value, str):
+            cleaned = unit_value.strip()
+            if not cleaned:
+                return None
+            if cleaned == 'NA':
+                return None
+            return cleaned
+        try:
+            if pd.isna(unit_value):
+                return None
+        except Exception:  # pragma: no cover - defensive fallback
+            pass
+        return unit_value
+
+    def _coerce_unit(self, unit_value):
+        """Convert arbitrary unit input into a pint.Unit or None."""
+        normalized = self._normalize_unit_value(unit_value)
+        if normalized is None or isinstance(normalized, pint.Unit):
+            return normalized
+        try:
+            return ureg.Unit(normalized)
+        except Exception as exc:  # pragma: no cover - log unexpected issues
+            self._log.warning(f"Could not parse unit '{unit_value}': {exc}")
+            return None
+
+    def _resolve_unique_id(
+        self,
+        column_name: str,
+        table_name: str | None = None,
+        *,
+        raise_on_missing: bool = False
+    ) -> str | None:
+        """Resolve the canonical unique id for a column with SQL-style ambiguity rules."""
+        if not column_name:
+            raise ValueError("column_name cannot be empty.")
+
+        if self._field_meta is None:
+            if raise_on_missing:
+                raise RuntimeError("No metadata available to resolve column names.")
+            self._log.warning("No metadata available to resolve column names.")
+            return None
+
+        if table_name:
+            unique_id = _get_unique_id(table_name, column_name)
+            if unique_id in self._field_meta.index:
+                return unique_id
+            if raise_on_missing:
+                raise ValueError(f"Column '{column_name}' does not exist in table '{table_name}'.")
+            self._log.warning(f"Column '{column_name}' does not exist in table '{table_name}'.")
+            return None
+
+        lookup_name = str(column_name).lower()
+        name_series = self._field_meta['name'].fillna('').str.lower()
+        matches = self._field_meta[name_series == lookup_name]
+
+        if matches.empty:
+            if raise_on_missing:
+                raise ValueError(f"Column '{column_name}' does not exist in metadata.")
+            self._log.warning(f"Column '{column_name}' does not exist in metadata.")
+            return None
+
+        if len(matches) > 1:
+            tables = matches['table_name'].fillna('<unknown>').unique().tolist()
+            tables_str = ', '.join(tables)
+            raise ValueError(f"Ambiguous column '{column_name}'. Found in tables: {tables_str}. Provide table_name.")
+
+        return matches.index[0]
 
     def duplicate_meta(
         self, orig_name: str, new_name: str,
@@ -379,16 +433,14 @@ class RSFieldMeta:
         if self._field_meta is None:
             raise RuntimeError("No metadata set. You need to instantiate RSFieldMeta and set the .meta property first.")
 
-        orig_id = _get_unique_id(orig_table_name, orig_name)
+        orig_id = self._resolve_unique_id(orig_name, orig_table_name, raise_on_missing=True)
         new_id = _get_unique_id(new_table_name, new_name)
 
-        if orig_id not in self._field_meta.index:
-            raise ValueError(f"Original column ID '{orig_id}' does not exist in metadata.")
         if new_id in self._field_meta.index:
             raise ValueError(f"New column ID '{new_id}' already exists in metadata.")
 
         new_row = self._field_meta.loc[orig_id].copy()
-        new_row['name_orig'] = new_name
+        new_row['name'] = new_name
         new_row['table_name'] = new_table_name
 
         if new_friendly is not None:
@@ -396,9 +448,9 @@ class RSFieldMeta:
         if new_description is not None:
             new_row["description"] = new_description
         if new_data_unit is not None:
-            new_row["data_unit"] = ureg.Unit(new_data_unit) if new_data_unit else None
+            new_row["data_unit"] = self._coerce_unit(new_data_unit)
         if new_display_unit is not None:
-            new_row["display_unit"] = ureg.Unit(new_display_unit) if new_display_unit else None
+            new_row["display_unit"] = self._coerce_unit(new_display_unit)
         if new_dtype is not None:
             new_row["dtype"] = new_dtype
         if new_no_convert is not None:
@@ -423,20 +475,14 @@ class RSFieldMeta:
         if self._field_meta is None:
             return None
 
-        unique_id = _get_unique_id(table_name, column_name)
-        if unique_id not in self._field_meta.index:
-            # If table name was provided and not found, don't try again
-            if table_name:
-                return None
-            # If no table name, check for ambiguous matches
-            possible_matches = self._field_meta[self._field_meta['name'].str.lower() == column_name.lower()]
-            if len(possible_matches) > 1:
-                self._log.warning(f"Ambiguous column '{column_name}'. Found in tables: {possible_matches['table_name'].tolist()}. Provide a table_name.")
-                return None
-            elif len(possible_matches) == 1:
-                unique_id = possible_matches.index[0]
-            else:
-                return None
+        try:
+            unique_id = self._resolve_unique_id(column_name, table_name)
+        except ValueError as exc:
+            self._log.error(str(exc))
+            raise
+
+        if unique_id is None:
+            return None
 
         meta_row = self._field_meta.loc[unique_id]
         meta_values = FieldMetaValues()
@@ -473,12 +519,11 @@ class RSFieldMeta:
         if col_name not in FieldMetaValues.VALID_COLUMNS:
             raise ValueError(f"Invalid metadata column '{col_name}'. Valid columns are: {FieldMetaValues.VALID_COLUMNS}")
 
-        unique_id = _get_unique_id(table_name, row_name)
         if self._field_meta is None:
-            # Initialize with just this column if needed
+            unique_id = _get_unique_id(table_name, row_name)
             self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS)
-        if unique_id not in self._field_meta.index:
-            raise ValueError(f"Row ID '{unique_id}' does not exist in metadata.")
+        else:
+            unique_id = self._resolve_unique_id(row_name, table_name, raise_on_missing=True)
         self._field_meta.loc[unique_id, col_name] = value
 
     def set_friendly_name(self, col, friendly_name, table_name: Optional[str] = None):
@@ -487,11 +532,11 @@ class RSFieldMeta:
 
     def set_data_unit(self, col, data_unit, table_name: Optional[str] = None):
         """Set the data unit for a column in the metadata."""
-        self.__set_value(col, "data_unit", data_unit, table_name)
+        self.__set_value(col, "data_unit", self._coerce_unit(data_unit), table_name)
 
     def set_display_unit(self, col, display_unit, table_name: Optional[str] = None):
         """Set the display unit for a column in the metadata."""
-        self.__set_value(col, "display_unit", display_unit, table_name)
+        self.__set_value(col, "display_unit", self._coerce_unit(display_unit), table_name)
 
     def set_dtype(self, col, dtype, table_name: Optional[str] = None):
         """Set the field type for a column in the metadata."""
