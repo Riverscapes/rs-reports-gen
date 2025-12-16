@@ -14,8 +14,7 @@ from rsxml.util import safe_makedirs
 
 from util import prepare_gdf_for_athena
 from util.pandas import load_gdf_from_csv
-from util.athena import get_data_for_aoi
-from util.rme.field_metadata import get_field_metadata
+from util.athena import get_data_for_aoi, get_field_metadata
 from util.pdf import make_pdf_from_html
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
@@ -39,7 +38,7 @@ from reports.rpt_rivers_need_space.figures import statistics
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata()  # Set the field metadata for the report
+    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', authority_name='*', layer_id="raw_rme,rpt_rme")  # Set the field metadata for the report
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit

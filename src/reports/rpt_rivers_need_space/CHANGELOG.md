@@ -4,6 +4,10 @@
 
 Internal use only
 
+### 0.2.1 2025-December
+
+* gets metadata from newer layer definitions in Athena
+
 ### 0.2.0 2025-11-26
 
 * better handling of large/complex input areas of interest
