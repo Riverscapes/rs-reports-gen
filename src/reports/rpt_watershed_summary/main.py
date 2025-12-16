@@ -52,6 +52,7 @@ def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
 
     if error_message is None:
         tables["waterbodies"] = waterbody_summary_table(df)
+        # tables["ownership"] = ownership_summary_table(ownership_df) # not implemented - are we going to get an array of dataframes?
 
     report = RSReport(
         report_name=report_name,
@@ -85,6 +86,21 @@ def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
         log.info(f'Static: {static_path}')
     if pdf_path:
         log.info(f'PDF: {pdf_path}')
+
+
+def get_ownership_data(huc_condition: str) -> pd.DataFrame:
+    """get ownership summary data (Unnest the ownership field)"""
+    log = Logger("Get ownership data")
+    query_str = f"""
+SELECT o.ownership_code, lu_blm_o.edomvd AS ownership_desc, sum(o.ownership_area) AS sum_ownership_area
+FROM rs_context_huc10
+         CROSS JOIN UNNEST(ownership) AS o (ownership_code, ownership_area)
+         LEFT JOIN lu_blm_ownership lu_blm_o ON upper(o.ownership_code) = upper(lu_blm_o.edomv)
+WHERE {huc_condition}
+GROUP BY o.ownership_code, lu_blm_o.edomvd
+"""
+    df = query_to_dataframe(query_str)
+    return df
 
 
 def get_waterbody_data(huc_condition: str) -> pd.DataFrame:
@@ -169,6 +185,8 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
     # df = get_data(huc_condition)
     # print(df)
     df_waterbodies = get_waterbody_data(huc_condition)
+    df_owners = get_ownership_data(huc_condition)
+    print(df_owners)
     if df_waterbodies.empty:
         make_report(df_waterbodies, report_dir, report_name,
                     error_message="No results found for selection.")
