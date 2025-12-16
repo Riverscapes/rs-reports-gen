@@ -7,6 +7,11 @@
     <p>The Watershed Report summarizes key characteristics and metrics of the watershed within a specific area of
       interest.</p>
   </div>
+  {% if message %}
+  <div class="error-message">
+    <p>{{ message.text }}</p>
+  </div>
+  {% endif %}
 </section>
 
 

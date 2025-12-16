@@ -1,1 +1,15 @@
 /* ONLY STYLES FOR RIVERS NEED SPACE REPORT */
+.error-message {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    border-left: 4px solid #c75146;
+    background-color: #fff3f0;
+    color: #5c1d0d;
+    border-radius: 4px;
+}
+
+.error-message p {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 500;
+}

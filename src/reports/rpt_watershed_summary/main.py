@@ -4,7 +4,8 @@ import logging
 from pathlib import Path
 # 3rd party imports
 import pandas as pd
-# RSxml imports
+import plotly.graph_objects as go
+# rsxml imports
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 # Repo imports
@@ -32,7 +33,8 @@ def define_fields(unit_system: str = "SI"):
 
 def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
                 include_static: bool = True,
-                include_pdf: bool = True):
+                include_pdf: bool = True,
+                error_message: str | None = None):
     """
     Generates HTML report(s) in report_dir.
     Args:
@@ -41,29 +43,30 @@ def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
         report_name (str): The name of the report.
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
+        error_message: display to user *instead* of any figures
     """
     log = Logger('make report')
 
-    # figures must be plotly objects
-    figures = {
-    }
-    # tables are html strings
-    tables = {
-        "waterbodies": waterbody_summary_table(df)
-    }
+    figures: dict[str, go.Figure] = {}
+    tables: dict[str, str] = {}
 
-    figure_dir = report_dir / 'figures'
+    if error_message is None:
+        tables["waterbodies"] = waterbody_summary_table(df)
+
     report = RSReport(
         report_name=report_name,
         report_type="Watershed Summary",
         report_dir=report_dir,
-        figure_dir=figure_dir,
+        figure_dir=report_dir / 'figures',
         report_version=report_version,
         body_template_path=Path(__file__).parent / 'templates' / 'body.html',
         css_paths=[Path(__file__).parent / 'templates' / 'report.css']
     )
     for (name, fig) in figures.items():
         report.add_figure(name, fig)
+
+    if error_message:
+        report.add_html_elements('message', {'text': error_message})
 
     report.add_html_elements('tables', tables)
 
@@ -86,6 +89,7 @@ def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
 
 def get_waterbody_data(huc_condition: str) -> pd.DataFrame:
     """get waterbody summary data"""
+    log = Logger("Get waterbody data")
     meta = RSFieldMeta()
     sum_fields = [
         'waterbodyAreaSqKm',
@@ -110,6 +114,12 @@ FROM rs_context_huc10
 WHERE {huc_condition}
 """
     df = query_to_dataframe(query_str)
+
+    if df.dropna(how="all").empty:
+        log.error("No results returned for the query")
+        # short-circuit report generation
+        return pd.DataFrame()  # an empty DataFrame
+
     # transfer/add metadata for the new aggregated columns
     for orig_fld_nm in sum_fields:
         orig_meta = meta.get_field_meta(orig_fld_nm)
@@ -156,16 +166,21 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
     meta = RSFieldMeta()
     huc_condition = parse_hucs(hucs, 'huc', 10)
     log.debug(f"huc condition: {huc_condition}")
-    define_fields(unit_system)
     # df = get_data(huc_condition)
     # print(df)
     df_waterbodies = get_waterbody_data(huc_condition)
-    df_waterbodies, _ = meta.apply_units(df_waterbodies)
-    print(df_waterbodies)
-    make_report(df_waterbodies, report_dir, report_name, include_pdf, include_pdf)
-    safe_makedirs(str(report_dir / 'data'))
-    # Export the data to Excel
-    RSGeoDataFrame(df_waterbodies).export_excel(report_dir / 'data' / 'data.xlsx')
+    if df_waterbodies.empty:
+        make_report(df_waterbodies, report_dir, report_name,
+                    error_message="No results found for selection.")
+    else:
+        define_fields(unit_system)
+        df_waterbodies, _ = meta.apply_units(df_waterbodies)
+        print(df_waterbodies)
+        make_report(df_waterbodies, report_dir, report_name,
+                    include_pdf, include_pdf)
+        safe_makedirs(str(report_dir / 'data'))
+        # Export the data to Excel
+        RSGeoDataFrame(df_waterbodies).export_excel(report_dir / 'data' / 'data.xlsx')
 
 
 def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> str:
