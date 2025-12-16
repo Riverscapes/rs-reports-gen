@@ -16,7 +16,7 @@
 
 
 <section id="watershed">
-  <h2>Watershed</h2>
+  <h1>Watershed</h1>
 </section>
 
 <!-- <section id="map-of-polygons">
@@ -29,7 +29,16 @@
   </figure>
 </section> -->
 
+<section id="HUC">
+  <h2>Ownership</h2>
+  <figure class="report-figure">
+    {{ tables['ownership'] | safe }}
+  </figure>
+</section>
+
+
 <section id="waterbodies">
+  <h2>Waterbodies</h2>
   <figure class="report-figure">
     {{tables['waterbodies']|safe}}
   </figure>
