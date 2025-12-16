@@ -2,6 +2,7 @@
 import argparse
 import logging
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 # 3rd party imports
 import pandas as pd
 import plotly.graph_objects as go
@@ -110,7 +111,7 @@ WHERE {huc_condition}
 GROUP BY lu_blm_o.edomvd
 ORDER BY lu_blm_o.edomvd
 """
-    df = query_to_dataframe(query_str)
+    df = query_to_dataframe(query_str, "ownership")
     # TODO - Units for data in athena should be defined in athena, not here
     meta = RSFieldMeta()
     meta.add_field_meta(name='sum_ownership_area',
@@ -130,7 +131,7 @@ JOIN us_states on t.state = us_states.alphacode
 where {huc_condition}
 ORDER BY state_name
 """
-    df = query_to_dataframe(query_str)
+    df = query_to_dataframe(query_str, "states")
     return df
 
 
@@ -228,7 +229,7 @@ SELECT {sum_expression}, {min_expression}, {max_expression}, {countdistinct_expr
 FROM rs_context_huc10
 WHERE {huc_condition}
 """
-    df = query_to_dataframe(query_str)
+    df = query_to_dataframe(query_str, "aggregates")
 
     if df.dropna(how="all").empty:
         log.error("No results returned for the query")
@@ -261,14 +262,20 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
     df_aggregatedata = get_aggregated_data(huc_condition)
 
     if df_aggregatedata.empty:
-        make_report(df_aggregatedata, df_owners, report_dir, report_name,
+        # we send 3 empty dataframes
+        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name,
                     error_message="No results found for selection.")
     else:
-        df_owners = get_ownership_data(huc_condition)
-        df_owners, _ = meta.apply_units(df_owners)
+        # although it doesn't make much difference with these quick queries, parallelizing is good practice
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_owners = executor.submit(get_ownership_data, huc_condition)
+            future_states = executor.submit(get_states, huc_condition)
+            df_owners = future_owners.result()
+            df_states = future_states.result()
+
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
-        df_states = get_states(huc_condition)
-        print(df_states)
+        df_owners, _ = meta.apply_units(df_owners)
+
         make_report(df_aggregatedata, df_owners, df_states, report_dir, report_name,
                     include_pdf, include_pdf)
         safe_makedirs(str(report_dir / 'data'))

@@ -229,8 +229,11 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
     log.info(f"Download complete. Files are in {local_path}")
 
 
-def query_to_dataframe(query: str) -> pd.DataFrame:
+def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     """uses awswrangler to return a dataframe for a given query
+    args: 
+        query : the query to execute
+        querylabel : optional label for log messages, handy when queries are running in parallel
 
     * ctas False, unload True is "approach 2"
     Does an UNLOAD query on Athena and parse the Parquet result on s3
@@ -248,14 +251,14 @@ def query_to_dataframe(query: str) -> pd.DataFrame:
     *   Does not support columns with undefined data types.
     *   data has to fit into RAM memory. do not use for results with millions of rows
     """
-    log = Logger("Athena unload query to dataframe")
+    log = Logger("Athena unload query to DF")
     s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
 
     query_bytes = len(query.encode('utf-8'))
     if query_bytes > 262144:
         raise ValueError(f"Query exceeds Athena's 256 KB limit ({query_bytes} bytes).")
 
-    log.debug(f"Query:\n{query}")
+    log.debug(f"Query {querylabel}:\n{query}")
     try:
         df = wr.athena.read_sql_query(
             query,
@@ -264,10 +267,10 @@ def query_to_dataframe(query: str) -> pd.DataFrame:
             unload_approach=True,  # only PARQUET format is supported with this option
             s3_output=s3_output,
         )
-        log.debug("Query to dataframe completed.")
+        log.debug(f"Query {querylabel} to dataframe completed.")
         return df
     except Exception as e:
-        log.warning(f"Athena query failed or returned no results: {e}")
+        log.warning(f"Query {querylabel} failed or returned no results: {e}")
         return pd.DataFrame()  # Return empty DataFrame for downstream code
 
 
