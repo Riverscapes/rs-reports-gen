@@ -53,7 +53,7 @@ import awswrangler as wr
 import pandas as pd
 from rsxml import Logger
 import geopandas as gpd
-from util import prepare_gdf_for_athena, round_up, round_down
+from util import round_up, round_down
 
 # buffer, in decimal degrees, on centroids to capture DGO.
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
@@ -140,9 +140,9 @@ def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
 
 def get_field_metadata(
     authority: str = 'data-exchange-scripts',
-    authority_name: str = 'rscontext_to_athena',
-    layer_id: str = '*',
-    column_names: str = '*'
+    authority_name: str | Sequence[str] = 'rscontext_to_athena',
+    layer_id: str | Sequence[str] = '*',
+    column_names: str | Sequence[str] = '*'
 ) -> pd.DataFrame:
     """Fetch field metadata records filtered by authority/layer/column info.
 
@@ -610,6 +610,7 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
 
 def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     """
+    DEPRECATED - 
     Get the total bounds (minx, miny, maxx, maxy)
     'buffer' by BUFFER_CENTROID_TO_BB_DD and
     return SQL where clause for latitude and longitude within this expanded box
@@ -682,7 +683,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
     before invoking this function.
     """
     log = Logger('Run AOI Query on Athena')
-
+    log.warning('This function is deprecated.')
     if s3_bucket is None:
         s3_output_path = f's3://{S3_ATHENA_BUCKET}/aoi_query_results/{uuid.uuid4()}/'
     else:

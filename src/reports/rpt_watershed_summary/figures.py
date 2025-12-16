@@ -99,3 +99,9 @@ def waterbody_summary_table(df: RSGeoDataFrame) -> str:
     newdf = create_waterbody_summary_table(df)
     newrdf = RSGeoDataFrame(newdf)
     return newrdf.to_html(index=False, escape=False)
+
+
+def ownership_summary_table(df: pd.DataFrame) -> str:
+    """make html table for ownership"""
+    newrdf = RSGeoDataFrame(df)
+    return newrdf.to_html(index=False, escape=False)

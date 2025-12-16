@@ -15,13 +15,14 @@ from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 # Report type imports
 from reports.rpt_watershed_summary import __version__ as report_version
-from reports.rpt_watershed_summary.figures import waterbody_summary_table
+from reports.rpt_watershed_summary.figures import waterbody_summary_table, ownership_summary_table
 
 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata(layer_id='rs_context_huc10')  # Set the field metadata for the report
+    _FIELD_META.field_meta = get_field_metadata(authority_name=['rscontext_to_athena', 'rpt_rme'],
+                                                layer_id=['rs_context_huc10', 'rpt_rme'])  # Set the field metadata for the report
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
@@ -31,7 +32,7 @@ def define_fields(unit_system: str = "SI"):
     return
 
 
-def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
+def make_report(waterbodies_df: pd.DataFrame, ownership_df: pd.DataFrame, report_dir: Path, report_name: str,
                 include_static: bool = True,
                 include_pdf: bool = True,
                 error_message: str | None = None):
@@ -51,8 +52,8 @@ def make_report(df: pd.DataFrame, report_dir: Path, report_name: str,
     tables: dict[str, str] = {}
 
     if error_message is None:
-        tables["waterbodies"] = waterbody_summary_table(df)
-        # tables["ownership"] = ownership_summary_table(ownership_df) # not implemented - are we going to get an array of dataframes?
+        tables["waterbodies"] = waterbody_summary_table(waterbodies_df)
+        tables["ownership"] = ownership_summary_table(ownership_df)  # not implemented - are we going to get an array of dataframes?
 
     report = RSReport(
         report_name=report_name,
@@ -92,14 +93,21 @@ def get_ownership_data(huc_condition: str) -> pd.DataFrame:
     """get ownership summary data (Unnest the ownership field)"""
     log = Logger("Get ownership data")
     query_str = f"""
-SELECT o.ownership_code, lu_blm_o.edomvd AS ownership_desc, sum(o.ownership_area) AS sum_ownership_area
+SELECT lu_blm_o.edomvd AS ownership_desc, sum(o.ownership_area) AS sum_ownership_area
 FROM rs_context_huc10
          CROSS JOIN UNNEST(ownership) AS o (ownership_code, ownership_area)
          LEFT JOIN lu_blm_ownership lu_blm_o ON upper(o.ownership_code) = upper(lu_blm_o.edomv)
 WHERE {huc_condition}
-GROUP BY o.ownership_code, lu_blm_o.edomvd
+GROUP BY lu_blm_o.edomvd
+ORDER BY lu_blm_o.edomvd
 """
     df = query_to_dataframe(query_str)
+    # TODO - Units for data in athena should be defined in athena, not here
+    meta = RSFieldMeta()
+    meta.add_field_meta(name='sum_ownership_area',
+                        friendly_name='Total Area',
+                        data_unit='m**2',
+                        display_unit='kilometer ** 2')
     return df
 
 
@@ -156,20 +164,6 @@ WHERE {huc_condition}
     return df
 
 
-def get_data(huc_condition: str) -> pd.DataFrame:
-    """get the data for the huc_condition"""
-    log = Logger('get data')
-
-    fields = "huc,project_id,hucname,hucstates,hucareasqkm,ownership"
-    query_str = f"""
-SELECT {fields}
-FROM rs_context_huc10
-WHERE {huc_condition}
-"""
-    df = query_to_dataframe(query_str)
-    return df
-
-
 def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
                              include_pdf: bool = True, unit_system: str = "SI"):
     """Orcestratest the report generation process: 
@@ -182,19 +176,20 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
     meta = RSFieldMeta()
     huc_condition = parse_hucs(hucs, 'huc', 10)
     log.debug(f"huc condition: {huc_condition}")
-    # df = get_data(huc_condition)
-    # print(df)
+
+    define_fields(unit_system)
     df_waterbodies = get_waterbody_data(huc_condition)
-    df_owners = get_ownership_data(huc_condition)
-    print(df_owners)
+
     if df_waterbodies.empty:
-        make_report(df_waterbodies, report_dir, report_name,
+        make_report(df_waterbodies, df_owners, report_dir, report_name,
                     error_message="No results found for selection.")
     else:
-        define_fields(unit_system)
+        df_owners = get_ownership_data(huc_condition)
         df_waterbodies, _ = meta.apply_units(df_waterbodies)
+        df_owners, _ = meta.apply_units(df_owners)
         print(df_waterbodies)
-        make_report(df_waterbodies, report_dir, report_name,
+        print(df_owners)
+        make_report(df_waterbodies, df_owners, report_dir, report_name,
                     include_pdf, include_pdf)
         safe_makedirs(str(report_dir / 'data'))
         # Export the data to Excel
