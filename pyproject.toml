@@ -50,9 +50,6 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"reports.igo_project" = [
-    "rme_table_column_defs.csv",
-]
 "reports.rivers_need_space" = [
     "templates/*.html",
     "templates/*.css",
