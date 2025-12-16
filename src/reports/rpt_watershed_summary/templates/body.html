@@ -17,6 +17,14 @@
 
 <section id="watershed">
   <h1>Watershed</h1>
+  <h3>States</h3>
+  The selected watersheds are found within:
+  <ul>
+    {% for state in states %}
+    <li>{{ state }}</li>
+    {% endfor %}
+  </ul>
+
 </section>
 
 <!-- <section id="map-of-polygons">
@@ -36,6 +44,12 @@
   </figure>
 </section>
 
+<section id="hydrography">
+  <h2>Hydrographic Network</h2>
+  <figure class="report-figure">
+    {{ tables['hydrography'] | safe }}
+  </figure>
+</section>
 
 <section id="waterbodies">
   <h2>Waterbodies</h2>

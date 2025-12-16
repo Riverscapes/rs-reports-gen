@@ -94,7 +94,45 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> pd.DataFrame:
     return final_df
 
 
-def waterbody_summary_table(df: RSGeoDataFrame) -> str:
+hydrography_col_map = {
+    'Perennial': ('sum_flowlineLengthPerennialKm'),
+    'Intermittent': ('sum_flowlineLengthIntermittentKm'),
+    'Ephemeral': ('sum_flowlineLengthEphemeralKm'),
+    'Canals': ('sum_flowlineLengthCanalsKm')
+}
+
+
+def create_hydrography_summary_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Pivot individual hydro metrics into a table"""
+    # TODO - add intermittent and ephemeral to make 'Non Perrenial'
+    # TODO - add total row and percent of total
+    # TODO - add a total without canals
+
+    table_name = 'hydrography_summary'  # For metadata namespacing
+    row_data = df.iloc[0]
+    # Ensure we are working with the first row of data if df has multiple
+    summary_rows = []
+    for (label, col) in hydrography_col_map.items():
+        summary_rows.append({"flowline_length": label,
+                             "length": row_data[col.lower()]
+                             })
+    report_df = RSGeoDataFrame(pd.DataFrame(summary_rows))
+
+    meta = RSFieldMeta()
+    # Get the units from the source data and apply it to the new dataframe
+    length_unit = meta.get_field_unit(hydrography_col_map['Perennial'][0].lower())
+    meta.add_field_meta(name='stream_network_distance', table_name=table_name, data_unit=length_unit)
+    return report_df
+
+
+def hydrography_table(df: pd.DataFrame) -> str:
+    """make html table for hydrography"""
+    newdf = create_hydrography_summary_table(df)
+    newrdf = RSGeoDataFrame(newdf)
+    return newrdf.to_html(index=False, escape=False)
+
+
+def waterbody_summary_table(df: pd.DataFrame) -> str:
     """make html table for waterbodies"""
     newdf = create_waterbody_summary_table(df)
     newrdf = RSGeoDataFrame(newdf)
