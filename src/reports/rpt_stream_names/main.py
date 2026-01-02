@@ -23,18 +23,18 @@ from reports.rpt_stream_names import __version__ as report_version
 from reports.rpt_stream_names.figures import word_cloud
 
 
-def make_report(gdf: gpd.GeoDataFrame,
+def make_report(df: pd.DataFrame,
                 aoi_gdf: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
                 include_static: bool = True,
                 include_pdf: bool = True
-                ) -> dict[str, str]:
+                ):
     """
     Generates HTML report(s) in report_dir.
     Args:
-        gdf (gpd.GeoDataFrame): The main data geodataframe for the report.
+        df (pandas DataFrame): The main data dataframe for the report.
         aoi_df (gpd.GeoDataFrame): The area of interest geodataframe.
-        report_dir (str): The directory where the report will be saved.
+        report_dir (Path): The directory where the report will be saved.
         report_name (str): The name of the report.
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
@@ -49,9 +49,9 @@ def make_report(gdf: gpd.GeoDataFrame,
     figure_dir = report_dir / 'figures'
     safe_makedirs(str(figure_dir))
 
-    word_cloud(gdf, figure_dir, frequency_field='total_riverscape_length')
-    word_cloud(gdf, figure_dir, frequency_field='level_path_count')
-    word_cloud(gdf, figure_dir, frequency_field='rs_area_per_length')
+    word_cloud(df, figure_dir, frequency_field='total_riverscape_length')
+    word_cloud(df, figure_dir, frequency_field='level_path_count')
+    word_cloud(df, figure_dir, frequency_field='rs_area_per_length')
 
     report = RSReport(
         report_name=report_name,
