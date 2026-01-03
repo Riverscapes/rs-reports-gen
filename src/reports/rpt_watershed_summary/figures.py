@@ -103,27 +103,34 @@ hydrography_col_map = {
 
 
 def create_hydrography_summary_table(df: pd.DataFrame) -> pd.DataFrame:
-    """Pivot individual hydro metrics into a table
-    # TODO - add intermittent and ephemeral to make 'Non Perrenial'
-    # TODO - add total row and percent of total
-    # TODO - add a total without canals
-    # includes friendly column names and units for the new columns
+    """Create a five-row hydrography summary table with totals and percents.
+    This uses the aggregate data columns in hydrography_col_map
     """
 
     table_name = 'hydrography_summary'  # For metadata namespacing
-    # Ensure we are working with the first row of data if df has multiple
     row_data = df.iloc[0]
-    summary_rows = []
 
-    for (label, col) in hydrography_col_map.items():
-        summary_rows.append({"flowline_length_category": label,
-                             "stream_network_distance": row_data[col.lower()]
-                             })
+    # Pull the source metrics once so we can build grouped rows without re-querying.
+    length_values = {label: row_data[col.lower()] for label, col in hydrography_col_map.items()}
+
+    non_perennial = length_values['Intermittent'] + length_values['Ephemeral']
+    total_stream_length = (length_values['Perennial'] +
+                           length_values['Intermittent'] +
+                           length_values['Ephemeral'] +
+                           length_values['Canals'])
+    total_without_canals = total_stream_length - length_values['Canals']
+
+    summary_rows = [
+        {"flowline_length_category": "Perennial", "stream_network_distance": length_values['Perennial']},
+        {"flowline_length_category": "Non-Perennial", "stream_network_distance": non_perennial},
+        {"flowline_length_category": "Canals", "stream_network_distance": length_values['Canals']},
+        {"flowline_length_category": "Total Stream Length", "stream_network_distance": total_stream_length},
+        {"flowline_length_category": "Total Stream Length (w.o. Canals)", "stream_network_distance": total_without_canals},
+    ]
 
     report_df = RSGeoDataFrame(pd.DataFrame(summary_rows))
 
     meta = RSFieldMeta()
-    # Get the units from the source data and apply it to the new dataframe
     length_unit = meta.get_field_unit(hydrography_col_map['Perennial'].lower())
     meta.add_field_meta(name='stream_network_distance',
                         friendly_name='Stream Network Distance',
@@ -133,6 +140,28 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> pd.DataFrame:
                         friendly_name='Stream Type',
                         table_name=table_name,
                         data_unit="NA")
+
+    report_df['stream_network_distance'] = ensure_pint_column(report_df,
+                                                              'stream_network_distance',
+                                                              length_unit)
+
+    total_row_value = report_df.loc[
+        report_df['flowline_length_category'] == 'Total Stream Length', 'stream_network_distance'
+    ].iloc[0]
+
+    if getattr(total_row_value, 'magnitude', total_row_value) == 0:
+        percent_series = pd.Series([0] * len(report_df), index=report_df.index).astype('pint[percent]')
+    else:
+        percent_series = (
+            report_df['stream_network_distance'] /
+            pd.Series([total_row_value] * len(report_df), index=report_df.index)
+        ).fillna(0).astype('pint[percent]')
+
+    report_df['% of Total Stream Length'] = percent_series
+    meta.add_field_meta(name='% of Total Stream Length',
+                        friendly_name='% of Total Stream Length',
+                        table_name=table_name,
+                        data_unit='percent')
 
     return report_df
 
