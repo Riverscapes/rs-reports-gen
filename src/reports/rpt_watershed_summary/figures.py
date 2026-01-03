@@ -103,25 +103,37 @@ hydrography_col_map = {
 
 
 def create_hydrography_summary_table(df: pd.DataFrame) -> pd.DataFrame:
-    """Pivot individual hydro metrics into a table"""
+    """Pivot individual hydro metrics into a table
     # TODO - add intermittent and ephemeral to make 'Non Perrenial'
     # TODO - add total row and percent of total
     # TODO - add a total without canals
+    # includes friendly column names and units for the new columns
+    """
 
     table_name = 'hydrography_summary'  # For metadata namespacing
-    row_data = df.iloc[0]
     # Ensure we are working with the first row of data if df has multiple
+    row_data = df.iloc[0]
     summary_rows = []
+
     for (label, col) in hydrography_col_map.items():
-        summary_rows.append({"flowline_length": label,
-                             "length": row_data[col.lower()]
+        summary_rows.append({"flowline_length_category": label,
+                             "stream_network_distance": row_data[col.lower()]
                              })
+
     report_df = RSGeoDataFrame(pd.DataFrame(summary_rows))
 
     meta = RSFieldMeta()
     # Get the units from the source data and apply it to the new dataframe
-    length_unit = meta.get_field_unit(hydrography_col_map['Perennial'][0].lower())
-    meta.add_field_meta(name='stream_network_distance', table_name=table_name, data_unit=length_unit)
+    length_unit = meta.get_field_unit(hydrography_col_map['Perennial'].lower())
+    meta.add_field_meta(name='stream_network_distance',
+                        friendly_name='Stream Network Distance',
+                        table_name=table_name,
+                        data_unit=length_unit)
+    meta.add_field_meta(name='flowline_length_category',
+                        friendly_name='Stream Type',
+                        table_name=table_name,
+                        data_unit="NA")
+
     return report_df
 
 
@@ -129,6 +141,7 @@ def hydrography_table(df: pd.DataFrame) -> str:
     """make html table for hydrography"""
     newdf = create_hydrography_summary_table(df)
     newrdf = RSGeoDataFrame(newdf)
+    newrdf, _ = RSFieldMeta().apply_units(newrdf)
     return newrdf.to_html(index=False, escape=False)
 
 
