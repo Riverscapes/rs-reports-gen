@@ -126,7 +126,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
         log.info("Querying athena for data for AOI")
         data_df = get_wcdata_for_aoi(query_gdf)
         data_df.to_csv(csv_data_path)
-
+    # given the data groups by stream name and there are only ~80k distinct stream names in CONUS this shouldn't blow up
     data_df.to_excel(report_dir / 'data' / 'data.xlsx', index=False)
 
     # make html report

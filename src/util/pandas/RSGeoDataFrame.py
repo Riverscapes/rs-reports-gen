@@ -73,8 +73,10 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
 
         Args:
             output_path (str): The path to save the Excel file.
-        extra debugs added as this seems to be taking long time
-        todo: optimize and remove them
+
+        * will not export if size of dataframe exceeds limit
+        * extra debugs added as this seems to be taking long time
+        * Future Enhancement: optimize performance and remove extra debugs
         """
         self.log.info(f"Exporting data to Excel at {output_path}")
 
