@@ -129,6 +129,10 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
                                  'sum_precipsum',
                                  'min_precipminimum',
                                  'max_precipmaximum',
+                                 'sum_slopecount',
+                                 'sum_slopesum',
+                                 'max_slopemaximum',
+                                 'min_slopeminimum',
                                  'sum_demcount',
                                  'sum_demsum',
                                  'min_demminimum',
@@ -141,7 +145,8 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     RSFieldMeta().add_field_meta(
         name='avg_segment_length',
         friendly_name='Average Segment Length',
-        table_name=table_name
+        table_name=table_name,
+        data_unit=avg_segment_length.units
     )
     mean_precip_cell_value = stats_we_want['sum_precipsum'] / stats_we_want['sum_precipcount']
     RSFieldMeta().add_field_meta(
@@ -157,11 +162,19 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         description='Mean elevation across the selected area',
         table_name=table_name
     )
+    mean_slope = stats_we_want['sum_slopesum'] / stats_we_want['sum_slopecount']
+    RSFieldMeta().add_field_meta(
+        name='mean_slope',
+        friendly_name='Mean Slope',
+        description='Mean elevation across the selected area',
+        table_name=table_name
+    )
     stats = {
         **stats_we_want,
         'avg_segment_length': avg_segment_length,
         'mean_precip_cell_value': mean_precip_cell_value,
         'mean_elevation': mean_elevation,
+        'mean_slope': mean_slope,
     }
 
     return stats
@@ -196,7 +209,7 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
         log.debug(f"Totals off, likely due to presence of other FCodes not itemized. Total: {total_stream_length}. Itemized total: {total_itemized_stream_length}. Adding footnote.")
         readable_delta = f"{length_delta:.2f~P}" if isinstance(length_delta, pint.Quantity) else f"{length_delta:.2f}"
         footnote = ("* Itemized categories under-count the total network (difference "
-                    f"{readable_delta}). Additional FCodes contribute to the total.")
+                    f"{readable_delta}). Additional stream types (FCodes) contribute to the total.")
     total_without_canals = total_stream_length - length_values['Canals']
 
     summary_rows = [
