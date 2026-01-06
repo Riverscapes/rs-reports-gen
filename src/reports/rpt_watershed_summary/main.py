@@ -218,6 +218,9 @@ def get_aggregated_data(huc_condition: str) -> pd.DataFrame:
         'demminimum',
         'slopeminimum',
         'precipminimum',
+        'circularityRatio',
+        'elongationRatio',
+        'formFactor',
     ]
     max_fields = [
         'demmaximum',

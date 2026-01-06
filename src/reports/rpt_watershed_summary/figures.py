@@ -129,6 +129,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
                                  'sum_precipsum',
                                  'min_precipminimum',
                                  'max_precipmaximum',
+                                 'sum_catchmentlength',
                                  'sum_slopecount',
                                  'sum_slopesum',
                                  'max_slopemaximum',
@@ -137,6 +138,10 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
                                  'sum_demsum',
                                  'min_demminimum',
                                  'max_demmaximum',
+                                 'countdistinct_huc',
+                                 'min_circularityratio',
+                                 'min_elongationratio',
+                                 'min_formfactor',
                                  ]
     stats_we_want = {
         colname: aggregate_data_stats[colname] for colname in colnames_of_stats_we_want}
@@ -169,12 +174,25 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         description='Mean elevation across the selected area',
         table_name=table_name
     )
+    total_relief = stats_we_want['max_demmaximum'] - stats_we_want['min_demminimum']
+    relief_ratio = total_relief.to("km") / stats_we_want['sum_catchmentlength'].to("km")
+    if stats_we_want['countdistinct_huc'] == 1:
+        singlehucstats = {
+            "circularityratio": stats_we_want['min_circularityratio'],
+            "elongationratio": stats_we_want['min_elongationratio'],
+            "formfactor": stats_we_want['min_formfactor']
+        }
+    else:
+        singlehucstats = {}
     stats = {
         **stats_we_want,
+        **singlehucstats,
         'avg_segment_length': avg_segment_length,
         'mean_precip_cell_value': mean_precip_cell_value,
         'mean_elevation': mean_elevation,
         'mean_slope': mean_slope,
+        'total_relief': total_relief,
+        'relief_ratio': relief_ratio,
     }
 
     return stats
