@@ -719,31 +719,31 @@ def project_id_list(df: pd.DataFrame) -> list[tuple[str, str]]:
 # =========================
 
 
-def metric_cards(metrics: dict) -> list[tuple[str, str, str]]:
-    """transform a statistics dictionary into list of metric elements
+def metric_cards(metrics: dict[str, pint.Quantity]) -> dict[str, dict[str, str]]:
+    """transform a statistics dictionary into dictionary of elements for display
 
     Args: 
         metrics (dict): metric_id, Quantity
         **uses Friendly name and description if they have been added to the RSFieldMeta**
 
     Returns:
-        list of card elements: 
-            * friendly metric name (title)
-            * formatted metric value, including units
-            * additional description (optional)
+        dictionary of cards. Each card is a dictionary each having: 
+            * title: friendly metric name
+            * value: formatted metric value, including units
+            * details: additional description (optional)
 
     Uses the order of the dictionary (guaranteed to be insertion order from Python 3.7 and later)
     FUTURE ENHANCEMENT - Should be modified to handle different number of decimal places depending on the metric
     """
-    cards = []
+    cards = {}
     meta = RSFieldMeta()
     log = Logger('metric_cards')
     for key, value in metrics.items():
         friendly = meta.get_friendly_name(key)
         desc = meta.get_description(key)
-        log.info(f"metric: {key}, friendly: {friendly}, desc: {desc}")
+        log.debug(f"metric: {key}, friendly: {friendly}, desc: {desc}")
         # Make sure the value respects the unit system
         system_value = RSFieldMeta().get_system_unit_value(value)
         formatted = format_value(system_value, 0)
-        cards.append((friendly, formatted, desc))
+        cards[key] = {"title": friendly, "value": formatted, "details": desc}
     return cards

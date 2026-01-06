@@ -1,7 +1,11 @@
+import html
+
 import pandas as pd
 import pint
 import pint_pandas
+from rsxml import Logger
 from util.pandas import RSGeoDataFrame, RSFieldMeta
+
 
 # 1. Define a mapping of "Row Label" -> (Area Column, Count Column)
 # should all be in the same units!
@@ -29,8 +33,9 @@ def ensure_pint_column(df: pd.DataFrame, column: str, unit: str | pint.Unit | No
     return df[column]
 
 
-def create_waterbody_summary_table(df: RSGeoDataFrame) -> pd.DataFrame:
-    """pivot individual waterbody columns into rows, maintaining units
+def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    """Pivot waterbody columns into rows, maintaining units.
+    Returns the main table and a footer dataframe containing the totals row.
     input: dataframe containing all the columns listed above. assumes there is just one row. 
     """
     table_name = 'waterbodies_summary'  # For metadata namespacing
@@ -88,36 +93,97 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> pd.DataFrame:
     total_row['% Area'] = total_row['% Area'].astype('pint[percent]')
     total_row['% Count'] = total_row['% Count'].astype('pint[percent]')
 
-    # Combine main data with total row
-    final_df = pd.concat([report_df, total_row], ignore_index=True)
-
-    return final_df
+    return report_df.reset_index(drop=True), total_row.reset_index(drop=True)
 
 
 hydrography_col_map = {
     'Perennial': ('sum_flowlineLengthPerennialKm'),
     'Intermittent': ('sum_flowlineLengthIntermittentKm'),
     'Ephemeral': ('sum_flowlineLengthEphemeralKm'),
-    'Canals': ('sum_flowlineLengthCanalsKm')
+    'Canals': ('sum_flowlineLengthCanalsKm'),
+    'Total': ('sum_flowlineLengthAllKm')
 }
 
 
-def create_hydrography_summary_table(df: pd.DataFrame) -> pd.DataFrame:
-    """Create a five-row hydrography summary table with totals and percents.
-    This uses the aggregate data columns in hydrography_col_map
+def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     """
+    named, non-tabular statistics. 
 
+    Args: 
+        df (DataFrame): the result of the aggregate query (should have just one row)
+
+    Returns:
+        dictionary of stats (pint Quantities) -- selected items (known to be Pint quantities) from the supplied aggregate_data_df plus some derived ones
+
+    """
+    table_name = 'aggregate_stats'  # For metadata namespacing
+
+    # everything in the aggregate dataframe
+    # remember the dataframe comes from athena, and all columns are lowercase
+    aggregate_data_stats = aggregate_data_df.iloc[0].to_dict()
+    # some don't have units, so error if try to create a card for it. So just pick ones we want
+    colnames_of_stats_we_want = ['sum_flowlinelengthallkm',
+                                 'sum_flowlinefeaturecount',
+                                 'sum_hucareasqkm',
+                                 'sum_precipcount',
+                                 'sum_precipsum',
+                                 'min_precipminimum',
+                                 'max_precipmaximum', ]
+    stats_we_want = {
+        colname: aggregate_data_stats[colname] for colname in colnames_of_stats_we_want}
+    # average segment length
+    avg_segment_length = stats_we_want['sum_flowlinelengthallkm']/stats_we_want['sum_flowlinefeaturecount']
+    RSFieldMeta().add_field_meta(
+        name='avg_segment_length',
+        friendly_name='Average Segment Length',
+        table_name=table_name
+    )
+    mean_precip_cell_value = stats_we_want['sum_precipsum'] / stats_we_want['sum_precipcount']
+    RSFieldMeta().add_field_meta(
+        name='mean_precip_cell_value',
+        friendly_name='Mean Average Precipitation',
+        description='Mean of the 30-year Average Annual Precipitation across the selected area',
+        table_name=table_name
+    )
+    stats = {
+        **stats_we_want,
+        'avg_segment_length': avg_segment_length,
+        'mean_precip_cell_value': mean_precip_cell_value
+    }
+
+    return stats
+
+
+def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame | None, str | None]:
+    """Create a hydrography summary table.
+    Returns the main table, a footer dataframe for totals, and an optional footnote if totals diverge.
+    """
+    log = Logger('create hydro summary')
     table_name = 'hydrography_summary'  # For metadata namespacing
     row_data = df.iloc[0]
 
     # Pull the source metrics once so we can build grouped rows without re-querying.
     length_values = {label: row_data[col.lower()] for label, col in hydrography_col_map.items()}
+    footnote = None
 
     non_perennial = length_values['Intermittent'] + length_values['Ephemeral']
-    total_stream_length = (length_values['Perennial'] +
-                           length_values['Intermittent'] +
-                           length_values['Ephemeral'] +
-                           length_values['Canals'])
+    total_stream_length = length_values['Total']
+    total_itemized_stream_length = (length_values['Perennial'] +
+                                    length_values['Intermittent'] +
+                                    length_values['Ephemeral'] +
+                                    length_values['Canals'])
+    # these should both be Pint Quantities
+    length_delta = abs(total_stream_length - total_itemized_stream_length)
+    if isinstance(length_delta, pint.Quantity):
+        tolerance = 0.01 * length_delta.units
+        exceeds_tolerance = length_delta > tolerance
+    else:
+        exceeds_tolerance = length_delta > 0.01
+    if exceeds_tolerance:
+        log.debug(f"Totals off, likely due to presence of other FCodes not itemized. Total: {total_stream_length}. Itemized total: {total_itemized_stream_length}. Adding footnote.")
+        readable_delta = f"{length_delta:.2f~P}" if isinstance(length_delta, pint.Quantity) else f"{length_delta:.2f}"
+        footnote = ("* Itemized categories under-count the total network (difference "
+                    f"{readable_delta}). Additional FCodes contribute to the total.")
     total_without_canals = total_stream_length - length_values['Canals']
 
     summary_rows = [
@@ -163,22 +229,53 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> pd.DataFrame:
                         table_name=table_name,
                         data_unit='percent')
 
-    return report_df
+    footer_mask = report_df['flowline_length_category'].isin({
+        'Total Stream Length', 'Total Stream Length (w.o. Canals)'
+    })
+    footer_df = report_df.loc[footer_mask].copy()
+    body_df = report_df.loc[~footer_mask].copy()
+
+    if footer_df.empty:
+        footer_df = None
+
+    return body_df.reset_index(drop=True), (
+        None if footer_df is None else footer_df.reset_index(drop=True)
+    ), footnote
 
 
 def hydrography_table(df: pd.DataFrame) -> str:
-    """make html table for hydrography"""
-    newdf = create_hydrography_summary_table(df)
-    newrdf = RSGeoDataFrame(newdf)
-    newrdf, _ = RSFieldMeta().apply_units(newrdf)
-    return newrdf.to_html(index=False, escape=False)
+    """make html table for hydrography, appending totals via footer and footnote when needed"""
+    body_df, footer_df, footnote = create_hydrography_summary_table(df)
+    meta = RSFieldMeta()
+    body_rdf = RSGeoDataFrame(body_df)
+    body_rdf, _ = meta.apply_units(body_rdf)
+
+    if footer_df is not None:
+        footer_rdf = RSGeoDataFrame(footer_df)
+        footer_rdf, _ = meta.apply_units(footer_rdf)
+        body_rdf.set_footer(footer_rdf)
+
+    table_html = body_rdf.to_html(index=False, escape=False)
+    if not footnote:
+        return table_html
+
+    footnote_html = f"<div class=\"table-footnote\"><small>{html.escape(footnote)}</small></div>"
+    return f"{table_html}\n{footnote_html}"
 
 
 def waterbody_summary_table(df: pd.DataFrame) -> str:
-    """make html table for waterbodies"""
-    newdf = create_waterbody_summary_table(df)
-    newrdf = RSGeoDataFrame(newdf)
-    return newrdf.to_html(index=False, escape=False)
+    """make html table for waterbodies with totals rendered via footer"""
+    body_df, footer_df = create_waterbody_summary_table(df)
+    meta = RSFieldMeta()
+    body_rdf = RSGeoDataFrame(body_df)
+    body_rdf, _ = meta.apply_units(body_rdf)
+
+    if footer_df is not None:
+        footer_rdf = RSGeoDataFrame(footer_df)
+        footer_rdf, _ = meta.apply_units(footer_rdf)
+        body_rdf.set_footer(footer_rdf)
+
+    return body_rdf.to_html(index=False, escape=False)
 
 
 def ownership_summary_table(df: pd.DataFrame) -> str:

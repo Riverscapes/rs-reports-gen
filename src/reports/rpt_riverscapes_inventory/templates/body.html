@@ -42,12 +42,12 @@
 <section id="key-indicators">
   <h2>Key Indicators</h2>
   <dl class="metric-grid">
-    {% for title, value, details in cards %}
+    {% for key, card in cards.items() %}
     <div class="metric">
-      <dt>{{ title }}</dt>
-      <dd class="metric-number">{{ value }}</dd>
+      <dt>{{ card.title }}</dt>
+      <dd class="metric-number">{{ card.value }}</dd>
       {% if details %}
-      <dd class="metric-details">{{ details }}</dd>
+      <dd class="metric-details">{{ card.details }}</dd>
       {% endif %}
     </div>
     {% endfor %}
