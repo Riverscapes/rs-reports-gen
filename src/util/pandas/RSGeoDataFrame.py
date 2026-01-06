@@ -53,7 +53,10 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         """ Set a footer DataFrame that will be appended to the main DataFrame when rendering.
 
         Args:
-            footer (pd.DataFrame): The footer DataFrame to append.
+            footer (pd.DataFrame): The footer DataFrame to append. Columns should match the
+                parent DataFrame **after** units/data types have been applied (e.g. via
+                ``RSFieldMeta().apply_units``) so Pint dtypes stay consistent when rows are
+                concatenated for export/rendering.
         """
         self._footer = footer.copy()
 

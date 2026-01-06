@@ -11,6 +11,7 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 # Repo imports
 from util.athena import query_to_dataframe, get_field_metadata
+from util.figures import metric_cards
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
@@ -19,7 +20,8 @@ from reports.rpt_watershed_summary import __version__ as report_version
 from reports.rpt_watershed_summary.figures import (
     waterbody_summary_table,
     ownership_summary_table,
-    hydrography_table
+    hydrography_table,
+    statistics
 )
 
 
@@ -81,6 +83,8 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
 
     report.add_html_elements('tables', tables)
     report.add_html_elements('states', states_df['state_name'].tolist())
+    cards = metric_cards(statistics(aggregate_data_df))
+    report.add_html_elements('cards', cards)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -138,7 +142,7 @@ ORDER BY state_name
 def add_agg_field_meta(fields, agg_type: str):
     """Helper to transfer/add metadata for aggregated columns.
     assumes the new fields follow naming convention
-    Args: 
+    Args:
         agg_type - the prefix used for the aggregation type (sum, min, max)
     """
     meta = RSFieldMeta()
@@ -205,6 +209,7 @@ def get_aggregated_data(huc_condition: str) -> pd.DataFrame:
         'demcount',
         'slopesum',
         'precipsum',
+        'precipcount',
         'catchmentlength',
         'catchmentarea',
     ]
@@ -247,7 +252,7 @@ WHERE {huc_condition}
 
 def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
                              include_pdf: bool = True, unit_system: str = "SI"):
-    """Orcestratest the report generation process: 
+    """Orcestratest the report generation process:
     * get the data
     * make the report
 
@@ -289,16 +294,16 @@ def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> s
     Handles both huc10 and huc12 fields.
     Raises ValueError for mixed lengths or invalid codes.
 
-    Arguments: 
+    Arguments:
     * hucs (str): comma-separated list of HUC codes, all of the same length
     * field_identifier: the name of the field that we ware searching
     * field_length: what the field_identifier contains (e.g. huc10 has 10, huc12 has 12)
 
-    Returns condition that can be added to a where clause e.g. 
+    Returns condition that can be added to a where clause e.g.
         "HUC10 IN ('1234567890')"
         "substr(HUC10,1,8) IN ('12345678','87654321')"
 
-    See test_parse_hucs for more examples. 
+    See test_parse_hucs for more examples.
     This is similar to `get_huc_sql_filter` in cybercastor_scripts scripts/add_batch_athena.py
     """
     huc_list = [h.strip() for h in hucs.split(',') if h.strip()]

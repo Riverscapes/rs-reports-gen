@@ -1,10 +1,11 @@
 # Watershed Report
 
-## Version 0.1.1
+## Version 0.1.2
 
-Initial version on staging. Includes:
+Draft version on staging. Includes:
 
 * States
 * Ownership
 * Hydrographic network
 * Waterbodies
+* Precipitation summary statistics

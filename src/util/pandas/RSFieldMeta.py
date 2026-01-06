@@ -53,13 +53,16 @@ SI_TO_IMPERIAL: Dict[str, str] = {
     'meter': 'foot',
     'meter ** 2': 'foot ** 2',
     'kilometer': 'mile',
+    'millimeter': 'inch',
     '1 / kilometer': '1 / mile',
+    'kilometer / count': 'mile / count',
+    'count / kilometer': 'count / mile',
     'kilometer ** 2': 'acre',
     'kilogram': 'pound',
     # no conversion
     'percent': 'percent',
     'count': 'count',
-    'dimensionless': 'dimensionless'
+    'dimensionless': 'dimensionless',
 }
 IMPERIAL_TO_SI: Dict[str, str] = {
     # Start by just reversing the SI_TO_IMPERIAL mapping

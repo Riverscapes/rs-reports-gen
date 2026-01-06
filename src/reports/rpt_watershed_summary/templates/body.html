@@ -17,6 +17,18 @@
 
 <section id="watershed">
   <h1>Watershed</h1>
+  <dl class="metric-grid">
+    {% for key, card in cards.items() if key in ["sum_hucareasqkm"] %}
+    <div class="metric">
+      <dt>{{ card.title }}</dt>
+      <dd class="metric-number">{{ card.value }}</dd>
+      {% if card.details %}
+      <dd class="metric-details">{{ card.details }}</dd>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </dl>
+
   <h3>States</h3>
   The selected watersheds are found within:
   <ul>
@@ -49,6 +61,17 @@
   <figure class="report-figure">
     {{ tables['hydrography'] | safe }}
   </figure>
+  <dl class="metric-grid">
+    {% for key, card in cards.items() if key in ["sum_flowlinefeaturecount","avg_segment_length"] %}
+    <div class="metric">
+      <dt>{{ card.title }}</dt>
+      <dd class="metric-number">{{ card.value }}</dd>
+      {% if card.details %}
+      <dd class="metric-details">{{ card.details }}</dd>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </dl>
 </section>
 
 <section id="waterbodies">
@@ -56,4 +79,23 @@
   <figure class="report-figure">
     {{tables['waterbodies']|safe}}
   </figure>
+</section>
+
+<section id="climate">
+  <h2>Climate - PRISM Mean Annual Precipitation</h2>
+  <p>Data are derived from <a href="https://prism.oregonstate.edu/normals/">PRISM 30 year normal precipitation</a>
+    raster dataset with 800m spatial resolution. These statistics
+    illustrate the range of average annual precipitation values over the spatial extent of the subject area of interest.
+  </p>
+  <dl class="metric-grid">
+    {% for key, card in cards.items() if key in ["mean_precip_cell_value","min_precipminimum","max_precipmaximum"] %}
+    <div class="metric">
+      <dt>{{ card.title }}</dt>
+      <dd class="metric-number">{{ card.value }}</dd>
+      {% if card.details %}
+      <dd class="metric-details">{{ card.details }}</dd>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </dl>
 </section>
