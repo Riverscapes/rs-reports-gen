@@ -128,7 +128,12 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
                                  'sum_precipcount',
                                  'sum_precipsum',
                                  'min_precipminimum',
-                                 'max_precipmaximum', ]
+                                 'max_precipmaximum',
+                                 'sum_demcount',
+                                 'sum_demsum',
+                                 'min_demminimum',
+                                 'max_demmaximum',
+                                 ]
     stats_we_want = {
         colname: aggregate_data_stats[colname] for colname in colnames_of_stats_we_want}
     # average segment length
@@ -145,10 +150,18 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         description='Mean of the 30-year Average Annual Precipitation across the selected area',
         table_name=table_name
     )
+    mean_elevation = stats_we_want['sum_demsum'] / stats_we_want['sum_demcount']
+    RSFieldMeta().add_field_meta(
+        name='mean_elevation',
+        friendly_name='Mean Elevation',
+        description='Mean elevation across the selected area',
+        table_name=table_name
+    )
     stats = {
         **stats_we_want,
         'avg_segment_length': avg_segment_length,
-        'mean_precip_cell_value': mean_precip_cell_value
+        'mean_precip_cell_value': mean_precip_cell_value,
+        'mean_elevation': mean_elevation,
     }
 
     return stats
