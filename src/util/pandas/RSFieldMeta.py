@@ -49,6 +49,9 @@ SI_SYSTEMS = ['SI', 'imperial']
 # I need a lookup table for converting units like meters to feet and km to miles based on the current unit system.
 # So, for example, if I ask for "meters" and the current system is imperial, I should get "feet" back.
 # This will be a mapping of dimensionality to preferred units for each system.
+# FUTURE ENHANCEMENTS:
+# * handle all units "derived" with count?
+# * what about degrees vs percent for slope? is that an SI/imperial system choice?
 SI_TO_IMPERIAL: Dict[str, str] = {
     'meter': 'foot',
     'meter ** 2': 'foot ** 2',
@@ -63,6 +66,7 @@ SI_TO_IMPERIAL: Dict[str, str] = {
     'percent': 'percent',
     'count': 'count',
     'dimensionless': 'dimensionless',
+    'degree': 'degree'
 }
 IMPERIAL_TO_SI: Dict[str, str] = {
     # Start by just reversing the SI_TO_IMPERIAL mapping
