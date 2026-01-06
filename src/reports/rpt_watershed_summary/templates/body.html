@@ -34,7 +34,7 @@
 
 <section id="watershed">
   <h1>Watershed</h1>
-  {{ render_metric_grid(cards, ["sum_hucareasqkm"]) }}
+  {{ render_metric_grid(cards, ["sum_hucareasqkm","countdistinct_huc"]) }}
 
   <h3>States</h3>
   The selected watersheds are found within:
@@ -90,9 +90,10 @@
 <section id="morphometrics">
   <h2>Morphometric Analyses</h2>
   <h3>Basin Elevation</h3>
-  {{ render_metric_grid(cards, ["mean_elevation", "min_demminimum", "max_demmaximum"]) }}
+  {{ render_metric_grid(cards, ["min_demminimum", "max_demmaximum", "total_relief", "mean_elevation"]) }}
   <h3>Slope Analyses</h3>
   {{ render_metric_grid(cards, ["mean_slope", "min_slopeminimum", "max_slopemaximum"]) }}
   <h3>Drainage Densities</h3>
   <h3>Morphometrics</h3>
+  {{ render_metric_grid(cards, ["circularityratio","elongationratio","formfactor","relief_ratio"]) }}
 </section>
