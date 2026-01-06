@@ -2,6 +2,23 @@
  
   refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
 -->
+{% macro render_metric_grid(cards, keys) -%}
+<dl class="metric-grid">
+  {% for key in keys %}
+  {% set card = cards.get(key) %}
+  {% if card %}
+  <div class="metric">
+    <dt>{{ card.title }}</dt>
+    <dd class="metric-number">{{ card.value }}</dd>
+    {% if card.details %}
+    <dd class="metric-details">{{ card.details }}</dd>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% endfor %}
+</dl>
+{%- endmacro %}
+
 <section>
   <div class="section-context">
     <p>The Watershed Report summarizes key characteristics and metrics of the watershed within a specific area of
@@ -17,17 +34,7 @@
 
 <section id="watershed">
   <h1>Watershed</h1>
-  <dl class="metric-grid">
-    {% for key, card in cards.items() if key in ["sum_hucareasqkm"] %}
-    <div class="metric">
-      <dt>{{ card.title }}</dt>
-      <dd class="metric-number">{{ card.value }}</dd>
-      {% if card.details %}
-      <dd class="metric-details">{{ card.details }}</dd>
-      {% endif %}
-    </div>
-    {% endfor %}
-  </dl>
+  {{ render_metric_grid(cards, ["sum_hucareasqkm"]) }}
 
   <h3>States</h3>
   The selected watersheds are found within:
@@ -61,17 +68,7 @@
   <figure class="report-figure">
     {{ tables['hydrography'] | safe }}
   </figure>
-  <dl class="metric-grid">
-    {% for key, card in cards.items() if key in ["sum_flowlinefeaturecount","avg_segment_length"] %}
-    <div class="metric">
-      <dt>{{ card.title }}</dt>
-      <dd class="metric-number">{{ card.value }}</dd>
-      {% if card.details %}
-      <dd class="metric-details">{{ card.details }}</dd>
-      {% endif %}
-    </div>
-    {% endfor %}
-  </dl>
+  {{ render_metric_grid(cards, ["sum_flowlinefeaturecount", "avg_segment_length"]) }}
 </section>
 
 <section id="waterbodies">
@@ -87,32 +84,12 @@
     raster dataset with 800m spatial resolution. These statistics
     illustrate the range of average annual precipitation values over the spatial extent of the subject area of interest.
   </p>
-  <dl class="metric-grid">
-    {% for key, card in cards.items() if key in ["mean_precip_cell_value","min_precipminimum","max_precipmaximum"] %}
-    <div class="metric">
-      <dt>{{ card.title }}</dt>
-      <dd class="metric-number">{{ card.value }}</dd>
-      {% if card.details %}
-      <dd class="metric-details">{{ card.details }}</dd>
-      {% endif %}
-    </div>
-    {% endfor %}
-  </dl>
+  {{ render_metric_grid(cards, ["mean_precip_cell_value", "min_precipminimum", "max_precipmaximum"]) }}
 </section>
 
 <section id="morphometrics">
   <h2>Morphometric Analyses</h2>
   <h3>Basin Elevation</h3>
-  <dl class="metric-grid">
-    {% for key, card in cards.items() if key in ["mean_elevation","min_minelevation","max_maxelevation"] %}
-    <div class="metric">
-      <dt>{{ card.title }}</dt>
-      <dd class="metric-number">{{ card.value }}</dd>
-      {% if card.details %}
-      <dd class="metric-details">{{ card.details }}</dd>
-      {% endif %}
-    </div>
-    {% endfor %}
-  </dl>
+  {{ render_metric_grid(cards, ["mean_elevation", "min_minelevation", "max_maxelevation"]) }}
 
 </section>
