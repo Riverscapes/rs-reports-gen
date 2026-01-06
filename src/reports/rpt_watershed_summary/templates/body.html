@@ -99,3 +99,20 @@
     {% endfor %}
   </dl>
 </section>
+
+<section id="morphometrics">
+  <h2>Morphometric Analyses</h2>
+  <h3>Basin Elevation</h3>
+  <dl class="metric-grid">
+    {% for key, card in cards.items() if key in ["mean_elevation","min_minelevation","max_maxelevation"] %}
+    <div class="metric">
+      <dt>{{ card.title }}</dt>
+      <dd class="metric-number">{{ card.value }}</dd>
+      {% if card.details %}
+      <dd class="metric-details">{{ card.details }}</dd>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </dl>
+
+</section>

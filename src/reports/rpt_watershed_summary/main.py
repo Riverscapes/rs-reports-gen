@@ -208,16 +208,19 @@ def get_aggregated_data(huc_condition: str) -> pd.DataFrame:
         'demsum',
         'demcount',
         'slopesum',
+        'slopecount',
         'precipsum',
         'precipcount',
         'catchmentlength',
         'catchmentarea',
     ]
     min_fields = [
+        'demminimum',
         'slopeminimum',
         'precipminimum',
     ]
     max_fields = [
+        'demmaximum',
         'slopemaximum',
         'precipmaximum',
     ]
