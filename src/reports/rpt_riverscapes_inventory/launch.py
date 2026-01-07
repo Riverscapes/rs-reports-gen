@@ -20,6 +20,7 @@ def main():
             RSI_REPORT_NAME - name for the report (optional)
             RSI_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
             RSI_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
+            RSI_NO_NID - set to '1' or 'true' to disable fetching NID data (optional)
 
     """
 
@@ -147,5 +148,25 @@ def main():
 
     if keep_parquet:
         args.append("--keep-parquet")
+
+    # Ask for whether to fetch NID data (default Yes)
+    no_nid_env = os.environ.get("RSI_NO_NID")
+    if no_nid_env is not None:
+        no_nid = no_nid_env.lower() in {"1", "true", "yes"}
+    else:
+        nid_question = inquirer.prompt([
+            inquirer.Confirm(
+                'fetch_nid',
+                message="Fetch data from National Inventory of Dams? (Default is Yes)",
+                default=True
+            ),
+        ])
+        if not nid_question or 'fetch_nid' not in nid_question:
+            print("\nNo NID option selected. Exiting.\n")
+            return None
+        no_nid = not nid_question['fetch_nid']
+
+    if no_nid:
+        args.append("--no-nid")
 
     return args

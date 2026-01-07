@@ -1,0 +1,42 @@
+{#
+Shared Macros for Riverscapes Reports
+
+Macro: render_metric_grid(cards, keys)
+
+Renders a grid of metric cards.
+
+Args:
+cards (dict): A dictionary where keys are metric identifiers and values are objects/dicts with:
+- title: The title of the card
+- value: The value to display
+- details (optional): Additional details/context
+keys (list, optional): A list of keys to look up in the 'cards' dictionary.
+If provided, only these keys will be rendered in the specified order.
+If omitted/None, ALL cards in the dictionary will be rendered.
+
+Example Usage:
+{% from 'macros.html' import render_metric_grid %}
+
+<!-- Render specific cards -->
+{{ render_metric_grid(report_cards, ["total_area", "avg_depth"]) }}
+
+<!-- Render ALL cards -->
+{{ render_metric_grid(report_cards) }}
+#}
+{% macro render_metric_grid(cards, keys=None) -%}
+{% set keys = keys if keys is not none else cards.keys() %}
+<dl class="metric-grid">
+    {% for key in keys %}
+    {% set card = cards.get(key) %}
+    {% if card %}
+    <div class="metric">
+        <dt>{{ card.title }}</dt>
+        <dd class="metric-number">{{ card.value }}</dd>
+        {% if card.details %}
+        <dd class="metric-details">{{ card.details }}</dd>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+</dl>
+{%- endmacro %}
