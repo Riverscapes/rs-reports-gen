@@ -742,8 +742,6 @@ def metric_cards(metrics: dict[str, pint.Quantity]) -> dict[str, dict[str, str]]
         friendly = meta.get_friendly_name(key)
         desc = meta.get_description(key)
         log.debug(f"metric: {key}, friendly: {friendly}, desc: {desc}")
-        # Make sure the value respects the unit system
-        system_value = RSFieldMeta().get_system_unit_value(value)
-        formatted = format_value(system_value, 0)
+        formatted = meta.format_scalar(key, value)
         cards[key] = {"title": friendly, "value": formatted, "details": desc}
     return cards

@@ -91,7 +91,17 @@ def _get_unique_id(table_name: Optional[str], column_name: str) -> str:
 class FieldMetaValues:
     """ A simple class to hold metadata values for a single field.
         """
-    VALID_COLUMNS = ["table_name", "name", "friendly_name", "data_unit", "display_unit", "dtype", "no_convert", "description"]
+    VALID_COLUMNS = [
+        "table_name",
+        "name",
+        "friendly_name",
+        "data_unit",
+        "display_unit",
+        "dtype",
+        "no_convert",
+        "description",
+        "preferred_format",
+    ]
 
     def __init__(self):
         self.table_name: str = ""
@@ -102,12 +112,13 @@ class FieldMetaValues:
         self.dtype: str = ""
         self.no_convert: bool = False
         self.description: str = ""
+        self.preferred_format: str = ""
 
     # Make it printable for easier debugging
     def __repr__(self):
         return (f"FieldMetaValues(table_name='{self.table_name}', name='{self.name}', friendly_name='{self.friendly_name}', "
                 f"data_unit='{self.data_unit}', display_unit='{self.display_unit}', "
-                f"dtype='{self.dtype}', no_convert={self.no_convert})")
+                f"dtype='{self.dtype}', no_convert={self.no_convert}, preferred_format='{self.preferred_format}')")
 
 
 class RSFieldMeta:
@@ -300,7 +311,8 @@ class RSFieldMeta:
                        display_unit: str | pint.Unit | None = None,
                        dtype: str = "",
                        no_convert: bool = False,
-                       description: str = ""):
+                       description: str = "",
+                       preferred_format: str | None = None):
         """ Add a new column to the metadata DataFrame if it does not already exist.
 
         Args:
@@ -315,6 +327,7 @@ class RSFieldMeta:
             no_convert (bool, optional): If True, do not convert units for this column. Defaults to False.
                 NOTE: If this is TRUE the units will be display_units and then data_units as a fallback.
             description (str, optional): a description of the column to be displayed to end-users for example in tool-tips
+            preferred_format (str | None, optional): Python format string applied to metric magnitudes (e.g., "{:.2f}").
 
         TODO make table_name mandatory
         """
@@ -340,6 +353,7 @@ class RSFieldMeta:
         self._field_meta.loc[unique_id, "dtype"] = dtype
         self._field_meta.loc[unique_id, "no_convert"] = no_convert
         self._field_meta.loc[unique_id, "description"] = description
+        self._field_meta.loc[unique_id, "preferred_format"] = preferred_format.strip() if isinstance(preferred_format, str) else preferred_format
 
     def _no_data_warning(self):
         """ Warn if no metadata is set."""
@@ -501,6 +515,7 @@ class RSFieldMeta:
         meta_values.dtype = str(meta_row.get("dtype", ''))
         meta_values.no_convert = bool(meta_row.get("no_convert", False))
         meta_values.description = str(meta_row.get("description", ''))
+        meta_values.preferred_format = str(meta_row.get("preferred_format", '') or '')
         return meta_values
 
     def get_friendly_name(self, column_name: str, table_name: Optional[str] = None) -> str:
@@ -518,6 +533,72 @@ class RSFieldMeta:
         if fm and hasattr(fm, "description") and fm.description:
             return fm.description
         return ""
+
+    @staticmethod
+    def _default_scalar_format(value, decimals: int) -> str:
+        """Format bare numeric values using thousands separators and decimal precision."""
+        try:
+            if isinstance(value, (int, float)):
+                return f"{value:,.{decimals}f}"
+        except Exception:  # pragma: no cover - defensive
+            pass
+        return str(value)
+
+    @staticmethod
+    def _apply_preferred_format(fmt: str, magnitude) -> tuple[str | None, str | None]:
+        """Try formatting using keyword then positional placeholders, returning (result, error)."""
+        try:
+            return fmt.format(value=magnitude), None
+        except (ValueError, KeyError, IndexError):
+            try:
+                return fmt.format(magnitude), None
+            except (ValueError, KeyError, IndexError) as exc:  # pragma: no cover - invalid format
+                return None, str(exc)
+
+    def format_scalar(self,
+                      column_name: str,
+                      value,
+                      *,
+                      decimals: int = 0,
+                      include_units: bool = True) -> str:
+        """Format a scalar metric using metadata-aware rules.
+
+        Args:
+            column_name (str): Metadata key for lookup.
+            value: Numeric or Pint quantity to format.
+            decimals (int, optional): Fallback decimal places when no preferred format is defined.
+            include_units (bool, optional): Append unit labels when available. Defaults to True.
+        """
+        if value is None:
+            return ""
+
+        converted_value = value
+        if isinstance(value, pint.Quantity):
+            try:
+                converted_value = self.get_system_unit_value(value)
+            except Exception:  # pragma: no cover - leave value unmodified on failure
+                converted_value = value
+
+        fm = self.get_field_meta(column_name)
+        preferred_format = getattr(fm, "preferred_format", "") if fm else ""
+
+        magnitude = converted_value.magnitude if hasattr(converted_value, "magnitude") else converted_value
+
+        formatted_number = None
+        if preferred_format:
+            formatted_number, err = self._apply_preferred_format(preferred_format, magnitude)
+            if err:
+                self._log.warning(f"Preferred format '{preferred_format}' invalid for column '{column_name}': {err}")
+        if formatted_number is None:
+            formatted_number = self._default_scalar_format(magnitude, decimals)
+
+        if not include_units or not isinstance(converted_value, pint.Quantity):
+            return formatted_number
+
+        unit_text = f"{converted_value.units:~P}".strip()
+        if not unit_text:
+            return formatted_number
+        return f"{formatted_number} {unit_text}"
 
     def __set_value(self, row_name, col_name, value, table_name: Optional[str] = None):
         """Generic Property setter. Use this for all the specific setters below."""
