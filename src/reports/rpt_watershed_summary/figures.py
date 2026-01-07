@@ -117,7 +117,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
 
     """
     table_name = 'aggregate_stats'  # For metadata namespacing
-
+    meta = RSFieldMeta()
     # everything in the aggregate dataframe
     # remember the dataframe comes from athena, and all columns are lowercase
     aggregate_data_stats = aggregate_data_df.iloc[0].to_dict()
@@ -147,34 +147,44 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         colname: aggregate_data_stats[colname] for colname in colnames_of_stats_we_want}
     # average segment length
     avg_segment_length = stats_we_want['sum_flowlinelengthallkm']/stats_we_want['sum_flowlinefeaturecount']
-    RSFieldMeta().add_field_meta(
+    meta.add_field_meta(
         name='avg_segment_length',
         friendly_name='Average Segment Length',
         table_name=table_name,
-        data_unit=avg_segment_length.units
+        data_unit=avg_segment_length.units,
+        preferred_format="{:.3g}"
     )
     mean_precip_cell_value = stats_we_want['sum_precipsum'] / stats_we_want['sum_precipcount']
-    RSFieldMeta().add_field_meta(
+    meta.add_field_meta(
         name='mean_precip_cell_value',
         friendly_name='Mean Average Precipitation',
         description='Mean of the 30-year Average Annual Precipitation across the selected area',
         table_name=table_name
     )
     mean_elevation = stats_we_want['sum_demsum'] / stats_we_want['sum_demcount']
-    RSFieldMeta().add_field_meta(
+    meta.add_field_meta(
         name='mean_elevation',
         friendly_name='Mean Elevation',
         description='Mean elevation across the selected area',
         table_name=table_name
     )
     mean_slope = stats_we_want['sum_slopesum'] / stats_we_want['sum_slopecount']
-    RSFieldMeta().add_field_meta(
+    meta.add_field_meta(
         name='mean_slope',
         friendly_name='Mean Slope',
         description='Mean elevation across the selected area',
         table_name=table_name
     )
     total_relief = stats_we_want['max_demmaximum'] - stats_we_want['min_demminimum']
+    source_meta = meta.get_field_meta('max_demmaximum')
+    meta.add_field_meta(
+        name='total_relief',
+        friendly_name='Total Relief',
+        description='Difference between highest and lowest elevation.',
+        data_unit=stats_we_want['max_demmaximum'].units,
+        table_name=table_name,
+        preferred_format=source_meta.preferred_format if source_meta else None
+    )
     relief_ratio = total_relief.to("km") / stats_we_want['sum_catchmentlength'].to("km")
     if stats_we_want['countdistinct_huc'] == 1:
         singlehucstats = {
@@ -192,7 +202,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         'mean_elevation': mean_elevation,
         'mean_slope': mean_slope,
         'total_relief': total_relief,
-        'relief_ratio': relief_ratio,
+        'reliefratio': relief_ratio,
     }
 
     return stats
