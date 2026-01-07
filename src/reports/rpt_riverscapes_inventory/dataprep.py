@@ -3,6 +3,7 @@ import geopandas as gpd
 import requests
 from rsxml import Logger
 from util.rme.rme_common_dataprep import add_common_rme_cols
+from util.pandas import RSFieldMeta
 
 
 def add_calculated_rme_cols(df: pd.DataFrame) -> pd.DataFrame:
@@ -63,3 +64,52 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     except Exception as e:
         log.error(f"Failed to fetch NID data: {e}")
         return gpd.GeoDataFrame()
+
+
+def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
+    """
+    Format NID data for display in the report:
+    1. Define metadata/units
+    2. Apply units
+    3. Filter columns
+    4. Create hyperlinks
+    """
+    if nid_gdf.empty:
+        return pd.DataFrame()
+
+    _FIELD_META = RSFieldMeta()
+    table_name = 'NID'  # for disambiguating metadata
+
+    # Define metadata for NID fields
+    _FIELD_META.add_field_meta(name='NID_STORAGE', table_name=table_name, friendly_name='NID Storage', data_unit='acre_feet', display_unit='acre_feet', dtype='REAL')
+    _FIELD_META.add_field_meta(name='NID_HEIGHT', table_name=table_name, friendly_name='NID Height', data_unit='foot', display_unit='foot', dtype='REAL')
+    _FIELD_META.add_field_meta(name='DRAINAGE_AREA', table_name=table_name, friendly_name='Drainage Area', data_unit='mile**2', display_unit='mile**2', dtype='REAL')
+    _FIELD_META.add_field_meta(name='MAX_DISCHARGE', table_name=table_name, friendly_name='Max Discharge', data_unit='foot**3 / second', display_unit='foot**3 / second', dtype='REAL')
+
+    nid_display_cols = [
+        'NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE',
+        'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE', 'NIDID'
+    ]
+
+    # Ensure we only work with available columns
+    cols_to_use = [c for c in nid_display_cols if c in nid_gdf.columns]
+
+    # Apply units formatting
+    # Pass table_name='NID' to resolve ambiguities
+    display_gdf, _ = _FIELD_META.apply_units(nid_gdf[cols_to_use].copy(), table_name=table_name)
+
+    # Create Hyperlink for NAME using NIDID
+    if 'NIDID' in display_gdf.columns and 'NAME' in display_gdf.columns:
+        display_gdf['NAME'] = display_gdf.apply(
+            lambda row: f'<a href="https://nid.sec.usace.army.mil/nid/#/dams/system/{row["NIDID"]}/summary" target="_blank">{row["NAME"]}</a>',
+            axis=1
+        )
+
+    # Final column selection for display
+    final_cols = [
+        'NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE',
+        'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE'
+    ]
+    final_cols = [c for c in final_cols if c in display_gdf.columns]
+
+    return display_gdf[final_cols]

@@ -36,7 +36,7 @@ from util.figures import (
     metric_cards,
 )
 from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data
+from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
 
 
@@ -103,7 +103,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     }
     if not nid_gdf.empty:
         # Just top 100 for now to avoid huge tables in HTML
-        tables["nid_dams"] = nid_gdf.head(100).drop(columns='geometry').to_html(classes="table table-striped", index=False)
+        nid_display_df = prepare_nid_display_table(nid_gdf)
+        tables["nid_dams"] = nid_display_df.head(100).to_html(classes="table table-striped", index=False, escape=False)
     appendices = {
         "project_ids": project_id_list(gdf),
     }
