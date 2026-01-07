@@ -102,9 +102,14 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc'])
     }
     if not nid_gdf.empty:
-        # Just top 100 for now to avoid huge tables in HTML
         nid_display_df = prepare_nid_display_table(nid_gdf)
-        tables["nid_dams"] = nid_display_df.head(100).to_html(classes="table table-striped", index=False, escape=False)
+        # Use RSGeoDataFrame to get friendly column names for display
+        tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
+            classes="table table-striped",
+            index=False,
+            escape=False,
+            table_id="NID"
+        )
     appendices = {
         "project_ids": project_id_list(gdf),
     }

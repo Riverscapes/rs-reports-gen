@@ -36,7 +36,6 @@ Authors: Matt Reimer, Lorin Gaertner
 October 2025
 """
 
-from typing import Optional, Dict, List, Tuple
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed
 from rsxml import Logger
@@ -52,7 +51,7 @@ SI_SYSTEMS = ['SI', 'imperial']
 # FUTURE ENHANCEMENTS:
 # * handle all units "derived" with count?
 # * what about degrees vs percent for slope? is that an SI/imperial system choice?
-SI_TO_IMPERIAL: Dict[str, str] = {
+SI_TO_IMPERIAL: dict[str, str] = {
     'meter': 'foot',
     'meter ** 2': 'foot ** 2',
     'kilometer': 'mile',
@@ -68,7 +67,7 @@ SI_TO_IMPERIAL: Dict[str, str] = {
     'dimensionless': 'dimensionless',
     'degree': 'degree'
 }
-IMPERIAL_TO_SI: Dict[str, str] = {
+IMPERIAL_TO_SI: dict[str, str] = {
     # Start by just reversing the SI_TO_IMPERIAL mapping
     **{v: k for k, v in SI_TO_IMPERIAL.items()},
     # Then add any additional mappings that don't have a direct reverse
@@ -79,7 +78,7 @@ IMPERIAL_TO_SI: Dict[str, str] = {
 }
 
 
-def _get_unique_id(table_name: Optional[str], column_name: str) -> str:
+def _get_unique_id(table_name: str | None, column_name: str) -> str:
     """Create a unique, case-insensitive identifier for a field."""
     if not column_name:
         raise ValueError("column_name cannot be empty.")
@@ -107,8 +106,8 @@ class FieldMetaValues:
         self.table_name: str = ""
         self.name: str = ""
         self.friendly_name: str = ""
-        self.data_unit: Optional[pint.Unit] = None
-        self.display_unit: Optional[pint.Unit] = None
+        self.data_unit: pint.Unit | None = None
+        self.display_unit: pint.Unit | None = None
         self.dtype: str = ""
         self.no_convert: bool = False
         self.description: str = ""
@@ -133,7 +132,7 @@ class RSFieldMeta:
         self.__dict__ = self._shared_state
         self._log = Logger('RSFieldMeta')
         if not hasattr(self, "_field_meta"):
-            self._field_meta: Optional[pd.DataFrame] = None
+            self._field_meta: pd.DataFrame | None = None
         if not hasattr(self, "_unit_system"):
             self._unit_system = 'SI'  # default to SI
             self._log.debug(f'Set default unit system to {self._unit_system}')
@@ -144,11 +143,11 @@ class RSFieldMeta:
         self._field_meta = None
 
     @property
-    def field_meta(self) -> Optional[pd.DataFrame]:
+    def field_meta(self) -> pd.DataFrame | None:
         """Get the metadata DataFrame.
 
         Returns:
-            Optional[pd.DataFrame]: The metadata DataFrame or None if not set.
+            The metadata DataFrame or None if not set.
         """
         return self._field_meta
 
@@ -252,14 +251,14 @@ class RSFieldMeta:
         self._log.info(f'Set default unit system to {canonical}')
 
     @staticmethod
-    def get_dimensionality_name(unit_obj: pint.Unit) -> Optional[str]:
+    def get_dimensionality_name(unit_obj: pint.Unit) -> str | None:
         """Get a simple dimensionality name from a unit string, e.g. 'length', 'area', 'volume', 'time', 'mass'.
 
         Args:
             unit(str): A unit string compatible with Pint.
 
         Returns:
-            Optional[str]: The dimensionality name or None if not found.
+            str | None: The dimensionality name or None if not found.
         """
         dimensionality = unit_obj.dimensionality
         if "[length]" in dimensionality:
@@ -437,11 +436,11 @@ class RSFieldMeta:
 
     def duplicate_meta(
         self, orig_name: str, new_name: str,
-        orig_table_name: Optional[str] = None, new_table_name: Optional[str] = None,
-        new_friendly: Optional[str] = None, new_description: Optional[str] = None,
-        new_data_unit: Optional[str] = None, new_display_unit: Optional[str] = None,
-        new_dtype: Optional[str] = None, new_no_convert: Optional[bool] = None
-    ) -> Optional['FieldMetaValues']:
+        orig_table_name: str | None = None, new_table_name: str | None = None,
+        new_friendly: str | None = None, new_description: str | None = None,
+        new_data_unit: str | None = None, new_display_unit: str | None = None,
+        new_dtype: str | None = None, new_no_convert: bool | None = None
+    ) -> FieldMetaValues | None:
         """Duplicate a row of the metadata table, optionally overriding fields.
 
         Returns:
@@ -483,13 +482,13 @@ class RSFieldMeta:
         self._log.info(f"Duplicated metadata from '{orig_id}' to '{new_id}'.")
         return self.get_field_meta(new_name, new_table_name)
 
-    def get_field_meta(self, column_name: str, table_name: str | None = None) -> Optional[FieldMetaValues]:
+    def get_field_meta(self, column_name: str, table_name: str | None = None) -> FieldMetaValues | None:
         """Get the field metadata for a specific column. This returns a FieldMetaValues object.
 
         Args:
             col (str): The column name to get metadata for.
         Returns:
-            Optional[FieldMetaValues]: The metadata object for the column or None if not found.
+            FieldMetaValues | None: The metadata object for the column or None if not found.
         TODO: include tablename
         """
         self._no_data_warning()
@@ -518,7 +517,7 @@ class RSFieldMeta:
         meta_values.preferred_format = str(meta_row.get("preferred_format", '') or '')
         return meta_values
 
-    def get_friendly_name(self, column_name: str, table_name: Optional[str] = None) -> str:
+    def get_friendly_name(self, column_name: str, table_name: str | None = None) -> str:
         """Get the friendly name for a column, or format version of column name if not found."""
         fm = self.get_field_meta(column_name, table_name)
         if fm and hasattr(fm, "friendly_name") and fm.friendly_name:
@@ -527,7 +526,7 @@ class RSFieldMeta:
             friendly = column_name.replace('_', ' ').title()
         return friendly
 
-    def get_description(self, column_name: str, table_name: Optional[str] = None) -> str:
+    def get_description(self, column_name: str, table_name: str | None = None) -> str:
         """Get the description for a column, or an empty string if not found."""
         fm = self.get_field_meta(column_name, table_name)
         if fm and hasattr(fm, "description") and fm.description:
@@ -600,7 +599,7 @@ class RSFieldMeta:
             return formatted_number
         return f"{formatted_number} {unit_text}"
 
-    def __set_value(self, row_name, col_name, value, table_name: Optional[str] = None):
+    def __set_value(self, row_name, col_name, value, table_name: str | None = None):
         """Generic Property setter. Use this for all the specific setters below."""
         self._no_data_warning()
         # Make sure col_name is a valid property of FieldMetaValues
@@ -614,28 +613,28 @@ class RSFieldMeta:
             unique_id = self._resolve_unique_id(row_name, table_name, raise_on_missing=True)
         self._field_meta.loc[unique_id, col_name] = value
 
-    def set_friendly_name(self, col, friendly_name, table_name: Optional[str] = None):
+    def set_friendly_name(self, col, friendly_name, table_name: str | None = None):
         """Set the friendly name for a column in the metadata."""
         self.__set_value(col, "friendly_name", friendly_name, table_name)
 
-    def set_data_unit(self, col, data_unit, table_name: Optional[str] = None):
+    def set_data_unit(self, col, data_unit, table_name: str | None = None):
         """Set the data unit for a column in the metadata."""
         self.__set_value(col, "data_unit", self._coerce_unit(data_unit), table_name)
 
-    def set_display_unit(self, col, display_unit, table_name: Optional[str] = None):
+    def set_display_unit(self, col, display_unit, table_name: str | None = None):
         """Set the display unit for a column in the metadata."""
         self.__set_value(col, "display_unit", self._coerce_unit(display_unit), table_name)
 
-    def set_dtype(self, col, dtype, table_name: Optional[str] = None):
+    def set_dtype(self, col, dtype, table_name: str | None = None):
         """Set the field type for a column in the metadata."""
         self.__set_value(col, "dtype", dtype, table_name)
 
-    def apply_units(self, df: pd.DataFrame, table_name: Optional[str] = None) -> tuple[pd.DataFrame, dict]:
+    def apply_units(self, df: pd.DataFrame, table_name: str | None = None) -> tuple[pd.DataFrame, dict]:
         """ Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is NOT modified in place.
-            table_name (Optional[str]): The specific table context for applying units. If None, will match columns case-insensitively.
+            table_name (str | None): The specific table context for applying units. If None, will match columns case-insensitively.
 
         Returns:
             tuple(pd.DataFrame,dict) : A new DataFrame with units applied, a dict of applied units
@@ -704,7 +703,7 @@ class RSFieldMeta:
         self._log.debug('Applied units to dataframe using meta info')
         return df_copy, applied_units
 
-    def get_field_unit(self, name: str, no_convert: bool = False) -> Optional[pint.Unit]:
+    def get_field_unit(self, name: str, no_convert: bool = False, table_name: str | None = None) -> pint.Unit | None:
         """ Get the display unit for a specific column based on the metadata and current unit system.
 
         This will take into account the display_unit, data_unit, no_convert, and preferred units for the current system.
@@ -712,8 +711,9 @@ class RSFieldMeta:
         Args:
             name (str): The column name to get the display unit for.
             no_convert (bool, optional): If True, return the raw `data_unit` without any conversion. Defaults to False.
+            table_name (str | None, optional): The specific table context. Defaults to None.
         """
-        fm = self.get_field_meta(name)
+        fm = self.get_field_meta(name, table_name)
         if not fm:
             return None
 
@@ -741,33 +741,30 @@ class RSFieldMeta:
             return applied_unit
         return None
 
-    def get_field_header(self, name: str, include_units: bool = True, unit_fmt=" ({unit})") -> str:
+    def get_field_header(self, name: str, include_units: bool = True, unit_fmt=" ({unit})", table_name: str | None = None) -> str:
         """ Get the column header for a specific column based on the metadata.
 
         Args:
             name (str): The column name to get the header for.
             include_units (bool, optional): Whether to include units in the header name. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
+            table_name (str | None, optional): The specific table context. Defaults to None.
 
         Returns:
             str: The column header with friendly name and units if specified.
         """
-        fm = self.get_field_meta(name)
-        if not fm:
-            return name
-
-        # Determine the header label
-        header_text = fm.friendly_name if fm and fm.friendly_name else name
+        # Use get_friendly_name to ensure we get the fallback formatting (spaces/Title Case) if no meta exists
+        header_text = self.get_friendly_name(name, table_name)
 
         if include_units:
-            preferred_unit = self.get_field_unit(name)
+            preferred_unit = self.get_field_unit(name, table_name=table_name)
             if preferred_unit:
                 unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
                 header_text = f"{header_text}{unit_text}"
 
         return header_text
 
-    def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})") -> List[str]:
+    def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", table_name: str | None = None) -> list[str]:
         """ Get the column headers for a DataFrame based on the metadata. This will return a list of column 
         headers with friendly names and units if specified.
 
@@ -775,20 +772,20 @@ class RSFieldMeta:
             df (pd.DataFrame): The original dataframe
             include_units (bool, optional): Whether to include units in the header names. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
+            table_name (str | None, optional): The specific table context. Defaults to None.
 
         Returns:
-            Dict[str, str]: A lookup list of column names to friendly names
+            dict[str, str]: A lookup list of column names to friendly names
         """
-        column_headers: List[str] = []
+        column_headers: list[str] = []
         # Now we loop over all the columns and apply formatting and units if necessary
         for column in list(df.columns):
 
-            fm = self.get_field_meta(column)
-            # Determine the header label # TODO consider use get_friendly instead
-            header_text = fm.friendly_name if fm and fm.friendly_name else column
+            # Use get_friendly_name handles lookup, specific metadata, and fallback formatting
+            header_text = self.get_friendly_name(column, table_name)
 
             if include_units:
-                preferred_unit = self.get_field_unit(column)
+                preferred_unit = self.get_field_unit(column, table_name=table_name)
                 if preferred_unit:
                     unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
                     header_text = f"{header_text}{unit_text}"
@@ -797,7 +794,7 @@ class RSFieldMeta:
 
         return column_headers
 
-    def get_headers_dict(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})") -> Dict[str, str]:
+    def get_headers_dict(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", table_name: str | None = None) -> dict[str, str]:
         """ Get the column headers for a DataFrame based on the metadata. This will return a lookup dict of column 
         names to friendly names with units if specified.
 
@@ -805,13 +802,14 @@ class RSFieldMeta:
             df (pd.DataFrame): The original dataframe
             include_units (bool, optional): Whether to include units in the header names. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
+            table_name (str | None, optional): The specific table context. Defaults to None.
 
         Returns:
-            Dict[str, str]: A lookup list of column names to friendly names
+            dict[str, str]: A lookup list of column names to friendly names
         """
-        column_headers: Dict[str, str] = {}
+        column_headers: dict[str, str] = {}
         headers = list(df.columns)
-        friendly_headers = self.get_headers(df, include_units=include_units, unit_fmt=unit_fmt)
+        friendly_headers = self.get_headers(df, include_units=include_units, unit_fmt=unit_fmt, table_name=table_name)
 
         for i, column in enumerate(headers):
             column_headers[column] = friendly_headers[i]
@@ -875,14 +873,14 @@ class RSFieldMeta:
             self._log.warning(f"Unable to convert unit '{in_qty.units}' to '{sys_units}': {exc}")
             return in_qty
 
-    def bake_units(self, df: pd.DataFrame, header_units: bool = True) -> Tuple[pd.DataFrame, List[str]]:
+    def bake_units(self, df: pd.DataFrame, header_units: bool = True) -> tuple[pd.DataFrame, list[str]]:
         """ Apply units to a DataFrame based on the metadata. Returns a copy of the dataframe and the corresponding headers.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is not modified in place.
 
         Returns:
-            Tuple[pd.DataFrame, List[str]]: The modified DataFrame with units applied and the corresponding headers.
+            tuple[pd.DataFrame, list[str]]: The modified DataFrame with units applied and the corresponding headers.
 
         Issue: Since the return df has different headers from the original, it loses the connection to the metadata (will not be able to get description)
         """
