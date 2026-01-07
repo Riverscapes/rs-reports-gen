@@ -1,5 +1,9 @@
 # Riverscapes Inventory Report Changes
 
+## Version 0.3.0
+
+* Add national inventory of dams data queried from USACE esri feature server API.
+
 ## Version 0.2.2
 
 * Using new Riverscapes `layer_definitions` from Athena instead of the older rme-specific tabledefs

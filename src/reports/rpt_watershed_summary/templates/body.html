@@ -2,22 +2,7 @@
  
   refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
 -->
-{% macro render_metric_grid(cards, keys) -%}
-<dl class="metric-grid">
-  {% for key in keys %}
-  {% set card = cards.get(key) %}
-  {% if card %}
-  <div class="metric">
-    <dt>{{ card.title }}</dt>
-    <dd class="metric-number">{{ card.value }}</dd>
-    {% if card.details %}
-    <dd class="metric-details">{{ card.details }}</dd>
-    {% endif %}
-  </div>
-  {% endif %}
-  {% endfor %}
-</dl>
-{%- endmacro %}
+{% from 'macros.html' import render_metric_grid %}
 
 <section>
   <div class="section-context">

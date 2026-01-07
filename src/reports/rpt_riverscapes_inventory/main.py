@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import sys
 import shutil
 import traceback
@@ -35,7 +36,7 @@ from util.figures import (
     metric_cards,
 )
 from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols
+from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data
 from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
 
 
@@ -54,6 +55,7 @@ def define_fields(unit_system: str = "SI"):
 
 def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
+                nid_gdf: gpd.GeoDataFrame = gpd.GeoDataFrame(),
                 include_static: bool = True,
                 include_pdf: bool = True
                 ):
@@ -99,6 +101,9 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
         "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc'])
     }
+    if not nid_gdf.empty:
+        # Just top 100 for now to avoid huge tables in HTML
+        tables["nid_dams"] = nid_gdf.head(100).drop(columns='geometry').to_html(classes="table table-striped", index=False)
     appendices = {
         "project_ids": project_id_list(gdf),
     }
@@ -122,6 +127,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     all_stats = statistics(gdf)
     metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
     metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
+    if not nid_gdf.empty:
+        metric_data_for_key_indicators['total_dams'] = len(nid_gdf)
     report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
     report.add_html_elements('appendices', appendices)
 
@@ -171,6 +178,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
                              include_pdf: bool = True, unit_system: str = "SI",
                              parquet_override: Path | None = None,
                              keep_parquet: bool = False,
+                             disable_nid: bool = False,
                              ):
     """ Orchestrates the report generation process:
 
@@ -194,6 +202,13 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     aoi_gdf = gpd.read_file(path_to_shape)
     # make place for the data to go (as csv)
     safe_makedirs(str(report_dir / 'data'))
+
+    # Start NID task in background
+    nid_future = None
+    executor = ThreadPoolExecutor(max_workers=2)
+    if not disable_nid:
+        log.info("Starting background NID query...")
+        nid_future = executor.submit(get_nid_data, aoi_gdf)
 
     if parquet_override:
         parquet_data_source = Path(parquet_override)
@@ -232,6 +247,19 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     huc_data_df = load_huc_data(unique_huc10)
     # print(huc_data_df)  # for DEBUG ONLY
 
+    # Retrieve NID results
+    nid_gdf = gpd.GeoDataFrame()
+    if nid_future:
+        try:
+            nid_gdf = nid_future.result()
+            log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
+            if not nid_gdf.empty:
+                nid_gdf.to_file(report_dir / 'data' / 'nid_dams.gpkg', driver='GPKG')
+        except Exception as e:
+            log.error(f"Error retrieving NID results: {e}")
+        finally:
+            executor.shutdown(wait=False)
+
     # Export the data to Excel
     # dumping all the raw data is not appropriate especially for very large areas
     RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
@@ -239,6 +267,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
     make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name,
+                nid_gdf=nid_gdf,
                 include_static=include_pdf,
                 include_pdf=include_pdf
                 )
@@ -275,6 +304,11 @@ def main():
         action='store_true',
         help='Keep the downloaded AOI Parquet files instead of deleting the pq folder'
     )
+    parser.add_argument(
+        '--no-nid',
+        action='store_true',
+        help='Disable fetching data from National Inventory of Dams'
+    )
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -300,7 +334,8 @@ def main():
                                  args.include_pdf,
                                  args.unit_system,
                                  parquet_override=args.parquet_path,
-                                 keep_parquet=args.keep_parquet,)
+                                 keep_parquet=args.keep_parquet,
+                                 disable_nid=args.no_nid,)
 
         # While we work on performance, this is helpful
         process = psutil.Process(os.getpid())

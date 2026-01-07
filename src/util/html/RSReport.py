@@ -2,12 +2,11 @@
 import os
 from pathlib import Path
 from datetime import datetime
-from importlib import resources
 from typing import Any
 
 import plotly.graph_objects as go
 from rsxml import Logger
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader
 from util.plotly.export_figure import export_figure
 
 
@@ -109,9 +108,16 @@ class RSReport:
                     report_dir=self.report_dir
                 )
 
-        templates_pkg = resources.files(__package__).joinpath('templates')
-        template = Template(templates_pkg.joinpath('template.html').read_text(encoding='utf-8'))
-        css = templates_pkg.joinpath('base.css').read_text(encoding='utf-8')
+        # Use Path(__file__) for robust path resolution instead of importlib.resources
+        # which can be flaky depending on how the package is run/installed
+        util_templates_dir = str(Path(__file__).parent / 'templates')
+
+        css = ""
+        # Load base.css from utilities
+        base_css_path = Path(__file__).parent / 'templates' / 'base.css'
+        if base_css_path.exists():
+            css = base_css_path.read_text(encoding='utf-8')
+
         for css_path in self.css_paths:
             if os.path.exists(css_path):
                 css += "\n" + open(css_path, "r", encoding="utf-8").read()
@@ -133,13 +139,22 @@ class RSReport:
             **self.html_elements
         }
 
+        # Prepare valid paths for loader
+        search_paths = [util_templates_dir]
+        if self.body_template_path and os.path.exists(self.body_template_path):
+            body_template_dir = str(Path(self.body_template_path).parent)
+            if body_template_dir not in search_paths:
+                search_paths.insert(0, body_template_dir)  # priority to report dir
+
+        env = Environment(loader=FileSystemLoader(search_paths))
+
         body = ""
         if self.body_template_path and os.path.exists(self.body_template_path):
-            body_template = Template(open(self.body_template_path, "r", encoding="utf-8").read())
-            body = body_template.render(report_context)
+            t_name = Path(self.body_template_path).name
+            body = env.get_template(t_name).render(report_context)
 
         # Here is the final render. Note that we add in the body separately
-        html = template.render(**report_context, body=body)
+        html = env.get_template('template.html').render(**report_context, body=body)
 
         out_path = os.path.join(self.report_dir, f"report{suffix}.html")
         with open(out_path, "w", encoding="utf-8") as f:

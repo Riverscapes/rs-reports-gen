@@ -25,6 +25,7 @@ dependencies = [
     "plotly>=6.3.0",
     "psutil>=7.1.0",
     "pyarrow>=22.0.0",
+    "requests>=2.31.0",
     "rsxml>=2.0.6",
     "shapely>=2.1.1",
     "termcolor>=3.1.0",
