@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional
+from collections.abc import Callable
 from pathlib import Path
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !?
@@ -27,7 +27,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
     """
 
     def __init__(self, df: gpd.GeoDataFrame | pd.DataFrame, *args,
-                 footer: Optional[pd.DataFrame] = None,
+                 footer: pd.DataFrame | None = None,
                  **kwargs):
         super().__init__(df, *args, **kwargs)
         self.log = Logger('RSDataFrame')
@@ -128,6 +128,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
                 unit_fmt=" ({unit})",
                 include_columns: list[str] | None = None,
                 exclude_columns: list[str] | None = None,
+                table_id: str | None = None,
                 **kwargs):
         """Render the DataFrame as HTML with friendly column headings.
 
@@ -137,6 +138,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             unit_fmt(str): Format string applied when appending units(must include ``{unit}``).
             include_columns(list[str] | None): If provided, limit output to these columns.
             exclude_columns(list[str] | None): Columns to drop from the output.
+            table_id(str | None): Optional table name to resolve metadata ambiguity.
             **kwargs: Forwarded to: meth: `pandas.DataFrame.to_html`.
         """
 
@@ -153,11 +155,11 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             display_df = self.drop(columns=exclude_columns, errors='ignore')
 
         # Now apply the units to the dataframe if needed
-        display_df, applied_units = self._meta_df.apply_units(display_df) if include_units else [display_df, {}]
+        display_df, applied_units = self._meta_df.apply_units(display_df, table_name=table_id) if include_units else [display_df, {}]
         headers = display_df.columns.to_list()
 
         if use_friendly is True:
-            headers = self._meta_df.get_headers(display_df, include_units=include_units, unit_fmt=unit_fmt)
+            headers = self._meta_df.get_headers(display_df, include_units=include_units, unit_fmt=unit_fmt, table_name=table_id)
 
         def _to_magnitude(val):
             return val.magnitude if hasattr(val, 'magnitude') else val
@@ -205,11 +207,11 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             else:
                 return str(val)
 
-        column_classes: Dict[str, str] = {}
-        formatters: Dict[str, Callable[[object], str]] = {}
+        column_classes: dict[str, str] = {}
+        formatters: dict[str, Callable[[object], str]] = {}
 
         # If self._footer is set and not empty, append it to the display_df
-        row_classes: Dict[int, str] = {}
+        row_classes: dict[int, str] = {}
         if not self._footer.empty:
             display_footer = self._footer.copy()
             # Ensure footer has the same columns as display_df
