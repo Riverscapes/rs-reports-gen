@@ -64,14 +64,11 @@ class RSReport:
         """
         self.html_elements[key] = el
 
-    def set_body_template(self, template_path: str) -> str:
+    def set_body_template(self, template_path: str) -> None:
         """ Add a body template to the report.
 
         Args:
             template_path (str): Path to the Jinja2 template file.
-
-        Returns:
-            str: Rendered HTML string from the template.
         """
         self.body_template_path = template_path
 

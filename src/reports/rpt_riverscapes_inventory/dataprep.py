@@ -46,7 +46,7 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame | None:
         }
 
         log.info(f"Querying NID with bbox: {bbox_str}")
-        resp = requests.post(url, data=params, timeout=1)  # 2.5 minutes seems fine even for big areas
+        resp = requests.post(url, data=params, timeout=150)  # 2.5 minutes seems fine even for big areas
         resp.raise_for_status()
 
         data = resp.json()
