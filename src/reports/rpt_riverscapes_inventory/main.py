@@ -207,16 +207,20 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
 
-    # This is where all the initialization happens for fields and units
-    define_fields(unit_system)  # ensure fields are defined
-
     aoi_gdf = gpd.read_file(path_to_shape)
     # make place for the data to go (as csv)
     safe_makedirs(str(report_dir / 'data'))
 
-    # Start NID task in background
+    # Start tasks in background
+    # 1. NID Query (if enabled)
+    # 2. Metadata definition (Athena query)
     nid_future = None
+    meta_future = None
     executor = ThreadPoolExecutor(max_workers=2)
+
+    # Start Metadata definition immediately
+    meta_future = executor.submit(define_fields, unit_system)
+
     if not disable_nid:
         log.info("Starting background NID query...")
         nid_future = executor.submit(get_nid_data, aoi_gdf)
@@ -252,6 +256,16 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
     data_gdf = load_gdf_from_pq(parquet_data_source)
     data_gdf = add_calculated_rme_cols(data_gdf)
+
+    # Ensure metadata is loaded before applying units
+    if meta_future:
+        try:
+            meta_future.result()
+            log.info("Metadata loaded successfully.")
+        except Exception as e:
+            log.error(f"Failed to load field metadata: {e}")
+            raise e
+
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
@@ -263,13 +277,12 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     if nid_future:
         try:
             nid_gdf = nid_future.result()
-            if nid_gdf:
+            if nid_gdf is None:
+                log.warning(f"No NID gdf returned.")
+            else:
                 log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
                 if not nid_gdf.empty:
                     nid_gdf.to_file(report_dir / 'data' / 'nid_dams.gpkg', driver='GPKG')
-            else:
-                log.warning(f"No NID gdf returned.")
-
         except Exception as e:
             log.error(f"Error retrieving NID results: {e}")
         finally:

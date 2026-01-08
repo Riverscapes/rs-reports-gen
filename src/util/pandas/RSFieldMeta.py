@@ -52,15 +52,19 @@ SI_SYSTEMS = ['SI', 'imperial']
 # * handle all units "derived" with count?
 # * what about degrees vs percent for slope? is that an SI/imperial system choice?
 SI_TO_IMPERIAL: dict[str, str] = {
+    # basic units
     'meter': 'foot',
     'meter ** 2': 'foot ** 2',
+    'meter ** 3': 'foot ** 3',
     'kilometer': 'mile',
     'millimeter': 'inch',
+    'kilometer ** 2': 'acre',
+    'kilogram': 'pound',
+    # compound units
     '1 / kilometer': '1 / mile',
     'kilometer / count': 'mile / count',
     'count / kilometer': 'count / mile',
-    'kilometer ** 2': 'acre',
-    'kilogram': 'pound',
+    'meter ** 3 / second': 'foot ** 3 / second',  # Discharge
     # no conversion
     'percent': 'percent',
     'count': 'count',
@@ -75,6 +79,8 @@ IMPERIAL_TO_SI: dict[str, str] = {
     # but we can add it here for completeness
     'foot ** 2': 'meter ** 2',
     'yard': 'meter',
+    'mile ** 2': 'kilometer ** 2',
+    'acre_foot': 'meter ** 3'
 }
 
 
