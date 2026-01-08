@@ -55,7 +55,7 @@ def define_fields(unit_system: str = "SI"):
 
 def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
-                nid_gdf: gpd.GeoDataFrame = gpd.GeoDataFrame(),
+                nid_gdf: gpd.GeoDataFrame | None = None,
                 include_static: bool = True,
                 include_pdf: bool = True
                 ):
@@ -67,6 +67,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         aoi_df (gpd.GeoDataFrame): The area of interest geodataframe.
         report_dir (Path): The directory where the report will be saved.
         report_name (str): The name of the report.
+        nid_gdf (gpd.GeoDataFrame | None, optional): NID dams data. None means failure/disabled. Defaults to None.
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
     """
@@ -101,7 +102,9 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
         "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc'])
     }
-    if not nid_gdf.empty:
+    if nid_gdf is None:
+        tables["nid_dams"] = '<div class="error-message"><p>Unable to retrieve data from NID. Check log for details.<p></div>'
+    if nid_gdf is not None and not nid_gdf.empty:
         nid_display_df = prepare_nid_display_table(nid_gdf)
         # Use RSGeoDataFrame to get friendly column names for display
         tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
@@ -110,6 +113,8 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
             escape=False,
             table_id="NID"
         )
+    elif nid_gdf is not None:
+        tables["nid_dams"] = '<p>No dams found in the area of interest.</p>'
     appendices = {
         "project_ids": project_id_list(gdf),
     }
@@ -133,7 +138,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     all_stats = statistics(gdf)
     metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
     metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
-    if not nid_gdf.empty:
+    if nid_gdf is not None:
         metric_data_for_key_indicators['total_dams'] = len(nid_gdf)
     report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
     report.add_html_elements('appendices', appendices)
@@ -254,13 +259,17 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # print(huc_data_df)  # for DEBUG ONLY
 
     # Retrieve NID results
-    nid_gdf = gpd.GeoDataFrame()
+    nid_gdf = None
     if nid_future:
         try:
             nid_gdf = nid_future.result()
-            log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
-            if not nid_gdf.empty:
-                nid_gdf.to_file(report_dir / 'data' / 'nid_dams.gpkg', driver='GPKG')
+            if nid_gdf:
+                log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
+                if not nid_gdf.empty:
+                    nid_gdf.to_file(report_dir / 'data' / 'nid_dams.gpkg', driver='GPKG')
+            else:
+                log.warning(f"No NID gdf returned.")
+
         except Exception as e:
             log.error(f"Error retrieving NID results: {e}")
         finally:

@@ -43,7 +43,8 @@
 </section>
 <section id="key-indicators">
   <h2>Key Indicators</h2>
-  {{ render_metric_grid(cards) }}
+  {{ render_metric_grid(cards, ['total_segment_area', 'total_centerline_length', 'total_stream_length',
+  'integrated_valley_bottom_width']) }}
 </section>
 <div class="page-break-before"></div>
 <section id="map-of-polygons">
@@ -186,6 +187,7 @@
     <p>The USACE <a href="https://nid.sec.usace.army.mil/nid/#/">National Inventory of Dams</a> was queried for the Area
       of Interest with the following results.</p>
   </div>
+  {{ render_metric_grid(cards, ["total_dams"]) }}
   <figure class="report-figure">
     {{ tables['nid_dams']|safe}}
   </figure>
