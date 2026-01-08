@@ -17,10 +17,11 @@ def add_calculated_rme_cols(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame | None:
     """
     Fetch data from USACE National Inventory of Dams matching the AOI.
     Uses Bounding Box of AOI for query.
+    In case of error, returns None. 
     """
     log = Logger("NID Data Fetch")
     try:
@@ -45,7 +46,7 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         }
 
         log.info(f"Querying NID with bbox: {bbox_str}")
-        resp = requests.post(url, data=params, timeout=150)  # 2.5 minutes seems fine even for big areas
+        resp = requests.post(url, data=params, timeout=1)  # 2.5 minutes seems fine even for big areas
         resp.raise_for_status()
 
         data = resp.json()
@@ -63,7 +64,7 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     except Exception as e:
         log.error(f"Failed to fetch NID data: {e}")
-        return gpd.GeoDataFrame()
+        return None
 
 
 def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
