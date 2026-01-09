@@ -158,7 +158,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     aoi_gdf = gpd.read_file(path_to_shape)
     # make place for the data to go (as csv)
     safe_makedirs(str(report_dir / 'data'))
-    csv_data_path = report_dir / 'data' / 'rawdata.csv'
+    csv_data_path = report_dir / 'data' / 'data.csv'
 
     # Start tasks in background
     # 1. Get metadata (Athena query)
@@ -199,7 +199,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
     data_gdf = load_gdf_from_pq(parquet_data_source, geometry_col='dgo_polygon_geom')
     # export raw data
-    data_gdf.to_csv(csv_data_path)
+    data_gdf.to_csv(csv_data_path, index=False)
 
     # Ensure metadata is loaded before applying units
     try:
@@ -227,6 +227,14 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
                 include_static=include_pdf,
                 include_pdf=include_pdf
                 )
+
+    if not keep_parquet:
+        try:
+            if parquet_data_source.exists():
+                shutil.rmtree(parquet_data_source)
+                log.info(f"Deleted Parquet staging folder {parquet_data_source}")
+        except Exception as cleanup_err:
+            log.warning(f"Failed to delete Parquet folder {parquet_data_source}: {cleanup_err}")
 
     log.info(f"Report Path: {report_dir}")
 
