@@ -1,4 +1,4 @@
-# System imports
+# Standard library
 import argparse
 import logging
 import os
@@ -8,20 +8,19 @@ import sys
 import shutil
 import traceback
 import psutil  # for checking locally
+# 3rd party imports
 import pandas as pd
 import geopandas as gpd
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util import prepare_gdf_for_athena
-from util.pandas import load_gdf_from_pq
-from util.athena import athena_unload_to_dataframe, get_field_metadata
+from util.athena import aoi_query_to_local_parquet, athena_unload_to_dataframe, get_field_metadata
 from util.color import DEFAULT_FCODE_COLOR_MAP
-
-from util.athena import aoi_query_to_local_parquet
-from util.pdf import make_pdf_from_html
 from util.html import RSReport
+from util.pandas import load_gdf_from_pq
 from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.pdf import make_pdf_from_html
 from util.figures import (
     get_bins_info,
     table_total_x_by_y,
@@ -197,7 +196,6 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
         report_name (str): The name of the report.
         report_dir (Path): The directory where the report will be saved.
         path_to_shape (str): The path to the shapefile for the area of interest.
-        existing_csv_path (Path | None, optional): Path to an existing CSV file to use instead of querying Athena. Defaults to None.
         include_pdf (bool, optional): Whether to generate a PDF version of the report. Defaults to True.
         unit_system (str, optional): The unit system to use ("SI" or "imperial"). Defaults to "SI".
         parquet_override (Path or None): for running multiple times in developement/test can supply path to previously downloaded data and skip athena query
@@ -207,6 +205,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
 
+    # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
     # make place for the data to go (as csv)
     safe_makedirs(str(report_dir / 'data'))
@@ -255,17 +254,16 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
         )
 
     data_gdf = load_gdf_from_pq(parquet_data_source)
-    data_gdf = add_calculated_rme_cols(data_gdf)
 
     # Ensure metadata is loaded before applying units
-    if meta_future:
-        try:
-            meta_future.result()
-            log.info("Metadata loaded successfully.")
-        except Exception as e:
-            log.error(f"Failed to load field metadata: {e}")
-            raise e
+    try:
+        meta_future.result()
+        log.info("Metadata loaded successfully.")
+    except Exception as e:
+        log.error(f"Failed to load field metadata: {e}")
+        raise e
 
+    data_gdf = add_calculated_rme_cols(data_gdf)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
