@@ -4,6 +4,11 @@
 
 Internal use only
 
+### 0.2.2 2026-January
+
+* switch to using parquet as data transfer format consistent with other reports
+* use improved map zoom
+
 ### 0.2.1 2025-December
 
 * gets metadata from newer layer definitions in Athena

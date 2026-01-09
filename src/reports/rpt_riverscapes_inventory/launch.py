@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import inquirer
 from termcolor import colored
 
@@ -29,13 +30,15 @@ def main():
     data_root = os.environ.get("DATA_ROOT")
 
     # IF we have everything we need from environment variables then we can skip the prompts
-    if os.environ.get("RSI_AOI_GEOJSON"):
-        if not os.path.exists(os.path.join(os.environ.get("RSI_AOI_GEOJSON"))):
+    rsi_aoi_geojson = os.environ.get("RSI_AOI_GEOJSON")
+    if rsi_aoi_geojson:
+        geojson_file = Path(rsi_aoi_geojson)
+        if not geojson_file.exists():
             raise RuntimeError(
                 colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-        geojson_file = os.environ.get("RSI_AOI_GEOJSON")
     else:
-        base_dir = os.path.dirname(__file__)
+        # If it's not set we need to ask for it. We choose from a list of preset shapes in the code example folder
+        base_dir = Path(__file__).parent
         geojson_question = inquirer.prompt([
             inquirer.List(
                 'geojson',
@@ -49,7 +52,7 @@ def main():
             print("\nNo geojson file selected. Exiting.\n")
             return
         geojson_filename = geojson_question['geojson']
-        geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
+        geojson_file = Path(base_dir / "example" / geojson_filename).absolute()
 
     if os.environ.get("UNIT_SYSTEM"):
         unit_system = os.environ.get("UNIT_SYSTEM")
@@ -75,7 +78,7 @@ def main():
     if os.environ.get("RSI_REPORT_NAME"):
         report_name = os.environ.get("RSI_REPORT_NAME")
     else:
-        report_name = geojson_file.split(os.path.sep)[-1].replace('.geojson', '').replace(' ', '_') + " - Riverscapes Inventory"
+        report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Inventory"
 
     # Ask for whether or not to include PDF. Default to NO
     if os.environ.get("INCLUDE_PDF"):
