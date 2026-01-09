@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import inquirer
 from termcolor import colored
 
@@ -31,7 +32,7 @@ def main():
         if not os.path.exists(os.path.join(os.environ.get("RNS_AOI_GEOJSON"))):
             raise RuntimeError(
                 colored(f"\nThe RNS_AOI_GEOJSON environment variable is set to '{os.environ.get('RNS_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-        geojson_file = os.environ.get("RNS_AOI_GEOJSON")
+        geojson_file = Path(os.environ.get("RNS_AOI_GEOJSON"))
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the example folder
         base_dir = os.path.dirname(__file__)
@@ -50,7 +51,7 @@ def main():
             print("\nNo geojson file selected. Exiting.\n")
             exit(0)
         geojson_filename = geojson_question['geojson']
-        geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
+        geojson_file = Path(os.path.abspath(os.path.join(base_dir, "example", geojson_filename)))
 
     # Now ask for an optional csv path
     csv_question = inquirer.prompt([
@@ -87,7 +88,7 @@ def main():
     if os.environ.get("RNS_REPORT_NAME"):
         report_name = os.environ.get("RNS_REPORT_NAME")
     else:
-        report_name = geojson_file.split(os.path.sep)[-1].replace('.geojson', '').replace(' ', '_') + " - Rivers Need Space"
+        report_name = geojson_file.stem.replace(' ', '_') + " - Rivers Need Space"
 
     # Ask for whether or not to include PDF. Default to NO
     if os.environ.get("INCLUDE_PDF"):

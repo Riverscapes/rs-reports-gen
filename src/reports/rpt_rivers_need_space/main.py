@@ -47,12 +47,12 @@ def define_fields(unit_system: str = "SI"):
     return
 
 
-def log_unit_status(df, label):
+def log_unit_status(df, label: str):
     """ Log Unit Status
-
+    Used for debugging, not part of production report. 
     Args:
-        df (_type_): _description_
-        label (_type_): _description_
+        df (DataFrame): _description_
+        label (str): _description_
     """
     log = Logger('UnitStatus')
     pint_cols = [col for col in df.columns if "pint" in str(df[col].dtype)]
@@ -136,7 +136,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame,
         log.info(f'PDF: {pdf_path}')
 
 
-def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: str,
+def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: Path,
                              existing_csv_path: Path | None = None,
                              include_pdf: bool = True, unit_system: str = "SI"):
     """ Orchestrates the report generation process:
@@ -144,7 +144,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     Args:
         report_name (str): The name of the report.
         report_dir (Path): The directory where the report will be saved.
-        path_to_shape (str): The path to the shapefile for the area of interest.
+        path_to_shape (Path): The path to the shapefile for the area of interest.
         existing_csv_path (str | None, optional): Path to an existing CSV file to use instead of querying Athena. Defaults to None.
         include_pdf (bool, optional): Whether to generate a PDF version of the report. Defaults to True.
         unit_system (str, optional): The unit system to use ("SI" or "imperial"). Defaults to "SI".
@@ -206,7 +206,7 @@ def main():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
-    parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
+    parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=Path)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
@@ -225,7 +225,8 @@ def main():
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rs-rpt-rivers-need-space')
     log.info(f"Output path: {output_path}")
-    log.info(f"AOI shape: {args.path_to_shape}")
+    path_to_shape = Path(args.path_to_shape)
+    log.info(f"AOI shape: {path_to_shape}")
     log.info(f"Report name: {args.report_name}")
     log.info(f"Report Version: {report_version}")
     if args.csv:
@@ -239,7 +240,7 @@ def main():
         make_report_orchestrator(
             args.report_name,
             output_path,
-            args.path_to_shape,
+            path_to_shape,
             csv_path,
             args.include_pdf,
             args.unit_system
