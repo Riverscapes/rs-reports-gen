@@ -10,6 +10,7 @@ FUTURE ENHANCEMENTs:
 # assume pint registry has been set up already
 
 import os
+import math
 import json
 from typing import Optional
 import numpy as np
@@ -422,7 +423,11 @@ def make_map_with_aoi(gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame,
         return make_aoi_outline_map(aoi_gdf)
 
     # Calculate zoom and center
-    zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
+    # Use AOI for context if available, as it likely bounds the data
+    if not aoi_gdf.empty:
+        zoom, center = get_zoom_and_center(aoi_gdf, aoi_gdf.geometry.name)
+    else:
+        zoom, center = get_zoom_and_center(plot_gdf, "dgo_polygon_geom")
 
     # Bake in the units and names
     baked_header_lookup = RSFieldMeta().get_headers_dict(plot_gdf)
@@ -484,30 +489,47 @@ def make_map_with_aoi(gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame,
     return fig
 
 
-def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[int, dict[str, float]]:
-    """return the zoom level and lat, lon of the center"""
+def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[float, dict[str, float]]:
+    """return the calculated zoom level and lat, lon of the center"""
     # Compute extent and center
     if gdf.empty:
         center = {"lat": 0.0, "lon": 0.0}
-        zoom = 2
+        zoom = 2.0
     else:
         bounds = gdf[geom_field_nm].total_bounds  # [minx, miny, maxx, maxy]
-        center = {"lat": (bounds[1] + bounds[3]) / 2, "lon": (bounds[0] + bounds[2]) / 2}
-        # Estimate zoom: smaller area = higher zoom
-        # TODO: try a smoother approach e.g. https://stackoverflow.com/a/65043576/3112914
-        lon_span = bounds[2] - bounds[0]
-        if lon_span < 0.01:
-            zoom = 14
-        elif lon_span < 0.1:
-            zoom = 12
-        elif lon_span < 1:
-            zoom = 10
-        elif lon_span < 5:
-            zoom = 8
-        elif lon_span < 20:
-            zoom = 6
+        minx, miny, maxx, maxy = bounds
+        center_lon = (minx + maxx) / 2
+        center_lat = (miny + maxy) / 2
+        center = {"lat": center_lat, "lon": center_lon}
+
+        # Calculate zoom
+        # map dimensions (approximate)
+        width_px = 800
+        height_px = 500
+        padding = 1.3  # Add some padding (30%)
+        tile_size = 512  # Mapbox/MapLibre uses 512px tiles at zoom 0
+
+        lon_span = maxx - minx
+        lat_span = maxy - miny
+
+        if lon_span > 0:
+            zoom_lon = math.log2(360 * width_px / (lon_span * tile_size * padding))
         else:
-            zoom = 4
+            zoom_lon = 20
+
+        if lat_span > 0:
+            # latitude is stretched by 1/cos(lat)
+            lat_factor = math.cos(math.radians(center_lat))
+            # prevent division by zero near poles
+            lat_factor = max(0.1, abs(lat_factor))
+            # Effective degrees height = lat_span / lat_factor
+            zoom_lat = math.log2(360 * height_px / ((lat_span / lat_factor) * tile_size * padding))
+        else:
+            zoom_lat = 20
+
+        zoom = min(zoom_lon, zoom_lat)
+        zoom = max(0, min(20, zoom))
+
     return (zoom, center)
 
 
