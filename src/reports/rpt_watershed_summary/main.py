@@ -79,12 +79,13 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
         report.add_figure(name, fig)
 
     if error_message:
-        report.add_html_elements('message', {'text': error_message})
+        report.add_html_elements('error_message', {'text': error_message})
 
-    report.add_html_elements('tables', tables)
-    report.add_html_elements('states', states_df['state_name'].tolist())
-    cards = metric_cards(statistics(aggregate_data_df))
-    report.add_html_elements('cards', cards)
+    else:
+        report.add_html_elements('tables', tables)
+        report.add_html_elements('states', states_df['state_name'].tolist())
+        cards = metric_cards(statistics(aggregate_data_df))
+        report.add_html_elements('cards', cards)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -242,8 +243,8 @@ WHERE {huc_condition}
 """
     df = query_to_dataframe(query_str, "aggregates")
 
-    if df.dropna(how="all").empty:
-        log.error("No results returned for the query")
+    if df.dropna(how="all").empty or df['countdistinct_huc'].iloc[0] == 0:
+        log.error(f"No results returned for the query (ie nothing matching {huc_condition})")
         # short-circuit report generation
         return pd.DataFrame()  # an empty DataFrame
 
@@ -273,7 +274,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
     df_aggregatedata = get_aggregated_data(huc_condition)
 
     if df_aggregatedata.empty:
-        # we send 3 empty dataframes
+        # we send 3 empty dataframes and error_message
         make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name,
                     error_message="No results found for selection.")
     else:
