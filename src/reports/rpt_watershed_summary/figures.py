@@ -186,12 +186,18 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         preferred_format=source_meta.preferred_format if source_meta else None
     )
     relief_ratio = total_relief.to("km") / stats_we_want['sum_catchmentlength'].to("km")
+    meta.set_preferred_format('reliefratio', '{:.2f}', table_name='rs_context_huc10')
     if stats_we_want['countdistinct_huc'] == 1:
         singlehucstats = {
             "circularityratio": stats_we_want['min_circularityratio'],
             "elongationratio": stats_we_want['min_elongationratio'],
             "formfactor": stats_we_want['min_formfactor']
         }
+        # define them as 2 decimal floats - TODO this should be in the layerdef.json
+        meta.set_preferred_format('circularityratio', '{:.2f}', table_name='rs_context_huc10')
+        meta.set_preferred_format('elongationratio', '{:.2f}', table_name='rs_context_huc10')
+        meta.set_preferred_format('formfactor', '{:.2f}', table_name='rs_context_huc10')
+
     else:
         singlehucstats = {}
     stats = {

@@ -156,7 +156,7 @@ def add_agg_field_meta(fields, agg_type: str):
             "min": "Minimum",
             "max": "Maximum",
             "count": "Count",
-            "countdistinct": "Count (distinct)"
+            "countdistinct": "Count distinct"
         }.get(agg_type, agg_type.title())
 
         if orig_meta:
