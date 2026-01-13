@@ -85,6 +85,18 @@ _FORMAT_CASES = [
             0.005 * ureg.kilometer,
         ],
     ),
+    FormatDemoCase(
+        fmt="{:.3~P}",
+        description="Pint specific: Pretty notation w/o autoscale",
+        examples=[
+            12000000 * ureg.meter ** 2,
+            0.005 * ureg.kilometer,
+            # default simplification of units
+            pint.Quantity(295.7, "km") / pint.Quantity(536.1, "km**2"),
+            # forcing a compound unit
+            (pint.Quantity(395.7, "km") / pint.Quantity(736.1, "km**2")).to("km/km**2"),
+        ],
+    ),
 ]
 
 
