@@ -36,7 +36,7 @@ def ensure_pint_column(df: pd.DataFrame, column: str, unit: str | pint.Unit | No
 def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd.DataFrame | None]:
     """Pivot waterbody columns into rows, maintaining units.
     Returns the main table and a footer dataframe containing the totals row.
-    input: dataframe containing all the columns listed above. assumes there is just one row. 
+    input: dataframe containing all the columns listed above. assumes there is just one row.
     """
     table_name = 'waterbodies_summary'  # For metadata namespacing
     # Ensure we are working with the first row of data if df has multiple
@@ -59,7 +59,7 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd
     area_unit = meta.get_field_unit(waterbody_col_map["Lake"][0].lower())
     count_unit = meta.get_field_unit(waterbody_col_map["Lake"][1].lower())
     meta.add_field_meta(name='Area', table_name=table_name, data_unit=area_unit)
-    meta.add_field_meta(name='Count', table_name=table_name, data_unit=count_unit)
+    meta.add_field_meta(name='Count', table_name=table_name, data_unit=count_unit, preferred_format='{:,.0f}')
 
     # Ensure both Area and Count columns are pint quantities
     report_df["Area"] = ensure_pint_column(report_df, "Area", area_unit)
@@ -107,9 +107,9 @@ hydrography_col_map = {
 
 def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     """
-    named, non-tabular statistics. 
+    named, non-tabular statistics.
 
-    Args: 
+    Args:
         df (DataFrame): the result of the aggregate query (should have just one row)
 
     Returns:
@@ -122,7 +122,10 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     # remember the dataframe comes from athena, and all columns are lowercase
     aggregate_data_stats = aggregate_data_df.iloc[0].to_dict()
     # some don't have units, so error if try to create a card for it. So just pick ones we want
-    colnames_of_stats_we_want = ['sum_flowlinelengthallkm',
+    colnames_of_stats_we_want = ['sum_flowlinelengthperennialkm',
+                                 'sum_flowlinelengthintermittentkm',
+                                 'sum_flowlinelengthephemeralkm',
+                                 'sum_flowlinelengthallkm',
                                  'sum_flowlinefeaturecount',
                                  'sum_hucareasqkm',
                                  'sum_precipcount',
@@ -143,10 +146,10 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
                                  'min_elongationratio',
                                  'min_formfactor',
                                  ]
-    stats_we_want = {
+    rpt_stats = {
         colname: aggregate_data_stats[colname] for colname in colnames_of_stats_we_want}
     # average segment length
-    avg_segment_length = stats_we_want['sum_flowlinelengthallkm']/stats_we_want['sum_flowlinefeaturecount']
+    avg_segment_length = rpt_stats['sum_flowlinelengthallkm']/rpt_stats['sum_flowlinefeaturecount']
     meta.add_field_meta(
         name='avg_segment_length',
         friendly_name='Average Segment Length',
@@ -154,44 +157,72 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         data_unit=avg_segment_length.units,
         preferred_format="{:.3g}"
     )
-    mean_precip_cell_value = stats_we_want['sum_precipsum'] / stats_we_want['sum_precipcount']
+    mean_precip_cell_value = rpt_stats['sum_precipsum'] / rpt_stats['sum_precipcount']
     meta.add_field_meta(
         name='mean_precip_cell_value',
         friendly_name='Mean Average Precipitation',
         description='Mean of the 30-year Average Annual Precipitation across the selected area',
         table_name=table_name
     )
-    mean_elevation = stats_we_want['sum_demsum'] / stats_we_want['sum_demcount']
+    mean_elevation = rpt_stats['sum_demsum'] / rpt_stats['sum_demcount']
     meta.add_field_meta(
         name='mean_elevation',
         friendly_name='Mean Elevation',
         description='Mean elevation across the selected area',
         table_name=table_name
     )
-    mean_slope = stats_we_want['sum_slopesum'] / stats_we_want['sum_slopecount']
+    mean_slope = rpt_stats['sum_slopesum'] / rpt_stats['sum_slopecount']
     meta.add_field_meta(
         name='mean_slope',
         friendly_name='Mean Slope',
-        description='Mean elevation across the selected area',
+        description='Mean slope across the selected area',
         table_name=table_name
     )
-    total_relief = stats_we_want['max_demmaximum'] - stats_we_want['min_demminimum']
+    total_relief = rpt_stats['max_demmaximum'] - rpt_stats['min_demminimum']
     source_meta = meta.get_field_meta('max_demmaximum')
     meta.add_field_meta(
         name='total_relief',
         friendly_name='Total Relief',
         description='Difference between highest and lowest elevation.',
-        data_unit=stats_we_want['max_demmaximum'].units,
+        data_unit=rpt_stats['max_demmaximum'].units,
         table_name=table_name,
         preferred_format=source_meta.preferred_format if source_meta else None
     )
-    relief_ratio = total_relief.to("km") / stats_we_want['sum_catchmentlength'].to("km")
+    relief_ratio = total_relief.to("km") / rpt_stats['sum_catchmentlength'].to("km")
     meta.set_preferred_format('reliefratio', '{:.2f}', table_name='rs_context_huc10')
-    if stats_we_want['countdistinct_huc'] == 1:
+
+    # drainage densities are total flowline length divided by total
+    # these are found as metrics in individual hucs but we re-calculate for aggregates
+    drainage_density_perennial = rpt_stats['sum_flowlinelengthperennialkm'] / rpt_stats['sum_hucareasqkm']
+    drainage_density_non_perennial = (rpt_stats['sum_flowlinelengthintermittentkm'] + rpt_stats['sum_flowlinelengthephemeralkm']) / rpt_stats['sum_hucareasqkm']
+    drainage_density_all = rpt_stats['sum_flowlinelengthallkm'] / rpt_stats['sum_hucareasqkm']
+    meta.add_field_meta(
+        name='drainage_density_non_perennial',
+        friendly_name='Drainage Density - Non Perrenial',
+        description='Total length of Intermittent and Ephemeral Streams, divided by Catchment Area',
+        table_name=table_name,
+        preferred_format='{:.2f}'
+    )
+    meta.add_field_meta(
+        name='drainage_density_perennial',
+        friendly_name='Drainage Density - Perrenial',
+        description='Total length of Perennial Streams, divided by Catchment Area',
+        table_name=table_name,
+        preferred_format='{:.2f}'
+    )
+    meta.add_field_meta(
+        name='drainage_density_all',
+        friendly_name='Drainage Density - Entire Network',
+        description='Total length of All Streams, divided by Catchment Area',
+        table_name=table_name,
+        preferred_format='{:.2f}'
+    )
+
+    if rpt_stats['countdistinct_huc'] == 1:
         singlehucstats = {
-            "circularityratio": stats_we_want['min_circularityratio'],
-            "elongationratio": stats_we_want['min_elongationratio'],
-            "formfactor": stats_we_want['min_formfactor']
+            "circularityratio": rpt_stats['min_circularityratio'],
+            "elongationratio": rpt_stats['min_elongationratio'],
+            "formfactor": rpt_stats['min_formfactor']
         }
         # define them as 2 decimal floats - TODO this should be in the layerdef.json
         meta.set_preferred_format('circularityratio', '{:.2f}', table_name='rs_context_huc10')
@@ -201,7 +232,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     else:
         singlehucstats = {}
     stats = {
-        **stats_we_want,
+        **rpt_stats,
         **singlehucstats,
         'avg_segment_length': avg_segment_length,
         'mean_precip_cell_value': mean_precip_cell_value,
@@ -209,6 +240,9 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         'mean_slope': mean_slope,
         'total_relief': total_relief,
         'reliefratio': relief_ratio,
+        'drainage_density_all': drainage_density_all,
+        'drainage_density_perennial': drainage_density_perennial,
+        'drainage_density_non_perennial': drainage_density_non_perennial,
     }
 
     return stats
