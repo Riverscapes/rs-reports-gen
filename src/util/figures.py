@@ -49,8 +49,9 @@ def format_value(value, decimals: int = 0) -> str:
     Returns:
         string: formatted value ready to render
 
-    insipired by get_headers and bake
+    inspired by get_headers and bake
     Usage and tests in test_figures_format_value.py
+    NOTE: maybe better to use (or put this in) RSFieldMeta functions e.g. format_scalar
     """
     # unit_fmt = " {unit}"  # just the plain unit, no brackets
     if hasattr(value, "magnitude"):
