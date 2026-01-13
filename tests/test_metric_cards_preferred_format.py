@@ -1,3 +1,6 @@
+"""test metric_cards output
+    see also util.examples.metric_format_demo
+"""
 import pint
 
 from util.figures import metric_cards
@@ -31,8 +34,7 @@ def test_format_scalar_default_units():
         meta.add_field_meta(
             name='length_metric',
             friendly_name='Length Metric',
-            data_unit='meter'
-        )
+            data_unit='meter')
         result = meta.format_scalar('length_metric', 9876.543 * ureg.meter, decimals=1)
         assert result == '9,876.5 m'
     finally:

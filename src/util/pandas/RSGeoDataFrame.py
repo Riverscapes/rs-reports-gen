@@ -164,22 +164,6 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         def _to_magnitude(val):
             return val.magnitude if hasattr(val, 'magnitude') else val
 
-        def _format_int(val):
-            if pd.isna(val):
-                return ""
-            try:
-                return f"{int(round(float(val))):,}"
-            except (TypeError, ValueError):
-                return str(val)
-
-        def _format_float(val):
-            if pd.isna(val):
-                return ""
-            try:
-                return f"{float(val):,.2f}"
-            except (TypeError, ValueError):
-                return str(val)
-
         def _format_datetime(val):
             if pd.isna(val):
                 return ""
@@ -267,12 +251,21 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             elif is_integer_type or is_decimal_type:
                 class_tokens.append('numeric')
                 display_df[column] = col_magnitude
+
+                # Use RSFieldMeta.format_scalar for consistent formatting
+                # defaulting to 0 decimals for integers and 2 for floats/decimals
+                # This respects 'preferred_format' in metadata if present
+                def _get_scalar_formatter(col_name, decimals):
+                    return lambda x: self._meta_df.format_scalar(
+                        col_name, x, table_name=table_id, include_units=False, decimals=decimals
+                    )
+
                 if is_integer_type:
                     class_tokens.append('integer')
-                    formatters[column] = _format_int
+                    formatters[column] = _get_scalar_formatter(column, 0)
                 elif is_decimal_type:
                     class_tokens.append('decimal')
-                    formatters[column] = _format_float
+                    formatters[column] = _get_scalar_formatter(column, 2)
             else:
                 class_tokens.append('text')
                 formatters[column] = _format_text

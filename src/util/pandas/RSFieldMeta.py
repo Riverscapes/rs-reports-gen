@@ -560,9 +560,18 @@ class RSFieldMeta:
             except (ValueError, KeyError, IndexError) as exc:  # pragma: no cover - invalid format
                 return None, str(exc)
 
+    def _clean_display_unit(self, quantity: pint.Quantity) -> pint.Unit:
+        """
+        Strips 'count' from units for display, handling edge cases
+        like 'count/km^2' (density) or 'm/count' (avg length).
+        """
+        unit_str_with_ones = str(quantity.units).replace('count', '1')
+        return ureg.Unit(unit_str_with_ones)
+
     def format_scalar(self,
                       column_name: str,
                       value,
+                      table_name: str | None = None,
                       *,
                       decimals: int = 0,
                       include_units: bool = True) -> str:
@@ -571,6 +580,7 @@ class RSFieldMeta:
         Args:
             column_name (str): Metadata key for lookup.
             value: Numeric or Pint quantity to format.
+            table_name (str | None): Table name for disambiguation.
             decimals (int, optional): Fallback decimal places when no preferred format is defined.
             include_units (bool, optional): Append unit labels when available. Defaults to True.
         """
@@ -584,23 +594,48 @@ class RSFieldMeta:
             except Exception:  # pragma: no cover - leave value unmodified on failure
                 converted_value = value
 
-        fm = self.get_field_meta(column_name)
+        fm = self.get_field_meta(column_name, table_name)
         preferred_format = getattr(fm, "preferred_format", "") if fm else ""
 
         magnitude = converted_value.magnitude if hasattr(converted_value, "magnitude") else converted_value
 
         formatted_number = None
+        formatted_is_complete = False
+
         if preferred_format:
+            # 1. Try formatting the magnitude (standard behavior)
             formatted_number, err = self._apply_preferred_format(preferred_format, magnitude)
+
+            # 2. If that failed, and we have a Quantity, try formatting the Quantity object
+            #    This supports Pint-specific formats like "{:~#P}" which perform their own unit appending
+            if err and isinstance(converted_value, pint.Quantity):
+                formatted_qty, err_qty = self._apply_preferred_format(preferred_format, converted_value)
+                if not err_qty:
+                    formatted_number = formatted_qty
+                    formatted_is_complete = True
+                    err = None
+
             if err:
-                self._log.warning(f"Preferred format '{preferred_format}' invalid for column '{column_name}': {err}")
+                self._log.error(f"Preferred format '{preferred_format}' invalid for column '{column_name}': {err}")
         if formatted_number is None:
             formatted_number = self._default_scalar_format(magnitude, decimals)
+
+        # If the format string handled the full object (e.g. Pint compact format),
+        # return the result immediately.
+        if formatted_is_complete:
+            return formatted_number
 
         if not include_units or not isinstance(converted_value, pint.Quantity):
             return formatted_number
 
-        unit_text = f"{converted_value.units:~P}".strip()
+        clean_unit = self._clean_display_unit(converted_value)
+        if clean_unit == ureg.dimensionless:
+            unit_text = ""
+        else:
+            unit_text = f"{clean_unit:~P}".strip()
+            if unit_text.startswith("1/"):
+                unit_text = unit_text[1:]
+
         if not unit_text:
             return formatted_number
         return f"{formatted_number} {unit_text}"
@@ -634,6 +669,10 @@ class RSFieldMeta:
     def set_dtype(self, col, dtype, table_name: str | None = None):
         """Set the field type for a column in the metadata."""
         self.__set_value(col, "dtype", dtype, table_name)
+
+    def set_preferred_format(self, col, preferred_format, table_name: str | None = None):
+        """Set the preferred format for a column in the metadata."""
+        self.__set_value(col, "preferred_format", preferred_format, table_name)
 
     def apply_units(self, df: pd.DataFrame, table_name: str | None = None) -> tuple[pd.DataFrame, dict]:
         """ Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
@@ -740,7 +779,6 @@ class RSFieldMeta:
                     else:
                         applied_unit = fm.data_unit
                 else:
-                    self._log.debug(f'Applied {fm.data_unit} to {name}')
                     applied_unit = self.get_system_units(applied_unit)
             except Exception as exc:  # pragma: no cover - log unexpected issues
                 self._log.warning(f"Unable to apply units '{fm.data_unit}' to column '{name}': {exc}")
