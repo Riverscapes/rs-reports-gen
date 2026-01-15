@@ -19,9 +19,64 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, table_name: str | None =
     print(f'Shape (rows, cols): {df.shape}\n')
     meta = RSFieldMeta()
 
+    rows = []
+    errors = []
+
+    # Collection Phase
+    for i, col in enumerate(df.columns):
+        col_str = str(col)
+        dtype_str = str(df[col].dtype)
+
+        # Statistics
+        na_count = df[col].isna().sum()
+        distinct_count = df[col].nunique()
+
+        # Sampling
+        first_valid_index = df[col].first_valid_index()
+        raw_sample = None
+        raw_sample_str = "<All NA>"
+        if first_valid_index is not None:
+            # Use loc to get value
+            raw_sample = df[col].loc[first_valid_index]
+            raw_sample_str = str(raw_sample)
+
+        # Metadata
+        m = None
+        try:
+            m = meta.get_field_meta(column_name=col_str, table_name=table_name)
+        except Exception as e:
+            errors.append(f"Meta lookup error for '{col_str}': {e}")
+
+        t_name = m.table_name if m and m.table_name else ""
+        f_name = m.friendly_name if m and m.friendly_name else ""
+        d_unit = str(m.data_unit) if m and m.data_unit else ""
+        p_fmt = m.preferred_format if m and m.preferred_format else ""
+
+        # Formatting
+        formatted_sample = ""
+        if raw_sample is not None:
+            try:
+                formatted_sample = meta.format_scalar(column_name=col_str, value=raw_sample, table_name=table_name)
+            except Exception as e:
+                formatted_sample = "<Format Error>"
+                errors.append(f"Format error for '{col_str}': {e}")
+
+        rows.append({
+            'i': i,
+            'col': col_str,
+            'dtype': dtype_str,
+            'table': t_name,
+            'friendly': f_name,
+            'unit': d_unit,
+            'fmt': p_fmt,
+            'na': str(na_count),
+            'distinct': str(distinct_count),
+            'raw': raw_sample_str,
+            'formatted': formatted_sample
+        })
+
     # --- TABLE 1: Metadata ---
     print("METADATA SUMMARY")
-    # Define widths for Table 1
     w_idx = 4
     w_col = 40
     w_type = 20
@@ -37,74 +92,40 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, table_name: str | None =
     print(header1)
     print('-' * len(header1))
 
-    for i, col in enumerate(df.columns):
-        col_str = str(col)
-        dtype_str = str(df[col].dtype)
-
-        try:
-            m = meta.get_field_meta(column_name=col_str, table_name=table_name)
-        except Exception:
-            m = None
-
-        t_name = ""
-        f_name = ""
-        d_unit = ""
-        p_fmt = ""
-
-        if m:
-            t_name = m.table_name if m.table_name else ""
-            f_name = m.friendly_name if m.friendly_name else ""
-            d_unit = str(m.data_unit) if m.data_unit else ""
-            p_fmt = m.preferred_format if m.preferred_format else ""
-
+    for r in rows:
         print(
-            f"{i:<{w_idx}} {col_str[:w_col - 1]:<{w_col}} {dtype_str[:w_type - 1]:<{w_type}} "
-            f"{t_name[:w_table - 1]:<{w_table}} {f_name[:w_friendly - 1]:<{w_friendly}} "
-            f"{d_unit[:w_unit - 1]:<{w_unit}} {p_fmt[:w_fmt - 1]:<{w_fmt}}"
+            f"{r['i']:<{w_idx}} {r['col'][:w_col - 1]:<{w_col}} {r['dtype'][:w_type - 1]:<{w_type}} "
+            f"{r['table'][:w_table - 1]:<{w_table}} {r['friendly'][:w_friendly - 1]:<{w_friendly}} "
+            f"{r['unit'][:w_unit - 1]:<{w_unit}} {r['fmt'][:w_fmt - 1]:<{w_fmt}}"
         )
     print('\n')
 
     # --- TABLE 2: Data Statistics & Samples ---
     print("DATA STATISTICS & SAMPLES")
-    # Define widths for Table 2
-    # w_idx defined above
-    # w_col defined above
     w_na = 10
+    w_distinct = 10
     w_raw = 30
     w_formatted = 30
 
     header2 = (
-        f"{'#':<{w_idx}} {'Column':<{w_col}} {'NA Count':<{w_na}} "
+        f"{'#':<{w_idx}} {'Column':<{w_col}} {'NA Count':<{w_na}} {'Distinct':<{w_distinct}} "
         f"{'Sample (Raw)':<{w_raw}} {'Sample (Formatted)':<{w_formatted}}"
     )
     print(header2)
     print('-' * len(header2))
 
-    for i, col in enumerate(df.columns):
-        col_str = str(col)
-        na_count = df[col].isna().sum()
-
-        # Get a sample value (first valid)
-        first_valid_index = df[col].first_valid_index()
-        if first_valid_index is not None:
-            raw_sample = df[col].loc[first_valid_index]
-        else:
-            raw_sample = None
-
-        formatted_sample = ""
-        if raw_sample is not None:
-            try:
-                formatted_sample = meta.format_scalar(column_name=col_str, value=raw_sample, table_name=table_name)
-            except Exception:
-                formatted_sample = "<Format Error>"
-
-        raw_sample_str = str(raw_sample) if raw_sample is not None else "<All NA>"
-
+    for r in rows:
         print(
-            f"{i:<{w_idx}} {col_str[:w_col - 1]:<{w_col}} {str(na_count):<{w_na}} "
-            f"{raw_sample_str[:w_raw - 1]:<{w_raw}} {formatted_sample[:w_formatted - 1]:<{w_formatted}}"
+            f"{r['i']:<{w_idx}} {r['col'][:w_col - 1]:<{w_col}} {r['na']:<{w_na}} {r['distinct']:<{w_distinct}} "
+            f"{r['raw'][:w_raw - 1]:<{w_raw}} {r['formatted'][:w_formatted - 1]:<{w_formatted}}"
         )
     print('\n')
+
+    if errors:
+        print("ERRORS ENCOUNTERED:")
+        for err in errors:
+            print(f"- {err}")
+        print('\n')
 
 
 def load_gdf_from_csv(csv_path) -> gpd.GeoDataFrame:
