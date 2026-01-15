@@ -12,16 +12,15 @@ def main():
 
     Environment variables that can be set:
         For all reports:
-            DATA_ROOT - Path to the outputs folder. A subfolder rpt-riverscapes-inventory will be created if it does not exist (REQUIRED)
+            DATA_ROOT - Path to the outputs folder. A subfolder rpt-rivers-need-space will be created if it does not exist (REQUIRED)
             UNIT_SYSTEM - unit system to use: "SI" or "imperial" (optional, default is "SI")
             INCLUDE_PDF - whether to include a PDF version of the report (optional, default is True)
 
         Report-specific variables:
-            RSI_AOI_GEOJSON - path to the input geojson file for rpt-riverscapes-inventory (optional)
-            RSI_REPORT_NAME - name for the report (optional)
-            RSI_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
-            RSI_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
-            RSI_NO_NID - set to '1' or 'true' to disable fetching NID data (optional)
+            RDYN_AOI_GEOJSON - path to the input geojson file for rpt-rivers-need-space (optional)
+            RDYN_REPORT_NAME - name for the report (optional)
+            RDYN_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
+            RDYN_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
 
     """
 
@@ -30,12 +29,12 @@ def main():
     data_root = os.environ.get("DATA_ROOT")
 
     # IF we have everything we need from environment variables then we can skip the prompts
-    rsi_aoi_geojson = os.environ.get("RSI_AOI_GEOJSON")
+    rsi_aoi_geojson = os.environ.get("RDYN_AOI_GEOJSON")
     if rsi_aoi_geojson:
         geojson_file = Path(rsi_aoi_geojson)
         if not geojson_file.exists():
             raise RuntimeError(
-                colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+                colored(f"\nThe RDYN_AOI_GEOJSON environment variable is set to '{os.environ.get('RDYN_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the code example folder
         base_dir = Path(__file__).parent
@@ -75,10 +74,10 @@ def main():
             return
         unit_system = unit_system_question['unit_system']
 
-    if os.environ.get("RSI_REPORT_NAME"):
-        report_name = os.environ.get("RSI_REPORT_NAME")
+    if os.environ.get("RDYN_REPORT_NAME"):
+        report_name = os.environ.get("RDYN_REPORT_NAME")
     else:
-        report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Inventory"
+        report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Dynamics"
 
     # Ask for whether or not to include PDF. Default to NO
     if os.environ.get("INCLUDE_PDF"):
@@ -96,10 +95,10 @@ def main():
             return None
         include_pdf = include_pdf_question['include_pdf']
 
-    parquet_path = os.environ.get("RSI_PARQUET_PATH")
+    parquet_path = os.environ.get("RDYN_PARQUET_PATH")
     if parquet_path and not os.path.exists(parquet_path):
         raise RuntimeError(
-            f"\nRSI_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n"
+            f"\nRDYN_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n"
         )
 
     else:
@@ -117,7 +116,7 @@ def main():
         parquet_path = parquet_path.strip().strip('"').strip("'")
 
     args = [
-        os.path.join(data_root, "rpt-riverscapes-inventory", report_name.replace(" ", "_")),
+        os.path.join(data_root, "rpt-riverscapes-dynamics", report_name.replace(" ", "_")),
         geojson_file,
         report_name,
         "--unit_system", unit_system,
@@ -129,7 +128,7 @@ def main():
         args.append("--use-parquet")
         args.append(parquet_path)
 
-    keep_parquet_env = os.environ.get("RSI_KEEP_PARQUET")
+    keep_parquet_env = os.environ.get("RDYN_KEEP_PARQUET")
     if keep_parquet_env is not None:
         keep_parquet = keep_parquet_env.lower() in {"1", "true", "yes"}
     else:
@@ -151,25 +150,5 @@ def main():
 
     if keep_parquet:
         args.append("--keep-parquet")
-
-    # Ask for whether to fetch NID data (default Yes)
-    no_nid_env = os.environ.get("RSI_NO_NID")
-    if no_nid_env is not None:
-        no_nid = no_nid_env.lower() in {"1", "true", "yes"}
-    else:
-        nid_question = inquirer.prompt([
-            inquirer.Confirm(
-                'fetch_nid',
-                message="Fetch data from National Inventory of Dams? (Default is Yes)",
-                default=True
-            ),
-        ])
-        if not nid_question or 'fetch_nid' not in nid_question:
-            print("\nNo NID option selected. Exiting.\n")
-            return None
-        no_nid = not nid_question['fetch_nid']
-
-    if no_nid:
-        args.append("--no-nid")
 
     return args

@@ -33,32 +33,36 @@ from util.figures import (
     horizontal_bar_chart,
     make_aoi_outline_map,
     make_rs_area_by_featcode,
-    prop_ag_dev,
-    dens_road_rail,
     project_id_list,
     metric_cards,
 )
-from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
-from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
+from reports.rpt_riverscapes_dynamics import __version__ as report_version
+# from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
+# from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
 
 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', authority_name='*', layer_id="raw_rme,rpt_rme,rs_context_huc10")
+    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', authority_name='rsdynamics_to_athena', layer_id=["rsdynamics", "rsdynamics_metrics"])
+
+    vw_to_table_field_map = {
+        'huc': 'rsdynamics',
+        'rd_project_id': 'rsdynamics',
+        'dgo_id': 'rsdynamics_metrics'
+    }
+
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
-    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
-    _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
+    # _FIELD_META.set_display_unit('centerline_length', 'kilometer')
+    # _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
 
     return
 
 
 def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
-                nid_gdf: gpd.GeoDataFrame | None = None,
                 include_static: bool = True,
                 include_pdf: bool = True
                 ):
@@ -70,14 +74,11 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         aoi_df (gpd.GeoDataFrame): The area of interest geodataframe.
         report_dir (Path): The directory where the report will be saved.
         report_name (str): The name of the report.
-        nid_gdf (gpd.GeoDataFrame | None, optional): NID dams data. None means failure/disabled. Defaults to None.
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
     """
     log = Logger('make report')
 
-    # TODO: Check - beaver_dam_capacity only applies to perennieal - so may need to use filter gdf before building beaver_dam_capacity_bar
-    # also can we make the units dams per km or dams per mile
     log.info(f"Generating report in {report_dir}")
     _edges, _labels, land_use_intens_bins_colours = get_bins_info('land_use_intens')
     figures = {
@@ -88,8 +89,6 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),
         "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access']),
         "land_use_intensity_bar": bar_group_x_by_y(gdf, 'segment_area', ['land_use_intens_bins'], {'color': land_use_intens_bins_colours}),
-        "prop_ag_dev": prop_ag_dev(gdf),
-        "dens_road_rail": dens_road_rail(gdf),
         "hypsometry": hypsometry_fig(huc_df),
         "confinement_length_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
         "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
@@ -105,19 +104,6 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
         "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc'])
     }
-    if nid_gdf is None:
-        tables["nid_dams"] = '<div class="error-message"><p>Unable to retrieve data from NID. Check log for details.<p></div>'
-    if nid_gdf is not None and not nid_gdf.empty:
-        nid_display_df = prepare_nid_display_table(nid_gdf)
-        # Use RSGeoDataFrame to get friendly column names for display
-        tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
-            classes="table table-striped",
-            index=False,
-            escape=False,
-            table_id="NID"
-        )
-    elif nid_gdf is not None:
-        tables["nid_dams"] = '<p>No dams found in the area of interest.</p>'
     appendices = {
         "project_ids": project_id_list(gdf),
     }
@@ -192,7 +178,6 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
                              include_pdf: bool = True, unit_system: str = "SI",
                              parquet_override: Path | None = None,
                              keep_parquet: bool = False,
-                             disable_nid: bool = False,
                              ):
     """ Orchestrates the report generation process:
 
@@ -215,18 +200,12 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     safe_makedirs(str(report_dir / 'data'))
 
     # Start tasks in background
-    # 1. NID Query (if enabled)
-    # 2. Metadata definition (Athena query)
-    nid_future = None
+    # 1. Metadata definition (Athena query)
     meta_future = None
     executor = ThreadPoolExecutor(max_workers=2)
 
     # Start Metadata definition immediately
     meta_future = executor.submit(define_fields, unit_system)
-
-    if not disable_nid:
-        log.info("Starting background NID query...")
-        nid_future = executor.submit(get_nid_data, aoi_gdf)
 
     if parquet_override:
         parquet_data_source = Path(parquet_override)
@@ -246,8 +225,15 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
         log.info("Querying Athena for data for AOI")
 
-        fields_we_need = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
-        query_str = f"SELECT {fields_we_need} FROM rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+        query_str = """
+SELECT r.huc, r.rd_project_id,
+        m.dgo_id, m.landcover, m.epoch_length, m.epoch_name, m.confidence,
+        m.area, m.areapc,
+        m.width, m.widthpc
+FROM rsdynamics r
+JOIN rsdynamics_metrics m ON (r.rd_project_id = m.rd_project_id AND r.dgo_id = m.dgo_id)
+WHERE {prefilter_condition} AND {intersects_condition}
+"""
 
         aoi_query_to_local_parquet(
             query_str,
@@ -267,28 +253,11 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
         log.error(f"Failed to load field metadata: {e}")
         raise e
 
-    data_gdf = add_calculated_rme_cols(data_gdf)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)
     # print(huc_data_df)  # for DEBUG ONLY
-
-    # Retrieve NID results
-    nid_gdf = None
-    if nid_future:
-        try:
-            nid_gdf = nid_future.result()
-            if nid_gdf is None:
-                log.warning(f"No NID gdf returned.")
-            else:
-                log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
-                if not nid_gdf.empty:
-                    nid_gdf.to_file(report_dir / 'data' / 'nid_dams.gpkg', driver='GPKG')
-        except Exception as e:
-            log.error(f"Error retrieving NID results: {e}")
-        finally:
-            executor.shutdown(wait=False)
 
     # Export the data to Excel
     # dumping all the raw data is not appropriate especially for very large areas
@@ -297,7 +266,6 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
     make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name,
-                nid_gdf=nid_gdf,
                 include_static=include_pdf,
                 include_pdf=include_pdf
                 )
@@ -365,7 +333,7 @@ def main():
                                  args.unit_system,
                                  parquet_override=args.parquet_path,
                                  keep_parquet=args.keep_parquet,
-                                 disable_nid=args.no_nid,)
+                                 )
 
         # While we work on performance, this is helpful
         process = psutil.Process(os.getpid())
