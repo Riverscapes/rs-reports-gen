@@ -34,7 +34,7 @@ def test_apply_units_converts_to_preferred_system(fresh_meta):
         fresh_meta,
         [
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "length",
                 "friendly_name": "Length",
                 "data_unit": "meter",
@@ -61,7 +61,7 @@ def test_apply_units_dtypes_correct(fresh_meta):
         fresh_meta,
         [
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "distance",
                 "friendly_name": "Distance",
                 "data_unit": "meter",
@@ -70,7 +70,7 @@ def test_apply_units_dtypes_correct(fresh_meta):
                 "no_convert": True,
             },
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "distance_converted",
                 "friendly_name": "Distance Converted",
                 "data_unit": "meter",
@@ -111,7 +111,7 @@ def test_apply_units_respects_no_convert_and_display_unit(fresh_meta):
         fresh_meta,
         [
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "distance",
                 "friendly_name": "Distance",
                 "data_unit": "meter",

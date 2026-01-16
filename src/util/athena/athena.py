@@ -184,7 +184,7 @@ def get_field_metadata(
         and_col_name = ""
 
     query = f"""
-SELECT layer_id, layer_name AS table_name, name, friendly_name, data_unit, description, theme, dtype
+SELECT layer_id, layer_name, name, friendly_name, data_unit, description, theme, dtype
 FROM layer_definitions_latest
 WHERE authority = '{authority}' {and_auth_name} {and_layer_id} {and_col_name}
 """

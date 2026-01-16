@@ -174,7 +174,7 @@ def add_agg_field_meta(fields, agg_type: str):
 
         meta.add_field_meta(
             name=agg_col,
-            table_name='rs_context_huc10',
+            layer_id='rs_context_huc10',
             data_unit=data_unit,
             dtype=dtype,
             friendly_name=friendly_name

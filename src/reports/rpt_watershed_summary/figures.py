@@ -38,7 +38,7 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd
     Returns the main table and a footer dataframe containing the totals row.
     input: dataframe containing all the columns listed above. assumes there is just one row.
     """
-    table_name = 'waterbodies_summary'  # For metadata namespacing
+    layer_id = 'waterbodies_summary'  # For metadata namespacing
     # Ensure we are working with the first row of data if df has multiple
     row_data = df.iloc[0]
 
@@ -58,8 +58,8 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd
     # Get the units from the source data and apply it to the new dataframe
     area_unit = meta.get_field_unit(waterbody_col_map["Lake"][0].lower())
     count_unit = meta.get_field_unit(waterbody_col_map["Lake"][1].lower())
-    meta.add_field_meta(name='Area', table_name=table_name, data_unit=area_unit)
-    meta.add_field_meta(name='Count', table_name=table_name, data_unit=count_unit, preferred_format='{:,.0f}')
+    meta.add_field_meta(name='Area', layer_id=layer_id, data_unit=area_unit)
+    meta.add_field_meta(name='Count', layer_id=layer_id, data_unit=count_unit, preferred_format='{:,.0f}')
 
     # Ensure both Area and Count columns are pint quantities
     report_df["Area"] = ensure_pint_column(report_df, "Area", area_unit)
@@ -76,9 +76,9 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd
     report_df["% Area"] = (report_df["Area"] / pd.Series([total_area] * len(report_df), index=report_df.index)).fillna(0).astype('pint[percent]')
     report_df["% Count"] = (report_df["Count"] / pd.Series([total_count] * len(report_df), index=report_df.index)).fillna(0).astype('pint[percent]')
     report_df["Avg. Area"] = (report_df["Area"] / report_df["Count"]).fillna(0)
-    meta.add_field_meta(name="Avg. Area", table_name=table_name, data_unit=area_unit)
-    meta.add_field_meta(name="% Area", table_name=table_name, data_unit='percent')
-    meta.add_field_meta(name="% Count", table_name=table_name, data_unit='percent')
+    meta.add_field_meta(name="Avg. Area", layer_id=layer_id, data_unit=area_unit)
+    meta.add_field_meta(name="% Area", layer_id=layer_id, data_unit='percent')
+    meta.add_field_meta(name="% Count", layer_id=layer_id, data_unit='percent')
 
     # 5. Formatting (Optional: Create the "Total" row)
     total_row = pd.DataFrame([{
@@ -116,7 +116,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         dictionary of stats (pint Quantities) -- selected items (known to be Pint quantities) from the supplied aggregate_data_df plus some derived ones
 
     """
-    table_name = 'aggregate_stats'  # For metadata namespacing
+    layer_id = 'aggregate_stats'  # For metadata namespacing
     meta = RSFieldMeta()
     # everything in the aggregate dataframe
     # remember the dataframe comes from athena, and all columns are lowercase
@@ -153,7 +153,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     meta.add_field_meta(
         name='avg_segment_length',
         friendly_name='Average Segment Length',
-        table_name=table_name,
+        layer_id=layer_id,
         data_unit=avg_segment_length.units,
         preferred_format="{:.3g}"
     )
@@ -162,21 +162,21 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         name='mean_precip_cell_value',
         friendly_name='Mean Average Precipitation',
         description='Mean of the 30-year Average Annual Precipitation across the selected area',
-        table_name=table_name
+        layer_id=layer_id
     )
     mean_elevation = rpt_stats['sum_demsum'] / rpt_stats['sum_demcount']
     meta.add_field_meta(
         name='mean_elevation',
         friendly_name='Mean Elevation',
         description='Mean elevation across the selected area',
-        table_name=table_name
+        layer_id=layer_id
     )
     mean_slope = rpt_stats['sum_slopesum'] / rpt_stats['sum_slopecount']
     meta.add_field_meta(
         name='mean_slope',
         friendly_name='Mean Slope',
         description='Mean slope across the selected area',
-        table_name=table_name
+        layer_id=layer_id
     )
     total_relief = rpt_stats['max_demmaximum'] - rpt_stats['min_demminimum']
     source_meta = meta.get_field_meta('max_demmaximum')
@@ -185,11 +185,11 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         friendly_name='Total Relief',
         description='Difference between highest and lowest elevation.',
         data_unit=rpt_stats['max_demmaximum'].units,
-        table_name=table_name,
+        layer_id=layer_id,
         preferred_format=source_meta.preferred_format if source_meta else None
     )
     relief_ratio = total_relief.to("km") / rpt_stats['sum_catchmentlength'].to("km")
-    meta.set_preferred_format('reliefratio', '{:.2f}', table_name='rs_context_huc10')
+    meta.set_preferred_format('reliefratio', '{:.2f}', layer_id='rs_context_huc10')
 
     # drainage densities are total flowline length divided by total
     # these are found as metrics in individual hucs but we re-calculate for aggregates
@@ -200,21 +200,21 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         name='drainage_density_non_perennial',
         friendly_name='Drainage Density - Non Perrenial',
         description='Total length of Intermittent and Ephemeral Streams, divided by Catchment Area',
-        table_name=table_name,
+        layer_id=layer_id,
         preferred_format='{:.2f}'
     )
     meta.add_field_meta(
         name='drainage_density_perennial',
         friendly_name='Drainage Density - Perrenial',
         description='Total length of Perennial Streams, divided by Catchment Area',
-        table_name=table_name,
+        layer_id=layer_id,
         preferred_format='{:.2f}'
     )
     meta.add_field_meta(
         name='drainage_density_all',
         friendly_name='Drainage Density - Entire Network',
         description='Total length of All Streams, divided by Catchment Area',
-        table_name=table_name,
+        layer_id=layer_id,
         preferred_format='{:.2f}'
     )
 
@@ -225,9 +225,9 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
             "formfactor": rpt_stats['min_formfactor']
         }
         # define them as 2 decimal floats - TODO this should be in the layerdef.json
-        meta.set_preferred_format('circularityratio', '{:.2f}', table_name='rs_context_huc10')
-        meta.set_preferred_format('elongationratio', '{:.2f}', table_name='rs_context_huc10')
-        meta.set_preferred_format('formfactor', '{:.2f}', table_name='rs_context_huc10')
+        meta.set_preferred_format('circularityratio', '{:.2f}', layer_id='rs_context_huc10')
+        meta.set_preferred_format('elongationratio', '{:.2f}', layer_id='rs_context_huc10')
+        meta.set_preferred_format('formfactor', '{:.2f}', layer_id='rs_context_huc10')
 
     else:
         singlehucstats = {}
@@ -253,7 +253,7 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
     Returns the main table, a footer dataframe for totals, and an optional footnote if totals diverge.
     """
     log = Logger('create hydro summary')
-    table_name = 'hydrography_summary'  # For metadata namespacing
+    layer_id = 'hydrography_summary'  # For metadata namespacing
     row_data = df.iloc[0]
 
     # Pull the source metrics once so we can build grouped rows without re-querying.
@@ -294,11 +294,11 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
     length_unit = meta.get_field_unit(hydrography_col_map['Perennial'].lower())
     meta.add_field_meta(name='stream_network_distance',
                         friendly_name='Stream Network Distance',
-                        table_name=table_name,
+                        layer_id=layer_id,
                         data_unit=length_unit)
     meta.add_field_meta(name='flowline_length_category',
                         friendly_name='Stream Type',
-                        table_name=table_name,
+                        layer_id=layer_id,
                         data_unit="NA")
 
     report_df['stream_network_distance'] = ensure_pint_column(report_df,
@@ -320,7 +320,7 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
     report_df['% of Total Stream Length'] = percent_series
     meta.add_field_meta(name='% of Total Stream Length',
                         friendly_name='% of Total Stream Length',
-                        table_name=table_name,
+                        layer_id=layer_id,
                         data_unit='percent')
 
     footer_mask = report_df['flowline_length_category'].isin({
