@@ -44,13 +44,15 @@ from reports.rpt_riverscapes_dynamics import __version__ as report_version
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', authority_name='rsdynamics_to_athena', layer_id=["rsdynamics", "rsdynamics_metrics"])
+    raw_table_meta = get_field_metadata(
+        authority='data-exchange-scripts',
+        authority_name='rsdynamics_to_athena',
+        layer_id=["rsdynamics", "rsdynamics_metrics"]
+    )
+    # TODO: Reconsider use of layer_id vs layer_name > table_name in our local meta repository.
+    _FIELD_META.field_meta = raw_table_meta
 
-    vw_to_table_field_map = {
-        'huc': 'rsdynamics',
-        'rd_project_id': 'rsdynamics',
-        'dgo_id': 'rsdynamics_metrics'
-    }
+    create_report_view_metadata()
 
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
@@ -59,6 +61,48 @@ def define_fields(unit_system: str = "SI"):
     # _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
 
     return
+
+
+def create_report_view_metadata():
+    """Define the mapping from source tables to the report view and create the metadata references."""
+    log = Logger('Add View Metadata')
+    _FIELD_META = RSFieldMeta()
+    report_view_name = 'dynamics_report'
+
+    # Define the Schema map: "DataFrame Column" -> "Source Table"
+    vw_to_table_field_map = {
+        # rsdynamics
+        'huc': 'rsdynamics',
+        'rd_project_id': 'rsdynamics',
+
+        # rsdynamics_metrics
+        'dgo_id': 'rsdynamics_metrics',
+        'landcover': 'rsdynamics_metrics',
+        'epoch_length': 'rsdynamics_metrics',
+        'epoch_name': 'rsdynamics_metrics',
+        'confidence': 'rsdynamics_metrics',
+        'area': 'rsdynamics_metrics',
+        'areapc': 'rsdynamics_metrics',
+        'width': 'rsdynamics_metrics',
+        'widthpc': 'rsdynamics_metrics'
+    }
+
+    # Create the View Metadata
+    # We duplicate the raw source metadata into our new 'dynamics_report' namespace.
+    # This allows us to use table_name='dynamics_report' later without worrying about collisions.
+    for col, source_table in vw_to_table_field_map.items():
+        # Check if we've already defined this view field (idempotency for Singleton)
+        if not _FIELD_META.get_field_meta(col, report_view_name):
+            try:
+                _FIELD_META.duplicate_meta(
+                    orig_name=col,
+                    orig_table_name=source_table,
+                    new_name=col,
+                    new_table_name=report_view_name
+                )
+            except Exception as e:
+                # Log warning but continue; allows report to run even if one field is missing metadata
+                log.warning(f"Could not map metadata for view '{report_view_name}': {source_table}.{col} -> {e}")
 
 
 def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
@@ -253,7 +297,7 @@ WHERE {prefilter_condition} AND {intersects_condition}
         log.error(f"Failed to load field metadata: {e}")
         raise e
 
-    data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
+    data_gdf, _ = RSFieldMeta().apply_units(data_gdf, 'dynamics_report')  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)
