@@ -33,7 +33,7 @@ def test_duplicate_meta_requires_existing_original(fresh_meta):
         fresh_meta,
         [
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "width",
                 "friendly_name": "Width",
                 "data_unit": "meter",
@@ -55,7 +55,7 @@ def test_duplicate_meta_rejects_existing_target(fresh_meta):
         fresh_meta,
         [
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "width",
                 "friendly_name": "Width",
                 "data_unit": "meter",
@@ -65,7 +65,7 @@ def test_duplicate_meta_rejects_existing_target(fresh_meta):
                 "description": "Channel width",
             },
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "width_copy",
                 "friendly_name": "Width Copy",
                 "data_unit": "meter",
@@ -87,7 +87,7 @@ def test_duplicate_meta_clones_and_overrides_fields(fresh_meta):
         fresh_meta,
         [
             {
-                "table_name": "tbl",
+                "layer_id": "tbl",
                 "name": "area",
                 "friendly_name": "Area",
                 "data_unit": "meter ** 2",
@@ -113,7 +113,7 @@ def test_duplicate_meta_clones_and_overrides_fields(fresh_meta):
     original_row = fresh_meta.get_field_meta("area")
 
     assert new_row.name == "area_sqmi"
-    assert "area_sqmi" in fresh_meta.field_meta.index
+    assert "tbl.area_sqmi" in fresh_meta.field_meta.index
     assert new_row.friendly_name == "Area (sq mi)"
     assert new_row.description == "Surface area converted to square miles"
     assert new_row.data_unit == ureg.Unit("mile ** 2")

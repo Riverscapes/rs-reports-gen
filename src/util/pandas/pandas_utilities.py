@@ -10,11 +10,11 @@ from util.pandas import RSFieldMeta
 ureg = pint.UnitRegistry()
 
 
-def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, table_name: str | None = None):
+def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = None):
     """Pretty print a summary of a dataframe AND the metadata
-    the table_name is used for metadata disambiguation, if provided
+    the layer_id is used for metadata disambiguation, if provided
     """
-    print(f'DataFrame: {table_name if table_name else "Unnamed"}')
+    print(f'DataFrame: {layer_id if layer_id else "Unnamed"}')
     print('-' * 120)
     print(f'Shape (rows, cols): {df.shape}\n')
     meta = RSFieldMeta()
@@ -43,11 +43,11 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, table_name: str | None =
         # Metadata
         m = None
         try:
-            m = meta.get_field_meta(column_name=col_str, table_name=table_name)
+            m = meta.get_field_meta(column_name=col_str, layer_id=layer_id)
         except Exception as e:
             errors.append(f"Meta lookup error for '{col_str}': {e}")
 
-        t_name = m.table_name if m and m.table_name else ""
+        t_name = m.layer_id if m and m.layer_id else ""
         f_name = m.friendly_name if m and m.friendly_name else ""
         d_unit = str(m.data_unit) if m and m.data_unit else ""
         p_fmt = m.preferred_format if m and m.preferred_format else ""
@@ -56,7 +56,7 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, table_name: str | None =
         formatted_sample = ""
         if raw_sample is not None:
             try:
-                formatted_sample = meta.format_scalar(column_name=col_str, value=raw_sample, table_name=table_name)
+                formatted_sample = meta.format_scalar(column_name=col_str, value=raw_sample, layer_id=layer_id)
             except Exception as e:
                 formatted_sample = "<Format Error>"
                 errors.append(f"Format error for '{col_str}': {e}")

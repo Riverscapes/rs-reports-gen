@@ -114,7 +114,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
             classes="table table-striped",
             index=False,
             escape=False,
-            table_id="NID"
+            layer_id="NID"
         )
     elif nid_gdf is not None:
         tables["nid_dams"] = '<p>No dams found in the area of interest.</p>'

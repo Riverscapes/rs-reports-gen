@@ -1,4 +1,4 @@
-table_name,name,dtype,friendly_name,data_unit,display_unit,no_convert,description,
+layer_id,name,dtype,friendly_name,data_unit,display_unit,no_convert,description,
 dgo_beaver,brat_capacity,REAL,,,,,,
 dgo_beaver,brat_hist_capacity,REAL,,,,,,
 dgo_beaver,brat_risk,TEXT,,,,,,

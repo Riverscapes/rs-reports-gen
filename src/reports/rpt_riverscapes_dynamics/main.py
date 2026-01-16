@@ -49,7 +49,6 @@ def define_fields(unit_system: str = "SI"):
         authority_name='rsdynamics_to_athena',
         layer_id=["rsdynamics", "rsdynamics_metrics"]
     )
-    # TODO: Reconsider use of layer_id vs layer_name > table_name in our local meta repository.
     _FIELD_META.field_meta = raw_table_meta
 
     create_report_view_metadata()
@@ -89,20 +88,20 @@ def create_report_view_metadata():
 
     # Create the View Metadata
     # We duplicate the raw source metadata into our new 'dynamics_report' namespace.
-    # This allows us to use table_name='dynamics_report' later without worrying about collisions.
-    for col, source_table in vw_to_table_field_map.items():
+    # This allows us to use layer_id='dynamics_report' later without worrying about collisions.
+    for col, source_layer_id in vw_to_table_field_map.items():
         # Check if we've already defined this view field (idempotency for Singleton)
         if not _FIELD_META.get_field_meta(col, report_view_name):
             try:
                 _FIELD_META.duplicate_meta(
                     orig_name=col,
-                    orig_table_name=source_table,
+                    orig_layer_id=source_layer_id,
                     new_name=col,
-                    new_table_name=report_view_name
+                    new_layer_id=report_view_name
                 )
             except Exception as e:
                 # Log warning but continue; allows report to run even if one field is missing metadata
-                log.warning(f"Could not map metadata for view '{report_view_name}': {source_table}.{col} -> {e}")
+                log.warning(f"Could not map metadata for view '{report_view_name}': {source_layer_id}.{col} -> {e}")
 
 
 def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,

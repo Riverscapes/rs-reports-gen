@@ -79,14 +79,14 @@ def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
     _FIELD_META = RSFieldMeta()
-    table_name = 'NID'  # for disambiguating metadata
+    layer_id = 'NID'  # for disambiguating metadata
 
     # Define metadata for NID fields
 
-    _FIELD_META.add_field_meta(name='NID_STORAGE', table_name=table_name, friendly_name='NID Storage', data_unit='acre_feet', display_unit='acre_feet', dtype='REAL')
-    _FIELD_META.add_field_meta(name='NID_HEIGHT', table_name=table_name, friendly_name='NID Height', data_unit='foot', display_unit='foot', dtype='REAL')
-    _FIELD_META.add_field_meta(name='DRAINAGE_AREA', table_name=table_name, friendly_name='Drainage Area', data_unit='mile**2', display_unit='mile**2', dtype='REAL')
-    _FIELD_META.add_field_meta(name='MAX_DISCHARGE', table_name=table_name, friendly_name='Max Discharge', data_unit='foot**3 / second', display_unit='foot**3 / second', dtype='REAL')
+    _FIELD_META.add_field_meta(name='NID_STORAGE', layer_id=layer_id, friendly_name='NID Storage', data_unit='acre_feet', display_unit='acre_feet', dtype='REAL')
+    _FIELD_META.add_field_meta(name='NID_HEIGHT', layer_id=layer_id, friendly_name='NID Height', data_unit='foot', display_unit='foot', dtype='REAL')
+    _FIELD_META.add_field_meta(name='DRAINAGE_AREA', layer_id=layer_id, friendly_name='Drainage Area', data_unit='mile**2', display_unit='mile**2', dtype='REAL')
+    _FIELD_META.add_field_meta(name='MAX_DISCHARGE', layer_id=layer_id, friendly_name='Max Discharge', data_unit='foot**3 / second', display_unit='foot**3 / second', dtype='REAL')
 
     nid_display_cols = [
         'NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE',
@@ -97,8 +97,8 @@ def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     cols_to_use = [c for c in nid_display_cols if c in nid_gdf.columns]
 
     # Apply units formatting
-    # Pass table_name='NID' to resolve ambiguities
-    display_gdf, _ = _FIELD_META.apply_units(nid_gdf[cols_to_use].copy(), table_name=table_name)
+    # Pass layer_id='NID' to resolve ambiguities
+    display_gdf, _ = _FIELD_META.apply_units(nid_gdf[cols_to_use].copy(), layer_id=layer_id)
 
     # Create Hyperlink for NAME using NIDID
     if 'NIDID' in display_gdf.columns and 'NAME' in display_gdf.columns:
