@@ -20,7 +20,7 @@ Key Features:
 - Support for SI and imperial unit systems, with preferred unit mappings.
 - Automatic unit conversion and header formatting for DataFrames.
 - Integration with Pint for unit handling.
-- columns are identified by both `table_name` and `name`, combined into an always-lowercase identifier `_unique_id`
+- columns are identified by both `layer_id` and `name`, combined into an always-lowercase identifier `_unique_id`
 
 Typical Usage:
     meta = RSFieldMeta()
@@ -84,12 +84,12 @@ IMPERIAL_TO_SI: dict[str, str] = {
 }
 
 
-def _get_unique_id(table_name: str | None, column_name: str) -> str:
+def _get_unique_id(layer_id: str | None, column_name: str) -> str:
     """Create a unique, case-insensitive identifier for a field."""
     if not column_name:
         raise ValueError("column_name cannot be empty.")
-    if table_name:
-        return f"{str(table_name).lower()}.{str(column_name).lower()}"
+    if layer_id:
+        return f"{str(layer_id).lower()}.{str(column_name).lower()}"
     return str(column_name).lower()
 
 
@@ -97,7 +97,7 @@ class FieldMetaValues:
     """ A simple class to hold metadata values for a single field.
         """
     VALID_COLUMNS = [
-        "table_name",
+        "layer_id",
         "name",
         "friendly_name",
         "data_unit",
@@ -109,7 +109,7 @@ class FieldMetaValues:
     ]
 
     def __init__(self):
-        self.table_name: str = ""
+        self.layer_id: str = ""
         self.name: str = ""
         self.friendly_name: str = ""
         self.data_unit: pint.Unit | None = None
@@ -121,7 +121,7 @@ class FieldMetaValues:
 
     # Make it printable for easier debugging
     def __repr__(self):
-        return (f"FieldMetaValues(table_name='{self.table_name}', name='{self.name}', friendly_name='{self.friendly_name}', "
+        return (f"FieldMetaValues(layer_id='{self.layer_id}', name='{self.name}', friendly_name='{self.friendly_name}', "
                 f"data_unit='{self.data_unit}', display_unit='{self.display_unit}', "
                 f"dtype='{self.dtype}', no_convert={self.no_convert}, preferred_format='{self.preferred_format}')")
 
@@ -198,6 +198,8 @@ class RSFieldMeta:
 
         # First clean all the values as if they were strings
         value = value.copy()
+        if 'layer_id' not in value.columns and 'table_name' in value.columns:
+            value['layer_id'] = value['table_name']
         for col in FieldMetaValues.VALID_COLUMNS:
             if col in value.columns:
                 value[col] = value[col].apply(_clean_string)
@@ -215,7 +217,7 @@ class RSFieldMeta:
 
         # Create the unique ID for indexing
         value['_unique_id'] = value.apply(
-            lambda row: _get_unique_id(row.get('table_name'), row.get('name')),
+            lambda row: _get_unique_id(row.get('layer_id'), row.get('name')),
             axis=1
         )
 
@@ -308,57 +310,54 @@ class RSFieldMeta:
         else:
             return None
 
-    def add_field_meta(self,
-                       name: str,
-                       table_name: str = "",
-                       friendly_name: str = "",
-                       data_unit: str | pint.Unit | None = None,
-                       display_unit: str | pint.Unit | None = None,
-                       dtype: str = "",
-                       no_convert: bool = False,
-                       description: str = "",
-                       preferred_format: str | None = None):
-        """ Add a new column to the metadata DataFrame if it does not already exist.
+    def add_field_meta(
+        self,
+        name: str,
+        layer_id: str = "",
+        friendly_name: str = "",
+        data_unit: str | pint.Unit | None = None,
+        display_unit: str | pint.Unit | None = None,
+        dtype: str = "",
+        no_convert: bool = False,
+        description: str = "",
+        preferred_format: str | None = None,
+    ):
+        """Add a new column to the metadata DataFrame if it does not already exist.
 
         Args:
-            name (str): The name of the column to add.
-            table_name (str, optional): The name of the table the column belongs to. Defaults to "".
-            friendly_name (str, optional): The friendly name for the column. Defaults to "".
-            data_unit (str | pint.Unit | None, optional): The data unit for the actual data in the column. Defaults to None.
-            display_unit (str | pint.Unit | None, optional): The display unit for the column. Defaults to None.
-                NOTE 1: If this is empty the units will be "Preferred Units"
-                NOTE 2: This will be ignored if no_convert is FALSE
-            dtype (str, optional): The field type for the column. Defaults to "".
-            no_convert (bool, optional): If True, do not convert units for this column. Defaults to False.
-                NOTE: If this is TRUE the units will be display_units and then data_units as a fallback.
-            description (str, optional): a description of the column to be displayed to end-users for example in tool-tips
-            preferred_format (str | None, optional): Python format string applied to metric magnitudes (e.g., "{:.2f}").
+            name: The name of the column to add.
+            layer_id: Stable identifier of the layer/namespace for the column.
+            friendly_name: Human-friendly label for surfaces, tables, etc.
+            data_unit: Unit attached to the stored data values.
+            display_unit: Unit to use when rendering values (overrides preferred units).
+            dtype: Field type descriptor (string, integer, area_m2, etc.).
+            no_convert: If True, values stay in `display_unit`/`data_unit` order without conversion.
+            description: Tooltip/help text exposed to end users.
+            preferred_format: Optional Python format string for formatting magnitudes.
 
-        TODO make table_name mandatory
+        TODO: make layer_id mandatory for all metadata rows.
         """
-        unique_id = _get_unique_id(table_name, name)
+        unique_id = _get_unique_id(layer_id, name)
 
         if self._field_meta is None:
-            self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS)
-            # Ensure the unit columns can hold pint objects
+            self._field_meta = pd.DataFrame(columns=FieldMetaValues.VALID_COLUMNS)
             for col in ['data_unit', 'display_unit']:
                 self._field_meta[col] = self._field_meta[col].astype(object)
 
-        # We need to be really strict here to stop users adding columns and innadvertently clobbering existing ones
-        # similar names are really easy to miss
-        elif unique_id in self._field_meta.index:
+        if unique_id in self._field_meta.index:
             self._log.error(f"Column '{unique_id}' already exists in metadata. SKIPPING ADDITION")
             return
 
+        self._field_meta.loc[unique_id, FieldMetaValues.VALID_COLUMNS] = None
         self._field_meta.loc[unique_id, "name"] = name
         self._field_meta.loc[unique_id, "friendly_name"] = friendly_name if friendly_name else name
-        self._field_meta.loc[unique_id, "table_name"] = table_name
+        self._field_meta.loc[unique_id, "layer_id"] = layer_id
         self._field_meta.loc[unique_id, "data_unit"] = self._coerce_unit(data_unit)
         self._field_meta.loc[unique_id, "display_unit"] = self._coerce_unit(display_unit)
         self._field_meta.loc[unique_id, "dtype"] = dtype
-        self._field_meta.loc[unique_id, "no_convert"] = no_convert
+        self._field_meta.loc[unique_id, "no_convert"] = bool(no_convert)
         self._field_meta.loc[unique_id, "description"] = description
-        self._field_meta.loc[unique_id, "preferred_format"] = preferred_format.strip() if isinstance(preferred_format, str) else preferred_format
+        self._field_meta.loc[unique_id, "preferred_format"] = preferred_format
 
     def _no_data_warning(self):
         """ Warn if no metadata is set."""
@@ -400,7 +399,7 @@ class RSFieldMeta:
     def _resolve_unique_id(
         self,
         column_name: str,
-        table_name: str | None = None,
+        layer_id: str | None = None,
         *,
         raise_on_missing: bool = False
     ) -> str | None:
@@ -414,13 +413,13 @@ class RSFieldMeta:
             self._log.warning("No metadata available to resolve column names.")
             return None
 
-        if table_name:
-            unique_id = _get_unique_id(table_name, column_name)
+        if layer_id:
+            unique_id = _get_unique_id(layer_id, column_name)
             if unique_id in self._field_meta.index:
                 return unique_id
             if raise_on_missing:
-                raise ValueError(f"Column '{column_name}' does not exist in table '{table_name}'.")
-            self._log.warning(f"Column '{column_name}' does not exist in table '{table_name}'.")
+                raise ValueError(f"Column '{column_name}' does not exist in layer '{layer_id}'.")
+            self._log.warning(f"Column '{column_name}' does not exist in layer '{layer_id}'.")
             return None
 
         lookup_name = str(column_name).lower()
@@ -434,15 +433,15 @@ class RSFieldMeta:
             return None
 
         if len(matches) > 1:
-            tables = matches['table_name'].fillna('<unknown>').unique().tolist()
-            tables_str = ', '.join(tables)
-            raise ValueError(f"Ambiguous column '{column_name}'. Found in tables: {tables_str}. Provide table_name.")
+            layers = matches['layer_id'].fillna('<unknown>').unique().tolist()
+            layers_str = ', '.join(layers)
+            raise ValueError(f"Ambiguous column '{column_name}'. Found in layers: {layers_str}. Provide layer_id.")
 
         return matches.index[0]
 
     def duplicate_meta(
         self, orig_name: str, new_name: str,
-        orig_table_name: str | None = None, new_table_name: str | None = None,
+        orig_layer_id: str | None = None, new_layer_id: str | None = None,
         new_friendly: str | None = None, new_description: str | None = None,
         new_data_unit: str | None = None, new_display_unit: str | None = None,
         new_dtype: str | None = None, new_no_convert: bool | None = None
@@ -459,15 +458,32 @@ class RSFieldMeta:
         if self._field_meta is None:
             raise RuntimeError("No metadata set. You need to instantiate RSFieldMeta and set the .meta property first.")
 
-        orig_id = self._resolve_unique_id(orig_name, orig_table_name, raise_on_missing=True)
-        new_id = _get_unique_id(new_table_name, new_name)
+        try:
+            orig_id = self._resolve_unique_id(orig_name, orig_layer_id, raise_on_missing=True)
+        except ValueError as exc:
+            msg = str(exc)
+            if msg.lower().startswith("ambiguous column"):
+                raise ValueError(msg.replace("column", "original column", 1)) from exc
+            if "does not exist in layer" in msg:
+                raise ValueError(msg.replace("Column", "Original column", 1)) from exc
+            raise ValueError(f"Original column '{orig_name}' does not exist in metadata.") from exc
+
+        orig_row = self._field_meta.loc[orig_id]
+        orig_layer_value = orig_row.get('layer_id')
+        if pd.isna(orig_layer_value):
+            orig_layer_value = ""
+
+        resolved_new_layer = new_layer_id if new_layer_id is not None else orig_layer_value
+        new_id = _get_unique_id(resolved_new_layer, new_name)
 
         if new_id in self._field_meta.index:
-            raise ValueError(f"New column ID '{new_id}' already exists in metadata.")
+            if resolved_new_layer:
+                raise ValueError(f"New column '{new_name}' already exists in layer '{resolved_new_layer}'.")
+            raise ValueError(f"New column '{new_name}' already exists in metadata.")
 
-        new_row = self._field_meta.loc[orig_id].copy()
+        new_row = orig_row.copy()
         new_row['name'] = new_name
-        new_row['table_name'] = new_table_name
+        new_row['layer_id'] = resolved_new_layer
 
         if new_friendly is not None:
             new_row["friendly_name"] = new_friendly
@@ -486,23 +502,23 @@ class RSFieldMeta:
         new_row.name = new_id
         self._field_meta = pd.concat([self._field_meta, pd.DataFrame([new_row])])
         self._log.info(f"Duplicated metadata from '{orig_id}' to '{new_id}'.")
-        return self.get_field_meta(new_name, new_table_name)
+        return self.get_field_meta(new_name, resolved_new_layer if resolved_new_layer else None)
 
-    def get_field_meta(self, column_name: str, table_name: str | None = None) -> FieldMetaValues | None:
+    def get_field_meta(self, column_name: str, layer_id: str | None = None) -> FieldMetaValues | None:
         """Get the field metadata for a specific column. This returns a FieldMetaValues object.
 
         Args:
             col (str): The column name to get metadata for.
         Returns:
             FieldMetaValues | None: The metadata object for the column or None if not found.
-        TODO: include tablename
+        TODO: include layer_id
         """
         self._no_data_warning()
         if self._field_meta is None:
             return None
 
         try:
-            unique_id = self._resolve_unique_id(column_name, table_name)
+            unique_id = self._resolve_unique_id(column_name, layer_id)
         except ValueError as exc:
             self._log.error(str(exc))
             raise
@@ -514,7 +530,7 @@ class RSFieldMeta:
         meta_values = FieldMetaValues()
         meta_values.name = meta_row.get('name', '')
         meta_values.friendly_name = str(meta_row.get("friendly_name", ''))
-        meta_values.table_name = str(meta_row.get("table_name", ''))
+        meta_values.layer_id = str(meta_row.get("layer_id", ''))
         meta_values.data_unit = meta_row.get("data_unit")
         meta_values.display_unit = meta_row.get("display_unit")
         meta_values.dtype = str(meta_row.get("dtype", ''))
@@ -523,18 +539,18 @@ class RSFieldMeta:
         meta_values.preferred_format = str(meta_row.get("preferred_format", '') or '')
         return meta_values
 
-    def get_friendly_name(self, column_name: str, table_name: str | None = None) -> str:
+    def get_friendly_name(self, column_name: str, layer_id: str | None = None) -> str:
         """Get the friendly name for a column, or format version of column name if not found."""
-        fm = self.get_field_meta(column_name, table_name)
+        fm = self.get_field_meta(column_name, layer_id)
         if fm and hasattr(fm, "friendly_name") and fm.friendly_name:
             friendly = fm.friendly_name
         else:
             friendly = column_name.replace('_', ' ').title()
         return friendly
 
-    def get_description(self, column_name: str, table_name: str | None = None) -> str:
+    def get_description(self, column_name: str, layer_id: str | None = None) -> str:
         """Get the description for a column, or an empty string if not found."""
-        fm = self.get_field_meta(column_name, table_name)
+        fm = self.get_field_meta(column_name, layer_id)
         if fm and hasattr(fm, "description") and fm.description:
             return fm.description
         return ""
@@ -571,7 +587,7 @@ class RSFieldMeta:
     def format_scalar(self,
                       column_name: str,
                       value,
-                      table_name: str | None = None,
+                      layer_id: str | None = None,
                       *,
                       decimals: int = 0,
                       include_units: bool = True) -> str:
@@ -580,7 +596,7 @@ class RSFieldMeta:
         Args:
             column_name (str): Metadata key for lookup.
             value: Numeric or Pint quantity to format.
-            table_name (str | None): Table name for disambiguation.
+            layer_id (str | None): Layer identifier for disambiguation.
             decimals (int, optional): Fallback decimal places when no preferred format is defined.
             include_units (bool, optional): Append unit labels when available. Defaults to True.
         """
@@ -594,7 +610,7 @@ class RSFieldMeta:
             except Exception:  # pragma: no cover - leave value unmodified on failure
                 converted_value = value
 
-        fm = self.get_field_meta(column_name, table_name)
+        fm = self.get_field_meta(column_name, layer_id)
         preferred_format = getattr(fm, "preferred_format", "") if fm else ""
 
         magnitude = converted_value.magnitude if hasattr(converted_value, "magnitude") else converted_value
@@ -640,7 +656,7 @@ class RSFieldMeta:
             return formatted_number
         return f"{formatted_number} {unit_text}"
 
-    def __set_value(self, row_name, col_name, value, table_name: str | None = None):
+    def __set_value(self, row_name, col_name, value, layer_id: str | None = None):
         """Generic Property setter. Use this for all the specific setters below."""
         self._no_data_warning()
         # Make sure col_name is a valid property of FieldMetaValues
@@ -648,38 +664,38 @@ class RSFieldMeta:
             raise ValueError(f"Invalid metadata column '{col_name}'. Valid columns are: {FieldMetaValues.VALID_COLUMNS}")
 
         if self._field_meta is None:
-            unique_id = _get_unique_id(table_name, row_name)
+            unique_id = _get_unique_id(layer_id, row_name)
             self._field_meta = pd.DataFrame(index=[unique_id], columns=FieldMetaValues.VALID_COLUMNS)
         else:
-            unique_id = self._resolve_unique_id(row_name, table_name, raise_on_missing=True)
+            unique_id = self._resolve_unique_id(row_name, layer_id, raise_on_missing=True)
         self._field_meta.loc[unique_id, col_name] = value
 
-    def set_friendly_name(self, col, friendly_name, table_name: str | None = None):
+    def set_friendly_name(self, col, friendly_name, layer_id: str | None = None):
         """Set the friendly name for a column in the metadata."""
-        self.__set_value(col, "friendly_name", friendly_name, table_name)
+        self.__set_value(col, "friendly_name", friendly_name, layer_id)
 
-    def set_data_unit(self, col, data_unit, table_name: str | None = None):
+    def set_data_unit(self, col, data_unit, layer_id: str | None = None):
         """Set the data unit for a column in the metadata."""
-        self.__set_value(col, "data_unit", self._coerce_unit(data_unit), table_name)
+        self.__set_value(col, "data_unit", self._coerce_unit(data_unit), layer_id)
 
-    def set_display_unit(self, col, display_unit, table_name: str | None = None):
+    def set_display_unit(self, col, display_unit, layer_id: str | None = None):
         """Set the display unit for a column in the metadata."""
-        self.__set_value(col, "display_unit", self._coerce_unit(display_unit), table_name)
+        self.__set_value(col, "display_unit", self._coerce_unit(display_unit), layer_id)
 
-    def set_dtype(self, col, dtype, table_name: str | None = None):
+    def set_dtype(self, col, dtype, layer_id: str | None = None):
         """Set the field type for a column in the metadata."""
-        self.__set_value(col, "dtype", dtype, table_name)
+        self.__set_value(col, "dtype", dtype, layer_id)
 
-    def set_preferred_format(self, col, preferred_format, table_name: str | None = None):
+    def set_preferred_format(self, col, preferred_format, layer_id: str | None = None):
         """Set the preferred format for a column in the metadata."""
-        self.__set_value(col, "preferred_format", preferred_format, table_name)
+        self.__set_value(col, "preferred_format", preferred_format, layer_id)
 
-    def apply_units(self, df: pd.DataFrame, table_name: str | None = None) -> tuple[pd.DataFrame, dict]:
+    def apply_units(self, df: pd.DataFrame, layer_id: str | None = None) -> tuple[pd.DataFrame, dict]:
         """ Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is NOT modified in place.
-            table_name (str | None): The specific table context for applying units. If None, will match columns case-insensitively.
+            layer_id (str | None): The specific layer context for applying units. If None, will match columns case-insensitively.
 
         Returns:
             tuple(pd.DataFrame,dict) : A new DataFrame with units applied, a dict of applied units
@@ -694,7 +710,7 @@ class RSFieldMeta:
 
         # Now loop over the dataframe columns and apply units
         for col in df_copy.columns:
-            fm = self.get_field_meta(col, table_name)
+            fm = self.get_field_meta(col, layer_id)
             if not fm:  # just to be sure it exists
                 continue
 
@@ -748,7 +764,7 @@ class RSFieldMeta:
         self._log.debug('Applied units to dataframe using meta info')
         return df_copy, applied_units
 
-    def get_field_unit(self, name: str, no_convert: bool = False, table_name: str | None = None) -> pint.Unit | None:
+    def get_field_unit(self, name: str, no_convert: bool = False, layer_id: str | None = None) -> pint.Unit | None:
         """ Get the display unit for a specific column based on the metadata and current unit system.
 
         This will take into account the display_unit, data_unit, no_convert, and preferred units for the current system.
@@ -756,9 +772,9 @@ class RSFieldMeta:
         Args:
             name (str): The column name to get the display unit for.
             no_convert (bool, optional): If True, return the raw `data_unit` without any conversion. Defaults to False.
-            table_name (str | None, optional): The specific table context. Defaults to None.
+            layer_id (str | None, optional): The specific layer context. Defaults to None.
         """
-        fm = self.get_field_meta(name, table_name)
+        fm = self.get_field_meta(name, layer_id)
         if not fm:
             return None
 
@@ -785,30 +801,30 @@ class RSFieldMeta:
             return applied_unit
         return None
 
-    def get_field_header(self, name: str, include_units: bool = True, unit_fmt=" ({unit})", table_name: str | None = None) -> str:
+    def get_field_header(self, name: str, include_units: bool = True, unit_fmt=" ({unit})", layer_id: str | None = None) -> str:
         """ Get the column header for a specific column based on the metadata.
 
         Args:
             name (str): The column name to get the header for.
             include_units (bool, optional): Whether to include units in the header name. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
-            table_name (str | None, optional): The specific table context. Defaults to None.
+            layer_id (str | None, optional): The specific layer context. Defaults to None.
 
         Returns:
             str: The column header with friendly name and units if specified.
         """
         # Use get_friendly_name to ensure we get the fallback formatting (spaces/Title Case) if no meta exists
-        header_text = self.get_friendly_name(name, table_name)
+        header_text = self.get_friendly_name(name, layer_id)
 
         if include_units:
-            preferred_unit = self.get_field_unit(name, table_name=table_name)
+            preferred_unit = self.get_field_unit(name, layer_id=layer_id)
             if preferred_unit:
                 unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
                 header_text = f"{header_text}{unit_text}"
 
         return header_text
 
-    def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", table_name: str | None = None) -> list[str]:
+    def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", layer_id: str | None = None) -> list[str]:
         """ Get the column headers for a DataFrame based on the metadata. This will return a list of column 
         headers with friendly names and units if specified.
 
@@ -816,7 +832,7 @@ class RSFieldMeta:
             df (pd.DataFrame): The original dataframe
             include_units (bool, optional): Whether to include units in the header names. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
-            table_name (str | None, optional): The specific table context. Defaults to None.
+            layer_id (str | None, optional): The specific layer context. Defaults to None.
 
         Returns:
             dict[str, str]: A lookup list of column names to friendly names
@@ -826,10 +842,10 @@ class RSFieldMeta:
         for column in list(df.columns):
 
             # Use get_friendly_name handles lookup, specific metadata, and fallback formatting
-            header_text = self.get_friendly_name(column, table_name)
+            header_text = self.get_friendly_name(column, layer_id)
 
             if include_units:
-                preferred_unit = self.get_field_unit(column, table_name=table_name)
+                preferred_unit = self.get_field_unit(column, layer_id=layer_id)
                 if preferred_unit:
                     unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
                     header_text = f"{header_text}{unit_text}"
@@ -838,7 +854,7 @@ class RSFieldMeta:
 
         return column_headers
 
-    def get_headers_dict(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", table_name: str | None = None) -> dict[str, str]:
+    def get_headers_dict(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", layer_id: str | None = None) -> dict[str, str]:
         """ Get the column headers for a DataFrame based on the metadata. This will return a lookup dict of column 
         names to friendly names with units if specified.
 
@@ -846,14 +862,14 @@ class RSFieldMeta:
             df (pd.DataFrame): The original dataframe
             include_units (bool, optional): Whether to include units in the header names. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
-            table_name (str | None, optional): The specific table context. Defaults to None.
+            layer_id (str | None, optional): The specific layer context. Defaults to None.
 
         Returns:
             dict[str, str]: A lookup list of column names to friendly names
         """
         column_headers: dict[str, str] = {}
         headers = list(df.columns)
-        friendly_headers = self.get_headers(df, include_units=include_units, unit_fmt=unit_fmt, table_name=table_name)
+        friendly_headers = self.get_headers(df, include_units=include_units, unit_fmt=unit_fmt, layer_id=layer_id)
 
         for i, column in enumerate(headers):
             column_headers[column] = friendly_headers[i]

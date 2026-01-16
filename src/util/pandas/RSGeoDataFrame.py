@@ -128,7 +128,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
                 unit_fmt=" ({unit})",
                 include_columns: list[str] | None = None,
                 exclude_columns: list[str] | None = None,
-                table_id: str | None = None,
+                layer_id: str | None = None,
                 **kwargs):
         """Render the DataFrame as HTML with friendly column headings.
 
@@ -138,7 +138,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             unit_fmt(str): Format string applied when appending units(must include ``{unit}``).
             include_columns(list[str] | None): If provided, limit output to these columns.
             exclude_columns(list[str] | None): Columns to drop from the output.
-            table_id(str | None): Optional table name to resolve metadata ambiguity.
+            layer_id(str | None): Optional layer (aka table) identifier to resolve metadata ambiguity.
             **kwargs: Forwarded to: meth: `pandas.DataFrame.to_html`.
         """
 
@@ -155,11 +155,11 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             display_df = self.drop(columns=exclude_columns, errors='ignore')
 
         # Now apply the units to the dataframe if needed
-        display_df, applied_units = self._meta_df.apply_units(display_df, table_name=table_id) if include_units else [display_df, {}]
+        display_df, applied_units = self._meta_df.apply_units(display_df, layer_id=layer_id) if include_units else [display_df, {}]
         headers = display_df.columns.to_list()
 
         if use_friendly is True:
-            headers = self._meta_df.get_headers(display_df, include_units=include_units, unit_fmt=unit_fmt, table_name=table_id)
+            headers = self._meta_df.get_headers(display_df, include_units=include_units, unit_fmt=unit_fmt, layer_id=layer_id)
 
         def _to_magnitude(val):
             return val.magnitude if hasattr(val, 'magnitude') else val
@@ -257,7 +257,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
                 # This respects 'preferred_format' in metadata if present
                 def _get_scalar_formatter(col_name, decimals):
                     return lambda x: self._meta_df.format_scalar(
-                        col_name, x, table_name=table_id, include_units=False, decimals=decimals
+                        col_name, x, layer_id=layer_id, include_units=False, decimals=decimals
                     )
 
                 if is_integer_type:
