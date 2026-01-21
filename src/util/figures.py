@@ -286,7 +286,7 @@ def table_total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str
 
 
 def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
-                     fig_params=None) -> go.Figure:
+                     fig_params: dict | None = None) -> go.Figure:
     """create bar chart of total x by y
 
     Args:
@@ -602,6 +602,7 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
 
     # if you want different units or descriptions then give them different names and add rsfieldmeta
     # Add field meta if not already present
+    # TODO: use data_units of segment_area and centerline_length rather than assuming they are km
     RSFieldMeta().add_field_meta(
         name='total_segment_area',
         friendly_name='Total Riverscape Area',
@@ -632,6 +633,7 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     )
 
     # Compose result dictionary
+    # TODO: check. surely we don't want km and yards mixed? what's going on here
     stats = {
         'total_segment_area': total_segment_area.to('kilometer ** 2'),  # acres and hectares will be interchangeable based on unit system
         'total_centerline_length': total_centerline_length.to('kilometer'),  # miles and km will be interchangeable based on unit system

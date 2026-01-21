@@ -8,6 +8,14 @@
     <p>The riverscapes dynamics report provides an example of a report generated from Riverscapes Dynamics data.</p>
   </div>
 </section>
+
+{% if error_message %}
+<div class="error-message">
+  <p>{{ error_message.text }}</p>
+</div>
+{% endif %}
+
+{% if not error_message %}
 <section id='toc'>
   <h2>Table of Contents</h2>
   <ol class="toc-list">
@@ -19,7 +27,11 @@
     <li><a href="#appendices">Appendices</a></li>
   </ol>
 </section>
-
+<section id="key-indicators">
+  <h2>Key Indicators</h2>
+  {{ render_metric_grid(cards, ['count_dgos', 'total_segment_area', 'total_centerline_length',
+  'integrated_valley_bottom_width']) }}
+</section>
 <div class="page-break-before"></div>
 <section id="map-of-polygons">
   <h2>Report Area of Interest</h2>
@@ -97,3 +109,4 @@
     </p>
   </div>
 </section>
+{% endif %}
