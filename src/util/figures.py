@@ -237,19 +237,28 @@ def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], wit
     # check there is something to group by
     if not group_by_cols or len(group_by_cols) == 0:
         raise ValueError('Expected list of columns, got empty list')
+
+    # Try to resolve layer_id from dataframe attributes
+    layer_id = df.attrs.get('layer_id') if hasattr(df, 'attrs') else None
+
     # combine fields that we need
     fields = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     # Pint-enabled DataFrame for calculation
-    df = RSGeoDataFrame(chart_subset_df.groupby(group_by_cols, as_index=False, observed=False)[total_col].sum())
+    df_result = RSGeoDataFrame(chart_subset_df.groupby(group_by_cols, as_index=False, observed=False)[total_col].sum())
+
+    # Propagate layer_id to the new dataframe
+    if layer_id:
+        df_result.attrs['layer_id'] = layer_id
+
     if with_percent:
 
         # add the grand_total metadata
-        grand_total = df[total_col].sum()  # Quantity
+        grand_total = df_result[total_col].sum()  # Quantity
 
-        df['pct_of_total'] = df[total_col] / grand_total * 100
+        df_result['pct_of_total'] = df_result[total_col] / grand_total * 100
         # Add friendly name for Percent of Total to metadata if not present - this is another way to do it
-        RSFieldMeta().add_field_meta(name='pct_of_total', friendly_name='Percent of Total (%)', dtype='REAL')
+        RSFieldMeta().add_field_meta(name='pct_of_total', friendly_name='Percent of Total (%)', dtype='REAL', layer_id=layer_id or "")
 
         # Add a total row (as formatted strings)
         # first item (if exists) in group-by will be 'Total'
@@ -261,13 +270,13 @@ def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], wit
             else:
                 total_row_cols[col] = ['']
 
-        df.set_footer(pd.DataFrame({
+        df_result.set_footer(pd.DataFrame({
             **total_row_cols,
             total_col: grand_total,
             'pct_of_total': [100]
         }))
 
-    return df
+    return df_result
 
 
 def table_total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], with_percent: bool = True) -> str:
@@ -291,10 +300,14 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     """
     if len(group_by_cols) > 2:
         raise NotImplementedError("We don't make bar charts with more than 2 group bys")
+
+    # Try to resolve layer_id from dataframe attributes
+    layer_id = df.attrs.get('layer_id') if hasattr(df, 'attrs') else None
+
     chart_data = total_x_by_y(df, total_col, group_by_cols, False)
 
     meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(chart_data)
+    baked_header_lookup = meta.get_headers_dict(chart_data, layer_id=layer_id)
     baked_chart_data, _baked_headers = RSFieldMeta().bake_units(chart_data)
 
     # set parameters
@@ -303,8 +316,8 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     if "orientation" not in fig_params:
         fig_params["orientation"] = "h"
     if "title" not in fig_params:
-        group_names = [meta.get_friendly_name(col) for col in group_by_cols]
-        fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)}"
+        group_names = [meta.get_friendly_name(col, layer_id=layer_id) for col in group_by_cols]
+        fig_params["title"] = f"Total {meta.get_friendly_name(total_col, layer_id=layer_id)} by {', '.join(group_names)}"
     if len(group_by_cols) == 2 and "color" not in fig_params:
         fig_params["color"] = group_by_cols[1]
 
@@ -720,20 +733,22 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def project_id_list(df: pd.DataFrame) -> list[tuple[str, str]]:
-    """generate html fragment representing the projects used
+def project_id_list(df: pd.DataFrame, id_col: str = 'rme_project_id', name_col: str = 'rme_project_name') -> list[tuple[str, str]]:
+    """generate html fragment representing the distinct projects used 
 
     Args:
-        df (pd.DataFrame): data_gdf
+        df (pd.DataFrame): data_gdf containing project id and name fields
+        id_col (str): name column in the dataframe with the riverscape project id 
+        name_col (str): name of column in the dataframe with the riverscape project name
 
     Returns:
-        str: html fragment to insert in 
+        list[tuple[str,str]] : project name, data exchange url
     """
-    newdf = df[['rme_project_id', 'rme_project_name']].copy()
+    newdf = df[[id_col, name_col]].copy()
     newdf = newdf.drop_duplicates()
     # We can nicely hard-code the urls
-    newdf["project_url"] = "https://data.riverscapes.net/p/" + newdf['rme_project_id'].astype(str)
-    ret_val = list(newdf[['rme_project_name', 'project_url']].itertuples(index=False, name=None))
+    newdf["project_url"] = "https://data.riverscapes.net/p/" + newdf[id_col].astype(str)
+    ret_val = list(newdf[[name_col, 'project_url']].itertuples(index=False, name=None))
     return ret_val
 
 

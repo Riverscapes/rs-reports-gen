@@ -3,7 +3,8 @@ from util.pandas.RSFieldMeta import RSFieldMeta, FieldMetaValues
 
 from util.pandas.pandas_utilities import (
     load_gdf_from_csv,
-    load_gdf_from_pq
+    load_gdf_from_pq,
+    pprint_df_meta,
 )
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "RSFieldMeta",
     "FieldMetaValues",
     "load_gdf_from_csv",
-    "load_gdf_from_pq"
+    "load_gdf_from_pq",
+    "pprint_df_meta",
 ]

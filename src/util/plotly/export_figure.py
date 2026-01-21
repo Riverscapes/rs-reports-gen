@@ -58,6 +58,7 @@ def export_figure(fig: go.Figure, out_dir: str | Path, name: str, mode: str,
     out_dir = Path(out_dir)
     if mode == "interactive":
         # Enable mode bar for interactivity (zoom, pan, etc.)
+        log.debug(f'Generating interactive fig name {name}')
         return pio.to_html(
             fig,
             include_plotlyjs=include_plotlyjs,
