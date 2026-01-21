@@ -1,0 +1,99 @@
+<!-- This is simply everything that exists inside the report's body 
+ 
+  refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
+-->
+{% from 'macros.html' import render_metric_grid %}
+<section>
+  <div class="section-context">
+    <p>The riverscapes dynamics report provides an example of a report generated from Riverscapes Dynamics data.</p>
+  </div>
+</section>
+<section id='toc'>
+  <h2>Table of Contents</h2>
+  <ol class="toc-list">
+    <li><a href="#key-indicators">Key Indicators</a></li>
+    <li><a href="#map-of-polygons">Report Area of Interest</a></li>
+    <li><a href="#histogram">30-year Epoch Histograph</a></li>
+    <li><a href="#area">Area Changes over Time</a></li>
+    <li><a href="#width">Width Changes over Time</a></li>
+    <li><a href="#appendices">Appendices</a></li>
+  </ol>
+</section>
+
+<div class="page-break-before"></div>
+<section id="map-of-polygons">
+  <h2>Report Area of Interest</h2>
+  <div class="section-context">
+    <p>The following map shows the area of interest chosen for the analysis. The figures that follow provide further
+      insights into this area.</p>
+  </div>
+  <figure class="report-figure map">
+    {{ figures['map']|safe }}
+  </figure>
+</section>
+<section id="histogram">
+  <h2>30-Year Epoch Histogram</h2>
+  <div class="section-context">
+    <p>This section provides an example of a histogram of data with a secondary dimension of flow type.</p>
+  </div>
+  <figure class="report-figure">
+    {{ figures['area-histogram-30']|safe}}
+  </figure>
+</section>
+<section id="area">
+  <h2>Riverscape Area Changes over Time</h2>
+  <div class="section-context">
+    <p>This section provides an example of line charts showing change in riverscape area, by landcover classification
+      and
+      confidence level, across 5-year epochs.</p>
+  </div>
+  <figure class="report-figure">
+    {{ figures['area-line-5yr']|safe }}
+  </figure>
+  <figure class="report-figure">
+    {{ figures['areapc-line-5yr']|safe}}
+  </figure>
+</section>
+<section id="width">
+  <h2>Riverscape Width Changes over Time</h2>
+  <div class="section-context">
+    <p>This section provides an example of line charts showing change in riverscape width, by landcover classification
+      and confidence level, across 5-year epochs.</p>
+  </div>
+  <figure class="report-figure">
+    {{ figures['width-line-5yr']|safe }}
+  </figure>
+  <figure class="report-figure">
+    {{ figures['widthpc-line-5yr']|safe}}
+  </figure>
+</section>
+
+
+<section id="appendices" class="appendix">
+  <h1>Appendices</h1>
+  <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
+  <!-- This is a list in the form: <li>Project Name - <a href="Project URL">Project URL</a></li> -->
+  <ul>
+    {% for project in appendices['project_ids'] %}
+    <li><a href="{{ project[1] }}"><strong>{{ project[0] }}</strong> - &lt;{{ project[1] }}&gt;</a></li>
+    {% endfor %}
+  </ul>
+  <h2>Appendix 2 - Source Data</h2>
+  <div class="section-context">
+    <p>This report was generated using data from the <a href="https://data.riverscapes.net">Riverscapes Data
+        Exchange</a>. Free, pubicly accessibable data were processed through a series of models by the Riverscapes
+      Consortium, to produce a Riverscapes Dynamics output. The segmentation of the river into polygons, or Discrete
+      Geographic Objects (DGOs) allows many metrics relating to river health to be applied to a suitably sized stretch
+      of riverscape area. </p>
+    <img src="https://pbr.riverscapes.net/NAR.png" align="left"
+      style="max-height: 80px; width: auto; object-fit: contain;" alt="North Arrow Research Logo">
+    <p>The model runs in question were all part of an initiative for <a
+        href="https://data.riverscapes.net/o/e7b017ae-9657-46e1-973a-aa50b7e245ad/">New Zealand Riverscapes</a> by <a
+        href="https://www.northarrowresearch.com/">North Arrow Research</a>.</p>
+  </div>
+  <h2>Appendix 3 - Questions</h2>
+  <div class="section-context">
+    <p>Contact the Riverscapes Consortium at support@riverscapes.freshdesk.com with any questions regarding this report.
+    </p>
+  </div>
+</section>

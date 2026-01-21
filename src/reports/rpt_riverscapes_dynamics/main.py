@@ -22,28 +22,22 @@ from util.athena import (
 )
 from util.color import DEFAULT_FCODE_COLOR_MAP
 from util.html import RSReport
-from util.pandas import load_gdf_from_pq
+from util.pandas import load_gdf_from_pq, pprint_df_meta
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 from util.figures import (
-    get_bins_info,
-    table_total_x_by_y,
     bar_group_x_by_y,
-    bar_total_x_by_ybins,
-    horizontal_bar_chart,
     make_aoi_outline_map,
-    make_rs_area_by_featcode,
     project_id_list,
-    metric_cards,
 )
 from reports.rpt_riverscapes_dynamics import __version__ as report_version
-# from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
-# from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
+from reports.rpt_riverscapes_dynamics.figures import linechart
+
+_FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
-    _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
     raw_table_meta = get_field_metadata(
         authority='data-exchange-scripts',
         authority_name='rsdynamics_to_athena',
@@ -59,13 +53,10 @@ def define_fields(unit_system: str = "SI"):
     # _FIELD_META.set_display_unit('centerline_length', 'kilometer')
     # _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
 
-    return
-
 
 def create_report_view_metadata():
     """Define the mapping from source tables to the report view and create the metadata references."""
     log = Logger('Add View Metadata')
-    _FIELD_META = RSFieldMeta()
     report_view_name = 'dynamics_report'
 
     # Define the Schema map: "DataFrame Column" -> "Source Table"
@@ -104,7 +95,7 @@ def create_report_view_metadata():
                 log.warning(f"Could not map metadata for view '{report_view_name}': {source_layer_id}.{col} -> {e}")
 
 
-def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
+def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
                 include_static: bool = True,
                 include_pdf: bool = True
@@ -123,39 +114,32 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     log = Logger('make report')
 
     log.info(f"Generating report in {report_dir}")
-    _edges, _labels, land_use_intens_bins_colours = get_bins_info('land_use_intens')
+    df_30yr_area = dynmetrics[
+        (dynmetrics['epoch_name'] == '1989_2024') &
+        (dynmetrics['confidence'] == '95')
+    ]
+    # We need to explicitly set the layer_id so that downstream figures can resolve metadata
+    df_30yr_area.attrs['layer_id'] = 'dynamics_report'
+    dynmetrics.attrs['layer_id'] = 'dynamics_report'
+
     figures = {
         "map": make_aoi_outline_map(aoi_df),
-        "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
-        "pie": make_rs_area_by_featcode(gdf),
-        "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
-        "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),
-        "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access']),
-        "land_use_intensity_bar": bar_group_x_by_y(gdf, 'segment_area', ['land_use_intens_bins'], {'color': land_use_intens_bins_colours}),
-        "hypsometry": hypsometry_fig(huc_df),
-        "confinement_length_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
-        "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
-        "beaver_dam_capacity_historical_bar": horizontal_bar_chart(gdf, 'centerline_length', ['brat_hist_capacity']),
-        "beaver_dam_capacity_current_bar": horizontal_bar_chart(gdf, 'centerline_length', ['brat_capacity']),
-        "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
-        "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
-        "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure']),  # need to check these bins, also reverse them
-        "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bins'])
+        "area-histogram-30": bar_group_x_by_y(df_30yr_area, 'area', ['landcover']),
+        "area-line-5yr": linechart(dynmetrics, 'area'),
+        "areapc-line-5yr": linechart(dynmetrics, 'areapc'),
+        "width-line-5yr": linechart(dynmetrics, 'width'),
+        "widthpc-line-5yr": linechart(dynmetrics, 'widthpc')
     }
-    tables = {
-        "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name']),
-        "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
-        "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc'])
-    }
+
     appendices = {
-        "project_ids": project_id_list(gdf),
+        "project_ids": project_id_list(gdf, id_col='rd_project_id', name_col='rs_project_name'),
     }
     figure_dir = report_dir / 'figures'
     safe_makedirs(str(figure_dir))
 
     report = RSReport(
         report_name=report_name,
-        report_type="Riverscapes Inventory",
+        report_type="Riverscapes Dynamics",
         report_dir=report_dir,
         report_version=report_version,
         figure_dir=figure_dir,
@@ -165,14 +149,11 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
     for (name, fig) in figures.items():
         report.add_figure(name, fig)
 
-    report.add_html_elements('tables', tables)
+    # # all_stats = statistics(gdf)
+    # # metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
+    # # metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
 
-    all_stats = statistics(gdf)
-    metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
-    metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
-    if nid_gdf is not None:
-        metric_data_for_key_indicators['total_dams'] = len(nid_gdf)
-    report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
+    # report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
     report.add_html_elements('appendices', appendices)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
@@ -217,6 +198,129 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
     return df
 
 
+def get_report_data(aoi_gdf: gpd.GeoDataFrame, report_dir: Path, parquet_override: Path | None) -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
+    """Get the report data for AOI, either from athena using the AOI or from parquet files at parquet_override (does not use the AOI)
+    """
+    log = Logger('Get report data')
+    if parquet_override:
+        parquet_data_source = Path(parquet_override)
+        if not parquet_data_source.exists():
+            raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
+        log.info(f"Using supplied Parquet data files at {parquet_override}")
+    else:
+        parquet_data_source = report_dir / "pq"
+        # use shape to query Athena
+        query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
+        if not simplification_results.success:
+            raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
+        if simplification_results.simplified:
+            log.warning(
+                f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
+                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.""")
+
+        log.info("Querying Athena for data for AOI")
+
+        # refactored to get all the data from the wide "rsydnamics' plus the long "rsdynamics_metrics"
+        # in a single nested result (ARRAY_AGG)
+        # -- Use ID from  project_id and 'r' for grouping
+        # -- Optimization: Don't group by Geometry. Use ARBITRARY() to pass it through.
+        # -- Collapse the 30 metric rows into one list of structs
+        query_str = """
+SELECT 
+    r.rd_project_id, 
+    r.dgo_id,
+    ANY_VALUE(p.name) AS rs_project_name,  
+    ANY_VALUE(r.huc) AS huc, 
+    ANY_VALUE(r.dgo_geom) AS dgo_geom,
+    ARRAY_AGG(
+        CAST(
+            ROW(
+                m.landcover,
+                m.epoch_length,
+                m.epoch_name,
+                m.confidence,
+                m.area,
+                m.areapc,
+                m.width,
+                m.widthpc
+            ) AS ROW(
+                landcover VARCHAR,
+                epoch_length VARCHAR,
+                epoch_name VARCHAR,
+                confidence VARCHAR,
+                area DOUBLE,
+                areapc DOUBLE,
+                width DOUBLE,
+                widthpc DOUBLE
+            )
+        )
+    ) AS metrics_list
+FROM rsdynamics r
+JOIN rsdynamics_metrics m 
+    ON (r.rd_project_id = m.rd_project_id AND r.dgo_id = m.dgo_id)
+JOIN dex_projects p
+    ON (p.archived = FALSE AND p.project_type_id='rsdynamics' and r.rd_project_id = p.project_id)
+WHERE {prefilter_condition} AND {intersects_condition}
+GROUP BY 
+    r.rd_project_id,
+    r.dgo_id
+"""
+
+        aoi_query_to_local_parquet(
+            query_str,
+            geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
+            geom_bbox_field='dgo_geom_bbox',
+            aoi_gdf=query_gdf,
+            local_path=parquet_data_source
+        )
+
+    df_raw = load_gdf_from_pq(parquet_data_source, geometry_col=None)
+
+    # RESTRUCTURE THE DATAFRAME into 2
+    # 1. Convert to category and SET THE INDEX IMMEDIATELY
+    # This establishes the "rd_project_id + dgo_id" as the unique identifier
+    for col in ['rd_project_id', 'huc']:
+        df_raw[col] = df_raw[col].astype('category')
+    df_raw = df_raw.set_index(['rd_project_id', 'dgo_id'])
+
+    # ---------------------------------------------------------
+    # 2. CREATE GEO DATAFRAME (The 1 side of 1:N)
+    # ---------------------------------------------------------
+    # Since the index is already set, we just grab the columns we want.
+    # We copy first to avoid SettingWithCopy warnings and decouple from df_raw
+    df_geo_data = df_raw[['huc', 'dgo_geom', 'rs_project_name']].copy()
+
+    # Reset index to move 'rd_project_id' and 'dgo_id' back to columns
+    # This makes them accessible for reports and plotting without duplicating storage in df_raw
+    df_geo_data = df_geo_data.reset_index()
+
+    # Convert to GeoDataFrame
+    # 1. Fast Vectorized Conversion
+    # This is much faster than .apply(wkb.loads)
+    df_geo_data['dgo_geom'] = gpd.GeoSeries.from_wkb(df_geo_data['dgo_geom'])
+    # although it is standard to name the geom column geometry, it isn't required, and since we deal with many geoms I like to keep it more specific
+
+    # 2. "Cast" to GeoDataFrame (Overwrite the variable)
+    #    This consumes the old DataFrame and returns the GeoDataFrame wrapper.
+    #    Pandas is smart enough to pass the data by reference here (it's a view),
+    #    so no deep copy of the data occurs.
+    df_geo_data = gpd.GeoDataFrame(df_geo_data, geometry='dgo_geom')
+
+    # Now df_geo_data has all the spatial powers (crs, plot, etc.)
+    # df_geo_data.set_crs(epsg=4326, inplace=True)
+
+    # A. Explode: Turn 1 row with a list of 30 items into 30 rows
+    exploded_series = df_raw['metrics_list'].explode()
+
+    # B. Normalize: Turn the dictionary/struct column into separate columns
+    # AWS Wrangler usually returns ROW types as Python dictionaries
+    df_metrics = pd.DataFrame(
+        exploded_series.tolist(),
+        index=exploded_series.index
+    )
+    return (df_geo_data, df_metrics)
+
+
 def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: str,
                              include_pdf: bool = True, unit_system: str = "SI",
                              parquet_override: Path | None = None,
@@ -250,43 +354,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # Start Metadata definition immediately
     meta_future = executor.submit(define_fields, unit_system)
 
-    if parquet_override:
-        parquet_data_source = Path(parquet_override)
-        if not parquet_data_source.exists():
-            raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
-        log.info(f"Using supplied Parquet data files at {parquet_override}")
-    else:
-        parquet_data_source = report_dir / "pq"
-        # use shape to query Athena
-        query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
-        if not simplification_results.success:
-            raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
-        if simplification_results.simplified:
-            log.warning(
-                f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
-                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.""")
-
-        log.info("Querying Athena for data for AOI")
-
-        query_str = """
-SELECT r.huc, r.rd_project_id,
-        m.dgo_id, m.landcover, m.epoch_length, m.epoch_name, m.confidence,
-        m.area, m.areapc,
-        m.width, m.widthpc
-FROM rsdynamics r
-JOIN rsdynamics_metrics m ON (r.rd_project_id = m.rd_project_id AND r.dgo_id = m.dgo_id)
-WHERE {prefilter_condition} AND {intersects_condition}
-"""
-
-        aoi_query_to_local_parquet(
-            query_str,
-            geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
-            geom_bbox_field='dgo_geom_bbox',
-            aoi_gdf=query_gdf,
-            local_path=parquet_data_source
-        )
-
-    data_gdf = load_gdf_from_pq(parquet_data_source)
+    gdf_dgo, df_metrics = get_report_data(aoi_gdf, report_dir, parquet_override)
 
     # Ensure metadata is loaded before applying units
     try:
@@ -296,25 +364,33 @@ WHERE {prefilter_condition} AND {intersects_condition}
         log.error(f"Failed to load field metadata: {e}")
         raise e
 
-    data_gdf, _ = RSFieldMeta().apply_units(data_gdf, 'dynamics_report')  # this is still a geodataframe but we will need to be more explicit about it for type checking
+    df_metrics, _ = _FIELD_META.apply_units(df_metrics, 'dynamics_report')  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
-    unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
-    huc_data_df = load_huc_data(unique_huc10)
-    # print(huc_data_df)  # for DEBUG ONLY
+    # Convert categorical columns that plotting libraries expect to be categories
+    # We do this AFTER apply_units because default metadata might cast them explicitly to string
+    # TODO: change apply_units etc. to not screw up dataframes that have columns set as categories unless that is explicitly asked for
+    for col in ['landcover', 'epoch_length', 'epoch_name', 'confidence']:
+        if col in df_metrics.columns:
+            df_metrics[col] = df_metrics[col].astype('category')
+
+    pprint_df_meta(df_metrics, 'dynamics_report')  # for DEBUG ONLY
+    # this is not going to work
+    pprint_df_meta(gdf_dgo, 'dynamics_report')  # for DEBUG ONLY
 
     # Export the data to Excel
     # dumping all the raw data is not appropriate especially for very large areas
-    RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
+    # RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
-    make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name,
+    make_report(gdf_dgo, df_metrics, aoi_gdf, report_dir, report_name,
                 include_static=include_pdf,
                 include_pdf=include_pdf
                 )
 
-    if not keep_parquet:
+    if not keep_parquet and not parquet_override:
         try:
+            parquet_data_source = report_dir / "pq"
             if parquet_data_source.exists():
                 shutil.rmtree(parquet_data_source)
                 log.info(f"Deleted Parquet staging folder {parquet_data_source}")

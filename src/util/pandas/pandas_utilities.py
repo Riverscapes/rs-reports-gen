@@ -32,12 +32,13 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = N
         distinct_count = df[col].nunique()
 
         # Sampling
-        first_valid_index = df[col].first_valid_index()
+        # Use dropna().iloc[0] to avoid issues with MultiIndex/Duplicate Index and PerformanceWarnings
+        valid_values = df[col].dropna()
         raw_sample = None
         raw_sample_str = "<All NA>"
-        if first_valid_index is not None:
-            # Use loc to get value
-            raw_sample = df[col].loc[first_valid_index]
+
+        if not valid_values.empty:
+            raw_sample = valid_values.iloc[0]
             raw_sample_str = str(raw_sample)
 
         # Metadata

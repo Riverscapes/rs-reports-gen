@@ -419,7 +419,7 @@ class RSFieldMeta:
                 return unique_id
             if raise_on_missing:
                 raise ValueError(f"Column '{column_name}' does not exist in layer '{layer_id}'.")
-            self._log.warning(f"Column '{column_name}' does not exist in layer '{layer_id}'.")
+            self._log.debug(f"Column '{column_name}' does not exist in layer '{layer_id}'.")
             return None
 
         lookup_name = str(column_name).lower()
@@ -509,9 +509,9 @@ class RSFieldMeta:
 
         Args:
             col (str): The column name to get metadata for.
+            layer_id (str): Disambiguation for column
         Returns:
             FieldMetaValues | None: The metadata object for the column or None if not found.
-        TODO: include layer_id
         """
         self._no_data_warning()
         if self._field_meta is None:
@@ -749,7 +749,7 @@ class RSFieldMeta:
                         applied_unit = fm.data_unit
                         self._log.debug(f'Applied {fm.data_unit} to {col} with no_convert using data unit {preferred_unit}')
                 else:
-                    preferred_unit = self.get_field_unit(col)
+                    preferred_unit = self.get_field_unit(col, layer_id=layer_id)
                     df_copy[col] = df_copy[col].pint.to(preferred_unit)
                     # put back the dtype
                     # df_copy[col] = df_copy[col].astype(dtype)
@@ -944,11 +944,12 @@ class RSFieldMeta:
 
         Issue: Since the return df has different headers from the original, it loses the connection to the metadata (will not be able to get description)
         """
-
+        # Try to resolve layer_id from dataframe attributes
+        layer_id = df.attrs.get('layer_id') if hasattr(df, 'attrs') else None
         # First apply the units
-        df_baked, _ = self.apply_units(df)
+        df_baked, _ = self.apply_units(df, layer_id=layer_id)
         # Now get the headers
-        headers = self.get_headers(df, include_units=header_units)
+        headers = self.get_headers(df, include_units=header_units, layer_id=layer_id)
 
         # Vectorized conversion for pint columns (robust check)
         for column in list(df_baked.columns):
