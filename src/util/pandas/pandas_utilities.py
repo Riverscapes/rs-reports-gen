@@ -12,9 +12,13 @@ ureg = pint.UnitRegistry()
 
 def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = None):
     """Pretty print a summary of a dataframe AND the metadata
-    the layer_id is used for metadata disambiguation, if provided
+    the layer_id is used for metadata disambiguation, if provided 
+    otherwise, if the df has attrs['layer_id'] that is used 
     """
-    print(f'DataFrame: {layer_id if layer_id else "Unnamed"}')
+    if not layer_id:
+        # Try to resolve layer_id from dataframe attributes
+        layer_id = df.attrs.get('layer_id') if hasattr(df, 'attrs') else None
+    print(f'DataFrame with layer_id: {layer_id if layer_id else "<NONE>"}')
     print('-' * 120)
     print(f'Shape (rows, cols): {df.shape}\n')
     meta = RSFieldMeta()
@@ -170,7 +174,8 @@ def load_gdf_from_pq(
     else:
         parquet_files = list_athena_unload_payload_files(pq_path)
     if not parquet_files:
-        raise FileNotFoundError(f"No Parquet files found in {pq_path}")
+        return pd.DataFrame()
+
     dfs = [pq.ParquetFile(p).read().to_pandas() for p in parquet_files]
     df = pd.concat(dfs, ignore_index=True) if len(dfs) > 1 else dfs[0]
     if geometry_col and geometry_col in df.columns:

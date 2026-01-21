@@ -17,21 +17,19 @@ from rsxml.util import safe_makedirs
 from util import prepare_gdf_for_athena
 from util.athena import (
     aoi_query_to_local_parquet,
-    athena_unload_to_dataframe,
     get_field_metadata
 )
-from util.color import DEFAULT_FCODE_COLOR_MAP
 from util.html import RSReport
 from util.pandas import load_gdf_from_pq, pprint_df_meta
-from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.pandas import RSFieldMeta
 from util.pdf import make_pdf_from_html
 from util.figures import (
-    bar_group_x_by_y,
     make_aoi_outline_map,
     project_id_list,
+    metric_cards,
 )
 from reports.rpt_riverscapes_dynamics import __version__ as report_version
-from reports.rpt_riverscapes_dynamics.figures import linechart
+from reports.rpt_riverscapes_dynamics.figures import linechart, statistics, area_histogram
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
@@ -64,6 +62,8 @@ def create_report_view_metadata():
         # rsdynamics
         'huc': 'rsdynamics',
         'rd_project_id': 'rsdynamics',
+        'centerline_length': 'rsdynamics',
+        'segment_area': 'rsdynamics',
 
         # rsdynamics_metrics
         'dgo_id': 'rsdynamics_metrics',
@@ -98,7 +98,8 @@ def create_report_view_metadata():
 def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
                 include_static: bool = True,
-                include_pdf: bool = True
+                include_pdf: bool = True,
+                error_message: str | None = None
                 ):
     """
     Generates HTML report(s) in report_dir.
@@ -110,30 +111,29 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
         report_name (str): The name of the report.
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
+        error_message: display to user *instead* of any figures
     """
     log = Logger('make report')
 
     log.info(f"Generating report in {report_dir}")
-    df_30yr_area = dynmetrics[
-        (dynmetrics['epoch_name'] == '1989_2024') &
-        (dynmetrics['confidence'] == '95')
-    ]
-    # We need to explicitly set the layer_id so that downstream figures can resolve metadata
-    df_30yr_area.attrs['layer_id'] = 'dynamics_report'
-    dynmetrics.attrs['layer_id'] = 'dynamics_report'
 
-    figures = {
-        "map": make_aoi_outline_map(aoi_df),
-        "area-histogram-30": bar_group_x_by_y(df_30yr_area, 'area', ['landcover']),
-        "area-line-5yr": linechart(dynmetrics, 'area'),
-        "areapc-line-5yr": linechart(dynmetrics, 'areapc'),
-        "width-line-5yr": linechart(dynmetrics, 'width'),
-        "widthpc-line-5yr": linechart(dynmetrics, 'widthpc')
-    }
+    figures = {}
+    appendices = {}
 
-    appendices = {
-        "project_ids": project_id_list(gdf, id_col='rd_project_id', name_col='rs_project_name'),
-    }
+    if error_message is None:
+        figures.update({
+            "map": make_aoi_outline_map(aoi_df),
+            "area-histogram-30": area_histogram(dynmetrics),
+            "area-line-5yr": linechart(dynmetrics, 'area'),
+            "areapc-line-5yr": linechart(dynmetrics, 'areapc'),
+            "width-line-5yr": linechart(dynmetrics, 'width'),
+            "widthpc-line-5yr": linechart(dynmetrics, 'widthpc')
+        })
+
+        appendices = {
+            "project_ids": project_id_list(gdf, id_col='rd_project_id', name_col='rs_project_name'),
+        }
+
     figure_dir = report_dir / 'figures'
     safe_makedirs(str(figure_dir))
 
@@ -146,15 +146,20 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
         body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
         css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
     )
-    for (name, fig) in figures.items():
-        report.add_figure(name, fig)
 
-    # # all_stats = statistics(gdf)
-    # # metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
-    # # metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
+    if error_message:
+        report.add_html_elements('error_message', {'text': error_message})
+    else:
+        for (name, fig) in figures.items():
+            report.add_figure(name, fig)
 
-    # report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
-    report.add_html_elements('appendices', appendices)
+        # calculate statistics and make cards
+        all_stats = statistics(gdf)
+        metrics_for_key_indicators = ['count_dgos', 'total_segment_area', 'total_centerline_length',  'integrated_valley_bottom_width']
+        metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
+
+        report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
+        report.add_html_elements('appendices', appendices)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -171,31 +176,6 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
         log.info(f'Static: {static_path}')
     if pdf_path:
         log.info(f'PDF: {pdf_path}')
-
-
-def load_huc_data(hucs: list[str]) -> pd.DataFrame:
-    """Queries rscontext_huc10 for all the huc10 watersheds that intersect the aoi
-    * this could be a spatial query but we already have the huc12 from data_gdf so this is much faster
-    * FUTURE ENHANCEMENT - take the aoi and join with huc geometries to produce some statistics about the amount of intersection between them
-    * FUTURE ENHANCEMENT: check if we got data for all the hucs we were looking for
-    """
-    log = Logger('Load HUC data')
-
-    if not hucs or len(hucs) == 0:
-        log.error('No hucs provided to load_huc_data')
-        return pd.DataFrame()  # return empty dataframe
-
-    # Basic input sanitation: ensure all hucs are strings, length 10, digits only, and unique
-    clean_hucs = {h for h in hucs if isinstance(h, str) and len(h) == 10 and h.isdigit()}
-    if not clean_hucs or (len(clean_hucs) != len(hucs)):
-        log.error('No hucs, duplicate huc or unexpected value in huc list')
-
-    # Prepare SQL-safe quoted list
-    huc_sql = '(' + ','.join([f"'{h}'" for h in clean_hucs]) + ')'
-    sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
-
-    df = athena_unload_to_dataframe(sql_str)
-    return df
 
 
 def get_report_data(aoi_gdf: gpd.GeoDataFrame, report_dir: Path, parquet_override: Path | None) -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
@@ -232,6 +212,8 @@ SELECT
     ANY_VALUE(p.name) AS rs_project_name,  
     ANY_VALUE(r.huc) AS huc, 
     ANY_VALUE(r.dgo_geom) AS dgo_geom,
+    ANY_VALUE(centerline_length) AS centerline_length,
+    ANY_VALUE(segment_area) as segment_area,
     ARRAY_AGG(
         CAST(
             ROW(
@@ -276,6 +258,10 @@ GROUP BY
 
     df_raw = load_gdf_from_pq(parquet_data_source, geometry_col=None)
 
+    # Check for empty result before proceeding
+    if df_raw.empty:
+        return (gpd.GeoDataFrame(), pd.DataFrame())
+
     # RESTRUCTURE THE DATAFRAME into 2
     # 1. Convert to category and SET THE INDEX IMMEDIATELY
     # This establishes the "rd_project_id + dgo_id" as the unique identifier
@@ -288,7 +274,7 @@ GROUP BY
     # ---------------------------------------------------------
     # Since the index is already set, we just grab the columns we want.
     # We copy first to avoid SettingWithCopy warnings and decouple from df_raw
-    df_geo_data = df_raw[['huc', 'dgo_geom', 'rs_project_name']].copy()
+    df_geo_data = df_raw[['huc', 'dgo_geom', 'rs_project_name', 'centerline_length', 'segment_area']].copy()
 
     # Reset index to move 'rd_project_id' and 'dgo_id' back to columns
     # This makes them accessible for reports and plotting without duplicating storage in df_raw
@@ -356,36 +342,49 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
     gdf_dgo, df_metrics = get_report_data(aoi_gdf, report_dir, parquet_override)
 
-    # Ensure metadata is loaded before applying units
-    try:
-        meta_future.result()
-        log.info("Metadata loaded successfully.")
-    except Exception as e:
-        log.error(f"Failed to load field metadata: {e}")
-        raise e
+    error_msg = None
+    if gdf_dgo.empty:
+        error_msg = "No data found for the selected Area of Interest."
+        log.warning(error_msg)
 
-    df_metrics, _ = _FIELD_META.apply_units(df_metrics, 'dynamics_report')  # this is still a geodataframe but we will need to be more explicit about it for type checking
+    else:
+        # We need to explicitly set the layer_id so that downstream figures can resolve metadata
+        # any dataframes copied from these inherit the attr
+        gdf_dgo.attrs['layer_id'] = 'dynamics_report'
+        df_metrics.attrs['layer_id'] = 'dynamics_report'
 
-    # Convert categorical columns that plotting libraries expect to be categories
-    # We do this AFTER apply_units because default metadata might cast them explicitly to string
-    # TODO: change apply_units etc. to not screw up dataframes that have columns set as categories unless that is explicitly asked for
-    for col in ['landcover', 'epoch_length', 'epoch_name', 'confidence']:
-        if col in df_metrics.columns:
-            df_metrics[col] = df_metrics[col].astype('category')
+        # Ensure metadata is loaded before applying units
+        try:
+            meta_future.result()
+            log.info("Metadata loaded successfully.")
+        except Exception as e:
+            log.error(f"Failed to load field metadata: {e}")
+            raise e
 
-    pprint_df_meta(df_metrics, 'dynamics_report')  # for DEBUG ONLY
-    # this is not going to work
-    pprint_df_meta(gdf_dgo, 'dynamics_report')  # for DEBUG ONLY
+        df_metrics, _ = _FIELD_META.apply_units(df_metrics, 'dynamics_report')  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
-    # Export the data to Excel
-    # dumping all the raw data is not appropriate especially for very large areas
-    # RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
+        # Convert categorical columns that plotting libraries expect to be categories
+        # We do this AFTER apply_units because default metadata might cast them explicitly to string
+        # TODO: change apply_units etc. to not screw up dataframes that have columns set as categories unless that is explicitly asked for
+        for col in ['landcover', 'epoch_length', 'epoch_name', 'confidence']:
+            if col in df_metrics.columns:
+                df_metrics[col] = df_metrics[col].astype('category')
+
+        pprint_df_meta(df_metrics, 'dynamics_report')  # for DEBUG ONLY
+        # this is not going to work
+        pprint_df_meta(gdf_dgo, 'dynamics_report')  # for DEBUG ONLY
+
+        # Export the data to Excel
+        # dumping all the raw data is not appropriate especially for very large areas
+        # RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
+
     make_report(gdf_dgo, df_metrics, aoi_gdf, report_dir, report_name,
                 include_static=include_pdf,
-                include_pdf=include_pdf
+                include_pdf=include_pdf,
+                error_message=error_msg
                 )
 
     if not keep_parquet and not parquet_override:
