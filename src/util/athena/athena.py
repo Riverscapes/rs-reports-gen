@@ -188,7 +188,7 @@ SELECT layer_id, layer_name, name, friendly_name, data_unit, description, theme,
 FROM layer_definitions_latest
 WHERE authority = '{authority}' {and_auth_name} {and_layer_id} {and_col_name}
 """
-    df = query_to_dataframe(query)
+    df = query_to_dataframe(query, "layer_definitions")
     if df.empty:
         raise RuntimeError("Failed to retrieve metadata from Athena.")
     return df
@@ -286,7 +286,7 @@ def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str,
         Returns: geodataframe. 
     """
     prepared_query = prepare_aoi_query(querystr, geometry_field_expression, geom_bbox_field, aoi_gdf)
-    df = query_to_dataframe(prepared_query)
+    df = query_to_dataframe(prepared_query, 'aoi_query')
     return df
 
 
