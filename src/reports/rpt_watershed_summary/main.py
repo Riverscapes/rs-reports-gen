@@ -276,6 +276,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
     if df_aggregatedata.empty:
         # we send 3 empty dataframes and error_message
         make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name,
+                    include_pdf, include_pdf,
                     error_message="No results found for selection.")
     else:
         # although it doesn't make much difference with these quick queries, parallelizing is good practice
