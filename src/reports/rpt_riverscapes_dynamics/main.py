@@ -240,7 +240,7 @@ SELECT
 FROM rsdynamics r
 JOIN rsdynamics_metrics m 
     ON (r.rd_project_id = m.rd_project_id AND r.dgo_id = m.dgo_id)
-JOIN dex_projects p
+JOIN data_exchange_projects p
     ON (p.archived = FALSE AND p.project_type_id='rsdynamics' and r.rd_project_id = p.project_id)
 WHERE {prefilter_condition} AND {intersects_condition}
 GROUP BY 
@@ -336,10 +336,9 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # 1. Metadata definition (Athena query)
     meta_future = None
     executor = ThreadPoolExecutor(max_workers=2)
-
-    # Start Metadata definition immediately
     meta_future = executor.submit(define_fields, unit_system)
 
+    # meanwhile, get report data
     gdf_dgo, df_metrics = get_report_data(aoi_gdf, report_dir, parquet_override)
 
     error_msg = None
