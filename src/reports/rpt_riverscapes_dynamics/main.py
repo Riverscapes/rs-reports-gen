@@ -179,7 +179,7 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
 
 
 def get_report_data(aoi_gdf: gpd.GeoDataFrame, report_dir: Path, parquet_override: Path | None) -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
-    """Get the report data for AOI, either from athena using the AOI or from parquet files at parquet_override (does not use the AOI)
+    """Get the report data for AOI, either from Athena using the AOI or from parquet files at parquet_override (does not use the AOI)
     """
     log = Logger('Get report data')
     if parquet_override:
@@ -361,6 +361,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
             raise e
 
         df_metrics, _ = _FIELD_META.apply_units(df_metrics, 'dynamics_report')  # this is still a geodataframe but we will need to be more explicit about it for type checking
+        gdf_dgo, _ = _FIELD_META.apply_units(gdf_dgo, 'dynamics_report')
 
         # Convert categorical columns that plotting libraries expect to be categories
         # We do this AFTER apply_units because default metadata might cast them explicitly to string
@@ -370,7 +371,6 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
                 df_metrics[col] = df_metrics[col].astype('category')
 
         pprint_df_meta(df_metrics, 'dynamics_report')  # for DEBUG ONLY
-        # this is not going to work
         pprint_df_meta(gdf_dgo, 'dynamics_report')  # for DEBUG ONLY
 
         # Export the data to Excel

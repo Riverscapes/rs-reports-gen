@@ -603,6 +603,8 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # if you want different units or descriptions then give them different names and add rsfieldmeta
     # Add field meta if not already present
     # TODO: use data_units of segment_area and centerline_length rather than assuming they are km
+    # A: we don't reapply units based on metadata - we get the units from the Quantity instead
+    # It's confusing to have units in metadata and in the dataframe that diverge. A diagram of the flow would be helpful.
     RSFieldMeta().add_field_meta(
         name='total_segment_area',
         friendly_name='Total Riverscape Area',
@@ -633,7 +635,8 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     )
 
     # Compose result dictionary
-    # TODO: check. surely we don't want km and yards mixed? what's going on here
+    # TODO: check. surely we don't want km and yards mixed? what's going on here.
+    # A: it's not causing problems because we convert again before presentation.
     stats = {
         'total_segment_area': total_segment_area.to('kilometer ** 2'),  # acres and hectares will be interchangeable based on unit system
         'total_centerline_length': total_centerline_length.to('kilometer'),  # miles and km will be interchangeable based on unit system

@@ -444,12 +444,13 @@ class RSFieldMeta:
         orig_layer_id: str | None = None, new_layer_id: str | None = None,
         new_friendly: str | None = None, new_description: str | None = None,
         new_data_unit: str | None = None, new_display_unit: str | None = None,
-        new_dtype: str | None = None, new_no_convert: bool | None = None
+        new_dtype: str | None = None, new_no_convert: bool | None = None,
+        new_preferred_format: str | None = None
     ) -> FieldMetaValues | None:
         """Duplicate a row of the metadata table, optionally overriding fields.
 
         Returns:
-            str: The name of the new metadata row.
+            FieldMetaValues | None: The new metadata object.
         Raises:
             RuntimeError: If metadata is not set.
             ValueError: If original does not exist or new already exists.
@@ -468,12 +469,13 @@ class RSFieldMeta:
                 raise ValueError(msg.replace("Column", "Original column", 1)) from exc
             raise ValueError(f"Original column '{orig_name}' does not exist in metadata.") from exc
 
-        orig_row = self._field_meta.loc[orig_id]
-        orig_layer_value = orig_row.get('layer_id')
-        if pd.isna(orig_layer_value):
-            orig_layer_value = ""
+        # Retrieve the original metadata as an object
+        fm = self.get_field_meta(orig_name, orig_layer_id)
+        if not fm:
+            # Should be unreachable given prior checks, but defensiveness applies
+            raise ValueError(f"Could not retrieve metadata for '{orig_name}'.")
 
-        resolved_new_layer = new_layer_id if new_layer_id is not None else orig_layer_value
+        resolved_new_layer = new_layer_id if new_layer_id is not None else fm.layer_id
         new_id = _get_unique_id(resolved_new_layer, new_name)
 
         if new_id in self._field_meta.index:
@@ -481,28 +483,21 @@ class RSFieldMeta:
                 raise ValueError(f"New column '{new_name}' already exists in layer '{resolved_new_layer}'.")
             raise ValueError(f"New column '{new_name}' already exists in metadata.")
 
-        new_row = orig_row.copy()
-        new_row['name'] = new_name
-        new_row['layer_id'] = resolved_new_layer
+        # Create the new field using the high-level API
+        self.add_field_meta(
+            name=new_name,
+            layer_id=resolved_new_layer,
+            friendly_name=new_friendly if new_friendly is not None else fm.friendly_name,
+            data_unit=new_data_unit if new_data_unit is not None else fm.data_unit,
+            display_unit=new_display_unit if new_display_unit is not None else fm.display_unit,
+            dtype=new_dtype if new_dtype is not None else fm.dtype,
+            no_convert=new_no_convert if new_no_convert is not None else fm.no_convert,
+            description=new_description if new_description is not None else fm.description,
+            preferred_format=new_preferred_format if new_preferred_format is not None else fm.preferred_format
+        )
 
-        if new_friendly is not None:
-            new_row["friendly_name"] = new_friendly
-        if new_description is not None:
-            new_row["description"] = new_description
-        if new_data_unit is not None:
-            new_row["data_unit"] = self._coerce_unit(new_data_unit)
-        if new_display_unit is not None:
-            new_row["display_unit"] = self._coerce_unit(new_display_unit)
-        if new_dtype is not None:
-            new_row["dtype"] = new_dtype
-        if new_no_convert is not None:
-            new_row["no_convert"] = bool(new_no_convert)
-
-        # Ensure the index is set to new_name
-        new_row.name = new_id
-        self._field_meta = pd.concat([self._field_meta, pd.DataFrame([new_row])])
         self._log.info(f"Duplicated metadata from '{orig_id}' to '{new_id}'.")
-        return self.get_field_meta(new_name, resolved_new_layer if resolved_new_layer else None)
+        return self.get_field_meta(new_name, resolved_new_layer)
 
     def get_field_meta(self, column_name: str, layer_id: str | None = None) -> FieldMetaValues | None:
         """Get the field metadata for a specific column. This returns a FieldMetaValues object.
@@ -528,7 +523,7 @@ class RSFieldMeta:
 
         meta_row = self._field_meta.loc[unique_id]
         meta_values = FieldMetaValues()
-        meta_values.name = meta_row.get('name', '')
+        meta_values.name = str(meta_row.get('name', ''))
         meta_values.friendly_name = str(meta_row.get("friendly_name", ''))
         meta_values.layer_id = str(meta_row.get("layer_id", ''))
         meta_values.data_unit = meta_row.get("data_unit")
