@@ -32,11 +32,16 @@ def linechart(df_metrics: pd.DataFrame, metric_colnm: str) -> go.Figure:
     # 3. Apply to your filtered dataframe
     filtered_df['epoch_name'] = filtered_df['epoch_name'].cat.set_categories(valid_5yr_epochs)
 
-    metric_summary = filtered_df.groupby(['landcover', 'epoch_name', 'confidence'], observed=False)[metric_colnm].sum().reset_index()
+    layer_id = df_metrics.attrs.get('layer_id') if hasattr(df_metrics, 'attrs') else None
+    # sum isn't good for percent metrics
+
+    if RSFieldMeta().get_field_unit(metric_colnm, layer_id=layer_id) == pint.Unit('%'):
+        metric_summary = filtered_df.groupby(['landcover', 'epoch_name', 'confidence'], observed=False)[metric_colnm].mean().reset_index()
+    else:
+        metric_summary = filtered_df.groupby(['landcover', 'epoch_name', 'confidence'], observed=False)[metric_colnm].sum().reset_index()
     metric_summary = metric_summary.sort_values('epoch_name')
 
     # Try to resolve layer_id from dataframe attributes and add to new dataframe
-    layer_id = df_metrics.attrs.get('layer_id') if hasattr(df_metrics, 'attrs') else None
     metric_summary.attrs['layer_id'] = layer_id
     baked_chart_data, _baked_headers = RSFieldMeta().bake_units(metric_summary)
     baked_header_lookup = RSFieldMeta().get_headers_dict(metric_summary, layer_id=layer_id)
