@@ -39,11 +39,13 @@ def linechart(df_metrics: pd.DataFrame, metric_colnm: str) -> go.Figure:
     layer_id = df_metrics.attrs.get('layer_id') if hasattr(df_metrics, 'attrs') else None
     metric_summary.attrs['layer_id'] = layer_id
     baked_chart_data, _baked_headers = RSFieldMeta().bake_units(metric_summary)
+    baked_header_lookup = RSFieldMeta().get_headers_dict(metric_summary, layer_id=layer_id)
 
     title = f'{metric_colnm.capitalize()} by Landcover over Time (Epoch Length 5)'
     # Create line chart
     fig = px.line(baked_chart_data, x='epoch_name', y=metric_colnm, color='landcover', line_dash='confidence',
                   title=title,
+                  labels=baked_header_lookup,
                   line_dash_map={'95': 'solid', '68': 'dash'})
     return fig
 
