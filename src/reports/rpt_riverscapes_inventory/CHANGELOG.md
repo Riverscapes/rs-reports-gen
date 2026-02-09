@@ -1,5 +1,9 @@
 # Riverscapes Inventory Report Changes
 
+## Version 0.3.1
+
+* Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
+
 ## Version 0.3.0
 
 * Add national inventory of dams data queried from USACE esri feature server API.
