@@ -16,10 +16,12 @@
 - **Testing:** Tests are in `tests/` and use `pytest`. Run with `pytest` from the repo root.
 
 ## Project Conventions
+- always include function and module typestrings. If the function or module is 100% copilot written, say so
 - **Typing:** Use Python 3.12+ type hints (prefer `str`, `list`, etc. over `typing.List`).
+- Prefer using `Path` from `pathlib` over `os.path` 
 - **Watershed IDs:** HUC codes are left-padded with zeros and indicate nested watershed hierarchy (see `.github/prompts/prompt.md`).
 - **Templates:** HTML/Jinja2 templates for reports are in each report's `templates/` folder. Shared HTML boilerplate is in `src/util/html/templates/`.
-- **Data:** Example data and outputs are in each report's `example/` folder.
+- **Data:** Example data (mostly inputs) are in each report's `example/` folder.
 - **Metadata Pattern:** Field/column metadata is a first-class concern. Reports export metadata as CSVs or in Excel (see `field_metadata_to_file` in `rpt_igo_project/main.py`), and metadata is also embedded in GeoPackages. Always keep metadata in sync with data outputs.
 - **Units & Pint:** All quantitative fields use explicit units, managed with the `pint` and `pint-pandas` libraries. Always use Pint for unit conversions and ensure units are attached to DataFrames and outputs. See usage in `pyproject.toml` and report modules.
 
