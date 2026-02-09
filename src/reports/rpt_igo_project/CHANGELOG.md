@@ -4,6 +4,10 @@
 
 Internal use only
 
+### Version 0.3.2
+
+* Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
+
 ### 0.3.1 2025-12-11
 
 * use layer definitions data from Athena (which is populated by the `layer_definitions.json` in `data-exchange-script` where the scrape occurs)
