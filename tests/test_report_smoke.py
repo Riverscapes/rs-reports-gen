@@ -15,7 +15,7 @@ REPORTS = [
         "name": "IGO Project",
         "module": "reports.rpt_igo_project.main",
         "example_dir": "src/reports/rpt_igo_project/example",
-        "expected_files": ["README.md", "column_metadata.csv"],
+        "expected_files": ["README.md", "column_metadata.csv", "project.rs.xml", "outputs/riverscape_metrics.gpkg"],
         "construct_args": lambda module, inp, out: [
             sys.executable, "-m", module,
             os.environ.get("SPATIALITE_PATH", "MISSING_SPATIALITE"),
@@ -41,9 +41,18 @@ REPORTS = [
         "expected_files": ["report.html", "report.log"],
         "construct_args": lambda module, inp, out: [
             sys.executable, "-m", module, str(out), "1029010203", "TestWatershedReport"
-        ],
-    }
-    # Add more reports as needed
+        ]
+    },
+    {
+        "name": "riverscapes_inventory",
+        "module": "reports.rpt_riverscapes_inventory.main",
+        "example_dir": "src/reports/rpt_riverscapes_inventory/example",
+        "expected_files": ["report.html"],
+        "construct_args": lambda module, inp, out: [
+            sys.executable, "-m", module, str(out), str(inp), "riverscaps_inventory_test"
+        ]
+    },
+    # Add more reports or configurations as needed
 ]
 
 
