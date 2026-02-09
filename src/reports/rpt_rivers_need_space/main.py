@@ -37,7 +37,7 @@ from reports.rpt_rivers_need_space.figures import statistics
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', authority_name='*', layer_id="raw_rme,rpt_rme")  # Set the field metadata for the report
+    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='*', layer_id="raw_rme,rpt_rme")  # Set the field metadata for the report
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit

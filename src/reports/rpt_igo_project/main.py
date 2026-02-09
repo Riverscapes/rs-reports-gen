@@ -46,7 +46,7 @@ def get_igo_table_defs() -> pd.DataFrame:
     layerdefs = get_field_metadata(
         column_names='*',
         authority='data-exchange-scripts',
-        authority_name='rme_to_athena',
+        tool_schema_name='rme_to_athena',
         layer_id='raw_rme'
     )
     # remap theme to table name, preserving row order
