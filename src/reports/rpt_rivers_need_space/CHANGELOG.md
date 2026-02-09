@@ -4,6 +4,10 @@
 
 Internal use only
 
+### 0.2.3
+
+* Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
+
 ### 0.2.2 2026-January
 
 * switch to using parquet as data transfer format consistent with other reports
