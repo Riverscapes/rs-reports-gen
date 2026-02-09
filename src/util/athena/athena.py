@@ -140,7 +140,7 @@ def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
 
 def get_field_metadata(
     authority: str = 'data-exchange-scripts',
-    authority_name: str | Sequence[str] = 'rscontext_to_athena',
+    tool_schema_name: str | Sequence[str] = 'rscontext_to_athena',
     layer_id: str | Sequence[str] = '*',
     column_names: str | Sequence[str] = '*'
 ) -> pd.DataFrame:
@@ -150,12 +150,12 @@ def get_field_metadata(
     ----------
     authority: str
         Partition authority to filter on (exact match).
-    authority_name: str | Sequence[str]
+    tool_schema_name: str | Sequence[str]
         Pipeline/name filter. Accepts '*', comma-delimited string, or iterable of names.
     layer_id: str | Sequence[str]
-        Layer/layer-group identifier(s). Same input rules as authority_name.
+        Layer/layer-group identifier(s). Same input rules as tool_schema_name.
     column_names: str | Sequence[str]
-        Specific column names to include. Same input rules as authority_name.
+        Specific column names to include. Same input rules as tool_schema_name.
 
     Returns
     -------
@@ -165,9 +165,9 @@ def get_field_metadata(
     log = Logger('Get metadata')
     log.info("Getting metadata from Athena")
 
-    authority_name_clause = _normalize_to_sql_list(authority_name)
-    if authority_name_clause:
-        and_auth_name = f" AND authority_name IN ({authority_name_clause})"
+    tool_schema_name_clause = _normalize_to_sql_list(tool_schema_name)
+    if tool_schema_name_clause:
+        and_auth_name = f" AND tool_schema_name IN ({tool_schema_name_clause})"
     else:
         and_auth_name = ""
 

@@ -38,7 +38,7 @@ def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     raw_table_meta = get_field_metadata(
         authority='data-exchange-scripts',
-        authority_name='rsdynamics_to_athena',
+        tool_schema_name='rsdynamics_to_athena',
         layer_id=["rsdynamics", "rsdynamics_metrics"]
     )
     _FIELD_META.field_meta = raw_table_meta
