@@ -1,4 +1,4 @@
-"""
+r"""
 Pytest-based smoke tests for Riverscapes report generators.
 Launches each report CLI with example inputs and checks for expected output files.
 I found the outputs in e.g. C:\Users\narlorin\AppData\Local\Temp\pytest-of-narlorin\pytest-10\test_report_smoke_watershed_su0
