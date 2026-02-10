@@ -167,9 +167,9 @@ def get_field_metadata(
 
     tool_schema_name_clause = _normalize_to_sql_list(tool_schema_name)
     if tool_schema_name_clause:
-        and_auth_name = f" AND tool_schema_name IN ({tool_schema_name_clause})"
+        and_schema_name = f" AND tool_schema_name IN ({tool_schema_name_clause})"
     else:
-        and_auth_name = ""
+        and_schema_name = ""
 
     layer_clause = _normalize_to_sql_list(layer_id)
     if layer_clause:
@@ -186,7 +186,7 @@ def get_field_metadata(
     query = f"""
 SELECT layer_id, layer_name, name, friendly_name, data_unit, description, theme, dtype
 FROM layer_definitions_latest
-WHERE authority = '{authority}' {and_auth_name} {and_layer_id} {and_col_name}
+WHERE authority = '{authority}' {and_schema_name} {and_layer_id} {and_col_name}
 """
     df = query_to_dataframe(query, "layer_definitions")
     if df.empty:
