@@ -73,25 +73,26 @@ def get_igo_table_defs() -> pd.DataFrame:
     # 3. Find the difference (Tables MISSING dgoid)
     missing_tables = list(set(all_tables) - set(tables_with_dgoid))
 
-    # 4. Create and append the new rows in one batch
+    # 4. Insert dgoid as the first row for each table missing it, using all_tables order for determinism
     if missing_tables:
-        # Pandas will automatically broadcast the scalar values (layer_id, name, etc.)
-        # to match the length of the 'table_name' list (missing_tables).
-        new_rows_df = pd.DataFrame({
-            'table_name': missing_tables,
-            'layer_id': 'raw_rme',
-            'name': 'dgoid',
-            'dtype': 'INTEGER'
-        })
-
-        df = pd.concat([df, new_rows_df], ignore_index=True)
+        for table in all_tables:
+            if table in missing_tables:
+                idx = df.index[df['table_name'] == table][0]
+                new_row = pd.DataFrame({
+                    'table_name': [table],
+                    'layer_id': ['raw_rme'],
+                    'name': ['dgoid'],
+                    'dtype': ['INTEGER'],
+                    'description': 'Key from dgos table'
+                })
+                df = pd.concat([df.iloc[:idx], new_row, df.iloc[idx:]], ignore_index=True)
 
     return df
 
 
 def field_metadata_to_file(output_path: Path, table_defs: pd.DataFrame):
     """Export field metadata from Athena to a CSV file."""
-    # users won't understand all columsn
+    # users won't understand all columns
     df = table_defs[['table_name', 'name', 'friendly_name', 'data_unit', 'description']].copy()
     df = df.rename(columns={'name': 'column_name'})
     df.to_csv(output_path, index=False)
