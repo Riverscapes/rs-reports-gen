@@ -187,6 +187,7 @@ def get_field_metadata(
 SELECT layer_id, layer_name, name, friendly_name, data_unit, description, theme, dtype
 FROM layer_definitions_latest
 WHERE authority = '{authority}' {and_schema_name} {and_layer_id} {and_col_name}
+ORDER BY layer_name, column_index, name
 """
     df = query_to_dataframe(query, "layer_definitions")
     if df.empty:
