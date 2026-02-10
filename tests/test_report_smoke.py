@@ -1,13 +1,21 @@
 r"""
 Pytest-based smoke tests for Riverscapes report generators.
 Launches each report CLI with example inputs and checks for expected output files.
-I found the outputs in e.g. C:\Users\narlorin\AppData\Local\Temp\pytest-of-narlorin\pytest-10\test_report_smoke_watershed_su0
+To run just one use -k and a word in the `name` 
+ -r shows what is skipped -s show stdout/print statements -v verbose
+`uv run python -m pytest -r -s -v .\tests\test_report_smoke.py -k "IGO"`
+Environment variable TEST_ALL_EXAMPLES="true" to test every example, otherwise just picks the first one. 
+Report outputs go in e.g. %temp%\pytest-of-narlorin\pytest-10\test_report_smoke_watershed_su0
 """
 import subprocess
 import sys
 import os
 from pathlib import Path
 import pytest
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv()
 
 # List of reports to test: (script_name, example_input_dir, expected_outputs)
 REPORTS = [
@@ -56,24 +64,46 @@ REPORTS = [
 ]
 
 
-@pytest.mark.parametrize("report", REPORTS, ids=lambda r: r["name"])
-def test_report_smoke(report, tmp_path):
+def get_test_cases():
+    """Generate test cases based on found example input files."""
+    cases = []
+    # Check env var for overriding default behavior
+    run_all = os.environ.get("TEST_ALL_EXAMPLES", "false").lower() == "true"
+
+    for report in REPORTS:
+        base_name = report["name"]
+        example_dir = Path(report.get("example_dir", "")).resolve()
+
+        found_files = []
+        if example_dir.is_dir():
+            found_files = sorted(list(example_dir.glob("*.geojson")))  # Sorted for deterministic order
+
+        if not found_files:
+            # Case: No files found. Yield a case that will Skip inside the test function
+            cases.append(pytest.param(report, None, id=f"{base_name}-no_input", marks=pytest.mark.skip(reason=f"No input files found in {example_dir}")))
+            continue
+
+        # Determine which files to test
+        files_to_test = found_files if run_all else [found_files[0]]
+
+        for p in files_to_test:
+            test_id = f"{base_name}-{p.name}"
+            cases.append(pytest.param(report, p, id=test_id))
+
+    return cases
+
+
+@pytest.mark.parametrize("report,input_file", get_test_cases())
+def test_report_smoke(report, input_file, tmp_path):
     """
     Launch report CLI with example input and check for expected output files.
     """
+    if input_file is None:
+        pytest.skip("No input file provided")
+
     # Check prerequisites
     if report.get("requires_spatialite") and not os.environ.get("SPATIALITE_PATH"):
         pytest.skip("SPATIALITE_PATH environment variable not set")
-
-    example_dir = Path(report["example_dir"]).resolve()
-    if not example_dir.is_dir():
-        pytest.skip(f"Example dir not found: {example_dir}")
-
-    # Find a geojson or other input file in the example dir
-    input_files = list(example_dir.glob("*.geojson"))
-    if not input_files:
-        pytest.skip(f"No input files in {example_dir}")
-    input_file = input_files[0]
 
     # Output directory
     output_dir = tmp_path
@@ -81,17 +111,20 @@ def test_report_smoke(report, tmp_path):
     # Build CLI args using the lambda
     cli_args = report["construct_args"](report["module"], input_file, output_dir)
 
+    # Print status for running with -s
+    print(f"\n[TESTING] Report: {report['name']}")
+    print(f"[TESTING] Input: {input_file.name if input_file else 'None'}")
+    print(f"[TESTING] Command: {' '.join(str(x) for x in cli_args)}")
+    sys.stdout.flush()
+
     # Run the CLI
-    # check=False is implicit but good to be explicit for clarity
-    result = subprocess.run(cli_args, capture_output=True, text=True, check=False)
+    # We do NOT capture output so that it streams to the console (visible with -s).
+    # This provides the "intermediate feedback" requesting during long runs.
+    result = subprocess.run(cli_args, capture_output=False, text=True, check=False)
 
     # Check for success
     if result.returncode != 0:
-        pytest.fail(f"{report['name']} failed (exit code {result.returncode}):\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
-
-    # Check for expected output files
-    missing_files = []
-    for fname in report["expected_files"]:
+        pytest.fail(f"{report['name']} failed (exit code {result.returncode}). See console output above for details.")
         fpath = output_dir / fname
         if not fpath.exists():
             missing_files.append(fname)
