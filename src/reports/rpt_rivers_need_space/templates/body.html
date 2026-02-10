@@ -5,19 +5,14 @@
 
 <section>
   <div class="section-context">
-    <p>This Rivers Need Space Report describe the current riverscape and the space that it occupies. It provides
-      insights into the character of the riverscape for the entire floodplain in which the current river resides.</p>
-    <p>Use this report to understand the current condition of the riverscape, identify areas where the river has been
-      constrained, and prioritize areas for restoration or conservation efforts. The report includes maps, charts, and
-      tables that illustrate key aspects of the riverscape, such as land use, vegetation cover, and floodplain
-      connectivity.</p>
+    <p>This Riverscapes Need Space Report is an estimate of how much space the riverscape could utilize, based on models of valley bottom (riverscapes) from the Valley Bottom Extraction Tool driven by a 10 m NED digital elevation dataset and the National Hydrography Dataset (<a href="https://docs.riverscapes.net/initiatives/CONUS-runs">CONUS2025 Run</a>). The model and this report are only as good as the underlying data used to generate them, but they can help begin to characterize intrinsic riverscape properties for your riverscape, as well as start to consider current conditions from the perspective of the first principle of healthy riverscapes - healthy riverscapes need access to their valley bottoms.</p>
   </div>
 </section>
 <section id='toc'>
   <h2>Table of Contents</h2>
   <ol class="toc-list">
-    <li><a href="#key-indicators">Key Indicators</a></li>
-    <li><a href="#map-of-polygons">Report Area of Interest</a></li>
+    <li><a href="#key-indicators">Summary Metrics</a></li>
+    <li><a href="#map-of-polygons">Locator Map</a></li>
     <li><a href="#ownership-and-flowtypes">Ownership and Flow Types</a></li>
     <li><a href="#stream-names">Stream Names and Lengths</a></li>
     <li><a href="#condition-and-recovery-potential">Condition and Recovery Potential</a></li>
@@ -25,15 +20,7 @@
   </ol>
 </section>
 <section id="key-indicators">
-  <div class="section-context">
-    <p>This Rivers Need Space Report describe the current riverscape and the space that it occupies. It provides
-      insights into the character of the riverscape for the entire floodplain in which the current river resides.</p>
-    <p>Use this report to understand the current condition of the riverscape, identify areas where the river has been
-      constrained, and prioritize areas for restoration or conservation efforts. The report includes maps, charts, and
-      tables that illustrate key aspects of the riverscape, such as land use, vegetation cover, and floodplain
-      connectivity.</p>
-  </div>
-  <h2>Key Indicators</h2>
+  <h2>Summary Metrics for this Riverscape</h2>
 
   <dl class="metric-grid">
     {% for key, card in cards.items() %}
@@ -49,9 +36,9 @@
 </section>
 <div class="page-break-before"></div>
 <section id="map-of-polygons">
-  <h2>Report Area of Interest</h2>
+  <h2>Locator Map</h2>
   <div class="section-context">
-    <p>The following map shows the riverscapes that were selected for this report. These polygons represent the areas of
+    <p>The following map shows the riverscape sample frames (DGOs) that were selected for this report. These polygons represent the areas of
       interest for the analysis. The charts and tables that follow provide further insights into these areas.</p>
   </div>
   <figure class="report-figure map">
@@ -137,11 +124,11 @@
   <h2>Appendix 2 - Source Data</h2>
   <div class="section-context">
     <p>This report was generated using data from the <a href="https://data.riverscapes.net">Riverscapes Data
-        Exchange</a>. Free, pubicly accessible data were processed through a series of models by the Riverscapes
+        Exchange</a>. Free, publicly accessible data were processed through a series of models by the Riverscapes
       Consortium, culminating with the Riverscapes Metric Engine (RME) that synthesizes metrics together for all the
-      preceeding models. These RME data are based on polygons that span the valley bottom and are segmented at a
+      preceding models. These RME data are based on polygons that span the valley bottom and are segmented at a
       distance that varies with drainage area. These polygons, or Discrete Geographic Objects (DGOs) possess over 100
-      metrics spanning a variety of topics pertaining to riverscape health.</p>
+      <a href="https://tools.riverscapes.net/rme/data#output-attributes">metrics</a> spanning a variety of topics pertaining to riverscapes health.</p>
     <p>The model runs in question were all part of an initiative to produce a continuous riverscapes dataset for the <a
         href="https://docs.riverscapes.net/initiatives/CONUS-runs">Conterminous United States in 2025</a>.</p>
   </div>
