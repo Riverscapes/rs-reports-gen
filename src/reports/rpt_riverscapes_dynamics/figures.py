@@ -504,7 +504,7 @@ def line_change_vs_baseline(
             line=dict(width=2, color="rgba(0,0,0,0.6)")
         )
 
-    title = f"Catchment-wide {metric_colnm} change vs baseline (epoch_length={epoch_length})"
+    title = f"{metric_colnm} change vs baseline (epoch_length={epoch_length})"
     yaxis_title = "Change vs baseline (%)" if change_mode == "pct" else f"Change vs baseline of {metric_header}"
 
     fig.update_layout(
@@ -512,9 +512,9 @@ def line_change_vs_baseline(
         title=title,
         xaxis=dict(title="Epoch", tickmode="array", tickvals=tickvals, ticktext=ticktext),
         yaxis=dict(title=yaxis_title),
-        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=0.01),
-        font=dict(size=18),
-        margin=dict(l=70, r=30, t=70, b=60)
+        # legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=0.01),
+        # font=dict(size=18),
+        # margin=dict(l=70, r=30, t=70, b=60)
     )
     return fig
 
