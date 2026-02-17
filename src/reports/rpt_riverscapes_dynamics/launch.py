@@ -80,8 +80,9 @@ def main():
         report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Dynamics"
 
     # Ask for whether or not to include PDF. Default to NO
-    if os.environ.get("INCLUDE_PDF"):
-        include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
+    if os.environ.get("INCLUDE_PDF") is not None:
+        include_pdf_env = os.environ.get("INCLUDE_PDF")
+        include_pdf = include_pdf_env.lower() in {"1", "true", "yes"}
     else:
         include_pdf_question = inquirer.prompt([
             inquirer.Confirm(

@@ -2,8 +2,8 @@ r"""
 Pytest-based smoke tests for Riverscapes report generators.
 Launches each report CLI with example inputs and checks for expected output files.
 To run just one use -k and a word in the `name` 
- -r shows what is skipped -s show stdout/print statements -v verbose
-`uv run python -m pytest -r -s -v .\tests\test_report_smoke.py -k "IGO"`
+ -r a report all, including what is skipped -s show stdout/print statements -v verbose
+`uv run python -m pytest -r a -s -v .\tests\test_report_smoke.py -k "IGO"`
 Environment variable TEST_ALL_EXAMPLES="true" to test every example, otherwise just picks the first one. 
 Report outputs go in e.g. %temp%\pytest-of-narlorin\pytest-10\test_report_smoke_watershed_su0
 """
@@ -60,6 +60,15 @@ REPORTS = [
             sys.executable, "-m", module, str(out), str(inp), "riverscaps_inventory_test"
         ]
     },
+    {
+        "name": "nz_dynamics",
+        "module": "reports.rpt_riverscapes_dynamics.main",
+        "example_dir": "src/reports/rpt_riverscapes_dynamics/example",
+        "expected_files": ["report.html"],
+        "construct_args": lambda module, inp, out: [
+            sys.executable, "-m", module, str(out), str(inp), "riverscapes_dynamics_test"
+        ]
+    }
     # Add more reports or configurations as needed
 ]
 
