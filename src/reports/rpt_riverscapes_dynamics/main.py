@@ -33,7 +33,8 @@ from reports.rpt_riverscapes_dynamics.figures import (
     linechart,
     statistics,
     area_histogram,
-    longitudinal_profile
+    longitudinal_profile,
+    line_change_vs_baseline,
 )
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
@@ -133,6 +134,8 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
             "profile-wet": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "wet", "confidence": "95"}),
             "profile-active": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "active", "confidence": "68"}),
             "area-histogram-30": area_histogram(dynmetrics),
+            "area-change-vs-baseline": line_change_vs_baseline(gdf, dynmetrics, 'area'),
+            "width-change-vs-baseline": line_change_vs_baseline(gdf, dynmetrics, 'width'),
             "area-line-5yr": linechart(dynmetrics, 'area'),
             "areapc-line-5yr": linechart(dynmetrics, 'areapc'),
             "width-line-5yr": linechart(dynmetrics, 'width'),

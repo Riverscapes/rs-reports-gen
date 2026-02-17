@@ -1,6 +1,9 @@
 """functions to generate figures specifically for rpt_riverscapes_dynamics reports"""
 
 
+from collections.abc import Sequence
+from typing import Literal
+
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -175,6 +178,63 @@ def _compute_minmax_band(pivot: pd.DataFrame, x: np.ndarray) -> tuple[np.ndarray
     return x_band, ymin_band, ymax_band
 
 
+def _is_zero_quantity(value) -> bool:
+    """Return True when value is effectively zero (handles pint, floats, and missing)."""
+    if value is None:
+        return True
+    try:
+        if pd.isna(value):
+            return True
+    except TypeError:
+        pass
+    if isinstance(value, pint.Quantity):
+        return np.isclose(value.magnitude, 0.0)
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return np.isclose(float(value), 0.0)
+    try:
+        return np.isclose(float(value), 0.0)
+    except (TypeError, ValueError):  # pragma: no cover - defensive fallback
+        return False
+
+
+def _quantity_to_magnitude(value) -> float:
+    """Convert pint quantities or scalars to float magnitudes for plotting."""
+    if value is None:
+        return np.nan
+    if isinstance(value, pint.Quantity):
+        return float(value.magnitude)
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):  # pragma: no cover - defensive fallback
+        return np.nan
+
+
+def _aggregate_metric_catchment(group: pd.DataFrame, metric_col: str, centerline_col: str) -> pint.Quantity | float | np.ndarray:
+    """Aggregate DGOs into a single catchment-wide value for one epoch/landcover/confidence."""
+    if metric_col == "width":
+        if "area" not in group.columns:
+            raise KeyError("Column 'area' is required to aggregate width.")
+        total_area = group["area"].sum()
+        total_centerline = group[centerline_col].sum()
+        if _is_zero_quantity(total_centerline):
+            return np.nan
+        return total_area / total_centerline
+    if metric_col == "widthpc":
+        if centerline_col not in group.columns:
+            raise KeyError(f"Column '{centerline_col}' is required to aggregate widthpc.")
+        valid = group[[metric_col, centerline_col]].dropna()
+        if valid.empty:
+            return np.nan
+        numerator = (valid[metric_col] * valid[centerline_col]).sum()
+        denom = valid[centerline_col].sum()
+        if _is_zero_quantity(denom):
+            return np.nan
+        return numerator / denom
+    return group[metric_col].sum()
+
+
 def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, filters: dict[str, str]) -> go.Figure:
     """
     Generate a longitudinal profile figure for a river corridor, showing metric variation across epochs.
@@ -284,6 +344,178 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
         xaxis2=dict(title_standoff=10)
     )
     # DGO id axis removed: dgo_id is not meaningful for display
+    return fig
+
+
+def line_change_vs_baseline(
+    gdf_dgo: gpd.GeoDataFrame,
+    df_metrics: pd.DataFrame,
+    metric_colnm: str,
+    *,
+    epoch_length: str | int = "5",
+    change_mode: Literal["delta", "pct"] = "delta",
+    landcover_order: Sequence[str] = ("wet", "active"),
+    confidence_order: Sequence[str] = ("95", "68"),
+    exclude_epochs: Sequence[str] | None = None,
+) -> go.Figure:
+    """Plot catchment-wide change vs baseline for a metric aggregated over all DGOs."""
+
+    if df_metrics.empty or gdf_dgo.empty:
+        raise ValueError("No data available to plot catchment-wide change.")
+    if metric_colnm not in df_metrics.columns:
+        raise KeyError(f"Column '{metric_colnm}' not found in metrics dataframe.")
+    if change_mode not in {"delta", "pct"}:
+        raise ValueError("change_mode must be 'delta' or 'pct'.")
+
+    exclude_set = {str(e) for e in exclude_epochs} if exclude_epochs else set()
+    spatial_cols = ["rd_project_id", "dgo_id", "centerline_length", "segment_area"]
+    missing_spatial = [c for c in spatial_cols if c not in gdf_dgo.columns]
+    if missing_spatial:
+        raise KeyError(f"gdf_dgo is missing required columns: {missing_spatial}")
+
+    layer_id = df_metrics.attrs.get('layer_id') if hasattr(df_metrics, 'attrs') else None
+    header_lookup = RSFieldMeta().get_headers_dict(df_metrics, layer_id=layer_id)
+    metric_header = header_lookup.get(metric_colnm, metric_colnm)
+
+    mm = df_metrics.copy()
+    mm["epoch_length"] = mm["epoch_length"].astype(str)
+    mm = mm[mm["epoch_length"] == str(epoch_length)]
+    mm = mm[mm["landcover"].isin(landcover_order)]
+    mm["confidence"] = mm["confidence"].astype(str)
+    mm = mm[mm["confidence"].isin(confidence_order)]
+    if exclude_set:
+        mm = mm[~mm["epoch_name"].astype(str).isin(exclude_set)]
+
+    if mm.empty:
+        raise ValueError("No metrics remain after applying filters for change vs baseline plot.")
+
+    spatial = gdf_dgo[spatial_cols].copy()
+    spatial["rd_project_id"] = spatial["rd_project_id"].astype("string")
+    mm["rd_project_id"] = mm["rd_project_id"].astype("string")
+    spatial["dgo_id"] = pd.to_numeric(spatial["dgo_id"], errors="coerce")
+    mm["dgo_id"] = pd.to_numeric(mm["dgo_id"], errors="coerce")
+    spatial = spatial.dropna(subset=["dgo_id"])
+    mm = mm.dropna(subset=["dgo_id"])
+    spatial["dgo_id"] = spatial["dgo_id"].astype(int)
+    mm["dgo_id"] = mm["dgo_id"].astype(int)
+
+    mm = mm.merge(
+        spatial.rename(columns={"centerline_length": "centerline_length_spatial"}),
+        on=["rd_project_id", "dgo_id"],
+        how="left"
+    )
+    centerline_col = "centerline_length_spatial"
+    if centerline_col not in mm.columns:
+        raise KeyError("Centerline length column missing after merge.")
+
+    epoch_parts = mm["epoch_name"].astype(str).str.split("_", n=1, expand=True)
+    mm["epoch_start"] = pd.to_numeric(epoch_parts[0], errors="coerce")
+    mm["epoch_end"] = pd.to_numeric(epoch_parts[1], errors="coerce")
+    mm = mm[np.isfinite(mm["epoch_end"])]
+    mm["epoch_label"] = mm["epoch_name"].astype(str).str.replace("_", "-", regex=False)
+
+    if mm.empty:
+        raise ValueError("Epoch parsing removed all rows for change vs baseline plot.")
+
+    group_cols = ["epoch_name", "epoch_end", "epoch_label", "landcover", "confidence"]
+    agg_series = (
+        mm.groupby(group_cols, dropna=False, observed=False)
+        .apply(lambda grp: _aggregate_metric_catchment(grp, metric_colnm, centerline_col))
+    )
+    agg = agg_series.reset_index(name="metric_value")
+
+    if agg["metric_value"].isna().all():
+        raise ValueError("Aggregated metric values are all NaN; cannot plot change vs baseline.")
+
+    epoch_lut = (
+        mm[["epoch_name", "epoch_start", "epoch_end", "epoch_label"]]
+        .drop_duplicates()
+        .sort_values(["epoch_end", "epoch_start", "epoch_name"])
+        .reset_index(drop=True)
+    )
+    epoch_lut["epoch_i"] = np.arange(len(epoch_lut), dtype=int)
+    agg = agg.merge(epoch_lut[["epoch_name", "epoch_i"]], on="epoch_name", how="left")
+
+    agg["change"] = np.nan
+    agg["baseline"] = np.nan
+    for (landcover, confidence), idx in agg.groupby(["landcover", "confidence"], observed=False).groups.items():
+        sub = agg.loc[idx].sort_values("epoch_end")
+        if sub.empty:
+            continue
+        baseline_value = sub["metric_value"].iloc[0]
+        agg.loc[sub.index, "baseline"] = baseline_value
+        if change_mode == "delta":
+            agg.loc[sub.index, "change"] = sub["metric_value"] - baseline_value
+        else:
+            change_vals: list[pint.Quantity | float] = []
+            for val in sub["metric_value"]:
+                if _is_zero_quantity(baseline_value):
+                    change_vals.append(np.nan)
+                else:
+                    diff = val - baseline_value
+                    change_vals.append((diff / baseline_value) * 100)
+            agg.loc[sub.index, "change"] = change_vals
+
+    plot_df = agg.sort_values(["epoch_i", "landcover", "confidence"]).copy()
+    plot_df["change_value"] = plot_df["change"].apply(_quantity_to_magnitude)
+    tickvals = epoch_lut["epoch_i"].tolist()
+    ticktext = epoch_lut["epoch_label"].tolist()
+
+    lc_color = {
+        "wet": "rgba(80,120,200,0.95)",
+        "active": "rgba(255,140,0,0.95)",
+    }
+    conf_dash = {"95": "solid", "68": "dash"}
+
+    fig = go.Figure()
+    for landcover in landcover_order:
+        for confidence in confidence_order:
+            series = plot_df[
+                (plot_df["landcover"] == landcover) &
+                (plot_df["confidence"] == confidence)
+            ].copy()
+            if series.empty:
+                continue
+            series = series.sort_values("epoch_i")
+            x_vals = series["epoch_i"].to_numpy(dtype=float)
+            y_vals = series["change_value"].to_numpy(dtype=float)
+            if not np.isfinite(y_vals).any():
+                continue
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode="lines+markers",
+                name=f"{landcover} ({confidence})",
+                line=dict(
+                    color=lc_color.get(landcover, "rgba(80,80,80,0.9)"),
+                    dash=conf_dash.get(confidence, "solid"),
+                    width=3 if confidence == "95" else 2,
+                ),
+                marker=dict(size=7),
+            ))
+
+    if tickvals:
+        fig.add_shape(
+            type="line",
+            x0=min(tickvals),
+            x1=max(tickvals),
+            y0=0,
+            y1=0,
+            line=dict(width=2, color="rgba(0,0,0,0.6)")
+        )
+
+    title = f"Catchment-wide {metric_colnm} change vs baseline (epoch_length={epoch_length})"
+    yaxis_title = "Change vs baseline (%)" if change_mode == "pct" else f"Change vs baseline of {metric_header}"
+
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis=dict(title="Epoch", tickmode="array", tickvals=tickvals, ticktext=ticktext),
+        yaxis=dict(title=yaxis_title),
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=0.01),
+        font=dict(size=18),
+        margin=dict(l=70, r=30, t=70, b=60)
+    )
     return fig
 
 
