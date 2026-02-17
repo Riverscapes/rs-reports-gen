@@ -29,7 +29,12 @@ from util.figures import (
     metric_cards,
 )
 from reports.rpt_riverscapes_dynamics import __version__ as report_version
-from reports.rpt_riverscapes_dynamics.figures import linechart, statistics, area_histogram
+from reports.rpt_riverscapes_dynamics.figures import (
+    linechart,
+    statistics,
+    area_histogram,
+    longitudinal_profile
+)
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
@@ -47,9 +52,11 @@ def define_fields(unit_system: str = "SI"):
 
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
+    # temporary until this is added to the Athena TODO
+    _FIELD_META.add_field_meta('seg_distance', layer_id='dynamics_report', data_unit='m', preferred_format="{:.0f}")
     # Here's where we can set any preferred units that differ from the data unit
-    # _FIELD_META.set_display_unit('centerline_length', 'kilometer')
-    # _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
+    _FIELD_META.set_display_unit('centerline_length', 'kilometer', layer_id='dynamics_report')
+    _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2', layer_id='dynamics_report')
 
 
 def create_report_view_metadata():
@@ -105,7 +112,7 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
     Generates HTML report(s) in report_dir.
     Args:
         gdf (gpd.GeoDataFrame): The main data geodataframe for the report.
-        huc_df (pd.DataFrame): The HUC data dataframe for the report.
+        dynmetrics (pd.DataFrame): The dynamics data dataframe for the report.
         aoi_df (gpd.GeoDataFrame): The area of interest geodataframe.
         report_dir (Path): The directory where the report will be saved.
         report_name (str): The name of the report.
@@ -123,6 +130,8 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
     if error_message is None:
         figures.update({
             "map": make_aoi_outline_map(aoi_df),
+            "profile-wet": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "wet", "confidence": "95"}),
+            "profile-active": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "active", "confidence": "68"}),
             "area-histogram-30": area_histogram(dynmetrics),
             "area-line-5yr": linechart(dynmetrics, 'area'),
             "areapc-line-5yr": linechart(dynmetrics, 'areapc'),
@@ -214,6 +223,8 @@ SELECT
     ANY_VALUE(r.dgo_geom) AS dgo_geom,
     ANY_VALUE(centerline_length) AS centerline_length,
     ANY_VALUE(segment_area) as segment_area,
+    ANY_VALUE(level_path) as level_path,
+    ANY_VALUE(seg_distance) as seg_distance,
     ARRAY_AGG(
         CAST(
             ROW(
@@ -263,22 +274,13 @@ GROUP BY
         return (gpd.GeoDataFrame(), pd.DataFrame())
 
     # RESTRUCTURE THE DATAFRAME into 2
-    # 1. Convert to category and SET THE INDEX IMMEDIATELY
-    # This establishes the "rd_project_id + dgo_id" as the unique identifier
+    # 1. Convert to category for relevant columns (no index set)
     for col in ['rd_project_id', 'huc']:
         df_raw[col] = df_raw[col].astype('category')
-    df_raw = df_raw.set_index(['rd_project_id', 'dgo_id'])
 
-    # ---------------------------------------------------------
     # 2. CREATE GEO DATAFRAME (The 1 side of 1:N)
-    # ---------------------------------------------------------
-    # Since the index is already set, we just grab the columns we want.
-    # We copy first to avoid SettingWithCopy warnings and decouple from df_raw
-    df_geo_data = df_raw[['huc', 'dgo_geom', 'rs_project_name', 'centerline_length', 'segment_area']].copy()
-
-    # Reset index to move 'rd_project_id' and 'dgo_id' back to columns
-    # This makes them accessible for reports and plotting without duplicating storage in df_raw
-    df_geo_data = df_geo_data.reset_index()
+    #    Just select columns, no index manipulation needed
+    df_geo_data = df_raw[['rd_project_id', 'dgo_id', 'huc', 'dgo_geom', 'rs_project_name', 'centerline_length', 'segment_area', 'level_path', 'seg_distance']].copy()
 
     # Convert to GeoDataFrame
     # 1. Fast Vectorized Conversion
@@ -300,10 +302,12 @@ GROUP BY
 
     # B. Normalize: Turn the dictionary/struct column into separate columns
     # AWS Wrangler usually returns ROW types as Python dictionaries
-    df_metrics = pd.DataFrame(
-        exploded_series.tolist(),
-        index=exploded_series.index
-    )
+    # Keep all keys as columns, not index
+    df_metrics = pd.DataFrame(exploded_series.tolist())
+    # Assign correct rd_project_id and dgo_id from df_raw, matching the exploded index
+    # exploded_series.index aligns with df_raw, so use .reindex to get correct values
+    df_metrics["rd_project_id"] = df_raw.loc[exploded_series.index, "rd_project_id"].values
+    df_metrics["dgo_id"] = df_raw.loc[exploded_series.index, "dgo_id"].values
     return (df_geo_data, df_metrics)
 
 
@@ -418,11 +422,6 @@ def main():
         '--keep-parquet',
         action='store_true',
         help='Keep the downloaded AOI Parquet files instead of deleting the pq folder'
-    )
-    parser.add_argument(
-        '--no-nid',
-        action='store_true',
-        help='Disable fetching data from National Inventory of Dams'
     )
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 

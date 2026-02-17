@@ -12,3 +12,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Exclude exploration notebooks and /pq folder from source
+scripts/exploration/rsdynamics/pq/
+exploration_with_graphs_RGF.ipynb

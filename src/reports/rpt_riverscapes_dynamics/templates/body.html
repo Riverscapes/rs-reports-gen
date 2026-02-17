@@ -40,9 +40,20 @@
       insights into this area.</p>
   </div>
   <figure class="report-figure map">
-    {{ figures['map']|safe }}
+    {{ figures['map'] | safe }}
   </figure>
 </section>
+<section id="longitudinal_profile">
+  <h2>longitudinal Profile</h2>
+  <div class="section-context"><p>This example builds a longitudinal profile of active width along a river corridor, and compares how that metric varies across epochs. The plot includes a min-max envelope (range band) across all included epochs, and highlights the latest epoch.</p></div>
+</section>
+<figure class="report-figure">
+  {{ figures['profile-active'] | safe }}
+</figure>
+<figure class="report-figure">
+  {{ figures['profile-wet'] | safe }}
+</figure>
+
 <section id="histogram">
   <h2>30-Year Epoch Histogram</h2>
   <div class="section-context">
