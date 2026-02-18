@@ -36,6 +36,7 @@ from reports.rpt_riverscapes_dynamics.figures import (
     longitudinal_profile,
     line_change_vs_baseline,
 )
+from reports.rpt_riverscapes_dynamics.epoch_utils import prepare_epoch_metadata
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 
@@ -369,6 +370,8 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
         df_metrics, _ = _FIELD_META.apply_units(df_metrics, 'dynamics_report')  # this is still a geodataframe but we will need to be more explicit about it for type checking
         gdf_dgo, _ = _FIELD_META.apply_units(gdf_dgo, 'dynamics_report')
+
+        df_metrics = prepare_epoch_metadata(df_metrics)
 
         # Convert categorical columns that plotting libraries expect to be categories
         # We do this AFTER apply_units because default metadata might cast them explicitly to string
