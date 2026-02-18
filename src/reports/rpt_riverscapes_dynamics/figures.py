@@ -13,6 +13,7 @@ import plotly.express as px
 
 from util.pandas import RSFieldMeta
 from util.figures import bar_group_x_by_y
+from reports.rpt_riverscapes_dynamics.epoch_utils import get_epoch_lookup
 
 
 # --- Helper functions for longitudinal profile ---
@@ -276,19 +277,21 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
         (dynmetrics["confidence"].astype(str) == str(confidence))
     ].copy()
 
-    # Epoch sorting
-    ep = dfm_p["epoch_name"].astype(str).str.split("_", expand=True)
-    dfm_p["epoch_start"] = pd.to_numeric(ep[0], errors="coerce")
-    dfm_p["epoch_end"] = pd.to_numeric(ep[1], errors="coerce")
-    dfm_p = dfm_p[np.isfinite(dfm_p["epoch_end"])]
-    epoch_order = (
-        dfm_p[["epoch_name", "epoch_end"]]
-        .drop_duplicates()
-        .sort_values(["epoch_end", "epoch_name"])
-    )
-    epochs_sorted = [e for e in epoch_order["epoch_name"].tolist() if e not in set(exclude_epochs)]
-    if not epochs_sorted:
+    required_epoch_cols = {"epoch_start", "epoch_end", "epoch_label"}
+    missing_epoch_cols = required_epoch_cols - set(dfm_p.columns)
+    if missing_epoch_cols:
+        missing = ", ".join(sorted(missing_epoch_cols))
+        raise KeyError(f"Metrics dataframe is missing required epoch metadata columns: {missing}")
+    dfm_p = dfm_p[dfm_p["epoch_end"].notna()].copy()
+
+    # Use epoch_utils to get sorted lookup and display labels
+    epoch_lut = get_epoch_lookup(dfm_p, prefer_stored=False)
+    # Exclude epochs if requested
+    epoch_lut = epoch_lut[~epoch_lut["epoch_name"].isin(set(exclude_epochs))].copy()
+    if epoch_lut.empty:
         raise ValueError("After excluding epochs, no epochs remain to plot.")
+    epochs_sorted = epoch_lut["epoch_name"].tolist()
+    epoch_labels = epoch_lut["epoch_label"].tolist()
 
     pivot, x = _prepare_metric_pivot(dfm_p, gdf_sel, metric_col, epochs_sorted)
     x_band, ymin_band, ymax_band = _compute_minmax_band(pivot, x)
@@ -307,7 +310,7 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
         hoverinfo="skip",
     ))
     nE = len(epochs_sorted)
-    for i, ep_name in enumerate(epochs_sorted):
+    for i, (ep_name, ep_label) in enumerate(zip(epochs_sorted, epoch_labels)):
         y = pivot[ep_name].to_numpy(dtype=float)
         ok = np.isfinite(x) & np.isfinite(y)
         if not ok.any():
@@ -317,19 +320,19 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
             line_color = "rgba(255,140,0,0.95)"
             lw = 3
             ms = 5
-            name = f"{ep_name} (latest)"
+            name_disp = f"{ep_label} (latest)"
         else:
             t = i / (nE - 2) if (nE - 2) > 0 else 0.0
             shade = int(220 - t * (220 - 60))
             line_color = f"rgba({shade},{shade},{shade},0.75)"
             lw = 2
             ms = 4
-            name = ep_name
+            name_disp = ep_label
         fig.add_trace(go.Scatter(
             x=x[ok],
             y=y[ok],
             mode="lines+markers",
-            name=name,
+            name=name_disp,
             line=dict(width=lw, color=line_color),
             marker=dict(size=ms, color=line_color)
         ))
@@ -339,7 +342,6 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
         xaxis_title=x_label,
         yaxis_title=f"{landcover} {metric_col}",
         template="plotly_white",
-        legend=dict(orientation="v", yanchor="top", y=1, xanchor="right", x=1),
         margin=dict(l=0, r=0, t=90, b=40),
         xaxis2=dict(title_standoff=10)
     )
@@ -386,6 +388,12 @@ def line_change_vs_baseline(
     if exclude_set:
         mm = mm[~mm["epoch_name"].astype(str).isin(exclude_set)]
 
+    required_epoch_cols = {"epoch_start", "epoch_end", "epoch_label"}
+    missing_epoch_cols = required_epoch_cols - set(mm.columns)
+    if missing_epoch_cols:
+        missing = ", ".join(sorted(missing_epoch_cols))
+        raise KeyError(f"Metrics dataframe is missing required epoch metadata columns: {missing}")
+
     if mm.empty:
         raise ValueError("No metrics remain after applying filters for change vs baseline plot.")
 
@@ -408,14 +416,10 @@ def line_change_vs_baseline(
     if centerline_col not in mm.columns:
         raise KeyError("Centerline length column missing after merge.")
 
-    epoch_parts = mm["epoch_name"].astype(str).str.split("_", n=1, expand=True)
-    mm["epoch_start"] = pd.to_numeric(epoch_parts[0], errors="coerce")
-    mm["epoch_end"] = pd.to_numeric(epoch_parts[1], errors="coerce")
-    mm = mm[np.isfinite(mm["epoch_end"])]
-    mm["epoch_label"] = mm["epoch_name"].astype(str).str.replace("_", "-", regex=False)
+    mm = mm[mm["epoch_end"].notna()].copy()
 
     if mm.empty:
-        raise ValueError("Epoch parsing removed all rows for change vs baseline plot.")
+        raise ValueError("No epochs remain after removing rows with invalid epoch metadata.")
 
     group_cols = ["epoch_name", "epoch_end", "epoch_label", "landcover", "confidence"]
     agg_series = (
@@ -427,13 +431,7 @@ def line_change_vs_baseline(
     if agg["metric_value"].isna().all():
         raise ValueError("Aggregated metric values are all NaN; cannot plot change vs baseline.")
 
-    epoch_lut = (
-        mm[["epoch_name", "epoch_start", "epoch_end", "epoch_label"]]
-        .drop_duplicates()
-        .sort_values(["epoch_end", "epoch_start", "epoch_name"])
-        .reset_index(drop=True)
-    )
-    epoch_lut["epoch_i"] = np.arange(len(epoch_lut), dtype=int)
+    epoch_lut = get_epoch_lookup(mm, prefer_stored=False)
     agg = agg.merge(epoch_lut[["epoch_name", "epoch_i"]], on="epoch_name", how="left")
 
     agg["change"] = np.nan
