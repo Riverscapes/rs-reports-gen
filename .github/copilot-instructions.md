@@ -13,7 +13,7 @@
 - **Build/Install:** Use Python 3.12. **Always use `uv` for dependency management and installation** (`uv pip install .[dev]`). See `pyproject.toml` for details. Avoid using `pip` directly unless necessary.
 - **Run Reports:** Each report has a CLI entry point (see `[project.scripts]` in `pyproject.toml`). Example: `python -m reports.rpt_igo_project.main` or use the script alias if installed.
 - **Automation:** Fargate launch scripts are in `scripts/automation/` for cloud execution. These require specific environment variables (see script headers).
-- **Testing:** Tests are in `tests/` and use `pytest`. Run with `pytest` from the repo root.
+- **Testing:** Tests are in `tests/` and use `pytest`. Run with `pytest` from the repo root. See more detail below. 
 
 ## Project Conventions
 - always include function and module typestrings. If the function or module is 100% copilot written, say so
@@ -40,6 +40,9 @@
 - To run the Riverscapes Inventory report:
   - Run: `python -m reports.rpt_riverscapes_inventory.main --help`
   - See: `src/reports/rpt_riverscapes_inventory/README.md`
+
+## Testing
+- For end-to-end testing, `test_report_smoke.py` fans out across every report. If modifying and testing a specific report, limit using `pytest -k "<report_name>"`
 
 ## References
 - [README.md](../README.md): High-level project info

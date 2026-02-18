@@ -2,7 +2,7 @@ r"""
 Pytest-based smoke tests for Riverscapes report generators.
 Launches each report CLI with example inputs and checks for expected output files.
 To run just one use -k and a word in the `name` 
- -r a report all, including what is skipped -s show stdout/print statements -v verbose
+Other options: -r a report all, including what is skipped -s show stdout/print statements -v verbose
 `uv run python -m pytest -r a -s -v .\tests\test_report_smoke.py -k "IGO"`
 Environment variable TEST_ALL_EXAMPLES="true" to test every example, otherwise just picks the first one. 
 Report outputs go in e.g. %temp%\pytest-of-narlorin\pytest-10\test_report_smoke_watershed_su0
@@ -134,6 +134,10 @@ def test_report_smoke(report, input_file, tmp_path):
     # Check for success
     if result.returncode != 0:
         pytest.fail(f"{report['name']} failed (exit code {result.returncode}). See console output above for details.")
+
+    # Check for expected output files
+    missing_files = []
+    for fname in report["expected_files"]:
         fpath = output_dir / fname
         if not fpath.exists():
             missing_files.append(fname)
