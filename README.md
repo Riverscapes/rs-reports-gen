@@ -8,10 +8,9 @@ Code to maintain the web UI that allows users to trigger report generation with 
 
 ## Setting up & running your own instance
 
-Use `uv sync`. If you want additional libraries used for development, run `uv sync --extra dev` instead.
+Use `uv sync`. If you're going to make any changes, there are additional libraries used for development. Run `uv sync --extra dev` instead.
 
 You may need to [install WeasyPrint following these instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation).
-
 
 ## Running the "📋 Report Launcher" Task
 
@@ -32,4 +31,29 @@ SPATIALITE_PATH=/opt/homebrew/lib/mod_spatialite.8.dylib
 # OPTIONAL OVERRIES FOR "IGO Project" REPORT
 IGO_AOI_GEOJSON=/my/awesome/aoi.geojson 
 IGO_REPORT_NAME='Gary'
+```
+
+## Jupyter Notebook Output Stripping (nbstripout)
+
+To keep notebook outputs (plots, binary, HTML, etc.) out of git commits, we use nbstripout via pre-commit hooks.
+
+### Setup (one-time per clone)
+
+1. Install all dev dependencies:
+2. Install the pre-commit hook:
+
+```sh
+uv sync --extra dev
+uv run pre-commit install
+```
+
+This ensures that any .ipynb files you commit will have their output cells automatically stripped.
+
+### Usage
+
+- Just commit as usual. The hook will run automatically.
+- To manually check or run all hooks on all files:
+  
+```sh
+uv run pre-commit run --all-files
 ```
