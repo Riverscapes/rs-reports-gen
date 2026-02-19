@@ -35,7 +35,7 @@ IGO_REPORT_NAME='Gary'
 
 ## Jupyter Notebook Output Stripping (nbstripout)
 
-To keep notebook outputs (plots, binary, HTML, etc.) out of git commits, we use nbstripout via pre-commit hooks.
+To keep notebook outputs (plots, binary, HTML, etc.) out of git commits, we use [nbstripout](https://github.com/kynan/nbstripout?tab=readme-ov-file) via pre-commit hooks. 
 
 ### Setup (one-time per clone)
 
@@ -52,7 +52,10 @@ This ensures that any .ipynb files you commit will have their output cells autom
 ### Usage
 
 - Just commit as usual. The hook will run automatically.
-- To manually check or run all hooks on all files:
+- If it changed your file you'll see this as an additional change to add to your commit
+- If you want to commit the output, it is possible to set the `keep_output` **tag** on a cell or the notebook. See [nbstripout readme](https://github.com/kynan/nbstripout?tab=readme-ov-file#keeping-output-on-specific-cells).
+- if you want the output for yourself, you might keep a copy in a folder named `localonly` which has been added to .gitignore
+- To manually check use or run all hooks on all files:
   
 ```sh
 uv run pre-commit run --all-files
