@@ -1,0 +1,9 @@
+# Pre-commit configuration for stripping Jupyter notebook output
+repos:
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.0
+    hooks:
+      - id: nbstripout
+        name: Strip output from Jupyter notebooks
+        types: [jupyter]
+        files: '.*\.ipynb$'
