@@ -211,7 +211,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
-    # make place for the data to go (as csv)
+    # make place for the data to go (for report consumer as csv)
     safe_makedirs(str(report_dir / 'data'))
 
     # Start tasks in background
@@ -270,6 +270,9 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     data_gdf = add_calculated_rme_cols(data_gdf)
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
+    # FUTURE ENHANCEMENT: Change to AOI query to get hucs that are in the AOI but not in the DGOS within the AOI
+    # this also allows it to be run in parallel with the DGO query
+    # this also could be the query that tells us our RME coverage for the AOI (get area of intersection)
     unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)
     # print(huc_data_df)  # for DEBUG ONLY

@@ -8,6 +8,7 @@
 - The codebase is structured for modularity: shared utilities are in `src/util/`, API helpers in `src/api/`, and report-specific code in subfolders of `src/reports/`.
 - The production environment is AWS Fargate (Linux), but developers use both Windows and Mac. Ensure cross-platform compatibility.
 - The web UI for launching reports is maintained in a separate repository: [`rs-reports-monorepo`](https://github.com/Riverscapes/rs-reports-monorepo).
+- New: I want to work towards improving this repo for dual use: not only building static reports (like it is now) but also for exploration with notebooks. So it's important that we build well-documented and reusable logic such as data processing in shared python files.  
 
 ## Key Workflows
 - **Build/Install:** Use Python 3.12. **Always use `uv` for dependency management and installation** (`uv pip install .[dev]`). See `pyproject.toml` for details. Avoid using `pip` directly unless necessary.
