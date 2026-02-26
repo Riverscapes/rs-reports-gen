@@ -17,7 +17,11 @@ from rsxml.util import safe_makedirs
 
 from reports.rpt_riverscapes_inventory import __version__ as report_version
 from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
-from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
+from reports.rpt_riverscapes_inventory.figures import (
+    dam_statistics,
+    hypsometry_fig,
+    statistics,
+)
 from util import prepare_gdf_for_athena
 from util.athena import (
     aoi_query_to_local_parquet,
@@ -57,7 +61,7 @@ def define_fields(unit_system: str = "SI"):
 
 
 def make_report(
-    gdf: gpd.GeoDataFrame,
+    gdf: gpd.GeoDataFrame | pd.DataFrame,
     huc_df: pd.DataFrame,
     aoi_df: gpd.GeoDataFrame,
     report_dir: Path,
@@ -69,7 +73,7 @@ def make_report(
     """
     Generates HTML report(s) in report_dir.
     Args:
-        gdf (gpd.GeoDataFrame): The main data geodataframe for the report.
+        gdf (gpd.GeoDataFrame): The main data geodataframe for the report. (Actually ok to be DataFrame)
         huc_df (pd.DataFrame): The HUC data dataframe for the report.
         aoi_df (gpd.GeoDataFrame): The area of interest geodataframe.
         report_dir (Path): The directory where the report will be saved.
@@ -145,8 +149,7 @@ def make_report(
     all_stats = statistics(gdf)
     metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
     metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
-    if nid_gdf is not None:
-        metric_data_for_key_indicators['total_dams'] = len(nid_gdf)
+    metric_data_for_key_indicators.update(dam_statistics(nid_gdf))
     report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
     report.add_html_elements('appendices', appendices)
 
@@ -255,7 +258,12 @@ def make_report_orchestrator(
 
         log.info("Querying Athena for data for AOI")
 
-        fields_we_need = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"  # noqa: E501
+        fields_we_need = (
+            "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, "
+            "rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, "
+            "lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, "
+            "fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
+        )
         query_str = f"SELECT {fields_we_need} FROM rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
         aoi_query_to_local_parquet(
