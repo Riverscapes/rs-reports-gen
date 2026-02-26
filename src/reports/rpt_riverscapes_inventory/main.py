@@ -2,66 +2,70 @@
 import argparse
 import logging
 import os
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
-import sys
 import shutil
+import sys
 import traceback
-import psutil  # for checking locally
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 # 3rd party imports
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
+import psutil  # for checking locally
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
+from reports.rpt_riverscapes_inventory import __version__ as report_version
+from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
+from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
 from util import prepare_gdf_for_athena
 from util.athena import (
     aoi_query_to_local_parquet,
     athena_unload_to_dataframe,
-    get_field_metadata
+    get_field_metadata,
 )
 from util.color import DEFAULT_FCODE_COLOR_MAP
-from util.html import RSReport
-from util.pandas import load_gdf_from_pq
-from util.pandas import RSFieldMeta, RSGeoDataFrame
-from util.pdf import make_pdf_from_html
 from util.figures import (
-    get_bins_info,
-    table_total_x_by_y,
     bar_group_x_by_y,
     bar_total_x_by_ybins,
+    dens_road_rail,
+    get_bins_info,
     horizontal_bar_chart,
     make_aoi_outline_map,
     make_rs_area_by_featcode,
-    prop_ag_dev,
-    dens_road_rail,
-    project_id_list,
     metric_cards,
+    project_id_list,
+    prop_ag_dev,
+    table_total_x_by_y,
 )
-from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
-from reports.rpt_riverscapes_inventory.figures import hypsometry_fig, statistics
+from util.html import RSReport
+from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
+from util.pdf import make_pdf_from_html
 
 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
-    _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='*', layer_id="raw_rme,rpt_rme,rs_context_huc10")
-    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
+    meta = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
+    meta.field_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='*', layer_id="raw_rme,rpt_rme,rs_context_huc10")
+    meta.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
-    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
-    _FIELD_META.set_display_unit('segment_area', 'kilometer ** 2')
+    meta.set_display_unit('centerline_length', 'kilometer')
+    meta.set_display_unit('segment_area', 'kilometer ** 2')
 
     return
 
 
-def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
-                report_dir: Path, report_name: str,
-                nid_gdf: gpd.GeoDataFrame | None = None,
-                include_static: bool = True,
-                include_pdf: bool = True
-                ):
+def make_report(
+    gdf: gpd.GeoDataFrame,
+    huc_df: pd.DataFrame,
+    aoi_df: gpd.GeoDataFrame,
+    report_dir: Path,
+    report_name: str,
+    nid_gdf: gpd.GeoDataFrame | None = None,
+    include_static: bool = True,
+    include_pdf: bool = True,
+):
     """
     Generates HTML report(s) in report_dir.
     Args:
@@ -98,12 +102,12 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
         "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
         "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure']),  # need to check these bins, also reverse them
-        "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bins'])
+        "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bins']),
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name']),
         "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
-        "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc'])
+        "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc']),
     }
     if nid_gdf is None:
         tables["nid_dams"] = '<div class="error-message"><p>Unable to retrieve data from NID. Check log for details.<p></div>'
@@ -114,7 +118,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
             classes="table table-striped",
             index=False,
             escape=False,
-            layer_id="NID"
+            layer_id="NID",
         )
     elif nid_gdf is not None:
         tables["nid_dams"] = '<p>No dams found in the area of interest.</p>'
@@ -133,7 +137,7 @@ def make_report(gdf: gpd.GeoDataFrame, huc_df: pd.DataFrame, aoi_df: gpd.GeoData
         body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
         css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
     )
-    for (name, fig) in figures.items():
+    for name, fig in figures.items():
         report.add_figure(name, fig)
 
     report.add_html_elements('tables', tables)
@@ -188,13 +192,17 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
     return df
 
 
-def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: str,
-                             include_pdf: bool = True, unit_system: str = "SI",
-                             parquet_override: Path | None = None,
-                             keep_parquet: bool = False,
-                             disable_nid: bool = False,
-                             ):
-    """ Orchestrates the report generation process:
+def make_report_orchestrator(
+    report_name: str,
+    report_dir: Path,
+    path_to_shape: str,
+    include_pdf: bool = True,
+    unit_system: str = "SI",
+    parquet_override: Path | None = None,
+    keep_parquet: bool = False,
+    disable_nid: bool = False,
+):
+    """Orchestrates the report generation process:
 
     Args:
         report_name (str): The name of the report.
@@ -242,11 +250,12 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
         if simplification_results.simplified:
             log.warning(
                 f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
-                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.""")
+                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
+            )
 
         log.info("Querying Athena for data for AOI")
 
-        fields_we_need = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
+        fields_we_need = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"  # noqa: E501
         query_str = f"SELECT {fields_we_need} FROM rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
         aoi_query_to_local_parquet(
@@ -254,7 +263,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
             geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
             geom_bbox_field='dgo_geom_bbox',
             aoi_gdf=query_gdf,
-            local_path=parquet_data_source
+            local_path=parquet_data_source,
         )
 
     data_gdf = load_gdf_from_pq(parquet_data_source)
@@ -283,7 +292,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
         try:
             nid_gdf = nid_future.result()
             if nid_gdf is None:
-                log.warning(f"No NID gdf returned.")
+                log.warning("No NID gdf returned.")
             else:
                 log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
                 if not nid_gdf.empty:
@@ -299,11 +308,16 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
-    make_report(data_gdf, huc_data_df, aoi_gdf, report_dir, report_name,
-                nid_gdf=nid_gdf,
-                include_static=include_pdf,
-                include_pdf=include_pdf
-                )
+    make_report(
+        data_gdf,
+        huc_data_df,
+        aoi_gdf,
+        report_dir,
+        report_name,
+        nid_gdf=nid_gdf,
+        include_static=include_pdf,
+        include_pdf=include_pdf,
+    )
 
     if not keep_parquet:
         try:
@@ -317,31 +331,16 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
 
 def main():
-    """ Main function to parse arguments and generate the report
-    """
+    """Main function to parse arguments and generate the report"""
     parser = argparse.ArgumentParser()
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
-    parser.add_argument(
-        '--use-parquet',
-        dest='parquet_path',
-        type=Path,
-        default=None,
-        help='Use an existing Parquet file or directory instead of running the Athena AOI query'
-    )
-    parser.add_argument(
-        '--keep-parquet',
-        action='store_true',
-        help='Keep the downloaded AOI Parquet files instead of deleting the pq folder'
-    )
-    parser.add_argument(
-        '--no-nid',
-        action='store_true',
-        help='Disable fetching data from National Inventory of Dams'
-    )
+    parser.add_argument('--use-parquet', dest='parquet_path', type=Path, default=None, help='Use an existing Parquet file or directory instead of running the Athena AOI query')
+    parser.add_argument('--keep-parquet', action='store_true', help='Keep the downloaded AOI Parquet files instead of deleting the pq folder')
+    parser.add_argument('--no-nid', action='store_true', help='Disable fetching data from National Inventory of Dams')
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -361,14 +360,16 @@ def main():
     log.info(f"Report Version: {report_version}")
 
     try:
-        make_report_orchestrator(args.report_name,
-                                 output_path,
-                                 args.path_to_shape,
-                                 args.include_pdf,
-                                 args.unit_system,
-                                 parquet_override=args.parquet_path,
-                                 keep_parquet=args.keep_parquet,
-                                 disable_nid=args.no_nid,)
+        make_report_orchestrator(
+            args.report_name,
+            output_path,
+            args.path_to_shape,
+            args.include_pdf,
+            args.unit_system,
+            parquet_override=args.parquet_path,
+            keep_parquet=args.keep_parquet,
+            disable_nid=args.no_nid,
+        )
 
         # While we work on performance, this is helpful
         process = psutil.Process(os.getpid())
