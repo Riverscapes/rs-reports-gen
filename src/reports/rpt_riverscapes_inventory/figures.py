@@ -1,11 +1,13 @@
 from collections import defaultdict
-import pandas as pd
-from rsxml import Logger
-import plotly.graph_objects as go
-import pint
+
 import geopandas as gpd
-from util.pandas import RSFieldMeta, RSGeoDataFrame
+import pandas as pd
+import pint
+import plotly.graph_objects as go
+from rsxml import Logger
+
 from util.figures import common_statistics
+from util.pandas import RSFieldMeta
 
 ureg = pint.get_application_registry()
 
@@ -37,7 +39,7 @@ def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
 
     filled_bins = {
         'bin': all_bins,
-        'total_cell_count': [combined_bins.get(b, 0) for b in all_bins]
+        'total_cell_count': [combined_bins.get(b, 0) for b in all_bins],
     }
 
     result_df = pd.DataFrame(filled_bins)
@@ -58,20 +60,28 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
             x=df['total_cell_count'],
             y=df['bin'],
             orientation='h',
-            marker_color='steelblue'
+            marker_color='steelblue',
         )
     )
     fig.update_layout(
         title="Hypsometry: Total Cell Count by Elevation",
         xaxis_title="Total Cell Count",
         yaxis_title="Elevation (m)",
-        template="plotly_white"
+        template="plotly_white",
     )
     return fig
 
 
-def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
-    """ Calculate and return key statistics as a dictionary
+def dam_statistics(nid_df: pd.DataFrame | None) -> dict[str, pint.Quantity]:
+    """statistics from the national inventory of dams dataframe"""
+    stats: dict[str, pint.Quantity] = {}
+    if nid_df is not None:
+        stats['total_dams'] = len(nid_df) * ureg('count')
+    return stats
+
+
+def statistics(gdf: gpd.GeoDataFrame | pd.DataFrame) -> dict[str, pint.Quantity]:
+    """Calculate and return key statistics as a dictionary
     Args:
         gdf (GeoDataFrame): data_gdf input WITH UNITS APPLIED
 
@@ -83,7 +93,7 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # create any statistics specific to this report
     # (THIS is just an example of what we can do; not sure we need count of huc12)
     # copy a subset df to make sure we don't accidentally change the incoming df
-    subset_df = gdf[["huc12",]].copy()
+    subset_df = gdf[["huc12"]].copy()
 
     # e.g. Calculate totals
     count_huc12s = subset_df['huc12'].nunique()
@@ -96,12 +106,12 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
         friendly_name='Number of HUC-12',
         data_unit='',
         dtype='INTEGER',
-        description='The number of different HUC12 having Riverscape data in the Area of Interest.'
+        description='The number of different HUC12 having Riverscape data in the Area of Interest.',
     )
 
     # Compose result dictionary
     stats = {
         **common_stats,
-        'count_huc12s': count_huc12s
+        'count_huc12s': count_huc12s,
     }
     return stats
