@@ -254,7 +254,88 @@ def get_vegetation_cover_timeseries(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
 
 
 def vegetation_cover_timeseries_charts(df: pd.DataFrame):
-    pass
+    """
+    Creates a set of line charts for vegetation cover timeseries using Plotly Express.
+    Returns a Plotly Figure object with subplots (one for each variable).
+    """
+    import plotly.express as px
+
+    # Clean up column names to match our variable map keys
+    # The API returns columns like "AFG (%)", "PFG (%)", etc.
+    # We want to map these to full names used in the titles.
+    # Define the mapping from code to full name
+    variable_map = {
+        "AFG": "Annual Forb and Grass Cover",
+        "PFG": "Perennial Forb and Grass Cover",
+        "SHR": "Shrub Cover",
+        "TRE": "Tree Cover",
+        "BGR": "Bare Ground Cover",
+        "LTR": "Litter Cover"
+    }
+
+    # Find the matching columns in the dataframe
+    df_renamed = df.copy()
+
+    # Create dictionary to rename specific columns like 'AFG (%)' -> 'Annual Forb and Grass Cover'
+    rename_cols = {}
+
+    # We need to handle that the column names might have units like "AFG (%)" or "AFG"
+    # We iterate over the columns in the dataframe and see if they start with our known codes.
+    found_vars = []
+
+    for col in df.columns:
+        # Skip 'Date' column
+        if col.lower() == 'date':
+            continue
+
+        for code, full_name in variable_map.items():
+            # Check if column starts with the code (e.g. "AFG" in "AFG (%)")
+            if col.startswith(code):
+                rename_cols[col] = full_name
+                found_vars.append(full_name)
+                break
+
+    if not rename_cols:
+        print("Warning: No matching vegetation variables found in dataframe columns:", df.columns)
+        return None
+
+    # Rename columns
+    df_renamed = df_renamed.rename(columns=rename_cols)
+
+    # Only keep Date + found variables
+    target_cols = ['Date'] + found_vars
+    # Use intersection to be safe against missing Date or other issues, though Date is expected
+    available_cols = [c for c in target_cols if c in df_renamed.columns]
+    df_subset = df_renamed[available_cols]
+
+    # Melt to long format: Date, Variable, Value
+    df_melted = df_subset.melt(id_vars=['Date'], var_name='Variable', value_name='Cover (%)')
+
+    # Create line chart with facets (subplots)
+    # Use facet_col and facet_col_wrap to create a grid
+    fig = px.line(
+        df_melted,
+        x='Date',
+        y='Cover (%)',
+        facet_col='Variable',
+        facet_col_wrap=2,  # 2 columns, 3 rows
+        title='Vegetation Cover Timeseries (RAP)',
+        height=900,
+        markers=True,
+        # Ensure y-axis range is fixed 0-100 for all
+        range_y=[0, 100]
+    )
+
+    # Improve layout
+    # matches='y' forces all y-axes to share the same axis (and range)
+    # matches='x' forces all x-axes to share the same axis (and range)
+    fig.update_yaxes(matches='y')
+    fig.update_xaxes(matches='x')
+
+    # Improve titles by removing "Variable=" prefix
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+
+    return fig
 
 
 def main():
@@ -274,7 +355,8 @@ def main():
     # getDroughtReport(gdf, site_name, site_description)
     # get_dataset_date_range()
     vegdf = get_vegetation_cover_timeseries(gdf)
-    vegetation_cover_timeseries_charts(vegdf)
+    fig = vegetation_cover_timeseries_charts(vegdf)
+    fig.show()
 
 
 if __name__ == '__main__':
