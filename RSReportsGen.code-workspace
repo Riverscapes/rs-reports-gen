@@ -15,14 +15,15 @@
         "[python]": {
             "editor.tabSize": 4,
             "editor.formatOnSave": true,
+            "editor.defaultFormatter": "charliermarsh.ruff"
         },
-        "autopep8.args": [
-            "--max-line-length=240",
-        ],
-        "pylint.args": [
-            "--disable=C0301,C0114,C0103,W0719,W0718",
-            "--max-line-length=240"
-        ],
+        // "autopep8.args": [
+        //     "--max-line-length=240",
+        // ],
+        // "pylint.args": [
+        //     "--disable=C0301,C0114,C0103,W0719,W0718",
+        //     "--max-line-length=240"
+        // ],
         "python.testing.pytestEnabled": true,
         // Testing setup
         "python.testing.pytestArgs": [
@@ -53,12 +54,11 @@
         "recommendations": [
           "ms-python.python",
           "ms-python.vscode-pylance",
-          "njpwerner.autodocstring",
           "mhutchie.git-graph",
           "graphql.vscode-graphql-syntax",
           "graphql.vscode-graphql",
-          "ms-python.autopep8",
-          "ms-python.pylint"
+          "ms-python.pylint",
+          "charliermarsh.ruff"
         ],
       },
 }
