@@ -1,14 +1,15 @@
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
 import requests
 from rsxml import Logger
-from util.rme.rme_common_dataprep import add_common_rme_cols
+
 from util.pandas import RSFieldMeta
+from util.rme.rme_common_dataprep import add_common_rme_cols
 
 
 def add_calculated_rme_cols(df: pd.DataFrame) -> pd.DataFrame:
     """Add calculated columns to the RME dataframe
-    Returns: 
+    Returns:
         dataframe with added columns
     """
     df = add_common_rme_cols(df, ['riparian_veg_departure_as_departure', 'riparian_veg_departure_bins', 'land_use_intens_bins'])
@@ -21,7 +22,7 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame | None:
     """
     Fetch data from USACE National Inventory of Dams matching the AOI.
     Uses Bounding Box of AOI for query.
-    In case of error, returns None. 
+    In case of error, returns None.
     """
     log = Logger("NID Data Fetch")
     try:
@@ -35,15 +36,7 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame | None:
 
         url = "https://geospatial.sec.usace.army.mil/dls/rest/services/NID/National_Inventory_of_Dams_Public_Service/FeatureServer/0/query"
 
-        params = {
-            "where": "1=1",
-            "geometry": bbox_str,
-            "geometryType": "esriGeometryEnvelope",
-            "spatialRel": "esriSpatialRelIntersects",
-            "outFields": "*",
-            "returnGeometry": "true",
-            "f": "geojson"
-        }
+        params = {"where": "1=1", "geometry": bbox_str, "geometryType": "esriGeometryEnvelope", "spatialRel": "esriSpatialRelIntersects", "outFields": "*", "returnGeometry": "true", "f": "geojson"}
 
         log.info(f"Querying NID with bbox: {bbox_str}")
         resp = requests.post(url, data=params, timeout=150)  # 2.5 minutes seems fine even for big areas
@@ -78,40 +71,31 @@ def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     if nid_gdf.empty:
         return pd.DataFrame()
 
-    _FIELD_META = RSFieldMeta()
-    layer_id = 'NID'  # for disambiguating metadata
+    meta = RSFieldMeta()
+    layer_id = nid_gdf.attrs.get('layer_id', 'NID')  # for disambiguating metadata
 
     # Define metadata for NID fields
 
-    _FIELD_META.add_field_meta(name='NID_STORAGE', layer_id=layer_id, friendly_name='NID Storage', data_unit='acre_feet', display_unit='acre_feet', dtype='REAL')
-    _FIELD_META.add_field_meta(name='NID_HEIGHT', layer_id=layer_id, friendly_name='NID Height', data_unit='foot', display_unit='foot', dtype='REAL')
-    _FIELD_META.add_field_meta(name='DRAINAGE_AREA', layer_id=layer_id, friendly_name='Drainage Area', data_unit='mile**2', display_unit='mile**2', dtype='REAL')
-    _FIELD_META.add_field_meta(name='MAX_DISCHARGE', layer_id=layer_id, friendly_name='Max Discharge', data_unit='foot**3 / second', display_unit='foot**3 / second', dtype='REAL')
+    meta.add_field_meta(name='NID_STORAGE', layer_id=layer_id, friendly_name='NID Storage', description="General storage of the dam.", data_unit='acre_feet', display_unit='acre_feet', dtype='REAL', preferred_format="{:,.0f}")
+    meta.add_field_meta(name='NID_HEIGHT', layer_id=layer_id, friendly_name='NID Height', data_unit='foot', display_unit='foot', dtype='REAL')
+    meta.add_field_meta(name='DRAINAGE_AREA', layer_id=layer_id, friendly_name='Drainage Area', data_unit='mile**2', display_unit='mile**2', dtype='REAL')
+    meta.add_field_meta(name='MAX_DISCHARGE', layer_id=layer_id, friendly_name='Max Discharge', data_unit='foot**3 / second', display_unit='foot**3 / second', dtype='REAL')
 
-    nid_display_cols = [
-        'NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE',
-        'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE', 'NIDID'
-    ]
+    nid_display_cols = ['NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE', 'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE', 'NIDID']
 
     # Ensure we only work with available columns
     cols_to_use = [c for c in nid_display_cols if c in nid_gdf.columns]
 
-    # Apply units formatting
     # Pass layer_id='NID' to resolve ambiguities
-    display_gdf, _ = _FIELD_META.apply_units(nid_gdf[cols_to_use].copy(), layer_id=layer_id)
+    # Apply units formatting
+    display_gdf, _ = meta.apply_units(nid_gdf[cols_to_use].copy(), layer_id=layer_id)
 
     # Create Hyperlink for NAME using NIDID
     if 'NIDID' in display_gdf.columns and 'NAME' in display_gdf.columns:
-        display_gdf['NAME'] = display_gdf.apply(
-            lambda row: f'<a href="https://nid.sec.usace.army.mil/nid/#/dams/system/{row["NIDID"]}/summary" target="_blank">{row["NAME"]}</a>',
-            axis=1
-        )
+        display_gdf['NAME'] = display_gdf.apply(lambda row: f'<a href="https://nid.sec.usace.army.mil/nid/#/dams/system/{row["NIDID"]}/summary" target="_blank">{row["NAME"]}</a>', axis=1)
 
     # Final column selection for display
-    final_cols = [
-        'NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE',
-        'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE'
-    ]
+    final_cols = ['NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE', 'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE']
     final_cols = [c for c in final_cols if c in display_gdf.columns]
 
     return display_gdf[final_cols]

@@ -16,7 +16,11 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from reports.rpt_riverscapes_inventory import __version__ as report_version
-from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, get_nid_data, prepare_nid_display_table
+from reports.rpt_riverscapes_inventory.dataprep import (
+    add_calculated_rme_cols,
+    get_nid_data,
+    prepare_nid_display_table,
+)
 from reports.rpt_riverscapes_inventory.figures import (
     dam_statistics,
     hypsometry_fig,
@@ -108,24 +112,27 @@ def make_report(
         "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure']),  # need to check these bins, also reverse them
         "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bins']),
     }
+
     tables = {
-        "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name']),
+        "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name'], with_footer=False),
         "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
         "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc']),
     }
     if nid_gdf is None:
         tables["nid_dams"] = '<div class="error-message"><p>Unable to retrieve data from NID. Check log for details.<p></div>'
-    if nid_gdf is not None and not nid_gdf.empty:
-        nid_display_df = prepare_nid_display_table(nid_gdf)
-        # Use RSGeoDataFrame to get friendly column names for display
-        tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
-            classes="table table-striped",
-            index=False,
-            escape=False,
-            layer_id="NID",
-        )
-    elif nid_gdf is not None:
-        tables["nid_dams"] = '<p>No dams found in the area of interest.</p>'
+    else:
+        nid_gdf.attrs['layer_id'] = 'NID'
+        if not nid_gdf.empty:
+            nid_display_df = prepare_nid_display_table(nid_gdf)
+            # Use RSGeoDataFrame to get friendly column names for display
+            tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
+                classes="table table-striped",
+                index=False,
+                escape=False,
+                layer_id="NID",
+            )
+        else:
+            tables["nid_dams"] = '<p>No dams found in the area of interest.</p>'
     appendices = {
         "project_ids": project_id_list(gdf),
     }
@@ -312,7 +319,7 @@ def make_report_orchestrator(
 
     # Export the data to Excel
     # dumping all the raw data is not appropriate especially for very large areas
-    RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
+    RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'raw_dgo_data.xlsx')
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
