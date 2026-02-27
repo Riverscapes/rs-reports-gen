@@ -9,21 +9,22 @@ FUTURE ENHANCEMENTs:
 
 # assume pint registry has been set up already
 
-import os
-import math
 import json
-from typing import Optional
+import math
+import os
+from collections.abc import Sequence
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pint
-import geopandas as gpd
-from shapely.geometry import Polygon, MultiPolygon
-import plotly.graph_objects as go
 import plotly.express as px
-
+import plotly.graph_objects as go
 from rsxml import Logger
-from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
+from shapely.geometry import MultiPolygon, Polygon
+
 from util.color import DEFAULT_FCODE_COLOR_MAP
+from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 
 
 def get_bins_info(key: str):
@@ -63,7 +64,13 @@ def format_value(value, decimals: int = 0) -> str:
     return formatted_val
 
 
-def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[str], color_discrete_map: Optional[dict[str, str]] = None, fig_params: dict | None = None) -> go.Figure:
+def bar_total_x_by_ybins(
+    df: pd.DataFrame,
+    total_col: str,
+    group_by_cols: list[str],
+    color_discrete_map: dict[str, str] | None = None,
+    fig_params: dict | None = None,
+) -> go.Figure:
     """
     Uses bins.json to lookup the bins
     If more than one x_col provided, will use the binning identified for the first
@@ -74,13 +81,13 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         y_col (_type_): _description_
 
     Returns:
-        go.Figure: 
+        go.Figure:
 
-    Usage: 
-        bar_total_x_by_ybins(data_gdf, 'segment_area', ['low_lying_ratio']) 
+    Usage:
+        bar_total_x_by_ybins(data_gdf, 'segment_area', ['low_lying_ratio'])
         produces same thing as low_lying_ratio_bins(data_gdf)
 
-    future Enhancement: 
+    future Enhancement:
     * separate the dataframe generation from plotting - we might want a table as well
     * there's also lots of repetition with regular bar chart - mainly the colors are diff
     """
@@ -137,7 +144,7 @@ def bar_total_x_by_ybins(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         labels=baked_header_lookup,
         height=400,
         **color_kwargs,
-        **fig_params
+        **fig_params,
     )
 
     if len(group_by_cols) >= 2:
@@ -158,13 +165,13 @@ def horizontal_bar_chart(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         y_col (_type_): _description_
 
     Returns:
-        go.Figure: 
+        go.Figure:
 
-    Usage: 
-        horizontal_bar_chart(data_gdf, 'segment_area', ['low_lying_ratio']) 
+    Usage:
+        horizontal_bar_chart(data_gdf, 'segment_area', ['low_lying_ratio'])
         produces same thing as low_lying_ratio_bins(data_gdf) but horizontal
 
-    future Enhancement: 
+    future Enhancement:
     * separate the dataframe generation from plotting - we might want a table as well
     * there's also lots of repetition with regular bar chart - mainly the colors are diff
     """
@@ -215,21 +222,34 @@ def horizontal_bar_chart(df: pd.DataFrame, total_col: str, group_by_cols: list[s
         labels=baked_header_lookup,
         height=400,
         orientation='h',
-        **fig_params
+        **fig_params,
     )
 
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, showlegend=False)
     return fig
 
 
-def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], with_percent: bool = True) -> RSGeoDataFrame:
+def total_x_by_y(
+    df: pd.DataFrame,
+    total_col: str,
+    group_by_cols: list[str],
+    with_percent: bool = True,
+    include_footer: bool = True,
+    sort_by_cols: str | Sequence[str] | None = None,
+    sort_ascending: bool | Sequence[bool] | None = None,
+    top_n: int | None = None,
+) -> RSGeoDataFrame:
     """summarize the dataframe with friendly name and units
 
     Args:
         df (pd.DataFrame): dataframe containing the data
         total_col (str): column to sum
         group_by_cols (list[str]): list of fields to group by
-        with_percent (bool): include a Percent of Total column
+        with_percent (bool): include a Percent of Total column.
+        include_footer (bool): add on a dataframe with the totals. (Not included if with_percent is false)
+        sort_by_cols: column or list of columns to sort by . Will sort by the group_by_cols if not supplied
+        sort_ascending: will assume True if not supplied
+        top_n: limit results to maximum n rows
 
     Returns:
         pd.DataFrame: result dataframe
@@ -247,12 +267,25 @@ def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], wit
     # Pint-enabled DataFrame for calculation
     df_result = RSGeoDataFrame(chart_subset_df.groupby(group_by_cols, as_index=False, observed=False)[total_col].sum())
 
+    # Handle sorting
+    # pandas default will sort by the group-by key
+    if sort_by_cols:
+        if sort_ascending is None:
+            if isinstance(sort_by_cols, list):
+                sort_ascending = [True] * len(sort_by_cols)
+            else:
+                sort_ascending = True
+        df_result = df_result.sort_values(by=sort_by_cols, ascending=sort_ascending)
+
+    # Limit to top_n if specified. After sorting but before further processing
+    if top_n is not None:
+        df_result = df_result.head(top_n)
+
     # Propagate layer_id to the new dataframe
     if layer_id:
         df_result.attrs['layer_id'] = layer_id
 
     if with_percent:
-
         # add the grand_total metadata
         grand_total = df_result[total_col].sum()  # Quantity
 
@@ -270,23 +303,28 @@ def total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], wit
             else:
                 total_row_cols[col] = ['']
 
-        df_result.set_footer(pd.DataFrame({
-            **total_row_cols,
-            total_col: grand_total,
-            'pct_of_total': [100]
-        }))
+        if include_footer:
+            df_result.set_footer(pd.DataFrame({**total_row_cols, total_col: grand_total, 'pct_of_total': [100]}))
 
     return df_result
 
 
-def table_total_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], with_percent: bool = True) -> str:
+def table_total_x_by_y(
+    df: pd.DataFrame,
+    total_col: str,
+    group_by_cols: list[str],
+    with_percent: bool = True,
+    with_footer: bool = True,
+    sort_by_cols: str | Sequence[str] | None = None,
+    sort_ascending: bool | Sequence[bool] | None = None,
+    top_n: int | None = None,
+) -> str:
     """return html table fragment for grouped-by with total (and optional percent) table"""
-    df = total_x_by_y(df, total_col, group_by_cols, with_percent)
+    df = total_x_by_y(df, total_col, group_by_cols, with_percent, with_footer, sort_by_cols, sort_ascending, top_n)
     return df.to_html(index=False, escape=False)
 
 
-def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
-                     fig_params: dict | None = None) -> go.Figure:
+def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:
     """create bar chart of total x by y
 
     Args:
@@ -321,13 +359,7 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     if len(group_by_cols) == 2 and "color" not in fig_params:
         fig_params["color"] = group_by_cols[1]
 
-    bar_fig = px.bar(
-        baked_chart_data,
-        y=group_by_cols[0],
-        x=total_col,
-        labels=baked_header_lookup,
-        **fig_params
-    )
+    bar_fig = px.bar(baked_chart_data, y=group_by_cols[0], x=total_col, labels=baked_header_lookup, **fig_params)
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     bar_fig.update_xaxes(tickformat=",")
     return bar_fig
@@ -348,6 +380,7 @@ def check_for_pdna(df: pd.DataFrame, label: str):
             if df[col].isna().any():
                 Logger('NATypeCheck').error(f"  Column '{col}' has NA at rows: {df[df[col].isna()].index.tolist()}")
 
+
 # =========================
 # Maps
 # =========================
@@ -367,14 +400,7 @@ def get_aoi_outline_trace(aoi_gdf, color='red', width=3, name='AOI'):
             x, y = poly.exterior.xy
             lons.extend(list(x) + [None])  # None separates polygons
             lats.extend(list(y) + [None])
-    return go.Scattermap(
-        lon=lons,
-        lat=lats,
-        mode='lines',
-        line={'color': color, 'width': width},
-        name=name,
-        showlegend=True
-    )
+    return go.Scattermap(lon=lons, lat=lats, mode='lines', line={'color': color, 'width': width}, name=name, showlegend=True)
 
 
 def make_aoi_outline_map(aoi_gdf):
@@ -387,9 +413,12 @@ def make_aoi_outline_map(aoi_gdf):
     return fig
 
 
-def make_map_with_aoi(gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame,
-                      color_discrete_map: Optional[dict[str, str]] = None):
-    """ make a map with the data and the AOI outlined
+def make_map_with_aoi(
+    gdf: gpd.GeoDataFrame,
+    aoi_gdf: gpd.GeoDataFrame,
+    color_discrete_map: dict[str, str] | None = None,
+):
+    """make a map with the data and the AOI outlined
 
     Args:
         gdf (GeoDataFrame): containing DGO polygons and attributes
@@ -465,7 +494,7 @@ def make_map_with_aoi(gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame,
         hover_data={"segment_area": True, "ownership_desc": True},
         center=center,
         zoom=zoom,
-        **color_kwargs
+        **color_kwargs,
     )
 
     # Add AOI outlines using a single go.Scattermap trace
@@ -481,18 +510,9 @@ def make_map_with_aoi(gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame,
             x, y = poly.exterior.xy
             lons.extend(list(x) + [None])  # None separates polygons
             lats.extend(list(y) + [None])
-    fig.add_trace(go.Scattermap(
-        lon=lons,
-        lat=lats,
-        mode='lines',
-        line={'color': 'red', 'width': 3},
-        name='AOI',
-        showlegend=True
-    ))
+    fig.add_trace(go.Scattermap(lon=lons, lat=lats, mode='lines', line={'color': 'red', 'width': 3}, name='AOI', showlegend=True))
 
-    fig.update_maps(
-        style="open-street-map"
-    )
+    fig.update_maps(style="open-street-map")
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
 
     fig.update_layout(
@@ -571,7 +591,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
     # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
     fig.update_traces(
         textinfo="percent",
-        hovertemplate=f"<b>{baked_header_lookup.get('segment_area', 'segment_area')} for {baked_header_lookup.get('fcode_desc', 'fcode_desc Code')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>"
+        hovertemplate=f"<b>{baked_header_lookup.get('segment_area', 'segment_area')} for {baked_header_lookup.get('fcode_desc', 'fcode_desc Code')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
         # Use :,.1f or :,.2f if you want decimals.
     )
 
@@ -582,7 +602,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
 
 
 def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
-    """ Calculate and return key statistics for riverscapes RME as a dictionary
+    """Calculate and return key statistics for riverscapes RME as a dictionary
     Args:
         gdf (GeoDataFrame): data_gdf input WITH UNITS APPLIED
 
@@ -605,34 +625,10 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # TODO: use data_units of segment_area and centerline_length rather than assuming they are km
     # A: we don't reapply units based on metadata - we get the units from the Quantity instead
     # It's confusing to have units in metadata and in the dataframe that diverge. A diagram of the flow would be helpful.
-    RSFieldMeta().add_field_meta(
-        name='total_segment_area',
-        friendly_name='Total Riverscape Area',
-        data_unit='kilometer ** 2',
-        dtype='REAL',
-        description='Sum of the riverscape area for all DGOs captured in the report.'
-    )
-    RSFieldMeta().add_field_meta(
-        name='total_centerline_length',
-        friendly_name='Total Riverscape Length',
-        data_unit='kilometer',
-        dtype='REAL',
-        description='Sum of the riverscape centerline lengths for all DGOs captured in the report.'
-    )
-    RSFieldMeta().add_field_meta(
-        name='total_stream_length',
-        friendly_name='Total Stream Length',
-        data_unit='kilometer',
-        dtype='REAL',
-        description='Total length of all channel flow lines for all DGOs captured in the report.'
-    )
-    RSFieldMeta().add_field_meta(
-        name='integrated_valley_bottom_width',
-        friendly_name='Integrated Valley Bottom Width',
-        data_unit='m',
-        dtype='REAL',
-        description='Total riverscape area divided by total riverscape length.'
-    )
+    RSFieldMeta().add_field_meta(name='total_segment_area', friendly_name='Total Riverscape Area', data_unit='kilometer ** 2', dtype='REAL', description='Sum of the riverscape area for all DGOs captured in the report.')
+    RSFieldMeta().add_field_meta(name='total_centerline_length', friendly_name='Total Riverscape Length', data_unit='kilometer', dtype='REAL', description='Sum of the riverscape centerline lengths for all DGOs captured in the report.')
+    RSFieldMeta().add_field_meta(name='total_stream_length', friendly_name='Total Stream Length', data_unit='kilometer', dtype='REAL', description='Total length of all channel flow lines for all DGOs captured in the report.')
+    RSFieldMeta().add_field_meta(name='integrated_valley_bottom_width', friendly_name='Integrated Valley Bottom Width', data_unit='m', dtype='REAL', description='Total riverscape area divided by total riverscape length.')
 
     # Compose result dictionary
     # TODO: check. surely we don't want km and yards mixed? what's going on here.
@@ -669,11 +665,11 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     agg_data = pd.merge(ag_data, dev_data, on='bin', how='outer')
 
     field_meta = RSFieldMeta()
-    field_meta.duplicate_meta('segment_area', 'ag_segment_area',  new_friendly='Riverscapes Area')
+    field_meta.duplicate_meta('segment_area', 'ag_segment_area', new_friendly='Riverscapes Area')
     field_meta.duplicate_meta('segment_area', 'dev_segment_area', new_friendly='Riverscapes Area')
 
     baked_header_lookup = field_meta.get_headers_dict(agg_data)
-    baked_agg_data, _baked_headers = field_meta.bake_units(agg_data)    # Plot bar chart
+    baked_agg_data, _baked_headers = field_meta.bake_units(agg_data)  # Plot bar chart
 
     baked_header_lookup['bin'] = 'Land Use Intensity'
 
@@ -686,7 +682,8 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
         barmode='group',
         xaxis_title=baked_header_lookup.get('bin', 'Land Use Intensity'),
         yaxis_title=baked_header_lookup.get('ag_segment_area', 'Riverscape Area'),
-        margin={"r": 0, "t": 40, "l": 0, "b": 0})
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+    )
     return fig
 
 
@@ -711,39 +708,22 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     agg_data = pd.merge(road_data, rail_data, on='bin', how='outer')
 
     baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)    # Plot bar char
+    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)  # Plot bar char
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        y=baked_agg_data['bin'],
-        x=baked_agg_data['road_segment_area'],
-        name='Road Density',
-        orientation='h'
-    ))
-    fig.add_trace(go.Bar(
-        y=baked_agg_data['bin'],
-        x=baked_agg_data['rail_segment_area'],
-        name='Rail Density',
-        orientation='h'
-    ))
-    fig.update_layout(
-        barmode='group',
-        title='Riverscape Area by Road and Rail Density',
-        margin={"r": 0, "t": 40, "l": 0, "b": 0},
-        height=400,
-        yaxis_title='Density',
-        xaxis_title='Total Riverscape Area'
-    )
+    fig.add_trace(go.Bar(y=baked_agg_data['bin'], x=baked_agg_data['road_segment_area'], name='Road Density', orientation='h'))
+    fig.add_trace(go.Bar(y=baked_agg_data['bin'], x=baked_agg_data['rail_segment_area'], name='Rail Density', orientation='h'))
+    fig.update_layout(barmode='group', title='Riverscape Area by Road and Rail Density', margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=400, yaxis_title='Density', xaxis_title='Total Riverscape Area')
     fig.update_xaxes(tickformat=",")
     return fig
 
 
 def project_id_list(df: pd.DataFrame, id_col: str = 'rme_project_id', name_col: str = 'rme_project_name') -> list[tuple[str, str]]:
-    """generate html fragment representing the distinct projects used 
+    """generate html fragment representing the distinct projects used
 
     Args:
         df (pd.DataFrame): data_gdf containing project id and name fields
-        id_col (str): name column in the dataframe with the riverscape project id 
+        id_col (str): name column in the dataframe with the riverscape project id
         name_col (str): name of column in the dataframe with the riverscape project name
 
     Returns:
@@ -765,12 +745,12 @@ def project_id_list(df: pd.DataFrame, id_col: str = 'rme_project_id', name_col: 
 def metric_cards(metrics: dict[str, pint.Quantity]) -> dict[str, dict[str, str]]:
     """transform a statistics dictionary into dictionary of elements for display
 
-    Args: 
+    Args:
         metrics (dict): metric_id, Quantity
         **uses Friendly name and description if they have been added to the RSFieldMeta**
 
     Returns:
-        dictionary of cards. Each card is a dictionary each having: 
+        dictionary of cards. Each card is a dictionary each having:
             * title: friendly metric name
             * value: formatted metric value, including units
             * details: additional description (optional)
