@@ -1,7 +1,18 @@
 import os
 from pathlib import Path
+
 import inquirer
 from termcolor import colored
+
+
+def is_truthy(value: str | None) -> bool:
+    """Returns Ture if the string represents a truthy value.
+    Accepts "1", "true", "yes" (case-insensitive, ignores whitespace)
+    Any other value, including None, returns False
+    """
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes"}
 
 
 def main():
@@ -14,7 +25,7 @@ def main():
         For all reports:
             DATA_ROOT - Path to the outputs folder. A subfolder rpt-riverscapes-inventory will be created if it does not exist (REQUIRED)
             UNIT_SYSTEM - unit system to use: "SI" or "imperial" (optional, default is "SI")
-            INCLUDE_PDF - whether to include a PDF version of the report (optional, default is True)
+            INCLUDE_PDF - if 1 or true, adds --include-pdf FLAG TO include static html and PDF versions of the report (default is False)
 
         Report-specific variables:
             RSI_AOI_GEOJSON - path to the input geojson file for rpt-riverscapes-inventory (optional)
@@ -34,20 +45,19 @@ def main():
     if rsi_aoi_geojson:
         geojson_file = Path(rsi_aoi_geojson)
         if not geojson_file.exists():
-            raise RuntimeError(
-                colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+            raise RuntimeError(colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the code example folder
         base_dir = Path(__file__).parent
-        geojson_question = inquirer.prompt([
-            inquirer.List(
-                'geojson',
-                message="Select a geojson file to use as the AOI",
-                choices=[
-                    f for f in os.listdir(os.path.join(base_dir, "example")) if f.endswith('.geojson')
-                ],
-            ),
-        ])
+        geojson_question = inquirer.prompt(
+            [
+                inquirer.List(
+                    'geojson',
+                    message="Select a geojson file to use as the AOI",
+                    choices=[p.name for p in (Path(base_dir) / "example").glob("*.geojson")],
+                ),
+            ]
+        )
         if not geojson_question or 'geojson' not in geojson_question:
             print("\nNo geojson file selected. Exiting.\n")
             return
@@ -59,17 +69,11 @@ def main():
         if unit_system not in ["SI", "imperial"]:
             raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
     else:
-        unit_system_question = inquirer.prompt([
-            inquirer.List(
-                'unit_system',
-                message="Select a unit system to use",
-                choices=[
-                    "SI",
-                    "imperial"
-                ],
-                default="SI"
-            ),
-        ])
+        unit_system_question = inquirer.prompt(
+            [
+                inquirer.List('unit_system', message="Select a unit system to use", choices=["SI", "imperial"], default="SI"),
+            ]
+        )
         if not unit_system_question or 'unit_system' not in unit_system_question:
             print("\nNo unit system selected. Exiting.\n")
             return
@@ -81,35 +85,34 @@ def main():
         report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Inventory"
 
     # Ask for whether or not to include PDF. Default to NO
-    if os.environ.get("INCLUDE_PDF"):
-        include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
+    include_pdf_env = os.environ.get("INCLUDE_PDF", None)
+    if include_pdf_env is not None:
+        include_pdf = is_truthy(include_pdf_env)
     else:
-        include_pdf_question = inquirer.prompt([
-            inquirer.Confirm(
-                'include_pdf',
-                message="Include a PDF version of the report? (Default is No)",
-                default=False
-            ),
-        ])
+        include_pdf_question = inquirer.prompt(
+            [
+                inquirer.Confirm('include_pdf', message="Include a PDF version of the report? (Default is No)", default=False),
+            ]
+        )
         if not include_pdf_question or 'include_pdf' not in include_pdf_question:
             print("\nNo PDF option selected. Exiting.\n")
             return None
-        include_pdf = include_pdf_question['include_pdf']
+        include_pdf: bool = include_pdf_question['include_pdf']
 
     parquet_path = os.environ.get("RSI_PARQUET_PATH")
-    if parquet_path and not os.path.exists(parquet_path):
-        raise RuntimeError(
-            f"\nRSI_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n"
-        )
+    if parquet_path and not Path(parquet_path).exists():
+        raise RuntimeError(f"\nRSI_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n")
 
     else:
-        parquet_prompt = inquirer.prompt([
-            inquirer.Text(
-                'parquet_path',
-                message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
-                default="",
-            )
-        ])
+        parquet_prompt = inquirer.prompt(
+            [
+                inquirer.Text(
+                    'parquet_path',
+                    message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
+                    default="",
+                )
+            ]
+        )
         if not parquet_prompt or 'parquet_path' not in parquet_prompt:
             print("\nNo Parquet path selected. Exiting.\n")
             return
@@ -120,7 +123,8 @@ def main():
         os.path.join(data_root, "rpt-riverscapes-inventory", report_name.replace(" ", "_")),
         geojson_file,
         report_name,
-        "--unit_system", unit_system,
+        "--unit_system",
+        unit_system,
     ]
     if include_pdf:
         args.append("--include_pdf")
@@ -131,19 +135,21 @@ def main():
 
     keep_parquet_env = os.environ.get("RSI_KEEP_PARQUET")
     if keep_parquet_env is not None:
-        keep_parquet = keep_parquet_env.lower() in {"1", "true", "yes"}
+        keep_parquet = is_truthy(keep_parquet_env)
     else:
         # if we were supplied Parquet let's assume we want to keep it
         if parquet_path:
             keep_parquet = True
         else:
-            keep_answer = inquirer.prompt([
-                inquirer.Confirm(
-                    'keep_parquet',
-                    message='Keep downloaded Parquet files after processing?',
-                    default=False,
-                )
-            ])
+            keep_answer = inquirer.prompt(
+                [
+                    inquirer.Confirm(
+                        'keep_parquet',
+                        message='Keep downloaded Parquet files after processing?',
+                        default=False,
+                    )
+                ]
+            )
             if not keep_answer or 'keep_parquet' not in keep_answer:
                 print("\nNo keep_parquet option selected. Exiting.\n")
                 return
@@ -155,15 +161,13 @@ def main():
     # Ask for whether to fetch NID data (default Yes)
     no_nid_env = os.environ.get("RSI_NO_NID")
     if no_nid_env is not None:
-        no_nid = no_nid_env.lower() in {"1", "true", "yes"}
+        no_nid = is_truthy(no_nid_env)
     else:
-        nid_question = inquirer.prompt([
-            inquirer.Confirm(
-                'fetch_nid',
-                message="Fetch data from National Inventory of Dams? (Default is Yes)",
-                default=True
-            ),
-        ])
+        nid_question = inquirer.prompt(
+            [
+                inquirer.Confirm('fetch_nid', message="Fetch data from National Inventory of Dams? (Default is Yes)", default=True),
+            ]
+        )
         if not nid_question or 'fetch_nid' not in nid_question:
             print("\nNo NID option selected. Exiting.\n")
             return None

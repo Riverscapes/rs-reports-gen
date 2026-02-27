@@ -2,7 +2,7 @@
 RSFieldMeta: Centralized Field Metadata Management for Reporting
 
 This module provides the RSFieldMeta class and supporting utilities for managing
-field (column) metadata in our reporting and data analysis pipelines. 
+field (column) metadata in our reporting and data analysis pipelines.
 
 Metadata includes friendly names, units, data types,
 conversion flags, and descriptions for each field.
@@ -11,7 +11,7 @@ General functions:
     * add_field_meta
     * get_field_meta
 
-Pandas DataFrames specific functions: 
+Pandas DataFrames specific functions:
     * apply_units, bake_units
     * get_headers, get_headers_dict
 
@@ -36,10 +36,10 @@ Authors: Matt Reimer, Lorin Gaertner
 October 2025
 """
 
+import pandas as pd
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed
 from rsxml import Logger
-import pandas as pd
 
 ureg = pint.get_application_registry()
 
@@ -69,7 +69,7 @@ SI_TO_IMPERIAL: dict[str, str] = {
     'percent': 'percent',
     'count': 'count',
     'dimensionless': 'dimensionless',
-    'degree': 'degree'
+    'degree': 'degree',
 }
 IMPERIAL_TO_SI: dict[str, str] = {
     # Start by just reversing the SI_TO_IMPERIAL mapping
@@ -80,7 +80,7 @@ IMPERIAL_TO_SI: dict[str, str] = {
     'foot ** 2': 'meter ** 2',
     'yard': 'meter',
     'mile ** 2': 'kilometer ** 2',
-    'acre_foot': 'meter ** 3'
+    'acre_foot': 'meter ** 3',
 }
 
 
@@ -94,8 +94,8 @@ def _get_unique_id(layer_id: str | None, column_name: str) -> str:
 
 
 class FieldMetaValues:
-    """ A simple class to hold metadata values for a single field.
-        """
+    """A simple class to hold metadata values for a single field."""
+
     VALID_COLUMNS = [
         "layer_id",
         "name",
@@ -121,17 +121,20 @@ class FieldMetaValues:
 
     # Make it printable for easier debugging
     def __repr__(self):
-        return (f"FieldMetaValues(layer_id='{self.layer_id}', name='{self.name}', friendly_name='{self.friendly_name}', "
-                f"data_unit='{self.data_unit}', display_unit='{self.display_unit}', "
-                f"dtype='{self.dtype}', no_convert={self.no_convert}, preferred_format='{self.preferred_format}')")
+        return (
+            f"FieldMetaValues(layer_id='{self.layer_id}', name='{self.name}', friendly_name='{self.friendly_name}', "
+            f"data_unit='{self.data_unit}', display_unit='{self.display_unit}', "
+            f"dtype='{self.dtype}', no_convert={self.no_convert}, preferred_format='{self.preferred_format}')"
+        )
 
 
 class RSFieldMeta:
-    """ A Borg pattern to share metadata across multiple DataFrames.
+    """A Borg pattern to share metadata across multiple DataFrames.
 
     Returns:
         _type_: _description_
     """
+
     _shared_state = {}
 
     def __init__(self):
@@ -144,8 +147,7 @@ class RSFieldMeta:
             self._log.debug(f'Set default unit system to {self._unit_system}')
 
     def clear(self):
-        """ Clear the shared metadata.
-        """
+        """Clear the shared metadata."""
         self._field_meta = None
 
     @property
@@ -168,7 +170,7 @@ class RSFieldMeta:
 
     @field_meta.setter
     def field_meta(self, value: pd.DataFrame):
-        """ Set or extend the field metadata DataFrame. If metadata already exists it will be extended.
+        """Set or extend the field metadata DataFrame. If metadata already exists it will be extended.
 
         We do a lot of cleaning here to make sure there are valid values being passed in
 
@@ -216,10 +218,7 @@ class RSFieldMeta:
             value["no_convert"] = False
 
         # Create the unique ID for indexing
-        value['_unique_id'] = value.apply(
-            lambda row: _get_unique_id(row.get('layer_id'), row.get('name')),
-            axis=1
-        )
+        value['_unique_id'] = value.apply(lambda row: _get_unique_id(row.get('layer_id'), row.get('name')), axis=1)
 
         # Make our unit objects a little easier to work with
         if "data_unit" in value.columns:
@@ -241,7 +240,7 @@ class RSFieldMeta:
 
     @unit_system.setter
     def unit_system(self, system: str):
-        """ Set the current unit system.
+        """Set the current unit system.
 
         Args:
             system (str): The unit system to set (e.g. 'SI' or 'imperial').
@@ -360,7 +359,7 @@ class RSFieldMeta:
         self._field_meta.loc[unique_id, "preferred_format"] = preferred_format
 
     def _no_data_warning(self):
-        """ Warn if no metadata is set."""
+        """Warn if no metadata is set."""
         if self._field_meta is None:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
 
@@ -401,7 +400,7 @@ class RSFieldMeta:
         column_name: str,
         layer_id: str | None = None,
         *,
-        raise_on_missing: bool = False
+        raise_on_missing: bool = False,
     ) -> str | None:
         """Resolve the canonical unique id for a column with SQL-style ambiguity rules."""
         if not column_name:
@@ -440,12 +439,18 @@ class RSFieldMeta:
         return matches.index[0]
 
     def duplicate_meta(
-        self, orig_name: str, new_name: str,
-        orig_layer_id: str | None = None, new_layer_id: str | None = None,
-        new_friendly: str | None = None, new_description: str | None = None,
-        new_data_unit: str | None = None, new_display_unit: str | None = None,
-        new_dtype: str | None = None, new_no_convert: bool | None = None,
-        new_preferred_format: str | None = None
+        self,
+        orig_name: str,
+        new_name: str,
+        orig_layer_id: str | None = None,
+        new_layer_id: str | None = None,
+        new_friendly: str | None = None,
+        new_description: str | None = None,
+        new_data_unit: str | None = None,
+        new_display_unit: str | None = None,
+        new_dtype: str | None = None,
+        new_no_convert: bool | None = None,
+        new_preferred_format: str | None = None,
     ) -> FieldMetaValues | None:
         """Duplicate a row of the metadata table, optionally overriding fields.
 
@@ -493,7 +498,7 @@ class RSFieldMeta:
             dtype=new_dtype if new_dtype is not None else fm.dtype,
             no_convert=new_no_convert if new_no_convert is not None else fm.no_convert,
             description=new_description if new_description is not None else fm.description,
-            preferred_format=new_preferred_format if new_preferred_format is not None else fm.preferred_format
+            preferred_format=new_preferred_format if new_preferred_format is not None else fm.preferred_format,
         )
 
         self._log.info(f"Duplicated metadata from '{orig_id}' to '{new_id}'.")
@@ -579,13 +584,15 @@ class RSFieldMeta:
         unit_str_with_ones = str(quantity.units).replace('count', '1')
         return ureg.Unit(unit_str_with_ones)
 
-    def format_scalar(self,
-                      column_name: str,
-                      value,
-                      layer_id: str | None = None,
-                      *,
-                      decimals: int = 0,
-                      include_units: bool = True) -> str:
+    def format_scalar(
+        self,
+        column_name: str,
+        value,
+        layer_id: str | None = None,
+        *,
+        decimals: int = 0,
+        include_units: bool = True,
+    ) -> str:
         """Format a scalar metric using metadata-aware rules.
 
         Args:
@@ -685,12 +692,25 @@ class RSFieldMeta:
         """Set the preferred format for a column in the metadata."""
         self.__set_value(col, "preferred_format", preferred_format, layer_id)
 
+    @staticmethod
+    def _resolve_layer_context(df: pd.DataFrame | None, layer_id: str | None) -> str | None:
+        """Prefer explicit layer_id but fall back to DataFrame.attrs['layer_id']."""
+        if layer_id is not None and str(layer_id).strip():
+            return str(layer_id)
+        if df is None or not hasattr(df, "attrs"):
+            return None
+        attr_layer = df.attrs.get('layer_id')
+        if attr_layer is None:
+            return None
+        attr_text = str(attr_layer).strip()
+        return attr_text or None
+
     def apply_units(self, df: pd.DataFrame, layer_id: str | None = None) -> tuple[pd.DataFrame, dict]:
-        """ Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
+        """Apply data type and units to a DataFrame based on the metadata. This returns a new (copied) DataFrame with units applied.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is NOT modified in place.
-            layer_id (str | None): The specific layer context for applying units. If None, will match columns case-insensitively.
+            layer_id (str | None): Optional explicit layer context. If omitted we read df.attrs['layer_id'] when available.
 
         Returns:
             tuple(pd.DataFrame,dict) : A new DataFrame with units applied, a dict of applied units
@@ -699,13 +719,14 @@ class RSFieldMeta:
         if self._field_meta is None:
             raise RuntimeError("No metadata set. You need to instantiate RSFieldMeta and set the .meta property first.")
 
+        resolved_layer_id = self._resolve_layer_context(df, layer_id)
         # First Make a copy of the source
         df_copy = df.copy()
         applied_units = {}
 
         # Now loop over the dataframe columns and apply units
         for col in df_copy.columns:
-            fm = self.get_field_meta(col, layer_id)
+            fm = self.get_field_meta(col, resolved_layer_id)
             if not fm:  # just to be sure it exists
                 continue
 
@@ -739,12 +760,12 @@ class RSFieldMeta:
                         # put back the dtype
                         # df_copy[col] = df_copy[col].astype(dtype)
                         applied_unit = fm.display_unit
-                        self._log.debug(f'Applied {fm.display_unit} to {col} with no_convert using display unit {preferred_unit}')
+                        self._log.debug(f'Applied {fm.display_unit} to {col} with no_convert using display unit override')
                     else:
                         applied_unit = fm.data_unit
-                        self._log.debug(f'Applied {fm.data_unit} to {col} with no_convert using data unit {preferred_unit}')
+                        self._log.debug(f'Applied {fm.data_unit} to {col} with no_convert using data unit fallback')
                 else:
-                    preferred_unit = self.get_field_unit(col, layer_id=layer_id)
+                    preferred_unit = self.get_field_unit(col, layer_id=resolved_layer_id)
                     df_copy[col] = df_copy[col].pint.to(preferred_unit)
                     # put back the dtype
                     # df_copy[col] = df_copy[col].astype(dtype)
@@ -760,7 +781,7 @@ class RSFieldMeta:
         return df_copy, applied_units
 
     def get_field_unit(self, name: str, no_convert: bool = False, layer_id: str | None = None) -> pint.Unit | None:
-        """ Get the display unit for a specific column based on the metadata and current unit system.
+        """Get the display unit for a specific column based on the metadata and current unit system.
 
         This will take into account the display_unit, data_unit, no_convert, and preferred units for the current system.
 
@@ -797,7 +818,7 @@ class RSFieldMeta:
         return None
 
     def get_field_header(self, name: str, include_units: bool = True, unit_fmt=" ({unit})", layer_id: str | None = None) -> str:
-        """ Get the column header for a specific column based on the metadata.
+        """Get the column header for a specific column based on the metadata.
 
         Args:
             name (str): The column name to get the header for.
@@ -820,27 +841,27 @@ class RSFieldMeta:
         return header_text
 
     def get_headers(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", layer_id: str | None = None) -> list[str]:
-        """ Get the column headers for a DataFrame based on the metadata. This will return a list of column 
+        """Get the column headers for a DataFrame based on the metadata. This will return a list of column
         headers with friendly names and units if specified.
 
         Args:
             df (pd.DataFrame): The original dataframe
             include_units (bool, optional): Whether to include units in the header names. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
-            layer_id (str | None, optional): The specific layer context. Defaults to None.
+            layer_id (str | None, optional): Optional explicit layer context. If omitted we read df.attrs['layer_id'] when available.
 
         Returns:
             dict[str, str]: A lookup list of column names to friendly names
         """
+        resolved_layer_id = self._resolve_layer_context(df, layer_id)
         column_headers: list[str] = []
         # Now we loop over all the columns and apply formatting and units if necessary
         for column in list(df.columns):
-
             # Use get_friendly_name handles lookup, specific metadata, and fallback formatting
-            header_text = self.get_friendly_name(column, layer_id)
+            header_text = self.get_friendly_name(column, resolved_layer_id)
 
             if include_units:
-                preferred_unit = self.get_field_unit(column, layer_id=layer_id)
+                preferred_unit = self.get_field_unit(column, layer_id=resolved_layer_id)
                 if preferred_unit:
                     unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
                     header_text = f"{header_text}{unit_text}"
@@ -850,21 +871,22 @@ class RSFieldMeta:
         return column_headers
 
     def get_headers_dict(self, df: pd.DataFrame, include_units: bool = True, unit_fmt=" ({unit})", layer_id: str | None = None) -> dict[str, str]:
-        """ Get the column headers for a DataFrame based on the metadata. This will return a lookup dict of column 
+        """Get the column headers for a DataFrame based on the metadata. This will return a lookup dict of column
         names to friendly names with units if specified.
 
         Args:
             df (pd.DataFrame): The original dataframe
             include_units (bool, optional): Whether to include units in the header names. Defaults to True.
             unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
-            layer_id (str | None, optional): The specific layer context. Defaults to None.
+            layer_id (str | None, optional): Optional explicit layer context. If omitted we read df.attrs['layer_id'] when available.
 
         Returns:
             dict[str, str]: A lookup list of column names to friendly names
         """
         column_headers: dict[str, str] = {}
+        resolved_layer_id = self._resolve_layer_context(df, layer_id)
         headers = list(df.columns)
-        friendly_headers = self.get_headers(df, include_units=include_units, unit_fmt=unit_fmt, layer_id=layer_id)
+        friendly_headers = self.get_headers(df, include_units=include_units, unit_fmt=unit_fmt, layer_id=resolved_layer_id)
 
         for i, column in enumerate(headers):
             column_headers[column] = friendly_headers[i]
@@ -872,7 +894,7 @@ class RSFieldMeta:
         return column_headers
 
     def get_system_units(self, in_units: pint.Unit) -> pint.Unit:
-        """ get system units
+        """get system units
 
         Args:
             in_units (pint.Unit): _description_
@@ -907,7 +929,7 @@ class RSFieldMeta:
             return in_units
 
     def get_system_unit_value(self, in_qty: pint.Quantity) -> pint.Quantity:
-        """ Use SI_TO_IMPERIAL and IMPERIAL_TO_SI to get explicit units for a given input unit based on the current unit system.
+        """Use SI_TO_IMPERIAL and IMPERIAL_TO_SI to get explicit units for a given input unit based on the current unit system.
         Fail safely with a warning if the unit is not in the lookup table
 
         Args:
@@ -929,7 +951,7 @@ class RSFieldMeta:
             return in_qty
 
     def bake_units(self, df: pd.DataFrame, header_units: bool = True) -> tuple[pd.DataFrame, list[str]]:
-        """ Apply units to a DataFrame based on the metadata. Returns a copy of the dataframe and the corresponding headers.
+        """Apply units to a DataFrame based on the metadata. Returns a copy of the dataframe and the corresponding headers.
 
         Args:
             df (pd.DataFrame): The DataFrame to apply units to. This DataFrame is not modified in place.
@@ -939,8 +961,7 @@ class RSFieldMeta:
 
         Issue: Since the return df has different headers from the original, it loses the connection to the metadata (will not be able to get description)
         """
-        # Try to resolve layer_id from dataframe attributes
-        layer_id = df.attrs.get('layer_id') if hasattr(df, 'attrs') else None
+        layer_id = self._resolve_layer_context(df, None)
         # First apply the units
         df_baked, _ = self.apply_units(df, layer_id=layer_id)
         # Now get the headers
