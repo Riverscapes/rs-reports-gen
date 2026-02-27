@@ -1,27 +1,29 @@
 # System imports
 import os
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import plotly.graph_objects as go
-from rsxml import Logger
 from jinja2 import Environment, FileSystemLoader
+from rsxml import Logger
+
 from util.plotly.export_figure import export_figure
 
 
 class RSReport:
-    """ Class to build an HTML report using Jinja2 templates and Plotly figures.
-    """
+    """Class to build an HTML report using Jinja2 templates and Plotly figures."""
 
-    def __init__(self,
-                 report_name: str,
-                 report_type: str,
-                 report_dir: Path | str,
-                 figure_dir: Path | str,
-                 body_template_path: Path | str | None = None,
-                 css_paths: list[Path | str] | None = None,
-                 report_version: str = "1.0"):
+    def __init__(
+        self,
+        report_name: str,
+        report_type: str,
+        report_dir: Path | str,
+        figure_dir: Path | str,
+        body_template_path: Path | str | None = None,
+        css_paths: list[Path | str] | None = None,
+        report_version: str = "1.0",
+    ):
         """_summary_
 
         Args:
@@ -47,7 +49,7 @@ class RSReport:
         os.makedirs(figure_dir, exist_ok=True)
 
     def add_figure(self, name: str, fig: go.Figure):
-        """ Add a PLotly figure to the report.
+        """Add a PLotly figure to the report.
 
         Args:
             name (str): _description_
@@ -56,7 +58,7 @@ class RSReport:
         self.figures[name] = fig
 
     def add_html_elements(self, key: str, el: Any) -> None:
-        """ Add HTML elements to the report.
+        """Add HTML elements to the report.
 
         Args:
             key (str): The key for the HTML element (you can reference this in the template).
@@ -65,7 +67,7 @@ class RSReport:
         self.html_elements[key] = el
 
     def set_body_template(self, template_path: str) -> None:
-        """ Add a body template to the report.
+        """Add a body template to the report.
 
         Args:
             template_path (str): Path to the Jinja2 template file.
@@ -73,7 +75,7 @@ class RSReport:
         self.body_template_path = template_path
 
     def render(self, suffix="", fig_mode: str = "static") -> str:
-        """ Generate the HTML report.
+        """Generate the HTML report.
 
         Args:
             suffix (str, optional): _description_. Defaults to "".
@@ -84,14 +86,14 @@ class RSReport:
         log = Logger("template_builder")
         figure_exports = {}
 
-        for (name, fig) in self.figures.items():
+        for name, fig in self.figures.items():
             figure_exports[name] = export_figure(
                 fig,
                 self.figure_dir,
                 name,
                 mode=fig_mode,
                 include_plotlyjs=False,
-                report_dir=self.report_dir
+                report_dir=self.report_dir,
             )
             # If the fig_mode is svg we also write a .png file since that's more useful for
             # people making powerpoints etc (but we are still rendering the svg in the PDF and the static HTML page)
@@ -102,7 +104,7 @@ class RSReport:
                     name,
                     mode='png',
                     include_plotlyjs=False,
-                    report_dir=self.report_dir
+                    report_dir=self.report_dir,
                 )
 
         # Use Path(__file__) for robust path resolution instead of importlib.resources
@@ -130,10 +132,10 @@ class RSReport:
                 'title': self.report_name,
                 'date': now.strftime('%B %d, %Y - %I:%M%p'),
                 'ReportType': self.report_type,
-                'version': self.report_version
+                'version': self.report_version,
             },
             'figures': figure_exports,
-            **self.html_elements
+            **self.html_elements,
         }
 
         # Prepare valid paths for loader
