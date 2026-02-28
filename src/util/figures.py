@@ -281,6 +281,10 @@ def total_x_by_y(
     if top_n is not None:
         df_result = df_result.head(top_n)
 
+    # sort and head operations reset the class. IMO this is an argument to refactor the code in RSGeoDataFrame and make it standalone rather than part of subclass
+    if not isinstance(df_result, RSGeoDataFrame):
+        df_result = RSGeoDataFrame(df_result)
+
     # Propagate layer_id to the new dataframe
     if layer_id:
         df_result.attrs['layer_id'] = layer_id
@@ -320,8 +324,9 @@ def table_total_x_by_y(
     top_n: int | None = None,
 ) -> str:
     """return html table fragment for grouped-by with total (and optional percent) table"""
-    df = total_x_by_y(df, total_col, group_by_cols, with_percent, with_footer, sort_by_cols, sort_ascending, top_n)
-    return df.to_html(index=False, escape=False)
+    # this gets back as RSGeoDataFrame that has the methods for better to_html'ing
+    rsdf = total_x_by_y(df, total_col, group_by_cols, with_percent, with_footer, sort_by_cols, sort_ascending, top_n)
+    return rsdf.to_html(index=False, escape=False)
 
 
 def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:

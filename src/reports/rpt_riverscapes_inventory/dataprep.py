@@ -67,6 +67,7 @@ def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     2. Apply units
     3. Filter columns
     4. Create hyperlinks
+    5. Sort by Storage descending
     """
     if nid_gdf.empty:
         return pd.DataFrame()
@@ -98,4 +99,5 @@ def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     final_cols = ['NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE', 'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE']
     final_cols = [c for c in final_cols if c in display_gdf.columns]
 
+    display_gdf = display_gdf.sort_values(by='NID_STORAGE', ascending=False)
     return display_gdf[final_cols]
