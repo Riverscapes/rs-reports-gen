@@ -1,14 +1,26 @@
 # System imports
 import os
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import plotly.graph_objects as go
 from jinja2 import Environment, FileSystemLoader
 from rsxml import Logger
 
 from util.plotly.export_figure import export_figure
+
+
+@dataclass
+class TablePayload:
+    df: pd.DataFrame
+    caption: str | None = None
+    limit: int | None = 20
+    sort_by: str | Sequence[str] | None = None
+    sort_ascending: bool | Sequence[bool] | None = None
 
 
 class RSReport:
@@ -29,18 +41,20 @@ class RSReport:
         Args:
             report_name (str): _description_
             report_type (str): _description_
-            report_dir (str): _description_
-            figure_dir (str): _description_
+            report_dir (Path | str): path to where the report files should be put
+            figure_dir (str): TODO: remove this, it will always be 'figures' under report_dir
             version (str): _description_
             body_template_path (str, optional): _description_. Defaults to None.
             css_paths (list[str], optional): _description_. Defaults to None.
         """
         self.report_name = report_name
         self.report_type = report_type
-        self.report_dir = report_dir
+        self.report_dir = Path(report_dir)
         self.figure_dir = figure_dir
+        self.table_dir = self.report_dir / "data"
         self.figures = {}
         self.html_elements = {}
+        self.tables: dict[str, TablePayload] = {}
         self.body_template_path = body_template_path
         self.css_paths = css_paths if css_paths else []
         self._log = Logger("HTML template_builder")
@@ -48,8 +62,8 @@ class RSReport:
         os.makedirs(report_dir, exist_ok=True)
         os.makedirs(figure_dir, exist_ok=True)
 
-    def add_figure(self, name: str, fig: go.Figure):
-        """Add a PLotly figure to the report.
+    def add_figure(self, name: str, fig: go.Figure) -> None:
+        """Add a Plotly figure to the report.
 
         Args:
             name (str): _description_
@@ -65,6 +79,10 @@ class RSReport:
             el (Any): The HTML element or data (can be str, list, dict, anything that can be represented with __str__)
         """
         self.html_elements[key] = el
+
+    def add_table(self, name: str, table_pl: TablePayload) -> None:
+        """Add table dataframe (RSGeoDataFrame) to the report"""
+        self.tables[name] = table_pl
 
     def set_body_template(self, template_path: str) -> None:
         """Add a body template to the report.
@@ -106,6 +124,14 @@ class RSReport:
                     include_plotlyjs=False,
                     report_dir=self.report_dir,
                 )
+
+        # TODO: rethink
+        for name, table in self.tables.items():
+            rsdf = table.df
+            table_html = rsdf.to_html(index=False, escape=False)
+            self.add_html_elements(f'table-{name}', table_html)
+            # add caption
+            self.add_html_elements(f'table-{name}-caption', "table caption")
 
         # Use Path(__file__) for robust path resolution instead of importlib.resources
         # which can be flaky depending on how the package is run/installed

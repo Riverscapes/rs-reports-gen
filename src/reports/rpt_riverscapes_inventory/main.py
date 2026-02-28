@@ -45,6 +45,7 @@ from util.figures import (
     project_id_list,
     prop_ag_dev,
     table_total_x_by_y,
+    total_x_by_y,
 )
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
@@ -114,16 +115,36 @@ def make_report(
     }
 
     tables = {
-        "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name'], with_footer=False),
+        # "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name'], with_footer=False),
         "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
         "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc']),
     }
+
+    # for river_names, export all but show only top 20
+    top_n = 20
+    river_names_df = total_x_by_y(gdf, 'centerline_length', ['stream_name'], sort_by_cols='centerline_length', sort_ascending=False)
+    export_path = report_dir / "data" / "stream_names.csv"
+    river_names_df.to_csv(export_path, index=False)
+    tables["river_names-caption"] = f"Full list can be found in <a href=\"{export_path}\">stream_names.csv</a>."
+    if len(river_names_df) > top_n:
+        river_names_df = RSGeoDataFrame(river_names_df.head(top_n))  # remember head changes the class back to df
+        tables["river_names-caption"] = f"Filtered to top {top_n} records. " + tables["river_names-caption"]
+    tables["river_names"] = river_names_df.to_html(index=False, escape=False)
     if nid_gdf is None:
         tables["nid_dams"] = '<div class="error-message"><p>Unable to retrieve data from NID. Check log for details.<p></div>'
     else:
         nid_gdf.attrs['layer_id'] = 'NID'
         if not nid_gdf.empty:
             nid_display_df = prepare_nid_display_table(nid_gdf)
+            # Export full table
+            export_path = report_dir / "data" / "nid_table.csv"
+            nid_display_df.to_csv(export_path, index=False)
+            tables["nid_dams-caption"] = f"Full list can be found in <a href=\"{export_path}\">nid_table.csv</a> and <a href=\"{report_dir / 'data' / 'nid_dams.gpkg'}\">nid_dams.gpkg</a>."
+            # Trim table to top 20
+            top_n = 20
+            if len(nid_display_df) > top_n:
+                nid_display_df = nid_display_df.head(top_n)
+                tables["nid_dams-caption"] = f"Filtered to top {top_n} records. " + tables["nid_dams-caption"]
             # Use RSGeoDataFrame to get friendly column names for display
             tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
                 classes="table table-striped",

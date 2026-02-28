@@ -1,5 +1,11 @@
 # Riverscapes Inventory Report Changes
 
+## Version 0.4
+
+* Add Climate Engine data
+* trim tables to show only top 20
+* add exports for tables
+
 ## Version 0.3.1
 
 * Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
