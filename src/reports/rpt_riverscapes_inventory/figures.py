@@ -73,12 +73,17 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
 
 
 def dam_statistics(nid_df: pd.DataFrame | None) -> dict[str, pint.Quantity]:
-    """statistics from the national inventory of dams dataframe"""
+    """statistics from the national inventory of dams dataframe
+    if no dams found, this will be an empty dataframe
+    """
     stats: dict[str, pint.Quantity] = {}
     if nid_df is not None:
         nid_df, _ = RSFieldMeta().apply_units(nid_df)
         stats['total_dams'] = len(nid_df) * ureg('count')
-        stats['total_storage'] = nid_df['NID_STORAGE'].sum()
+        if not nid_df.empty:
+            stats['total_storage'] = nid_df['NID_STORAGE'].sum()
+        else:
+            stats['total_storage'] = 0 * ureg('dimensionless')
     return stats
 
 

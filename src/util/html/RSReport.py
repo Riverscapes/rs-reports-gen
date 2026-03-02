@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from shutil import copytree
 from typing import Any
 
 import pandas as pd
@@ -14,24 +15,18 @@ from rsxml import Logger
 from util.plotly.export_figure import export_figure
 
 
-@dataclass
-class TablePayload:
-    df: pd.DataFrame
-    caption: str | None = None
-    limit: int | None = 20
-    sort_by: str | Sequence[str] | None = None
-    sort_ascending: bool | Sequence[bool] | None = None
-
-
 class RSReport:
-    """Class to build an HTML report using Jinja2 templates and Plotly figures."""
+    """Class to build an HTML report using Jinja2 templates and Plotly figures.
+    Figures are output to `report_dir / 'figures'`
+    Assets are copied from `body_template_path / 'assets'` to `report_dir / 'assets'`
+    """
 
     def __init__(
         self,
         report_name: str,
         report_type: str,
         report_dir: Path | str,
-        figure_dir: Path | str,
+        figure_dir: Path | str | None = None,
         body_template_path: Path | str | None = None,
         css_paths: list[Path | str] | None = None,
         report_version: str = "1.0",
@@ -39,28 +34,30 @@ class RSReport:
         """_summary_
 
         Args:
-            report_name (str): _description_
-            report_type (str): _description_
+            report_name (str): report name, passed straight to the template (as 'title')
+            report_type (str): report type, passed straight to the template
             report_dir (Path | str): path to where the report files should be put
-            figure_dir (str): TODO: remove this, it will always be 'figures' under report_dir
-            version (str): _description_
+            figure_dir (str): DEPRECATED; it will always be 'figures' under report_dir
             body_template_path (str, optional): _description_. Defaults to None.
             css_paths (list[str], optional): _description_. Defaults to None.
+            version (str): report version, passed straight to the template
         """
         self.report_name = report_name
         self.report_type = report_type
         self.report_dir = Path(report_dir)
-        self.figure_dir = figure_dir
+        self.figure_dir = self.report_dir / "figures"
         self.table_dir = self.report_dir / "data"
+        self.assets_dir = self.report_dir / "assets"
         self.figures = {}
         self.html_elements = {}
-        self.tables: dict[str, TablePayload] = {}
+        self.tables: dict[str, str] = {}
+
         self.body_template_path = body_template_path
         self.css_paths = css_paths if css_paths else []
         self._log = Logger("HTML template_builder")
         self.report_version = report_version
-        os.makedirs(report_dir, exist_ok=True)
-        os.makedirs(figure_dir, exist_ok=True)
+        self.report_dir.mkdir(parents=True, exist_ok=True)
+        self.figure_dir.mkdir(parents=True, exist_ok=True)
 
     def add_figure(self, name: str, fig: go.Figure) -> None:
         """Add a Plotly figure to the report.
@@ -80,7 +77,7 @@ class RSReport:
         """
         self.html_elements[key] = el
 
-    def add_table(self, name: str, table_pl: TablePayload) -> None:
+    def add_table(self, name: str, table_pl: str) -> None:
         """Add table dataframe (RSGeoDataFrame) to the report"""
         self.tables[name] = table_pl
 
@@ -125,14 +122,6 @@ class RSReport:
                     report_dir=self.report_dir,
                 )
 
-        # TODO: rethink
-        for name, table in self.tables.items():
-            rsdf = table.df
-            table_html = rsdf.to_html(index=False, escape=False)
-            self.add_html_elements(f'table-{name}', table_html)
-            # add caption
-            self.add_html_elements(f'table-{name}-caption', "table caption")
-
         # Use Path(__file__) for robust path resolution instead of importlib.resources
         # which can be flaky depending on how the package is run/installed
         util_templates_dir = str(Path(__file__).parent / 'templates')
@@ -174,9 +163,16 @@ class RSReport:
         env = Environment(loader=FileSystemLoader(search_paths))
 
         body = ""
-        if self.body_template_path and os.path.exists(self.body_template_path):
-            t_name = Path(self.body_template_path).name
-            body = env.get_template(t_name).render(report_context)
+        if self.body_template_path:
+            body_template_path = Path(self.body_template_path)
+            if body_template_path.exists():
+                t_name = body_template_path.name
+                body = env.get_template(t_name).render(report_context)
+
+                # Copy assets
+                template_assets_dir = body_template_path.parent / "assets"
+                if template_assets_dir.exists():
+                    copytree(template_assets_dir, self.assets_dir, dirs_exist_ok=True)
 
         # Here is the final render. Note that we add in the body separately
         html = env.get_template('template.html').render(**report_context, body=body)
