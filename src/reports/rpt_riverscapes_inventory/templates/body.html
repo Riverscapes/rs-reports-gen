@@ -208,11 +208,11 @@
 </section>
 
 <section id="climateengine">
-  <img href="./assets/logo_climateengine_org.small.min.png" alt="Climate Engine Logo">
+  <img src="https://docs.riverscapes.net/img/logos/logo_climateengine_org.small.min.png" alt="Climate Engine Logo">
   <h2>Climate Engine Data</h2>
   <p><a href="climateengine.org">Climate Engine</a> provides access to a vast collection of climate and remote sensing data via an app, three different prepared reports, and an API. The following figures were prepared by querying the API for the supplied Area of Interest.</p>
   {% if figures['ce_vegetation_cover_timeseries'] %}
-  <figure class="" report-figure">
+  <figure class="report-figure">
     {{ figures['ce_vegetation_cover_timeseries'] | safe }}
   </figure>
   {% elif messages['ce_veg_df_error'] %}
