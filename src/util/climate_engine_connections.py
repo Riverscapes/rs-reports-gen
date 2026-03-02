@@ -90,6 +90,7 @@ def query_climate_engine(url: str, payload: dict, api_key: str | None = None, ti
     except requests.exceptions.RequestException as e:
         # Catches HTTPError (4xx, 5xx), ConnectionError, etc.
         log.error(f"Request failed: {e}")
+        log.debug(f"Reponse: {response.json()}")
         raise e
     except Exception as e:
         log.error(f"Unexpected error {e}")
