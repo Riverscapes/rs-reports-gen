@@ -158,7 +158,7 @@ def main():
     if keep_parquet:
         args.append("--keep-parquet")
 
-    # Ask for whether to fetch NID data (default Yes)
+    # Ask to fetch NID data (default Yes)
     no_nid_env = os.environ.get("RSI_NO_NID")
     if no_nid_env is not None:
         no_nid = is_truthy(no_nid_env)
