@@ -124,7 +124,7 @@ a:focus {
   */
 #site-header {
   background-color: var(--accent-color);
-  background-image: url(https://data.riverscapes.net/banner.jpg);
+  background-image: url(https://docs.riverscapes.net/img/visual-identity/banners.jpg);
   background-repeat: no-repeat;
   background-position: 0% 50%;
   background-size: cover;

@@ -28,7 +28,7 @@ def upload_outputs(
     index_json: str = None,
     report_id: str = None,
 ) -> List[str]:
-    """ Upload a public project report to the API.
+    """Upload a public project report to the API.
 
     Args:
         api_client (RSReportsAPI): Instance of RSReportsAPI.
@@ -67,18 +67,20 @@ def upload_outputs(
             log.error('You need to supply a valid path to the directory containing output files')
             raise RuntimeError("No valid outputs directory supplied")
 
-    # If there's no report ID then we are replacing a report, not creating a new one
+    # If there's no report ID then we are creating a new one
     if not report_id:
-
         # If there's no index JSON then we need to prompt for it
         if not index_json:
             log.info('You need to supply a path to a JSON file with the report parameters')
             log.info('The format of this json file should be: ')
-            log.info(colored(json.dumps({
-                "name": "Report name",
-                "description": "Report description",
-                "reportTypeId": "Report type ID (e.g., rs-hydrofabric)"
-            }, ), 'cyan'))
+            log.info(
+                colored(
+                    json.dumps(
+                        {"name": "Report name", "description": "Report description", "reportTypeId": "Report type ID (e.g., rs-hydrofabric)"},
+                    ),
+                    'cyan',
+                )
+            )
 
             questions = [
                 inquirer.Text('index_json', message="Path to index JSON file"),
@@ -101,14 +103,7 @@ def upload_outputs(
             raise RuntimeError("Index JSON file is missing required fields: name, description, reportTypeId")
 
         create_mutation = api_client.load_mutation("CreateReport")
-        create_variables = {
-            "userId": GLOBAL_USER_ID,
-            "project": {
-                "name": name,
-                "description": description,
-                "reportTypeId": report_type_id
-            }
-        }
+        create_variables = {"userId": GLOBAL_USER_ID, "project": {"name": name, "description": description, "reportTypeId": report_type_id}}
         create_res = api_client.run_query(create_mutation, create_variables)
         if not create_res or "errors" in create_res:
             raise RuntimeError(f"API CreateReport mutation failed: {create_res}")
