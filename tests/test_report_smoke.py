@@ -1,16 +1,18 @@
 r"""
 Pytest-based smoke tests for Riverscapes report generators.
 Launches each report CLI with example inputs and checks for expected output files.
-To run just one use -k and a word in the `name` 
+To run just one use -k and a word in the `name`
 Other options: -r a report all, including what is skipped -s show stdout/print statements -v verbose
 `uv run python -m pytest -r a -s -v .\tests\test_report_smoke.py -k "IGO"`
-Environment variable TEST_ALL_EXAMPLES="true" to test every example, otherwise just picks the first one. 
+Environment variable TEST_ALL_EXAMPLES="true" to test every example, otherwise just picks the first one.
 Report outputs go in e.g. %temp%\pytest-of-narlorin\pytest-10\test_report_smoke_watershed_su0
 """
+
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
+
 import pytest
 from dotenv import load_dotenv
 
@@ -24,51 +26,38 @@ REPORTS = [
         "module": "reports.rpt_igo_project.main",
         "example_dir": "src/reports/rpt_igo_project/example",
         "expected_files": ["README.md", "column_metadata.csv", "project.rs.xml", "outputs/riverscape_metrics.gpkg"],
-        "construct_args": lambda module, inp, out: [
-            sys.executable, "-m", module,
-            os.environ.get("SPATIALITE_PATH", "MISSING_SPATIALITE"),
-            str(out), str(inp), "TestProject"
-        ],
-        "requires_spatialite": True
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, os.environ.get("SPATIALITE_PATH", "MISSING_SPATIALITE"), str(out), str(inp), "TestProject"],
+        "requires_spatialite": True,
     },
     {
         "name": "Rivers Need Space",
         "module": "reports.rpt_rivers_need_space.main",
         "example_dir": "src/reports/rpt_rivers_need_space/example",
         "expected_files": ["report.html", "data/data.csv", "data/data.xlsx"],
-        "construct_args": lambda module, inp, out: [
-            sys.executable, "-m", module,
-            str(out), str(inp), "TestReport"
-        ],
-        "requires_spatialite": False
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "TestReport"],
+        "requires_spatialite": False,
     },
     {
         "name": "watershed_summary_10digit",
         "module": "reports.rpt_watershed_summary.main",
         "example_dir": "src/reports/rpt_watershed_summary/example",
         "expected_files": ["report.html", "report.log"],
-        "construct_args": lambda module, inp, out: [
-            sys.executable, "-m", module, str(out), "1029010203", "TestWatershedReport"
-        ]
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), "1029010203", "TestWatershedReport"],
     },
     {
         "name": "riverscapes_inventory",
         "module": "reports.rpt_riverscapes_inventory.main",
         "example_dir": "src/reports/rpt_riverscapes_inventory/example",
         "expected_files": ["report.html"],
-        "construct_args": lambda module, inp, out: [
-            sys.executable, "-m", module, str(out), str(inp), "riverscaps_inventory_test"
-        ]
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "riverscapes_inventory_test"],
     },
     {
         "name": "nz_dynamics",
         "module": "reports.rpt_riverscapes_dynamics.main",
         "example_dir": "src/reports/rpt_riverscapes_dynamics/example",
         "expected_files": ["report.html"],
-        "construct_args": lambda module, inp, out: [
-            sys.executable, "-m", module, str(out), str(inp), "riverscapes_dynamics_test"
-        ]
-    }
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "riverscapes_dynamics_test"],
+    },
     # Add more reports or configurations as needed
 ]
 
