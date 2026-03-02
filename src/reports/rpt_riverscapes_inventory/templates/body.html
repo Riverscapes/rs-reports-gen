@@ -38,6 +38,7 @@
       </ol>
     </li>
     <li><a href="#nid">National Inventory of Dams</a></li>
+    <li><a href="#climateengine">Climate Engine Vegetation Timeseries</a></li>
     <li><a href="#appendices">Appendices</a></li>
   </ol>
 </section>
@@ -60,9 +61,11 @@
 <section id="hypsometry">
   <h2>Hypsometry</h2>
   <div class="section-context">
-    <p>This section provides an overview of the elevation distribution within the HUC10 watersheds intersected by the area of interest. The hypsometry chart
+    <p>This section provides an overview of the elevation distribution within the entire HUC10 watersheds that contain
+      the selected riverscapes. The hypsometry chart
       illustrates the relationship between elevation and area, offering insights into the topographical characteristics
-      of the region. The list of watersheds used corresponds to the projects listed in <a href="#Appendix1">Appendix 1</a>.</p>
+      of the region. The list of watersheds used corresponds to the projects listed in <a href="#Appendix1">Appendix
+        1</a>.</p>
   </div>
   <figure class="report-figure">
     {{ figures['hypsometry']|safe}}
@@ -99,7 +102,7 @@
   <div class="section-context">The following table summarizes the riverscapes by their names and lengths.</div>
   <figure class="report-figure">
     {{ tables['river_names']|safe}}
-    <figcaption>{{ tables['river_names-caption']|safe}}</figcaption>
+    <figcaption>{{ messages['river_names-caption']|safe}}</figcaption>
   </figure>
 </section>
 
@@ -188,10 +191,35 @@
       of Interest with the following results.</p>
   </div>
   {{ render_metric_grid(cards, ["total_dams","total_storage"]) }}
+  
   <figure class="report-figure">
-    {{ tables['nid_dams'] |safe}}
-    <figcaption>{{ tables['nid_dams-caption']|safe}}</figcaption>
+    {% if tables['nid_dams'] %}
+      {{ tables['nid_dams'] |safe}}
+    {% endif %}
+    {% if messages['nid_dams-caption'] %}
+    <figcaption>{{ messages['nid_dams-caption']|safe }}</figcaption>
+    {% endif %}
   </figure>
+  {% if messages['nid_dams_error'] %}
+    <div class="error-message">
+    <p>{{ messages['nid_dams_error'] }}</p>
+  </div>
+  {% endif %}
+</section>
+
+<section id="climateengine">
+  <img href="./assets/logo_climateengine_org.small.min.png" alt="Climate Engine Logo">
+  <h2>Climate Engine Data</h2>
+  <p><a href="climateengine.org">Climate Engine</a> provides access to a vast collection of climate and remote sensing data via an app, three different prepared reports, and an API. The following figures were prepared by querying the API for the supplied Area of Interest.</p>
+  {% if figures['ce_vegetation_cover_timeseries'] %}
+  <figure class="" report-figure">
+    {{ figures['ce_vegetation_cover_timeseries'] | safe }}
+  </figure>
+  {% elif messages['ce_veg_df_error'] %}
+  <div class="error-message">
+    <p>{{ messages['ce_veg_df_error'] }}</p>
+  </div>
+  {% endif %}
 </section>
 
 <section id="appendices" class="appendix">
