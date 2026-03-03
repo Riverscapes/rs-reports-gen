@@ -163,7 +163,7 @@ def make_report(
     river_names_df = total_x_by_y(gdf, 'centerline_length', ['stream_name'], sort_by_cols='centerline_length', sort_ascending=False)
     export_path = report_dir / "data" / "stream_names.csv"
     river_names_df.to_csv(export_path, index=False)
-    messages["river_names-caption"] = f"Full list can be found in <a href=\"{export_path}\">stream_names.csv</a>."
+    messages["river_names-caption"] = "Full list can be found in <a href=\"data/stream_names.csv\">stream_names.csv</a>."
     if len(river_names_df) > top_n:
         river_names_df = RSGeoDataFrame(river_names_df.head(top_n))  # remember head changes the class back to df
         messages["river_names-caption"] = f"Filtered to top {top_n} records. " + messages["river_names-caption"]
@@ -177,7 +177,7 @@ def make_report(
             # Export full table
             export_path = report_dir / "data" / "nid_table.csv"
             nid_display_df.to_csv(export_path, index=False)
-            messages["nid_dams-caption"] = f"Full list can be found in <a href=\"{export_path}\">nid_table.csv</a> and <a href=\"{report_dir / 'data' / 'nid_dams.gpkg'}\">nid_dams.gpkg</a>."
+            messages["nid_dams-caption"] = "Full list can be found in <a href=\"data/nid_table.csv\">nid_table.csv</a> and <a href=\"data/nid_dams.gpkg\">nid_dams.gpkg</a>."
             # Trim table to top 20
             top_n = 20
             if len(nid_display_df) > top_n:
