@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
-import json
 import traceback
-from typing import List
-from termcolor import colored
+from pathlib import Path
+
 import inquirer
-
 from rsxml import Logger, dotenv
+from termcolor import colored
 
-from api.lib.RSReportsAPI import RSReportsAPI
 from api.lib.file_utils import collect_output_files
+from api.lib.RSReportsAPI import RSReportsAPI
 from api.lib.upload import upload_files
 
 GLOBAL_USER_ID = 'GLOBAL'
@@ -24,10 +24,10 @@ DEFAULT_UPLOAD_TIMEOUT = 900
 
 def upload_outputs(
     api_client: RSReportsAPI,
-    outputs_dir: str = None,
-    index_json: str = None,
-    report_id: str = None,
-) -> List[str]:
+    outputs_dir: str | Path | None = None,
+    index_json: str | Path | None = None,
+    report_id: str | None = None,
+):
     """Upload a public project report to the API.
 
     Args:
@@ -62,8 +62,8 @@ def upload_outputs(
             inquirer.Text('outputs_dir', message="Path to the directory containing output files"),
         ]
         answers = inquirer.prompt(questions)
-        outputs_dir = answers['outputs_dir']
-        if not os.path.isdir(outputs_dir):
+        outputs_dir = Path(answers['outputs_dir'].strip('"'))
+        if not outputs_dir.is_dir():
             log.error('You need to supply a valid path to the directory containing output files')
             raise RuntimeError("No valid outputs directory supplied")
 
@@ -86,14 +86,14 @@ def upload_outputs(
                 inquirer.Text('index_json', message="Path to index JSON file"),
             ]
             answers = inquirer.prompt(questions)
-            index_json = answers['index_json']
+            index_json = answers['index_json'].strip('"')
 
-        if not os.path.isfile(index_json) or not index_json.endswith('.json'):
+        index_json = Path(index_json)
+        if not index_json.is_file() or index_json.suffix != '.json':
             log.info('You need to supply a valid path to a JSON file with the index parameters')
             raise RuntimeError("No valid index JSON file supplied")
 
-        with open(index_json, 'r', encoding='utf-8') as f:
-            index_data = json.load(f)
+        index_data = json.loads(index_json.read_text(encoding='utf-8'))
         if not isinstance(index_data, dict):
             raise RuntimeError("Index JSON file does not contain a valid JSON object")
         name = index_data.get("name")
@@ -103,11 +103,11 @@ def upload_outputs(
             raise RuntimeError("Index JSON file is missing required fields: name, description, reportTypeId")
 
         create_mutation = api_client.load_mutation("CreateReport")
-        create_variables = {"userId": GLOBAL_USER_ID, "project": {"name": name, "description": description, "reportTypeId": report_type_id}}
+        create_variables = {"userId": GLOBAL_USER_ID, "report": {"name": name, "description": description, "reportTypeId": report_type_id}}
         create_res = api_client.run_query(create_mutation, create_variables)
         if not create_res or "errors" in create_res:
             raise RuntimeError(f"API CreateReport mutation failed: {create_res}")
-        report_id = create_res.get("data", {}).get("createReport", {}).get("report", {}).get("id")
+        report_id = create_res.get("data", {}).get("createReport", {}).get("id")
         if not report_id:
             raise RuntimeError(f"API CreateReport mutation did not return a report ID: {create_res}")
         log.info(f"Created new report with ID: {report_id}")
@@ -115,7 +115,6 @@ def upload_outputs(
     files_to_upload = collect_output_files(outputs_dir)
     if not files_to_upload:
         log.warning("No output files found to upload.")
-        return []
 
     with api_client:
         upload_files(api_client, GLOBAL_USER_ID, report_id, files_to_upload, timeout=DEFAULT_UPLOAD_TIMEOUT)
