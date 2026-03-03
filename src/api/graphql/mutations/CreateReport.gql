@@ -1,5 +1,5 @@
-mutation CreateReport($userId: ID, $project: RSReportInput!) {
-  createReport(userId: $userId, project: $project) {
+mutation CreateReport($userId: ID, $report: RSReportInput!) {
+  createReport(userId: $userId, report: $report) {
     ...ReportDetail
   }
 }
