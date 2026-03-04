@@ -1,25 +1,27 @@
 """Main entry point"""
 
 # Standard library imports
-import os
-from pathlib import Path
 import argparse
 import logging
+import os
+import shutil
 import sys
 import traceback
-import shutil
+from pathlib import Path
+
 # Third party imports
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
 from jinja2 import Template  # or maybe use util.html RSReport instead
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
+
 # Local imports
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
-from .rawrme_to_igos_project import create_gpkg_igos_from_parquet, create_igos_project
-from .__version__ import __version__
 
+from .__version__ import __version__
+from .rawrme_to_igos_project import create_gpkg_igos_from_parquet, create_igos_project
 
 THEME_TO_TABLE = {
     'Beaver': 'dgo_beaver',
@@ -28,7 +30,7 @@ THEME_TO_TABLE = {
     'Hydrologic context': 'dgo_hydro',
     'Anthropogenic Impact': 'dgo_impacts',
     'Vegetation Context': 'dgo_veg',
-    'DGOS': 'dgos'
+    'DGOS': 'dgos',
 }
 
 
@@ -37,7 +39,7 @@ def get_igo_table_defs() -> pd.DataFrame:
 
     Also adds sequential integer dgoid to all tables.
 
-    Returns: 
+    Returns:
         ordered dataframe containing table_name, col_name, dtype (possibly other columns in future)
         table_names are taken from theme in layer_definitions and then remapped using THEME_TO_TABLE
 
@@ -47,7 +49,7 @@ def get_igo_table_defs() -> pd.DataFrame:
         column_names='*',
         authority='data-exchange-scripts',
         tool_schema_name='rme_to_athena',
-        layer_id='raw_rme'
+        layer_id='raw_rme',
     )
     # remap theme to table name, preserving row order
     df = layerdefs.copy()
@@ -78,13 +80,15 @@ def get_igo_table_defs() -> pd.DataFrame:
         for table in all_tables:
             if table in missing_tables:
                 idx = df.index[df['table_name'] == table][0]
-                new_row = pd.DataFrame({
-                    'table_name': [table],
-                    'layer_id': ['raw_rme'],
-                    'name': ['dgoid'],
-                    'dtype': ['INTEGER'],
-                    'description': 'Key from dgos table'
-                })
+                new_row = pd.DataFrame(
+                    {
+                        'table_name': [table],
+                        'layer_id': ['raw_rme'],
+                        'name': ['dgoid'],
+                        'dtype': ['INTEGER'],
+                        'description': 'Key from dgos table',
+                    }
+                )
                 df = pd.concat([df.iloc[:idx], new_row, df.iloc[idx:]], ignore_index=True)
 
     return df
@@ -99,15 +103,13 @@ def field_metadata_to_file(output_path: Path, table_defs: pd.DataFrame):
 
 
 def generate_report(project_dir: Path):
-    """Make a readme file plus metadata artifacts. """
+    """Make a readme file plus metadata artifacts."""
     # build readme
     src_dir = os.path.dirname(__file__)
     template_path = os.path.join(src_dir, 'templates', 'template_readme.md')
     with open(template_path, encoding='utf-8') as f:
         template = Template(f.read())
-    context = {
-        "report_version": __version__
-    }
+    context = {"report_version": __version__}
     readme_contents = template.render(context)
     with open(os.path.join(project_dir, 'README.md'), 'w', encoding='utf-8') as f:
         f.write(readme_contents)
@@ -122,13 +124,13 @@ def get_and_process_aoi(
     parquet_override: Path | None = None,
     keep_parquet: bool = False,
 ):
-    """ Get and process AOI orchestrator
+    """Get and process AOI orchestrator
 
     Args:
         path_to_shape (Path): Path to the AOI shapefile.
         spatialite_path (str): Path to the mod_spatialite library.
         project_dir (Path): Directory for the project.
-        project_name (str): Name of the project. 
+        project_name (str): Name of the project.
         log_path (str): Path to the log file.
         parquet_override (Path or None): for running multiple times in developement/test can supply path to previously downloaded data and skip athena query
         keep_parquet (bool, default False): keep parquet files, e.g. for debugging purposes
@@ -154,19 +156,27 @@ def get_and_process_aoi(
             raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
         if simplification_results.simplified:
             log.warning(
-                f"Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.")
+                f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. 
+                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
+            )
 
         log.info(f"Running AOI query and writing Parquet output to {parquet_data_source}")
-        fields_we_need = "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, confinement_ratio, constriction_ratio, confining_margins, constricting_margins, lf_evt, lf_bps, lf_agriculture_prop, lf_agriculture, lf_conifer_prop, lf_conifer, lf_conifer_hardwood_prop, lf_conifer_hardwood, lf_developed_prop, lf_developed, lf_exotic_herbaceous_prop, lf_exotic_herbaceous, lf_exotic_tree_shrub_prop, lf_exotic_tree_shrub, lf_grassland_prop, lf_grassland, lf_hardwood_prop, lf_hardwood, lf_riparian_prop, lf_riparian, lf_shrubland_prop, lf_shrubland, lf_sparsely_vegetated_prop, lf_sparsely_vegetated, lf_hist_conifer_prop, lf_hist_conifer, lf_hist_conifer_hardwood_prop, lf_hist_conifer_hardwood, lf_hist_grassland_prop, lf_hist_grassland, lf_hist_hardwood_prop, lf_hist_hardwood, lf_hist_hardwood_conifer_prop, lf_hist_hardwood_conifer, lf_hist_peatland_forest_prop, lf_hist_peatland_forest, lf_hist_peatland_nonforest_prop, lf_hist_peatland_nonforest, lf_hist_riparian_prop, lf_hist_riparian, lf_hist_savanna_prop, lf_hist_savanna, lf_hist_shrubland_prop, lf_hist_shrubland, lf_hist_sparsely_vegetated_prop, lf_hist_sparsely_vegetated, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, riparian_veg_departure, ag_conversion, develop, grass_shrub_conversion, conifer_encroachment, invasive_conversion, riparian_condition, qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
+        fields_we_need = (
+            "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, "
+            "stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, "
+            "tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, "
+            "hect_vb_per_km, channel_width, confinement_ratio, constriction_ratio, confining_margins, constricting_margins, lf_evt, lf_bps, lf_agriculture_prop, lf_agriculture, lf_conifer_prop, lf_conifer, lf_conifer_hardwood_prop, "
+            "lf_conifer_hardwood, lf_developed_prop, lf_developed, lf_exotic_herbaceous_prop, lf_exotic_herbaceous, lf_exotic_tree_shrub_prop, lf_exotic_tree_shrub, lf_grassland_prop, lf_grassland, lf_hardwood_prop, lf_hardwood, "
+            "lf_riparian_prop, lf_riparian, lf_shrubland_prop, lf_shrubland, lf_sparsely_vegetated_prop, lf_sparsely_vegetated, lf_hist_conifer_prop, lf_hist_conifer, lf_hist_conifer_hardwood_prop, lf_hist_conifer_hardwood, "
+            "lf_hist_grassland_prop, lf_hist_grassland, lf_hist_hardwood_prop, lf_hist_hardwood, lf_hist_hardwood_conifer_prop, lf_hist_hardwood_conifer, lf_hist_peatland_forest_prop, lf_hist_peatland_forest, "
+            "lf_hist_peatland_nonforest_prop, lf_hist_peatland_nonforest, lf_hist_riparian_prop, lf_hist_riparian, lf_hist_savanna_prop, lf_hist_savanna, lf_hist_shrubland_prop, lf_hist_shrubland, lf_hist_sparsely_vegetated_prop, "
+            "lf_hist_sparsely_vegetated, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, riparian_veg_departure, ag_conversion, develop, grass_shrub_conversion, conifer_encroachment, invasive_conversion, riparian_condition, "
+            "qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, "
+            "brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
+        )
         query_str = f"SELECT {fields_we_need} FROM raw_rme_pq2 WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
-        aoi_query_to_local_parquet(
-            query_str,
-            'ST_GeomFromBinary(dgo_geom)',
-            'dgo_geom_bbox',
-            query_gdf,
-            parquet_data_source
-        )
+        aoi_query_to_local_parquet(query_str, 'ST_GeomFromBinary(dgo_geom)', 'dgo_geom_bbox', query_gdf, parquet_data_source)
 
     # Retrieve table definitions
     table_defs = get_igo_table_defs()
@@ -203,12 +213,12 @@ def main():
         dest='parquet_path',
         type=Path,
         default=None,
-        help='Use an existing Parquet file or directory instead of running the Athena AOI query'
+        help='Use an existing Parquet file or directory instead of running the Athena AOI query',
     )
     parser.add_argument(
         '--keep-parquet',
         action='store_true',
-        help='Keep the downloaded AOI Parquet files instead of deleting the pq folder'
+        help='Keep the downloaded AOI Parquet files instead of deleting the pq folder',
     )
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
