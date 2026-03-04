@@ -18,32 +18,34 @@ No advanced validation or transformation beyond geometry and required columns.
 Foreign key constraints are defined but not enforced unless PRAGMA foreign_keys=ON is set.
 """
 
-from datetime import datetime
 import json
 import os
+from datetime import datetime
 from pathlib import Path
+
 import apsw
 import geopandas as gpd
 import pandas as pd
 import pyarrow.parquet as pq
 from rsxml import Logger, ProgressBar
-from rsxml.util import safe_makedirs
 from rsxml.project_xml import (
-    Log,
-    Project,
-    MetaData,
-    Meta,
-    ProjectBounds,
-    Coords,
     BoundingBox,
-    Realization,
+    Coords,
     Geopackage,
-    GeopackageLayer,
     GeoPackageDatasetTypes,
+    GeopackageLayer,
+    Log,
+    Meta,
+    MetaData,
+    Project,
+    ProjectBounds,
+    Realization,
 )
+from rsxml.util import safe_makedirs
 
 from util import get_bounds_from_gdf
 from util.athena.athena_unload_utils import list_athena_unload_payload_files
+
 from .__version__ import __version__
 
 GEOMETRY_COL_TYPES = ('MULTIPOLYGON', 'POINT')
@@ -105,13 +107,13 @@ def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path
         # Add the geometry column
         curs.execute(
             "SELECT gpkgAddGeometryColumn (?, ?, ?, 0, 0, 4326)",
-            (table_name, col_name, col_type)
+            (table_name, col_name, col_type),
         )
 
         # Add the spatial index
         curs.execute(
             "SELECT gpkgAddSpatialIndex(?, ?);",
-            (table_name, col_name)
+            (table_name, col_name),
         )
 
         log.info(f"Registered {table_name} as a spatial layer in GeoPackage with {col_name} as {col_type}.")
@@ -121,10 +123,7 @@ def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path
 
 def write_source_projects_csv(project_ids: set[str], output_path: Path) -> None:
     """Persist deduplicated project IDs with matching portal URLs."""
-    rows = [
-        {"project_id": project_id, "project_url": f'https://data.riverscapes.net/p/{project_id}'}
-        for project_id in sorted(project_ids)
-    ]
+    rows = [{"project_id": project_id, "project_url": f'https://data.riverscapes.net/p/{project_id}'} for project_id in sorted(project_ids)]
     df = pd.DataFrame(rows)
     df.to_csv(output_path, index=False)
 
@@ -197,9 +196,8 @@ def populate_tables_from_parquet(
                 # Step 1: Vectorized geometry processing
                 if 'longitude' in batch_df.columns and 'latitude' in batch_df.columns:
                     batch_df['__geom_point'] = batch_df[['longitude', 'latitude']].apply(
-                        lambda x: f"POINT({float(x['longitude'])} {float(x['latitude'])})"
-                        if pd.notna(x['longitude']) and pd.notna(x['latitude']) else None,
-                        axis=1
+                        lambda x: f"POINT({float(x['longitude'])} {float(x['latitude'])})" if pd.notna(x['longitude']) and pd.notna(x['latitude']) else None,
+                        axis=1,
                     )
 
                 # Track project_ids in batch (vectorized)
@@ -209,13 +207,8 @@ def populate_tables_from_parquet(
                 # Step 4: Use itertuples for row iteration
                 for table_name, group in table_groups.items():
                     insert_cols: list[str] = [col_row['name'] for _, col_row in group.iterrows()]
-                    sql_placeholders = [
-                        "AsGPB(GeomFromText(?, 4326))" if col_row['dtype'] in GEOMETRY_COL_TYPES else "?"
-                        for _, col_row in group.iterrows()
-                    ]
-                    sqlstatement = (
-                        f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
-                    )
+                    sql_placeholders = ["AsGPB(GeomFromText(?, 4326))" if col_row['dtype'] in GEOMETRY_COL_TYPES else "?" for _, col_row in group.iterrows()]
+                    sqlstatement = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
 
                     batch_inserts = []
                     col_idx_map = {col: batch_df.columns.get_loc(col) for col in insert_cols if col in batch_df.columns}
@@ -241,9 +234,7 @@ def populate_tables_from_parquet(
                 prog_bar.update(inserted_rows)
         conn.execute('COMMIT')
         prog_bar.finish()
-        log.info(
-            f"Inserted {inserted_rows} rows from Parquet and tracked {len(project_ids)} distinct source projects."
-        )
+        log.info(f"Inserted {inserted_rows} rows from Parquet and tracked {len(project_ids)} distinct source projects.")
     except Exception as exc:
         conn.execute('ROLLBACK')
         log.error(f"Error while loading Parquet data: {exc}")
@@ -301,7 +292,7 @@ def get_datasets(output_gpkg: str) -> list[GeopackageLayer]:
             GeopackageLayer(
                 lyr_name=table_name,
                 ds_type=GeoPackageDatasetTypes.VECTOR,  # pyright: ignore[reportArgumentType]
-                name=table_name
+                name=table_name,
             )
         )
     return datasets
@@ -343,49 +334,35 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
         description="""This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data Exchange produced as part of the 2025 CONUS run of Riverscapes tools. See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative.
         At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps.
         """,
-        meta_data=MetaData(values=[
-            Meta('Report Type', 'IGO Scraper'),
-            Meta('ModelVersion', __version__),
-            Meta('Date Created', datetime.now().isoformat(timespec='seconds'))
-        ]),
-        bounds=ProjectBounds(
-            Coords(centroid[0], centroid[1]),
-            BoundingBox(bounding_rect[0], bounding_rect[1], bounding_rect[2], bounding_rect[3]),
-            output_bounds_path.name),
-        realizations=[Realization(
-            name='Realization1',
-            xml_id='REALIZATION1',
-            date_created=datetime.now(),
-            product_version='1.0.0',
-            datasets=[
-                Geopackage(
-                    name='Riverscapes Metrics',
-                    xml_id='RME',
-                    path=_relative_posix_strict(gpkg_path),
-                    layers=get_datasets(str(gpkg_path))
-                ),
-                Geopackage(
-                    name="Input Area of Interest",
-                    xml_id='InputAOI',
-                    path=_relative_posix_strict(aoi_path),
-                    layers=get_datasets(str(aoi_path))
-                )
-            ],
-            logs=[
-                Log(
-                    xml_id='LOG',
-                    name='Log File',
-                    description='Processing log file',
-                    path=_relative_posix_strict(log_path),
-                ),
-                Log(
-                    xml_id="source_projects",
-                    name="Source Projects CSV",
-                    description="List of projects from Riverscapes Data Exchange",
-                    path="source_projects.csv"
-                )
+        meta_data=MetaData(
+            values=[
+                Meta('Report Type', 'IGO Scraper'),
+                Meta('ModelVersion', __version__),
+                Meta('Date Created', datetime.now().isoformat(timespec='seconds')),
             ]
-        )]
+        ),
+        bounds=ProjectBounds(Coords(centroid[0], centroid[1]), BoundingBox(bounding_rect[0], bounding_rect[1], bounding_rect[2], bounding_rect[3]), output_bounds_path.name),
+        realizations=[
+            Realization(
+                name='Realization1',
+                xml_id='REALIZATION1',
+                date_created=datetime.now(),
+                product_version='1.0.0',
+                datasets=[
+                    Geopackage(name='Riverscapes Metrics', xml_id='RME', path=_relative_posix_strict(gpkg_path), layers=get_datasets(str(gpkg_path))),
+                    Geopackage(name="Input Area of Interest", xml_id='InputAOI', path=_relative_posix_strict(aoi_path), layers=get_datasets(str(aoi_path))),
+                ],
+                logs=[
+                    Log(
+                        xml_id='LOG',
+                        name='Log File',
+                        description='Processing log file',
+                        path=_relative_posix_strict(log_path),
+                    ),
+                    Log(xml_id="source_projects", name="Source Projects CSV", description="List of projects from Riverscapes Data Exchange", path="source_projects.csv"),
+                ],
+            )
+        ],
     )
     merged_project_xml = project_dir / 'project.rs.xml'
     rs_project.write(str(merged_project_xml))
@@ -424,8 +401,7 @@ def create_views(conn: apsw.Connection, table_defs: pd.DataFrame):
         INNER JOIN dgo_impacts ON dgo_desc.dgoid = dgo_impacts.dgoid
         INNER JOIN dgo_beaver ON dgo_desc.dgoid = dgo_beaver.dgoid
         INNER JOIN dgos ON dgo_desc.dgoid = dgos.dgoid
-        '''
-                 )
+        ''')
 
     for dgo_table in dgo_tables:
         # Get the columns of the dgo side table
@@ -444,15 +420,21 @@ def create_views(conn: apsw.Connection, table_defs: pd.DataFrame):
         ''')
     # Register each view as a spatial layer in the GeoPackage metadata tables
     for view_name in new_views:
-        curs.execute('''
+        curs.execute(
+            '''
             INSERT INTO gpkg_contents (table_name, data_type, identifier, min_x, min_y, max_x, max_y)
             SELECT ?, 'features', ?, min_x, min_y, max_x, max_y FROM gpkg_contents WHERE table_name='dgos'
-        ''', [view_name, view_name])
+        ''',
+            [view_name, view_name],
+        )
 
-        curs.execute('''
+        curs.execute(
+            '''
             INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m)
             SELECT ?, 'geom', 'POINT', 4326, 0, 0 FROM gpkg_geometry_columns WHERE table_name='dgos'
-        ''', [view_name])
+        ''',
+            [view_name],
+        )
     log.info(f"{len(new_views)} views created and registered as spatial layers.")
 
 
@@ -525,7 +507,7 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
         table_defs: DataFrame with table/column metadata (must include table_name, name, description, data_unit, friendly_name).
         aliases: Optional list [(viewname, tablename)] to additionally apply definitions to viewname using matching columns in tablename
 
-    NOTE: we populate name, title, and description, but it looks like QGIS only really uses name and description. 
+    NOTE: we populate name, title, and description, but it looks like QGIS only really uses name and description.
     TODO: Move to use this more broadly in riverscapes tools, adjust as currently only the title includes the unit
     """
     log = Logger('Populate Geopackage metadata')
@@ -579,13 +561,12 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
             table_name, column_name, name, title, description, mime_type, constraint_name
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        data_columns_rows
+        data_columns_rows,
     )
     log.info("GeoPackage data_columns table populated with metadata.")
 
 
-def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str,
-                                  parquet_path: Path, table_defs: pd.DataFrame) -> Path:
+def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: Path, table_defs: pd.DataFrame) -> Path:
     """Create geopackage from parquet file"""
 
     outputs_dir = project_dir / 'outputs'
