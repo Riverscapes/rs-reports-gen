@@ -37,7 +37,7 @@ THEME_TO_TABLE = {
 def get_igo_table_defs() -> pd.DataFrame:
     """Gets the table definitions from layer_definitions in Athena
 
-    Also adds sequential integer dgoid to all tables.
+    Also adds sequential integer dgoid to all tables and geom, because this added in processing and isn't in the layer_definitions
 
     Returns:
         ordered dataframe containing table_name, col_name, dtype (possibly other columns in future)
@@ -90,6 +90,14 @@ def get_igo_table_defs() -> pd.DataFrame:
                     }
                 )
                 df = pd.concat([df.iloc[:idx], new_row, df.iloc[idx:]], ignore_index=True)
+
+    # 5. Insert any other columns that aren't in the definitions
+    new_col_defs = pd.DataFrame(
+        [
+            {'table_name': 'dgos', 'name': 'geom', 'dtype': 'GEOMETRY', 'friendly_name': 'Geometry', 'description': 'Point geometry created from latitude and longitude'},
+        ]
+    )
+    df = pd.concat([df, new_col_defs], ignore_index=True)
 
     return df
 
@@ -162,6 +170,7 @@ def get_and_process_aoi(
 
         log.info(f"Running AOI query and writing Parquet output to {parquet_data_source}")
         fields_we_need = (
+            "ST_AsBinary(ST_POINT(longitude, latitude)) AS geom, "
             "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, "
             "stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, "
             "tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, "
@@ -180,7 +189,7 @@ def get_and_process_aoi(
 
     # Retrieve table definitions
     table_defs = get_igo_table_defs()
-
+    # NOTE: only columns found in `table_defs` will be added, regardless of what is selected from Athena (in this case raw_rme_pq2);
     gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source, table_defs)
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
     # column_meta

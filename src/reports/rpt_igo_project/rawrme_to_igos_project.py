@@ -48,8 +48,19 @@ from util.athena.athena_unload_utils import list_athena_unload_payload_files
 
 from .__version__ import __version__
 
-GEOMETRY_COL_TYPES = ('MULTIPOLYGON', 'POINT')
 SQLiteValue = None | int | float | str | bytes
+# SQlite will take anything, so we're really going with geopackage/qgis preferences here
+LAYERDEF_GPKG_DTYPE_MAP = {
+    "INTEGER": "INTEGER",
+    "FLOAT": "REAL",
+    "STRING": "TEXT",
+    "BOOLEAN": "BOOLEAN",  # GeoPackage spec recognizes BOOLEAN
+    "DATETIME": "DATETIME",  # GeoPackage spec recognizes DATETIME
+    "DECIMAL": "REAL",
+    "GEOMETRY": "GEOMETRY",  # Specially handled later
+    "STRUCTURED": "TEXT",  # Usually JSON/Array data represented as text
+    "BINARY": "BLOB",
+}
 
 
 def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path: str) -> apsw.Connection:
@@ -61,7 +72,7 @@ def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path
 
     Args:
         gpkg_path: path to where the geopackage will be created (will delete any existing!)
-        table_defs: dataframe containing the table_name, (column) name, and dtype (datatype) to create.
+        table_defs: dataframe containing the table_name, (column) name, and dtype (datatype) to create and the geometry columns to register
         spatialite_path: where to find the extension
     """
     log = Logger('Create GeoPackage')
@@ -81,30 +92,42 @@ def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path
     curs = conn.cursor()
 
     # create tables from definitions df
+    # NOTE dtype FROM layer defs are logical types such as FLOAT, STRING which aren't real sqlite types
+    # sqlite will happily create columns with any declared type you want, it really doesn't enforce types
+    # but the resulting affinity of STRING is NUMERIC and that just seems wrong
+
     for table_name, group in table_defs.groupby('table_name'):
         col_defs = []
         for _, row in group.iterrows():
             col_name = row['name']
-            col_type = row['dtype']
+            logical_type = row['dtype']
 
-            # Treat `dgoid` specially
+            # Map logical type to stnadard types, fallback to TEXT
+            sqlite_type = LAYERDEF_GPKG_DTYPE_MAP.get(logical_type, "TEXT")
+
+            # Treat `dgoid` and Geometry columns specially
             if col_name == 'dgoid' and table_name == 'dgos':
-                col_defs.append(f"{col_name} {col_type} PRIMARY KEY")
-            elif col_type not in GEOMETRY_COL_TYPES:
-                col_defs.append(f"{col_name} {col_type}")
+                col_defs.append(f"{col_name} {sqlite_type} PRIMARY KEY")
+            elif logical_type != 'GEOMETRY' and col_name != 'geom':
+                col_defs.append(f"{col_name} {sqlite_type}")
 
         # Create the table
         curs.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(col_defs)})")
         log.info(f"Created table {table_name}")
 
     # add and register geometry columns
-    geometry_rows = table_defs[table_defs['dtype'].isin(GEOMETRY_COL_TYPES)]
-    for _, row in geometry_rows.iterrows():
+    # Pulling from table_defs assumes (a) table_defs has correct definitions for the geometries we want to create
+    # (b) all will be assigned to type GEOMETRY - although could get the geometry type from the `dtype_parameters` column if it was present
+    # geometry_col_defs = table_defs[table_defs['dtype'] == 'GEOMETRY']
+    geometry_col_defs = pd.DataFrame([{'table_name': 'dgos', 'name': 'geom', 'dtype': 'POINT'}])
+    for _, row in geometry_col_defs.iterrows():
         table_name = row['table_name']
         col_name = row['name']
         col_type = row['dtype']
 
-        # Add the geometry column
+        # Add the geometry column using Spatialite function see https://www.gaia-gis.it/gaia-sins/spatialite-sql-5.0.0.html
+        # Parameters are table_name, gemoetry_column_name, geometry_type, with_z, with_m, srs_id
+        # geometry_type is a normal WKT name GEOMETRY, POINT, LINESTRING, POLYGON, MULTIPOINT, MULTILINESTRING, MULITPOLYGON, GEOMCOLLECTION
         curs.execute(
             "SELECT gpkgAddGeometryColumn (?, ?, ?, 0, 0, 4326)",
             (table_name, col_name, col_type),
@@ -128,32 +151,40 @@ def write_source_projects_csv(project_ids: set[str], output_path: Path) -> None:
     df.to_csv(output_path, index=False)
 
 
+def get_parquet_files(parquet_path: str | Path) -> list[Path]:
+    """
+    Resolve a file or directory into a list of Parquet file paths.
+    """
+    parquet_path = Path(parquet_path)
+    if parquet_path.is_file():
+        return [parquet_path]
+    return list_athena_unload_payload_files(parquet_path)
+
+
 def populate_tables_from_parquet(
     parquet_path: str | Path,
     conn: apsw.Connection,
     table_defs: pd.DataFrame,
-    batch_size: int = 75_000,
+    batch_size: int = 90_000,
 ) -> set[str]:
     """Insert rows into tables from one or more Parquet files.
+
+    This function is designed to handle very large out-of-core datasets (gigabytes)
+    by streaming Parquet files in memory-efficient batches, mapping a single wide
+    source row into multiple normalized destination tables, and executing bulk inserts
+    using optimized SQLite spatial functions.
 
     Args:
         parquet_path: Directory containing Parquet files or a single Parquet file path.
         conn: Open APSW connection.
         table_defs: tables and columns we are populating
-        table_schema_map / table_col_order: Outputs from ``parse_table_defs``.
         batch_size: Row batch size when streaming Parquet content.
     Returns:
         Set of distinct ``rme_project_id`` values observed during ingestion.
-
-    Possible enhancement - we can get point from the source rather than building it
     """
 
     log = Logger('Populate Tables (Parquet)')
-    parquet_path = Path(parquet_path)
-    if parquet_path.is_file():
-        parquet_files = [parquet_path]
-    else:
-        parquet_files = list_athena_unload_payload_files(parquet_path)
+    parquet_files = get_parquet_files(parquet_path)
 
     if not parquet_files:
         raise FileNotFoundError(f"No Parquet files found in {parquet_path}")
@@ -171,57 +202,53 @@ def populate_tables_from_parquet(
     project_ids: set[str] = set()  # track unique source projects during ingestion
 
     conn.execute('BEGIN')
-    # Step 2: Precompute table groupings
+    # Step 1: Precompute table groupings
+    # We map the single wide Parquet schema into the respective normalized tables (dgos, dgo_veg, etc.)
     table_groups = {name: group for name, group in table_defs.groupby('table_name')}
-    # Step 3: Precompute column indices for each table
-    table_col_indices = {}
+
+    # Step 2: Precompute target columns and SQL statements for each table column indices for each table
+    table_ops = {}
+    # geometry columns are assumbed to WKB and will be processed differently
+    geom_col = 'geom'
     for table_name, group in table_groups.items():
-        indices = []
-        geom_col = None
-        for _, col_row in group.iterrows():
-            col = col_row['name']
-            if col in ['dgoid', '__geom_point'] or col in group['name'].values:
-                indices.append(col)
-            if col_row['dtype'] in GEOMETRY_COL_TYPES:
-                geom_col = col
-        table_col_indices[table_name] = (indices, geom_col)
+        insert_cols: list[str] = [col_row['name'] for _, col_row in group.iterrows()]
+        # Convert the Athena Well-Known Binary (WKB) into GeoPackage Binary (GPB) on ingest
+        sql_placeholders = ["AsGPB(GeomFromWKB(?, 4326))" if col_row['name'] == geom_col else "?" for _, col_row in group.iterrows()]
+        sqlstatement = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
+        table_ops[table_name] = {'insert_cols': insert_cols, 'sqlstatement': sqlstatement}
 
     try:
         for parquet_file in parquet_files:
             pq_file = pq.ParquetFile(parquet_file)
             log.debug(f"Processing file {parquet_file}")
+
+            # iter_batches streams the parquet file chunk-by-chunk to keep memory usage low
             for batch in pq_file.iter_batches(batch_size=batch_size):
                 batch_df = batch.to_pandas()
-
-                # Step 1: Vectorized geometry processing
-                if 'longitude' in batch_df.columns and 'latitude' in batch_df.columns:
-                    batch_df['__geom_point'] = batch_df[['longitude', 'latitude']].apply(
-                        lambda x: f"POINT({float(x['longitude'])} {float(x['latitude'])})" if pd.notna(x['longitude']) and pd.notna(x['latitude']) else None,
-                        axis=1,
-                    )
 
                 # Track project_ids in batch (vectorized)
                 if 'rme_project_id' in batch_df.columns:
                     project_ids.update(batch_df['rme_project_id'].dropna().astype(str).unique())
 
-                # Step 4: Use itertuples for row iteration
-                for table_name, group in table_groups.items():
-                    insert_cols: list[str] = [col_row['name'] for _, col_row in group.iterrows()]
-                    sql_placeholders = ["AsGPB(GeomFromText(?, 4326))" if col_row['dtype'] in GEOMETRY_COL_TYPES else "?" for _, col_row in group.iterrows()]
-                    sqlstatement = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({', '.join(sql_placeholders)})"
+                # Step 3: Route columns to proper tables and execute batch inserts
+                for ops in table_ops.values():
+                    insert_cols = ops['insert_cols']
+                    sqlstatement = ops['sqlstatement']
 
                     batch_inserts = []
                     col_idx_map = {col: batch_df.columns.get_loc(col) for col in insert_cols if col in batch_df.columns}
-                    geom_col = table_col_indices[table_name][1]
+                    # itertuples is much faster than iterrows for row-by-row mapping
                     for idx, row in enumerate(batch_df.itertuples(index=False, name=None)):
                         row_values: list[SQLiteValue] = []
                         for col in insert_cols:
                             if col == 'dgoid':
+                                # Assign a sequentially generated int primary key across batches
                                 row_values.append(inserted_rows + idx + 1)
-                            elif col == geom_col and '__geom_point' in batch_df.columns:
-                                # Always use vectorized geometry column if present
-                                row_values.append(row[batch_df.columns.get_loc('__geom_point')])
+                            elif col == geom_col and geom_col in batch_df.columns:
+                                # Grab the WKB binary payload from Athena directly
+                                row_values.append(row[batch_df.columns.get_loc(col)])
                             else:
+                                # translate Pandas missing value types to None for SQLite NULL
                                 i = col_idx_map.get(col)
                                 val = row[i] if i is not None else None
                                 if pd.isna(val):
@@ -248,9 +275,10 @@ def populate_tables_from_parquet(
 
 def add_geopackage_tables(conn: apsw.Connection):
     """
-    Create required GeoPackage spatial_ref_sys and metadata tables: gpkg_contents and gpkg_geometry_columns.
-    # initially I inserted with CREATE TABLE statements but the single spatialite function `gpkgCreateBaseTables` does all this
-    the Spatialite function gpkgInsertEpsgSRID(4326) is not needed because CreateBaseTables inserts that one already
+    Creates all required GeoPackage tables including spatial_ref_sys and also metadata tables: gpkg_contents and gpkg_geometry_columns
+    * initially I inserted with CREATE TABLE statements from the spec (https://www.geopackage.org/spec140/index.html#table_definition_sql)
+    * but the single spatialite function `gpkgCreateBaseTables` does all this
+    * Likewise no need to run the Spatialite function gpkgInsertEpsgSRID(4326) is not needed because CreateBaseTables inserts that one already
     """
     curs = conn.cursor()
     curs.execute("SELECT gpkgCreateBaseTables();")
@@ -454,50 +482,6 @@ def create_indexes(conn: apsw.Connection, table_defs: pd.DataFrame):
     log.info("Indexes created for dgoids.")
 
 
-def create_gpkg_schema_tables(conn: apsw.Connection):
-    """
-    Create tables to implement the Geopackage _Schema_ extension
-    ie `gpkg_data_columns` and `gpkg_data_column_constraints`, if they don't exist.
-    See https://www.geopackage.org/spec140/index.html#gpkg_data_columns_sql
-
-    Args:
-        conn: connection to a Geopackage database
-
-    NOTE: we don't need this in this module because spatialite in `create_geopackage` does it for us
-    """
-    curs = conn.cursor()
-    curs.execute(
-        """
-CREATE TABLE IF NOT EXISTS gpkg_data_columns (
-    table_name TEXT NOT NULL,
-    column_name TEXT NOT NULL,
-    name TEXT,
-    title TEXT,
-    description TEXT,
-    mime_type TEXT,
-    constraint_name TEXT,
-    CONSTRAINT pk_gdc PRIMARY KEY (table_name, column_name),
-    CONSTRAINT gdc_tn UNIQUE (table_name, name)
-);
-"""
-    )
-    curs.execute(
-        """
-CREATE TABLE IF NOT EXISTS gpkg_data_column_constraints (
-  constraint_name TEXT NOT NULL,
-  constraint_type TEXT NOT NULL, // 'range' | 'enum' | 'glob'
-  value TEXT,
-  min NUMERIC,
-  min_is_inclusive BOOLEAN, // 0 = false, 1 = true
-  max NUMERIC,
-  max_is_inclusive BOOLEAN, // 0 = false, 1 = true
-  description TEXT,
-  CONSTRAINT gdcc_ntv UNIQUE (constraint_name, constraint_type, value)
-)
-"""
-    )
-
-
 def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame, aliases: list[tuple[str, str]] | None = None):
     """
     Document tables and views in the GeoPackage using the GeoPackage Schema Extension.
@@ -508,7 +492,7 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
         aliases: Optional list [(viewname, tablename)] to additionally apply definitions to viewname using matching columns in tablename
 
     NOTE: we populate name, title, and description, but it looks like QGIS only really uses name and description.
-    TODO: Move to use this more broadly in riverscapes tools, adjust as currently only the title includes the unit
+    TODO: Move to use this more broadly in riverscapes tools and adjust as currently only the title includes the unit so QGIS users won't see that
     """
     log = Logger('Populate Geopackage metadata')
     curs = conn.cursor()
@@ -568,11 +552,26 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
 
 def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: Path, table_defs: pd.DataFrame) -> Path:
     """Create geopackage from parquet file"""
+    log = Logger('Create GPKG from Parquet')
 
     outputs_dir = project_dir / 'outputs'
     safe_makedirs(str(outputs_dir))
 
     gpkg_path = outputs_dir / 'riverscape_metrics.gpkg'
+
+    parquet_files = get_parquet_files(parquet_path)
+    pq_schema = pq.read_schema(parquet_files[0])
+    pq_cols = set(pq_schema.names)
+
+    # columns generated during ingest
+    generated_cols = ['dgoid', 'geom']
+
+    # find columns that are defined in table_defs but missing in the parquet file using bitwise NOT operator on PANDAS boolean Series
+    missing_mask = ~table_defs['name'].isin(pq_cols) & ~table_defs['name'].isin(generated_cols)
+    if missing_mask.any():
+        missing_cols = sorted(table_defs.loc[missing_mask, 'name'].unique())
+        log.info(f"Columns defined in layer schema but missing from Parquet data. These will not be added to output gpkg: {missing_cols}")
+        table_defs = table_defs[~missing_mask].copy()
 
     conn = create_geopackage(gpkg_path, table_defs, spatialite_path)
     project_ids = populate_tables_from_parquet(parquet_path, conn, table_defs)
