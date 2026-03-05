@@ -4,6 +4,10 @@
 
 Internal use only
 
+### Version 0.3.3 2026-03-04
+
+* Bug fix for geometry column problem. geom in the geopackage comes from the latitude and longitude
+
 ### Version 0.3.2
 
 * Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
