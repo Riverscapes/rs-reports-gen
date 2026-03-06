@@ -1,22 +1,26 @@
-"""general purpose helpers for working with GeoDataFrame """
+"""general purpose helpers for working with GeoDataFrame"""
+
 import json
 from dataclasses import dataclass
-from rsxml import Logger
+
 import geopandas as gpd
+from rsxml import Logger
 
 
 @dataclass
 class SimplificationResultMeta:
-    """useful information about the results of simplification attempt"""
+    """useful information about the results of GeoDataFrame simplification attempt"""
+
     tolerance_m: float
     simplified: bool
     success: bool
     final_size_bytes: int
     format: str
+    geometry_types: set[str]  # MultiPolygon, Polygon, Point  etc.
 
 
 def simplify_gdf(gdf: gpd.GeoDataFrame, tolerance_meters: float = 11) -> gpd.GeoDataFrame:
-    """ Simplifies the geometries in a GeoDataFrame using a specified tolerance in meters.
+    """Simplifies the geometries in a GeoDataFrame using a specified tolerance in meters.
 
     Args:
         gdf (gpd.GeoDataFrame): Input GeoDataFrame to be simplified.
@@ -41,25 +45,25 @@ def simplify_gdf(gdf: gpd.GeoDataFrame, tolerance_meters: float = 11) -> gpd.Geo
 
 
 def simplify_gdf_to_size(
-        gdf: gpd.GeoDataFrame,
-        size_bytes: int,
-        target_format: str = "geojson",
-        start_tolerance_m: float = 5.0,
-        max_attempts=3,
+    gdf: gpd.GeoDataFrame,
+    size_bytes: int,
+    target_format: str = "geojson",
+    start_tolerance_m: float = 5.0,
+    max_attempts=3,
 ) -> tuple[gpd.GeoDataFrame, SimplificationResultMeta]:
     """
     Simplifies gdf so its serialized size (GeoJSON or WKB) is under size_bytes.
 
-    Args: 
+    Args:
         target_format (str): geojson or wkb
     Returns: simplified_gdf, metadata dictionary
 
-    If if needed, tries to simplify it to get to within provided size 
-    each attempt the tolerance grows exponentially starting at start_tolerance_m e.g. 5m x 1, x4, x9, x16 etc. so 5, 20, 45, 80 etc. 
-    returns the geodataframe, the final simplification tolerance used (0 means none), and boolean if is under
+    If if needed, tries to simplify it to get to within provided size
+    each attempt the tolerance grows exponentially starting at start_tolerance_m e.g. 5m x 1, x4, x9, x16 etc. so 5, 20, 45, 80 etc.
+    returns the geodataframe, and results object with the final simplification tolerance used (0 means none), success boolean if is under, etc
 
-    Possible enhancement: 
-    * we convert to desired output format to check the size, but then passing back gdf. Might be better to pass pack the desired output instead. 
+    Possible enhancement:
+    * we convert to desired output format to check the size, but then passing back gdf. Might be better to pass pack the desired output instead.
     """
     log = Logger("simplify to size")
 
@@ -81,11 +85,12 @@ def simplify_gdf_to_size(
             success=True,
             final_size_bytes=size,
             format=target_format,
+            geometry_types=set(gdf.geom_type.unique()),
         )
         return gdf, metadata
 
     for attempt in range(1, max_attempts + 1):
-        tolerance_m = start_tolerance_m * (attempt ** 2)
+        tolerance_m = start_tolerance_m * (attempt**2)
         log.debug(f'{target_format} size {size:,} bytes exceeds {size_bytes:,}, attempt {attempt} to simplify will use {tolerance_m} m tolerance')
         simplified_gdf = simplify_gdf(gdf, tolerance_m)
         if target_format == "GeoJSON":
@@ -102,6 +107,7 @@ def simplify_gdf_to_size(
                 success=True,
                 final_size_bytes=size,
                 format=target_format,
+                geometry_types=set(simplified_gdf.geom_type.unique()),
             )
             return simplified_gdf, metadata
 
@@ -112,27 +118,21 @@ def simplify_gdf_to_size(
         success=False,
         final_size_bytes=size,
         format=target_format,
+        geometry_types=set(simplified_gdf.geom_type.unique()),
     )
     return simplified_gdf, metadata
 
 
-def prepare_gdf_for_athena(
-        gdf: gpd.GeoDataFrame,
-        size_bytes: int = 261_000,
-        max_attempts: int = 5
-) -> tuple[gpd.GeoDataFrame, SimplificationResultMeta]:
-    """Simplify a GeoDataFrame for Athena if needed and report the simplification metadata.
-    """
+def prepare_gdf_for_athena(gdf: gpd.GeoDataFrame, size_bytes: int = 261_000, max_attempts: int = 5) -> tuple[gpd.GeoDataFrame, SimplificationResultMeta]:
+    """Simplify a GeoDataFrame for Athena if needed and report the simplification metadata."""
     sized_gdf, metadata = simplify_gdf_to_size(gdf, size_bytes, target_format="wkb", max_attempts=max_attempts)
     return sized_gdf, metadata
 
 
-def get_bounds_from_gdf(
-        gdf: gpd.GeoDataFrame
-) -> tuple[dict, tuple[float, float], tuple[float, float, float, float]]:
+def get_bounds_from_gdf(gdf: gpd.GeoDataFrame) -> tuple[dict, tuple[float, float], tuple[float, float, float, float]]:
     """
     Returns Riverscapes bounds
-    Unions/dissolves all the features of the geodataframe 
+    Unions/dissolves all the features of the geodataframe
 
     Simplifies if needed to reduce size
 
@@ -140,7 +140,7 @@ def get_bounds_from_gdf(
 
     Returns: GeoJSON dictionary, the centroid, the bounding box
 
-    Future enhancement - split functions, it's doing too many things. 
+    Future enhancement - split functions, it's doing too many things.
     """
     log = Logger('get bounds from gdf')
     union_geom = gdf.union_all()
