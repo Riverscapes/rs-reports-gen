@@ -8,14 +8,11 @@ Requires an API key - either pass to the functions or (preferably) set in enviro
 
 import json
 import os
-from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 import requests
-from lonboard import viz
-from rsxml import Logger, dotenv
-from shapely.geometry import MultiPolygon, Point, Polygon
+from rsxml import Logger
 
 CLIMATE_ENGINE_BASE_API_URL = "https://api.climateengine.org"
 
@@ -31,45 +28,43 @@ def extract_coordinates(gdf: gpd.GeoDataFrame) -> list:
         gdf = gdf.to_crs(epsg=4326)
 
     def _to_ce_format(geom):
-        # Get the standard GeoJSON 'coordinates' list
         coords = geom.__geo_interface__["coordinates"]
-
-        # Climate Engine Point requires [[lon, lat]] (GeoJSON is [lon, lat])
         if geom.geom_type == "Point":
             return [coords]
+        elif geom.geom_type == "MultiPoint":
+            # Always return flat list of points
+            return [list(pt) for pt in coords]
+        elif geom.geom_type == "Polygon":
+            return coords
+        elif geom.geom_type == "MultiPolygon":
+            return coords
+        else:
+            return coords
 
-        # For Polygons and MultiPolygons, the GeoJSON 'coordinates'
-        # already matches the Climate Engine nesting requirement perfectly.
-        return coords
-
-    # .map() is faster than a standard 'for' loop in Python
     coord_list = gdf.geometry.map(_to_ce_format).to_list()
 
-    # Handle the API's polymorphic input requirements based on the examples provided:
-    # Multiple Points: [[-121,38], [-122,39]] -> This matches coord_list structure for Points.
-    # Single Point: [[-121,38]]. This also matches coord_list structure if length is 1.
-
-    # Polygon Example from docs: [[[x,y]...]] (Depth 3)
-    # GeoJSON Polygon coords: [[[x,y]...]] (Depth 3)
-    # coord_list for 1 Polygon: [[[[x,y]...]]]] (Depth 4) -> Too deep!
-
-    # Multiple Polygons Example: [[[x,y]...], [[x,y]...]] (Depth 4)
-    # coord_list for 2 Polygons: [[[[x,y]...]], [[[x,y]...]]]] (Depth 4) -> Matches!
-
-    # Conclusion:
-    # If it's a list of POINTS, the standard aggregation works for both 1 and N points.
-    # If it's a list of POLYGONS, the standard aggregation works for N polygons,
-    # BUT for 1 polygon, we must unwrap it to avoid the extra list layer.
-
-    if len(coord_list) == 1 and gdf.iloc[0].geometry.geom_type != "Point":
+    # For a single Point, unwrap to match expected [[lon, lat]]
+    if len(coord_list) == 1 and gdf.iloc[0].geometry.geom_type == "Point":
         return coord_list[0]
+    # For multiple Points, flatten to [[lon, lat], ...]
+    if all(gdf.geometry.apply(lambda g: g.geom_type == "Point")):
+        return [coords[0] for coords in coord_list]
+    # For a single Polygon, unwrap to match expected [ [ [x, y], ... ] ]
+    if len(coord_list) == 1 and gdf.iloc[0].geometry.geom_type == "Polygon":
+        return coord_list[0]
+    # For a single MultiPoint, unwrap to match expected [ [lon, lat], ... ]
+    if len(coord_list) == 1 and gdf.iloc[0].geometry.geom_type == "MultiPoint":
+        return coord_list[0]
+
+    # For multiple MultiPoints, flatten the list
+    if all(gdf.geometry.apply(lambda g: g.geom_type == "MultiPoint")):
+        # coord_list is a list of lists of points
+        return [pt for sublist in coord_list for pt in sublist]
 
     return coord_list
 
 
-def query_climate_engine(
-    url: str, payload: dict, api_key: str | None = None, timeout: int = 120
-) -> dict:
+def query_climate_engine(url: str, payload: dict, api_key: str | None = None, timeout: int = 120) -> dict:
     """Sends a POST request to the Climate Engine API and returns the JSON response
     raises:
     """
@@ -127,9 +122,7 @@ def get_ce_api_key(api_key: str | None = None) -> str:
     key = os.getenv("CLIMATE_ENGINE_API_KEY")
 
     if not key:
-        raise ValueError(
-            "CLIMATE ENGINE API Key not found. Please provide it as an argument or set the 'CLIMATE_ENGINE_API_KEY' environment variable."
-        )
+        raise ValueError("CLIMATE ENGINE API Key not found. Please provide it as an argument or set the 'CLIMATE_ENGINE_API_KEY' environment variable.")
 
     return key
 
@@ -232,9 +225,7 @@ def vegetation_cover_timeseries_charts(df: pd.DataFrame):
     df_subset = df_renamed[available_cols]
 
     # Melt to long format: Date, Variable, Value
-    df_melted = df_subset.melt(
-        id_vars=["Date"], var_name="Variable", value_name="Cover (%)"
-    )
+    df_melted = df_subset.melt(id_vars=["Date"], var_name="Variable", value_name="Cover (%)")
 
     # Create line chart with facets (subplots)
     # Use facet_col and facet_col_wrap to create a grid
