@@ -82,7 +82,7 @@ def query_climate_engine(
         "Accept": "application/json",
     }
     log.info(f"Query url: {url}")
-    log.info(f"Query payload: {payload}")
+    # log.debug(f"Query payload: {payload}")  # because the payload includes the geometry this can be quite large
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=timeout)
         response.raise_for_status()
@@ -142,14 +142,7 @@ def get_vegetation_cover_timeseries(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     dataset = "RAP_COVER"  # RAP Cover - 30m - Yearly https://support.climateengine.org/article/81-rap
     # this comes from https://api.climateengine.org/metadata/dataset_variables?dataset=RAP_COVER
     variables = ["AFG", "PFG", "SHR", "TRE", "BGR", "LTR"]
-    variable_names = [
-        "Annual Forb and Grass Cover",
-        "Perennial Forb and Grass Cover",
-        "Shrub Cover",
-        "Tree Cover",
-        "Bare Ground Cover",
-        "Litter Cover",
-    ]
+
     params = {
         "coordinates": json.dumps(coords),
         "user_email": "lorin@northarrowresearch.com",
