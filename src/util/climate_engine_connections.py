@@ -150,7 +150,7 @@ def get_vegetation_cover_timeseries(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
         "dataset": dataset,
         "variable": ",".join(variables),
         "compute_trends": "yes",
-        "start_date": "1986-01-01",
+        "start_date": "2021-01-01",
         "end_date": "2025-12-31",
     }
     results = query_climate_engine(url, params, timeout=240)  # this raises error - wrap in try catch
