@@ -1,23 +1,36 @@
 import json
-from dotenv import load_dotenv
 from pathlib import Path
+
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon
+from dotenv import load_dotenv
+from shapely.geometry import MultiPolygon, Point, Polygon
 
-from util.climate_engine_connections import extract_coordinates
+from util.climate_engine_connections import (
+    CLIMATE_ENGINE_BASE_API_URL,
+    extract_coordinates,
+    query_climate_engine,
+)
+
+load_dotenv()
 
 
 def test_extract_coordinates_point():
     gdf = gpd.GeoDataFrame(geometry=[Point(-121.61, 38.78)])
     result = extract_coordinates(gdf)
-    assert result == [[-121.61, 38.78]]
+    expected_result = [[-121.61, 38.78]]
+    print(f'Expected: {json.dumps(expected_result)}')
+    print(f'Actual  : {json.dumps(result)}')
+    assert json.dumps(result, sort_keys=True) == json.dumps(expected_result, sort_keys=True)
 
 
 def test_extract_coordinates_multipoint():
     gdf = gpd.GeoDataFrame(geometry=[Point(-121.61, 38.78), Point(-122.71, 39.74)])
     result = extract_coordinates(gdf)
-    assert result == [[-121.61, 38.78], [-122.71, 39.74]]
+    expected_result = [[-121.61, 38.78], [-122.71, 39.74]]
+    print(f'Expected: {json.dumps(expected_result)}')
+    print(f'Actual  : {json.dumps(result)}')
+    assert json.dumps(result, sort_keys=True) == json.dumps(expected_result, sort_keys=True)
 
 
 def test_extract_coordinates_polygon():
@@ -32,15 +45,10 @@ def test_extract_coordinates_polygon():
     )
     gdf = gpd.GeoDataFrame(geometry=[poly])
     result = extract_coordinates(gdf)
-    assert result == [
-        [
-            [-121.61, 38.78],
-            [-121.52, 38.78],
-            [-121.52, 38.83],
-            [-121.61, 38.83],
-            [-121.61, 38.78],
-        ]
-    ]
+    expected_result = [[[-121.61, 38.78], [-121.52, 38.78], [-121.52, 38.83], [-121.61, 38.83], [-121.61, 38.78]]]
+    print(f'Expected: {json.dumps(expected_result)}')
+    print(f'Actual  : {json.dumps(result)}')
+    assert json.dumps(result, sort_keys=True) == json.dumps(expected_result, sort_keys=True)
 
 
 def test_extract_coordinates_multipolygon():
@@ -67,7 +75,7 @@ def test_extract_coordinates_multipolygon():
     )
     gdf = gpd.GeoDataFrame(geometry=[mp])
     result = extract_coordinates(gdf)
-    assert result == [
+    expected_result = [
         [
             [
                 [-104.98, 40.72],
@@ -86,6 +94,9 @@ def test_extract_coordinates_multipolygon():
             ]
         ],
     ]
+    print(f'Expected: {json.dumps(expected_result)}')
+    print(f'Actual  : {json.dumps(result)}')
+    assert json.dumps(result, sort_keys=True) == json.dumps(expected_result, sort_keys=True)
 
 
 def test_extract_coordinates_multiple_polygons():
@@ -109,7 +120,7 @@ def test_extract_coordinates_multiple_polygons():
     )
     gdf = gpd.GeoDataFrame(geometry=[poly1, poly2])
     result = extract_coordinates(gdf)
-    assert result == [
+    expected_result = [
         [
             [-121.61, 38.78],
             [-121.52, 38.78],
@@ -125,27 +136,14 @@ def test_extract_coordinates_multiple_polygons():
             [-122.61, 39.78],
         ],
     ]
-
-
-from util.climate_engine_connections import (
-    extract_coordinates,
-    query_climate_engine,
-    CLIMATE_ENGINE_BASE_API_URL,
-)
-
-
-load_dotenv()
+    print(f'Expected: {json.dumps(expected_result)}')
+    print(f'Actual  : {json.dumps(result)}')
+    assert json.dumps(result, sort_keys=True) == json.dumps(expected_result, sort_keys=True)
 
 
 def get_aoi_examples() -> list[Path]:
     """return paths to geojsons to test"""
-    examples_folder = (
-        Path(__file__).parent.parent
-        / "src"
-        / "reports"
-        / "rpt_riverscapes_inventory"
-        / "example"
-    )
+    examples_folder = Path(__file__).parent.parent / "src" / "reports" / "rpt_riverscapes_inventory" / "example"
     files = list(examples_folder.glob("*.geojson"))
     return files
 
@@ -232,9 +230,7 @@ def test_gets_results():
         coords = extract_coordinates(aoi_gdf)
         try:
             params["coordinates"] = json.dumps(coords)
-            results = query_climate_engine(
-                url, params
-            )  # this raises error - wrap in try catch
+            results = query_climate_engine(url, params)  # this raises error - wrap in try catch
             # print(results)  # just when debugging
             df = pd.DataFrame(results[0]["Data"])
             assert len(df) > 0
