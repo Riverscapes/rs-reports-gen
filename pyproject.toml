@@ -48,7 +48,6 @@ dev = [
     "pytest",
     "ipykernel",
     "python-dotenv",
-    "ruff",
     # add any other dev-only packages here
 ]
 
