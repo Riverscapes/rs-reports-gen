@@ -307,8 +307,6 @@ def make_report_orchestrator(
             f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
             If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
         )
-    if 'MultiPolygon' in simplification_results.geometry_types:
-        log.warning("MultiPolygon shape not supported for Climate Engine query")
 
     # make place for the data to go (for report consumer as csv)
     safe_makedirs(str(report_dir / 'data'))
