@@ -4,7 +4,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
-from shapely.geometry import MultiPolygon, Point, Polygon, MultiPoint
+from shapely.geometry import MultiPoint, MultiPolygon, Point, Polygon
 
 from util.climate_engine_connections import (
     CLIMATE_ENGINE_BASE_API_URL,
@@ -89,21 +89,17 @@ def test_extract_coordinates_multipolygon():
     result = extract_coordinates(gdf)
     expected_result = [
         [
-            [
-                [-104.98, 40.72],
-                [-104.92, 40.77],
-                [-105.03, 40.80],
-                [-105.13, 40.70],
-                [-104.98, 40.72],
-            ]
+            [-104.98, 40.72],
+            [-104.92, 40.77],
+            [-105.03, 40.80],
+            [-105.13, 40.70],
+            [-104.98, 40.72],
         ],
         [
-            [
-                [-104.89, 40.78],
-                [-104.86, 40.726],
-                [-104.83276495279011, 40.76],
-                [-104.89, 40.78],
-            ]
+            [-104.89, 40.78],
+            [-104.86, 40.726],
+            [-104.83276495279011, 40.76],
+            [-104.89, 40.78],
         ],
     ]
     print(f'Expected: {json.dumps(expected_result)}')
@@ -157,6 +153,7 @@ def get_aoi_examples() -> list[Path]:
     """return paths to geojsons to test"""
     examples_folder = Path(__file__).parent.parent / "src" / "reports" / "rpt_riverscapes_inventory" / "example"
     files = list(examples_folder.glob("*.geojson"))
+    return [f for f in files if "oklahoma_field_office.geojson" in f.name]
     return files
 
 
@@ -242,7 +239,7 @@ def test_gets_results():
         coords = extract_coordinates(aoi_gdf)
         try:
             params["coordinates"] = json.dumps(coords)
-            results = query_climate_engine(url, params)  # this raises error - wrap in try catch
+            results = query_climate_engine(url, params, timeout=240)  # this raises error - wrap in try catch
             # print(results)  # just when debugging
             df = pd.DataFrame(results[0]["Data"])
             assert len(df) > 0

@@ -37,29 +37,36 @@ def extract_coordinates(gdf: gpd.GeoDataFrame) -> list:
         elif geom.geom_type == "Polygon":
             return coords
         elif geom.geom_type == "MultiPolygon":
-            return coords
+            return [ring for polygon_rings in coords for ring in polygon_rings]
         else:
             return coords
 
     coord_list = gdf.geometry.map(_to_ce_format).to_list()
 
+    # Check for geometry types to determine final outer nesting rules
+    is_point_only = all(gdf.geometry.geom_type == "Point")
+    is_multipoint_only = all(gdf.geometry.geom_type == "MultiPoint")
+    is_polygon_multi = all(gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]))
+
     # For a single Point, unwrap to match expected [[lon, lat]]
     if len(coord_list) == 1 and gdf.iloc[0].geometry.geom_type == "Point":
         return coord_list[0]
     # For multiple Points, flatten to [[lon, lat], ...]
-    if all(gdf.geometry.apply(lambda g: g.geom_type == "Point")):
+    if is_point_only:
         return [coords[0] for coords in coord_list]
-    # For a single Polygon, unwrap to match expected [ [ [x, y], ... ] ]
-    if len(coord_list) == 1 and gdf.iloc[0].geometry.geom_type == "Polygon":
-        return coord_list[0]
+
     # For a single MultiPoint, unwrap to match expected [ [lon, lat], ... ]
     if len(coord_list) == 1 and gdf.iloc[0].geometry.geom_type == "MultiPoint":
         return coord_list[0]
 
     # For multiple MultiPoints, flatten the list
-    if all(gdf.geometry.apply(lambda g: g.geom_type == "MultiPoint")):
+    if is_multipoint_only:
         # coord_list is a list of lists of points
         return [pt for sublist in coord_list for pt in sublist]
+
+    # For both single/multiple Polygons and MultiPolygons, return flat list of rings
+    if is_polygon_multi:
+        return [ring for sublist in coord_list for ring in sublist]
 
     return coord_list
 
@@ -146,7 +153,7 @@ def get_vegetation_cover_timeseries(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
         "start_date": "1986-01-01",
         "end_date": "2025-12-31",
     }
-    results = query_climate_engine(url, params)  # this raises error - wrap in try catch
+    results = query_climate_engine(url, params, timeout=240)  # this raises error - wrap in try catch
     # print(results) # just when debugging
     # the format of results is list with dict with 'Metadata' and 'Data' keys, Data is list of dicts with Date and variable keys
     # but they aren't the exactly the same variable names as we supplied -- has units of measure as well (e.g. "tmmn (C°)").
