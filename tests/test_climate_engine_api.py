@@ -4,7 +4,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
-from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry import MultiPolygon, Point, Polygon, MultiPoint
 
 from util.climate_engine_connections import (
     CLIMATE_ENGINE_BASE_API_URL,
@@ -25,12 +25,24 @@ def test_extract_coordinates_point():
 
 
 def test_extract_coordinates_multipoint():
-    gdf = gpd.GeoDataFrame(geometry=[Point(-121.61, 38.78), Point(-122.71, 39.74)])
-    result = extract_coordinates(gdf)
-    expected_result = [[-121.61, 38.78], [-122.71, 39.74]]
-    print(f'Expected: {json.dumps(expected_result)}')
-    print(f'Actual  : {json.dumps(result)}')
-    assert json.dumps(result, sort_keys=True) == json.dumps(expected_result, sort_keys=True)
+    # Single MultiPoint
+    multipoint = MultiPoint([[-121.61, 38.78], [-122.71, 39.74]])
+    gdf_multipoint = gpd.GeoDataFrame(geometry=[multipoint])
+    result_multipoint = extract_coordinates(gdf_multipoint)
+    expected_multipoint = [[-121.61, 38.78], [-122.71, 39.74]]
+    print(f'Expected (MultiPoint): {json.dumps(expected_multipoint)}')
+    print(f'Actual   (MultiPoint): {json.dumps(result_multipoint)}')
+    assert json.dumps(result_multipoint, sort_keys=True) == json.dumps(expected_multipoint, sort_keys=True)
+
+
+def test_extract_coordinates_multiple_points():
+    # Multiple Points
+    gdf_points = gpd.GeoDataFrame(geometry=[Point(-121.61, 38.78), Point(-122.71, 39.74)])
+    result_points = extract_coordinates(gdf_points)
+    expected_points = [[-121.61, 38.78], [-122.71, 39.74]]
+    print(f'Expected (multiple Points): {json.dumps(expected_points)}')
+    print(f'Actual   (multiple Points): {json.dumps(result_points)}')
+    assert json.dumps(result_points, sort_keys=True) == json.dumps(expected_points, sort_keys=True)
 
 
 def test_extract_coordinates_polygon():
