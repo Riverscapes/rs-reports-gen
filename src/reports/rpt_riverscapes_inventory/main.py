@@ -296,6 +296,20 @@ def make_report_orchestrator(
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
+    # check shape size and type
+    # use shape to query Athena
+    query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
+    log.debug(f'AOI processed. Geometry types are: {simplification_results.geometry_types}')
+    if not simplification_results.success:
+        log.warning("Unable to simplify input geometry sufficiently to insert into Athena query. This will probably error out.")
+    if simplification_results.simplified:
+        log.warning(
+            f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
+            If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
+        )
+    if 'MultiPolygon' in simplification_results.geometry_types:
+        log.warning("MultiPolygon shape not supported for Climate Engine query")
+
     # make place for the data to go (for report consumer as csv)
     safe_makedirs(str(report_dir / 'data'))
 
@@ -322,15 +336,6 @@ def make_report_orchestrator(
             log.info(f"Using supplied Parquet data files at {parquet_override}")
         else:
             parquet_data_source = report_dir / "pq"
-            # use shape to query Athena
-            query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
-            if not simplification_results.success:
-                raise ValueError("Unable to simplify input geometry sufficiently to insert into Athena query")
-            if simplification_results.simplified:
-                log.warning(
-                    f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
-                    If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
-                )
 
             log.info("Querying Athena for data for AOI")
 
