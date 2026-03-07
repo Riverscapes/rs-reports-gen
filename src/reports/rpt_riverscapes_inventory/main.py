@@ -70,17 +70,19 @@ def _should_retry(exc: Exception) -> bool:
     return False
 
 
-def _function_retry[T](func: Callable[[], T], function_name: str = "", retries: int = 2, delay: float = 2.5) -> T:
+def _function_retry[T](
+    func: Callable[[], T], function_name: str = "", retries: int = 2, delay: float = 2.5
+) -> T:
     """lightweight retry for functions like API calls
     attempts = retries + 1
     """
-    log = Logger(f'Retry {function_name or func.__name__}')
+    log = Logger(f"Retry {function_name or func.__name__}")
     for attempt in range(retries + 1):
         try:
             return func()
         except Exception as exc:
             if not _should_retry(exc) or attempt == retries:
-                log.error(f'Giving up after {attempt + 1} attempts: {exc}')
+                log.error(f"Giving up after {attempt + 1} attempts: {exc}")
                 raise
             log.warning(f"Retryable failure ({exc}); sleeping {delay} s.")
             time.sleep(delay)
@@ -90,12 +92,16 @@ def _function_retry[T](func: Callable[[], T], function_name: str = "", retries: 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     meta = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    meta.field_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='*', layer_id="raw_rme,rpt_rme,rs_context_huc10")
+    meta.field_meta = get_field_metadata(
+        authority="data-exchange-scripts",
+        tool_schema_name="*",
+        layer_id="raw_rme,rpt_rme,rs_context_huc10",
+    )
     meta.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
-    meta.set_display_unit('centerline_length', 'kilometer')
-    meta.set_display_unit('segment_area', 'kilometer ** 2')
+    meta.set_display_unit("centerline_length", "kilometer")
+    meta.set_display_unit("segment_area", "kilometer ** 2")
 
     return
 
@@ -124,65 +130,120 @@ def make_report(
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
     """
-    log = Logger('make report')
+    log = Logger("make report")
 
     # TODO: Check - beaver_dam_capacity only applies to perennieal - so may need to use filter gdf before building beaver_dam_capacity_bar
     # also can we make the units dams per km or dams per mile
     log.info(f"Generating report in {report_dir}")
     messages: dict[str, str] = {}
-    _edges, _labels, land_use_intens_bins_colours = get_bins_info('land_use_intens')
+    _edges, _labels, land_use_intens_bins_colours = get_bins_info("land_use_intens")
     figures = {
         "map": make_aoi_outline_map(aoi_df),
-        "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
+        "owner_bar": bar_group_x_by_y(
+            gdf, "segment_area", ["ownership_desc", "fcode_desc"]
+        ),
         "pie": make_rs_area_by_featcode(gdf),
-        "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
-        "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),
-        "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access']),
-        "land_use_intensity_bar": bar_group_x_by_y(gdf, 'segment_area', ['land_use_intens_bins'], {'color': land_use_intens_bins_colours}),
+        "low_lying_bin_bar": bar_total_x_by_ybins(
+            gdf, "segment_area", ["low_lying_ratio"]
+        ),
+        "prop_riparian_bin_bar": bar_total_x_by_ybins(
+            gdf, "segment_area", ["lf_riparian_prop"]
+        ),
+        "floodplain_access_bar": bar_total_x_by_ybins(
+            gdf, "segment_area", ["fldpln_access"]
+        ),
+        "land_use_intensity_bar": bar_group_x_by_y(
+            gdf,
+            "segment_area",
+            ["land_use_intens_bins"],
+            {"color": land_use_intens_bins_colours},
+        ),
         "prop_ag_dev": prop_ag_dev(gdf),
         "dens_road_rail": dens_road_rail(gdf),
         "hypsometry": hypsometry_fig(huc_df),
-        "confinement_length_bar": bar_total_x_by_ybins(gdf, 'centerline_length', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
-        "confinement_area_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['confinement_ratio', 'fcode_desc'], color_discrete_map=DEFAULT_FCODE_COLOR_MAP),
-        "beaver_dam_capacity_historical_bar": horizontal_bar_chart(gdf, 'centerline_length', ['brat_hist_capacity']),
-        "beaver_dam_capacity_current_bar": horizontal_bar_chart(gdf, 'centerline_length', ['brat_capacity']),
-        "stream_order_bar": bar_group_x_by_y(gdf, 'centerline_length', ['stream_order']),
-        "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_condition']),
-        "riparian_departure_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['riparian_veg_departure']),  # need to check these bins, also reverse them
-        "riparian_departure_bin_bar2": bar_group_x_by_y(gdf, 'segment_area', ['riparian_veg_departure_bins']),
+        "confinement_length_bar": bar_total_x_by_ybins(
+            gdf,
+            "centerline_length",
+            ["confinement_ratio", "fcode_desc"],
+            color_discrete_map=DEFAULT_FCODE_COLOR_MAP,
+        ),
+        "confinement_area_bar": bar_total_x_by_ybins(
+            gdf,
+            "segment_area",
+            ["confinement_ratio", "fcode_desc"],
+            color_discrete_map=DEFAULT_FCODE_COLOR_MAP,
+        ),
+        "beaver_dam_capacity_historical_bar": horizontal_bar_chart(
+            gdf, "centerline_length", ["brat_hist_capacity"]
+        ),
+        "beaver_dam_capacity_current_bar": horizontal_bar_chart(
+            gdf, "centerline_length", ["brat_capacity"]
+        ),
+        "stream_order_bar": bar_group_x_by_y(
+            gdf, "centerline_length", ["stream_order"]
+        ),
+        "riparian_condition_bin_bar": bar_total_x_by_ybins(
+            gdf, "segment_area", ["riparian_condition"]
+        ),
+        "riparian_departure_bin_bar": bar_total_x_by_ybins(
+            gdf, "segment_area", ["riparian_veg_departure"]
+        ),  # need to check these bins, also reverse them
+        "riparian_departure_bin_bar2": bar_group_x_by_y(
+            gdf, "segment_area", ["riparian_veg_departure_bins"]
+        ),
     }
 
     tables = {
         # "river_names": table_total_x_by_y(gdf, 'centerline_length', ['stream_name'], with_footer=False),
-        "owners": table_total_x_by_y(gdf, 'centerline_length', ['ownership', 'ownership_desc']),
-        "table_of_fcodes": table_total_x_by_y(gdf, 'centerline_length', ['fcode_desc']),
+        "owners": table_total_x_by_y(
+            gdf, "centerline_length", ["ownership", "ownership_desc"]
+        ),
+        "table_of_fcodes": table_total_x_by_y(gdf, "centerline_length", ["fcode_desc"]),
     }
 
     # for river_names, export all but show only top 20
     top_n = 20
-    river_names_df = total_x_by_y(gdf, 'centerline_length', ['stream_name'], sort_by_cols='centerline_length', sort_ascending=False)
+    river_names_df = total_x_by_y(
+        gdf,
+        "centerline_length",
+        ["stream_name"],
+        sort_by_cols="centerline_length",
+        sort_ascending=False,
+    )
     export_path = report_dir / "data" / "stream_names.csv"
     river_names_df.to_csv(export_path, index=False)
-    messages["river_names-caption"] = "Full list can be found in <a href=\"data/stream_names.csv\">stream_names.csv</a>."
+    messages["river_names-caption"] = (
+        'Full list can be found in <a href="data/stream_names.csv">stream_names.csv</a>.'
+    )
     if len(river_names_df) > top_n:
-        river_names_df = RSGeoDataFrame(river_names_df.head(top_n))  # remember head changes the class back to df
-        messages["river_names-caption"] = f"Filtered to top {top_n} records. " + messages["river_names-caption"]
+        river_names_df = RSGeoDataFrame(
+            river_names_df.head(top_n)
+        )  # remember head changes the class back to df
+        messages["river_names-caption"] = (
+            f"Filtered to top {top_n} records. " + messages["river_names-caption"]
+        )
     tables["river_names"] = river_names_df.to_html(index=False, escape=False)
     if nid_gdf is None:
-        messages["nid_dams_error"] = 'Unable to retrieve data from NID. Check log for details.'
+        messages["nid_dams_error"] = (
+            "Unable to retrieve data from NID. Check log for details."
+        )
     else:
-        nid_gdf.attrs['layer_id'] = 'NID'
+        nid_gdf.attrs["layer_id"] = "NID"
         if not nid_gdf.empty:
             nid_display_df = prepare_nid_display_table(nid_gdf)
             # Export full table
             export_path = report_dir / "data" / "nid_table.csv"
             nid_display_df.to_csv(export_path, index=False)
-            messages["nid_dams-caption"] = "Full list can be found in <a href=\"data/nid_table.csv\">nid_table.csv</a> and <a href=\"data/nid_dams.gpkg\">nid_dams.gpkg</a>."
+            messages["nid_dams-caption"] = (
+                'Full list can be found in <a href="data/nid_table.csv">nid_table.csv</a> and <a href="data/nid_dams.gpkg">nid_dams.gpkg</a>.'
+            )
             # Trim table to top 20
             top_n = 20
             if len(nid_display_df) > top_n:
                 nid_display_df = nid_display_df.head(top_n)
-                messages["nid_dams-caption"] = f"Filtered to top {top_n} records. " + messages["nid_dams-caption"]
+                messages["nid_dams-caption"] = (
+                    f"Filtered to top {top_n} records. " + messages["nid_dams-caption"]
+                )
             # Use RSGeoDataFrame to get friendly column names for display
             tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
                 classes="table table-striped",
@@ -191,10 +252,14 @@ def make_report(
                 layer_id="NID",
             )
         else:
-            messages["nid_dams-caption"] = '<p>No dams found in the area of interest.</p>'
+            messages["nid_dams-caption"] = (
+                "<p>No dams found in the area of interest.</p>"
+            )
     if ce_veg_df is None:
         # Provide message to user -
-        messages['ce_veg_df_error'] = "Unable to load Climate Engine Data - see logs for details"
+        messages["ce_veg_df_error"] = (
+            "Unable to load Climate Engine Data - see logs for details"
+        )
     else:
         fig = vegetation_cover_timeseries_charts(ce_veg_df)
         if fig is not None:
@@ -202,7 +267,7 @@ def make_report(
     appendices = {
         "project_ids": project_id_list(gdf),
     }
-    figure_dir = report_dir / 'figures'
+    figure_dir = report_dir / "figures"
     safe_makedirs(str(figure_dir))
 
     report = RSReport(
@@ -211,21 +276,30 @@ def make_report(
         report_dir=report_dir,
         report_version=report_version,
         figure_dir=figure_dir,
-        body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
-        css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
+        body_template_path=os.path.join(
+            os.path.dirname(__file__), "templates", "body.html"
+        ),
+        css_paths=[os.path.join(os.path.dirname(__file__), "templates", "report.css")],
     )
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
-    report.add_html_elements('tables', tables)
-    report.add_html_elements('messages', messages)
+    report.add_html_elements("tables", tables)
+    report.add_html_elements("messages", messages)
 
     all_stats = statistics(gdf)
-    metrics_for_key_indicators = ['total_segment_area', 'total_centerline_length', 'total_stream_length', 'integrated_valley_bottom_width']
-    metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
+    metrics_for_key_indicators = [
+        "total_segment_area",
+        "total_centerline_length",
+        "total_stream_length",
+        "integrated_valley_bottom_width",
+    ]
+    metric_data_for_key_indicators = {
+        k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats
+    }
     metric_data_for_key_indicators.update(dam_statistics(nid_gdf))
-    report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
-    report.add_html_elements('appendices', appendices)
+    report.add_html_elements("cards", metric_cards(metric_data_for_key_indicators))
+    report.add_html_elements("appendices", appendices)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -234,14 +308,14 @@ def make_report(
         static_path = report.render(fig_mode="svg", suffix="_static")
         if include_pdf:
             pdf_path = make_pdf_from_html(static_path)
-            log.info(f'PDF report built from static at {pdf_path}')
+            log.info(f"PDF report built from static at {pdf_path}")
 
-    log.title('Report Generation Complete')
-    log.info(f'Interactive: {interactive_path}')
+    log.title("Report Generation Complete")
+    log.info(f"Interactive: {interactive_path}")
     if static_path:
-        log.info(f'Static: {static_path}')
+        log.info(f"Static: {static_path}")
     if pdf_path:
-        log.info(f'PDF: {pdf_path}')
+        log.info(f"PDF: {pdf_path}")
 
 
 def load_huc_data(hucs: list[str]) -> pd.DataFrame:
@@ -250,19 +324,21 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
     * FUTURE ENHANCEMENT - take the aoi and join with huc geometries to produce some statistics about the amount of intersection between them
     * FUTURE ENHANCEMENT: check if we got data for all the hucs we were looking for
     """
-    log = Logger('Load HUC data')
+    log = Logger("Load HUC data")
 
     if not hucs or len(hucs) == 0:
-        log.error('No hucs provided to load_huc_data')
+        log.error("No hucs provided to load_huc_data")
         return pd.DataFrame()  # return empty dataframe
 
     # Basic input sanitation: ensure all hucs are strings, length 10, digits only, and unique
-    clean_hucs = {h for h in hucs if isinstance(h, str) and len(h) == 10 and h.isdigit()}
+    clean_hucs = {
+        h for h in hucs if isinstance(h, str) and len(h) == 10 and h.isdigit()
+    }
     if not clean_hucs or (len(clean_hucs) != len(hucs)):
-        log.error('No hucs, duplicate huc or unexpected value in huc list')
+        log.error("No hucs, duplicate huc or unexpected value in huc list")
 
     # Prepare SQL-safe quoted list
-    huc_sql = '(' + ','.join([f"'{h}'" for h in clean_hucs]) + ')'
+    huc_sql = "(" + ",".join([f"'{h}'" for h in clean_hucs]) + ")"
     sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
 
     df = athena_unload_to_dataframe(sql_str)
@@ -291,7 +367,7 @@ def make_report_orchestrator(
         keep_parquet (bool, default False): keep parquet files, e.g. for debugging purposes
 
     """
-    log = Logger('Make report orchestrator')
+    log = Logger("Make report orchestrator")
     log.info("Report orchestration begun")
 
     # load shape as gdf
@@ -299,17 +375,21 @@ def make_report_orchestrator(
     # check shape size and type
     # use shape to query Athena
     query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
-    log.debug(f'AOI processed. Geometry types are: {simplification_results.geometry_types}')
+    log.debug(
+        f"AOI processed. Geometry types are: {simplification_results.geometry_types}"
+    )
     if not simplification_results.success:
-        log.warning("Unable to simplify input geometry sufficiently to insert into Athena query. This will probably error out.")
+        log.warning(
+            "Unable to simplify input geometry sufficiently to insert into Athena query. This will probably error out."
+        )
     if simplification_results.simplified:
         log.warning(
-            f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
-            If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
+            f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for purpose of queries such as the intersection with DGO geometries, Dam inventory and Climate Engine.
+            If you require a higher precision extract, please contact support@riverscapes.freshdesk.com for a quote."""
         )
 
     # make place for the data to go (for report consumer as csv)
-    safe_makedirs(str(report_dir / 'data'))
+    safe_makedirs(str(report_dir / "data"))
 
     # Start tasks in background
     # 1. NID Query (if enabled)
@@ -323,14 +403,20 @@ def make_report_orchestrator(
         meta_future = executor.submit(define_fields, unit_system)
         if not disable_nid:
             log.info("Starting background NID query...")
-            nid_future = executor.submit(get_nid_data, aoi_gdf)
+            nid_future = executor.submit(get_nid_data, query_gdf)
         log.info("Starting background Climate Engine query...")
-        ce_future = executor.submit(_function_retry, lambda: get_vegetation_cover_timeseries(aoi_gdf), function_name="Climate Engine API Veg")
+        ce_future = executor.submit(
+            _function_retry,
+            lambda: get_vegetation_cover_timeseries(query_gdf),
+            function_name="Climate Engine API Veg",
+        )
 
         if parquet_override:
             parquet_data_source = Path(parquet_override)
             if not parquet_data_source.exists():
-                raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
+                raise FileNotFoundError(
+                    f"Parquet path '{parquet_data_source}' does not exist"
+                )
             log.info(f"Using supplied Parquet data files at {parquet_override}")
         else:
             parquet_data_source = report_dir / "pq"
@@ -347,8 +433,8 @@ def make_report_orchestrator(
 
             aoi_query_to_local_parquet(
                 query_str,
-                geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
-                geom_bbox_field='dgo_geom_bbox',
+                geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
+                geom_bbox_field="dgo_geom_bbox",
                 aoi_gdf=query_gdf,
                 local_path=parquet_data_source,
             )
@@ -364,12 +450,14 @@ def make_report_orchestrator(
             raise e
 
         data_gdf = add_calculated_rme_cols(data_gdf)
-        data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicit about it for type checking
+        data_gdf, _ = RSFieldMeta().apply_units(
+            data_gdf
+        )  # this is still a geodataframe but we will need to be more explicit about it for type checking
 
         # FUTURE ENHANCEMENT: Change to AOI query to get hucs that are in the AOI but not in the DGOS within the AOI
         # this also allows it to be run in parallel with the DGO query
         # this also could be the query that tells us our RME coverage for the AOI (get area of intersection)
-        unique_huc10 = data_gdf['huc12'].astype(str).str[:10].unique().tolist()
+        unique_huc10 = data_gdf["huc12"].astype(str).str[:10].unique().tolist()
         huc_data_df = load_huc_data(unique_huc10)
         # print(huc_data_df)  # for DEBUG ONLY
 
@@ -381,9 +469,13 @@ def make_report_orchestrator(
                 if nid_gdf is None:
                     log.warning("No NID gdf returned.")
                 else:
-                    log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
+                    log.info(
+                        f"NID background task finished. Found {len(nid_gdf)} dams."
+                    )
                     if not nid_gdf.empty:
-                        nid_gdf.to_file(report_dir / 'data' / 'nid_dams.gpkg', driver='GPKG')
+                        nid_gdf.to_file(
+                            report_dir / "data" / "nid_dams.gpkg", driver="GPKG"
+                        )
             except Exception as e:
                 log.error(f"Error retrieving NID results: {e}")
 
@@ -397,7 +489,7 @@ def make_report_orchestrator(
 
         # Export the data to Excel
         # dumping all the raw data is not appropriate especially for very large areas
-        RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'raw_dgo_data.xlsx')
+        RSGeoDataFrame(data_gdf).export_excel(report_dir / "data" / "raw_dgo_data.xlsx")
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
@@ -419,7 +511,9 @@ def make_report_orchestrator(
                 shutil.rmtree(parquet_data_source)
                 log.info(f"Deleted Parquet staging folder {parquet_data_source}")
         except Exception as cleanup_err:
-            log.warning(f"Failed to delete Parquet folder {parquet_data_source}: {cleanup_err}")
+            log.warning(
+                f"Failed to delete Parquet folder {parquet_data_source}: {cleanup_err}"
+            )
 
     log.info(f"Report Path: {report_dir}")
 
@@ -427,14 +521,47 @@ def make_report_orchestrator(
 def main():
     """Main function to parse arguments and generate the report"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
-    parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
-    parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
-    parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
-    parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
-    parser.add_argument('--use-parquet', dest='parquet_path', type=Path, default=None, help='Use an existing Parquet file or directory instead of running the Athena AOI query')
-    parser.add_argument('--keep-parquet', action='store_true', help='Keep the downloaded AOI Parquet files instead of deleting the pq folder')
-    parser.add_argument('--no-nid', action='store_true', help='Disable fetching data from National Inventory of Dams')
+    parser.add_argument(
+        "output_path",
+        help="Nonexistent folder to store the outputs (will be created)",
+        type=Path,
+    )
+    parser.add_argument(
+        "path_to_shape", help="path to the geojson that is the aoi to process", type=str
+    )
+    parser.add_argument(
+        "report_name",
+        help="name for the report (usually description of the area selected)",
+    )
+    parser.add_argument(
+        "--include_pdf",
+        help="Include a pdf version of the report",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--unit_system",
+        help="Unit system to use: SI or imperial",
+        type=str,
+        default="SI",
+    )
+    parser.add_argument(
+        "--use-parquet",
+        dest="parquet_path",
+        type=Path,
+        default=None,
+        help="Use an existing Parquet file or directory instead of running the Athena AOI query",
+    )
+    parser.add_argument(
+        "--keep-parquet",
+        action="store_true",
+        help="Keep the downloaded AOI Parquet files instead of deleting the pq folder",
+    )
+    parser.add_argument(
+        "--no-nid",
+        action="store_true",
+        help="Disable fetching data from National Inventory of Dams",
+    )
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -444,10 +571,10 @@ def main():
     # new version of safe_makedirs will take a Path but for now all Paths are converted to string for this function
     safe_makedirs(str(output_path))
 
-    log = Logger('Setup')
-    log_path = output_path / 'report.log'
+    log = Logger("Setup")
+    log_path = output_path / "report.log"
     log.setup(log_path=log_path, log_level=logging.DEBUG)
-    log.title('rs-rpt-riverscapes-inventory')
+    log.title("rs-rpt-riverscapes-inventory")
     log.info(f"Output path: {output_path}")
     log.info(f"AOI shape: {args.path_to_shape}")
     log.info(f"Report name: {args.report_name}")
@@ -467,7 +594,11 @@ def main():
 
         # While we work on performance, this is helpful
         process = psutil.Process(os.getpid())
-        mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), 'peak_wset') else process.memory_info().rss / 1024 / 1024
+        mem_mb = (
+            process.memory_info().peak_wset / 1024 / 1024
+            if hasattr(process.memory_info(), "peak_wset")
+            else process.memory_info().rss / 1024 / 1024
+        )
         log.info(f"Peak memory usage: {mem_mb:.2f} MB\n")
 
     except Exception as e:
