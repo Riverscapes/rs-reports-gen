@@ -210,10 +210,11 @@
 <section id="climateengine">
   <img src="https://docs.riverscapes.net/img/logos/logo_climateengine_org.small.min.png" alt="Climate Engine Logo">
   <h2>Climate Engine Data</h2>
-  <p><a href="climateengine.org">Climate Engine</a> provides access to a vast collection of climate and remote sensing data via an app, three different prepared reports, and an API. The following figures were prepared by querying the API for the supplied Area of Interest.</p>
+  <p><a href="https://climateengine.org">Climate Engine</a> provides access to a vast collection of climate and remote sensing data via an app, three different prepared reports, and an API. The following figures were prepared by querying the API for the supplied Area of Interest.</p>
   {% if figures['ce_vegetation_cover_timeseries'] %}
   <figure class="report-figure">
     {{ figures['ce_vegetation_cover_timeseries'] | safe }}
+    <figcaption>This information derived from the 30 m annual [RAP cover dataset](https://support.climateengine.org/article/81-rap) for the entire Area of Interest.</figcaption>
   </figure>
   {% elif messages['ce_veg_df_error'] %}
   <div class="error-message">
