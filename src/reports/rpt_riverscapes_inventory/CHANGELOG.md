@@ -2,9 +2,9 @@
 
 ## Version 0.4
 
-* Add Climate Engine data
-* trim tables to show only top 20
-* add exports for tables
+* Add Climate Engine data (vegetation timeseries)
+* Trim tables to show only top 20
+* Add exports for tables
 
 ## Version 0.3.1
 
