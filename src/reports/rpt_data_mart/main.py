@@ -16,6 +16,7 @@ from pathlib import Path
 
 # 3rd party
 import geopandas as gpd
+import pandas as pd
 import pint_pandas
 import psutil
 from rsxml import Logger, dotenv
@@ -26,6 +27,7 @@ from reports.rpt_data_mart import __version__ as report_version
 from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.metadata_export import export_data_dictionary
 from util.pandas import RSFieldMeta, load_gdf_from_pq
 from util.rme.rme_common_dataprep import apply_all_bins
 
@@ -47,7 +49,7 @@ DGO_FIELDS = (
     "fldpln_access, access_fldpln_extent, confinement_ratio, "
     "brat_capacity, brat_hist_capacity, "
     "riparian_veg_departure, riparian_condition, "
-    "rme_project_id, rme_project_name"
+    "rme_project_id, rme_project_name, graz_globalid"
 )
 
 
@@ -112,7 +114,9 @@ def export_data_mart(
         else:
             parquet_data_source = report_dir / "pq"
             log.info("Querying Athena for DGO data …")
-            query_str = f"SELECT {DGO_FIELDS} FROM rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+            # TODO: move to a production source once it exists
+            # rpt_rme_pq works except it does not have the graz_globalid field
+            query_str = f"SELECT {DGO_FIELDS} FROM dev_riverscapes.materialized_rpt_rme_grazing_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"
             aoi_query_to_local_parquet(
                 query_str,
                 geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
@@ -144,6 +148,10 @@ def export_data_mart(
     output_path = report_dir / "data_mart.parquet"
     data_gdf.to_parquet(output_path, index=False)
     log.info(f"Data Mart Parquet written to {output_path}")
+
+    # Data dictionary — describe every column for report builders
+    dict_path = report_dir / "data_dictionary.csv"
+    export_data_dictionary({"dgo": data_gdf}, dict_path)
 
     # Clean up staging Parquet if not needed
     if not keep_parquet and not parquet_override:

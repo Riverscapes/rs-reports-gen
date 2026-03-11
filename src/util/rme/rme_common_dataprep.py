@@ -212,6 +212,7 @@ def apply_all_bins(
         pd.DataFrame with the additional columns.
     """
     log = Logger('apply_all_bins')
+    meta = RSFieldMeta()
     if column_to_bin_key is None:
         column_to_bin_key = COLUMN_TO_BIN_KEY
 
@@ -232,6 +233,27 @@ def apply_all_bins(
         label_to_sort = {label: idx for idx, label in enumerate(labels)}
         df[color_col] = df[bin_col].map(label_to_hex)
         df[sort_col] = df[bin_col].map(label_to_sort)
+
+        # Register metadata so the data dictionary picks up these columns
+        source_friendly = meta.get_friendly_name(col)
+        meta.add_field_meta(
+            name=bin_col,
+            friendly_name=f'{source_friendly} (bin)',
+            description=f'Categorical bin label for {source_friendly}, derived from bins.json',
+            dtype='TEXT',
+        )
+        meta.add_field_meta(
+            name=color_col,
+            friendly_name=f'{source_friendly} (color)',
+            description=f'Hex colour for the bin, use with Power BI conditional formatting "Format by field value"',
+            dtype='TEXT',
+        )
+        meta.add_field_meta(
+            name=sort_col,
+            friendly_name=f'{source_friendly} (sort)',
+            description=f'Sort order integer for {bin_col}; use Power BI "Sort by Column" on {bin_col}',
+            dtype='INTEGER',
+        )
 
         log.debug(f"Added {bin_col}, {color_col}, {sort_col} ({len(labels)} bins)")
 
