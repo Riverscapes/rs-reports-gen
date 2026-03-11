@@ -210,7 +210,7 @@ def get_and_process_aoi(
 def main():
     """
     main rpt-igo-project routine
-    get an AOI geometry and query athena raw_rme for data within
+    get an AOI geometry and query athena for data within
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('spatialite_path', help='Path to the mod_spatialite library', type=str)
