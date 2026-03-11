@@ -14,14 +14,9 @@ from pathlib import Path
 import questionary
 from termcolor import colored
 
+from util.prompt import is_truthy
+
 EXAMPLE_DIR = Path(__file__).resolve().parent / "example"
-
-
-def _is_truthy(value: str | None) -> bool:
-    """Return True for '1', 'true', 'yes' (case-insensitive). None → False."""
-    if value is None:
-        return False
-    return value.strip().lower() in {"1", "true", "yes"}
 
 
 def main() -> list[str] | None:
@@ -101,7 +96,7 @@ def main() -> list[str] | None:
     # ── Keep parquet ──────────────────────────────────────────────────
     keep_env = os.environ.get("DM_KEEP_PARQUET")
     if keep_env is not None:
-        keep_parquet = _is_truthy(keep_env)
+        keep_parquet = is_truthy(keep_env)
     elif parquet_path:
         keep_parquet = True
     else:

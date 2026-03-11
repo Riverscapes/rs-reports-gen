@@ -11,6 +11,16 @@ from termcolor import colored
 QuestionSequence = Sequence[Any]
 
 
+def is_truthy(value: str | None) -> bool:
+    """Returns Ture if the string represents a truthy value.
+    Accepts "1", "true", "yes" (case-insensitive, ignores whitespace)
+    Any other value, including None, returns False
+    """
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes"}
+
+
 def safe_prompt(
     questions: QuestionSequence,
     *,

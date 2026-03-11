@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
+
 import inquirer
 from termcolor import colored
+
+from util.prompt import is_truthy
 
 
 def main():
@@ -33,20 +36,19 @@ def main():
     if rns_aoi_geojson:
         geojson_file = Path(rns_aoi_geojson)
         if not geojson_file.exists():
-            raise RuntimeError(
-                colored(f"\nThe RNS_AOI_GEOJSON environment variable is set to '{rns_aoi_geojson}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+            raise RuntimeError(colored(f"\nThe RNS_AOI_GEOJSON environment variable is set to '{rns_aoi_geojson}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the code example folder
         base_dir = Path(__file__).parent
-        geojson_question = inquirer.prompt([
-            inquirer.List(
-                'geojson',
-                message="Select a geojson file to use as the AOI",
-                choices=[
-                    f for f in os.listdir(base_dir / "example") if f.endswith('.geojson')
-                ],
-            ),
-        ])
+        geojson_question = inquirer.prompt(
+            [
+                inquirer.List(
+                    'geojson',
+                    message="Select a geojson file to use as the AOI",
+                    choices=[f for f in os.listdir(base_dir / "example") if f.endswith('.geojson')],
+                ),
+            ]
+        )
         if geojson_question is None:
             print("\nNo geojson file selected. Exiting.\n")
             exit(0)
@@ -55,18 +57,18 @@ def main():
 
     parquet_path = os.environ.get("RNS_PARQUET_PATH")
     if parquet_path and not os.path.exists(parquet_path):
-        raise RuntimeError(
-            f"\nRNS_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n"
-        )
+        raise RuntimeError(f"\nRNS_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n")
 
     else:
-        parquet_prompt = inquirer.prompt([
-            inquirer.Text(
-                'parquet_path',
-                message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
-                default="",
-            )
-        ])
+        parquet_prompt = inquirer.prompt(
+            [
+                inquirer.Text(
+                    'parquet_path',
+                    message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
+                    default="",
+                )
+            ]
+        )
         if not parquet_prompt or 'parquet_path' not in parquet_prompt:
             print("\nNo Parquet path selected. Exiting.\n")
             return
@@ -79,17 +81,11 @@ def main():
             raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # Ask for unit system
-        unit_system_question = inquirer.prompt([
-            inquirer.List(
-                'unit_system',
-                message="Select a unit system to use",
-                choices=[
-                    "SI",
-                    "imperial"
-                ],
-                default="SI"
-            ),
-        ])
+        unit_system_question = inquirer.prompt(
+            [
+                inquirer.List('unit_system', message="Select a unit system to use", choices=["SI", "imperial"], default="SI"),
+            ]
+        )
         unit_system = unit_system_question['unit_system']
 
     if os.environ.get("RNS_REPORT_NAME"):
@@ -98,23 +94,26 @@ def main():
         report_name = geojson_file.stem.replace(' ', '_') + " - Rivers Need Space"
 
     # Ask for whether or not to include PDF. Default to NO
-    if os.environ.get("INCLUDE_PDF"):
-        include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
+    include_pdf_env = os.environ.get("INCLUDE_PDF", None)
+    if include_pdf_env is not None:
+        include_pdf = is_truthy(include_pdf_env)
     else:
-        include_pdf_question = inquirer.prompt([
-            inquirer.Confirm(
-                'include_pdf',
-                message="Include a PDF version of the report? (Default is No)",
-                default=False
-            ),
-        ])
-        include_pdf = include_pdf_question['include_pdf']
+        include_pdf_question = inquirer.prompt(
+            [
+                inquirer.Confirm('include_pdf', message="Include a PDF version of the report? (Default is No)", default=False),
+            ]
+        )
+        if not include_pdf_question or 'include_pdf' not in include_pdf_question:
+            print("\nNo PDF option selected. Exiting.\n")
+            return None
+        include_pdf: bool = include_pdf_question['include_pdf']
 
     args = [
         Path(data_root / "rpt-rivers-need-space" / report_name.replace(" ", "_")),
         geojson_file,
         report_name,
-        "--unit_system", unit_system,
+        "--unit_system",
+        unit_system,
     ]
     if include_pdf:
         args.append("--include_pdf")
@@ -131,13 +130,15 @@ def main():
         if parquet_path:
             keep_parquet = True
         else:
-            keep_answer = inquirer.prompt([
-                inquirer.Confirm(
-                    'keep_parquet',
-                    message='Keep downloaded Parquet files after processing?',
-                    default=False,
-                )
-            ])
+            keep_answer = inquirer.prompt(
+                [
+                    inquirer.Confirm(
+                        'keep_parquet',
+                        message='Keep downloaded Parquet files after processing?',
+                        default=False,
+                    )
+                ]
+            )
             if not keep_answer or 'keep_parquet' not in keep_answer:
                 print("\nNo keep_parquet option selected. Exiting.\n")
                 return
