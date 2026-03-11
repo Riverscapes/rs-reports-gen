@@ -1,13 +1,10 @@
 # System imports
 import os
-from collections.abc import Sequence
-from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from shutil import copytree
 from typing import Any
 
-import pandas as pd
 import plotly.graph_objects as go
 from jinja2 import Environment, FileSystemLoader
 from rsxml import Logger
@@ -138,14 +135,15 @@ class RSReport:
             else:
                 log.warning(f"CSS path {css_path} does not exist and will be skipped.")
         style_tag = f"<style>{css}</style>"
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
         # This is what is passed to each template
         report_context = {
             'report': {
                 'head': style_tag,
                 'title': self.report_name,
-                'date': now.strftime('%B %d, %Y - %I:%M%p'),
+                'date': now.strftime('%B %d, %Y - %I:%M%p %Z'),
+                'date_iso': now.isoformat(),
                 'ReportType': self.report_type,
                 'version': self.report_version,
             },
