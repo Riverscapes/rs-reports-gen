@@ -1,5 +1,7 @@
 """library of common data preparation options for Riverscape Metric Engine data"""
 
+import re
+
 import numpy as np
 import pandas as pd
 from rsxml import Logger
@@ -11,12 +13,12 @@ from util.figures import get_bins_info  # future enhancement: move the fn since 
 
 
 def add_common_rme_cols(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
-    """ Add any calculated columns to the dataframe
-    These could be bins. 
+    """Add any calculated columns to the dataframe
+    These could be bins.
     When adding columns to this function, add metadata at the same time
     Args:
         df (pd.DataFrame): Input dataframe
-        columns (list[str]) : columns from the dictionary of CALCULATED_COLS 
+        columns (list[str]) : columns from the dictionary of CALCULATED_COLS
 
     Returns:
         pd.DataFrame: DataFrame with calculated columns added
@@ -30,19 +32,16 @@ def add_common_rme_cols(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     return df
 
 
-def bin_continuous_column(df: pd.DataFrame, field_nm: str,
-                          bin_lookup_nm: str | None = None,
-                          binned_field_nm: str | None = None,
-                          binned_field_friendly: str | None = None) -> pd.DataFrame:
+def bin_continuous_column(df: pd.DataFrame, field_nm: str, bin_lookup_nm: str | None = None, binned_field_nm: str | None = None, binned_field_friendly: str | None = None) -> pd.DataFrame:
     """Bin a continuous column - ie create a new column with discrete values depending on values in field_nm
     Adds metadata as well
 
-    Args: 
+    Args:
         df : dataframe containing the column to bin on (field_nm)
         bin_lookup_nm : name to lookup in bins.json (defaults to same as field_nm if not provided)
         binned_field_nm  : name of the new binned field (defaults to field_nm_bin)
         binned_field_friendl_nm : friendly name for new binned field
-    Returns: 
+    Returns:
         input df with new column added
     TODO: check if new column already exists, warn/error otherwise we are probably over-writing it
     """
@@ -57,15 +56,11 @@ def bin_continuous_column(df: pd.DataFrame, field_nm: str,
     edges, labels, _colours = get_bins_info(bin_lookup_nm)
     df[binned_field_nm] = pd.cut(df[field_nm], bins=edges, labels=labels, include_lowest=True)
 
-    meta.add_field_meta(name=binned_field_nm,
-                        friendly_name=binned_field_friendly)  # the type is categorical, should we add that?
+    meta.add_field_meta(name=binned_field_nm, friendly_name=binned_field_friendly)  # the type is categorical, should we add that?
     return df
 
 
-def bins_continuous_equal_width(df: pd.DataFrame, col_name: str, n_bins: int,
-                                rounding: int = 2,
-                                binned_col_name: str | None = None,
-                                binned_col_friendly: str | None = None) -> pd.DataFrame:
+def bins_continuous_equal_width(df: pd.DataFrame, col_name: str, n_bins: int, rounding: int = 2, binned_col_name: str | None = None, binned_col_friendly: str | None = None) -> pd.DataFrame:
     """
     Add an equal-width binned column to the DataFrame.
 
@@ -100,8 +95,7 @@ def bins_continuous_equal_width(df: pd.DataFrame, col_name: str, n_bins: int,
     # to include number formatting (e.g. comma separating thousands)
     # and units (ie baked values) ~P - would have to multiply edges by the column units
     # see caution above though, edges are not actually rounded
-    labels = [f"{round(edges[i], rounding):,.{decimals}f} to {round(edges[i+1], rounding):,.{decimals}f}"
-              for i in range(n_bins)]
+    labels = [f"{round(edges[i], rounding):,.{decimals}f} to {round(edges[i + 1], rounding):,.{decimals}f}" for i in range(n_bins)]
     df[binned_col_name] = pd.cut(df[col_name], bins=edges, labels=labels, include_lowest=True)
 
     # add to metadata registry
@@ -109,16 +103,14 @@ def bins_continuous_equal_width(df: pd.DataFrame, col_name: str, n_bins: int,
         binned_col_friendly = meta.get_friendly_name(col_name) + f' {n_bins} bins'
     binned_col_description = meta.get_field_header(col_name) + f' divided into {n_bins} equal-width bins'
 
-    meta.add_field_meta(name=binned_col_name,
-                        friendly_name=binned_col_friendly,
-                        description=binned_col_description)  # the type is categorical, should we add that?
+    meta.add_field_meta(name=binned_col_name, friendly_name=binned_col_friendly, description=binned_col_description)  # the type is categorical, should we add that?
 
     return df
 
 
 def channel_length_example(df: pd.DataFrame) -> pd.DataFrame:
-    """Example bespoke function 
-    Args: 
+    """Example bespoke function
+    Args:
         dataframe - must contain columns 'rel_flow_length' & 'centerline_length'
     NOTE: This type of calculation could and indeed SHOULD be done in the athena view rpt_rme and the column metadata added there too
     Report-time calc columns Python manipulation should be for things that are expensive or not easy to do in SQL
@@ -126,12 +118,7 @@ def channel_length_example(df: pd.DataFrame) -> pd.DataFrame:
     fld_nm = 'channel_length_ex'
     df[fld_nm] = df['rel_flow_length'] * df['centerline_length']
 
-    RSFieldMeta().add_field_meta(name=fld_nm,
-                                 friendly_name='Channel Length EXAMPLE',
-                                 description='Channel Length calculated from centerline length and relative length. Should match stream_length.',
-                                 data_unit='m',
-                                 dtype='REAL'
-                                 )
+    RSFieldMeta().add_field_meta(name=fld_nm, friendly_name='Channel Length EXAMPLE', description='Channel Length calculated from centerline length and relative length. Should match stream_length.', data_unit='m', dtype='REAL')
 
     return df
 
@@ -140,13 +127,114 @@ def riparian_veg_departure_as_departure(df: pd.DataFrame) -> pd.DataFrame:
     """the riparian_veg_departure field we get from rme is not actually departure, it's the raw ratio
     NOTE: We could and indeed SHOULD calculate this in the athena view rpt_rme
     Report-time calc columns Python manipulation should be for things that aren't this easy to do in SQL or are only needed by one report (and then by definition wouldnt be in this common module)
-    But this works for now 
+    But this works for now
     """
     fld_nm = 'riparian_veg_departure_as_departure'
     # 1 minus the value if the value is greater than 0. The -9999 will still be -9999
-    df[fld_nm] = df["riparian_veg_departure"].apply(
-        lambda x: 1 - x if x >= 0 else x
-    )
+    df[fld_nm] = df["riparian_veg_departure"].apply(lambda x: 1 - x if x >= 0 else x)
+    return df
+
+
+def color_to_hex(color_str: str) -> str:
+    """Convert an rgb(...), hsl(...), or #hex color string to a 7-character hex string.
+
+    Supports:
+        - '#rrggbb' / '#rgb' pass-through
+        - 'rgb(r, g, b)' with integer 0-255 values
+        - 'hsl(h, s%, l%)' with h in 0-360, s/l in 0-100
+
+    Returns:
+        str: e.g. '#ff0000'
+    """
+    s = color_str.strip()
+    if s.startswith('#'):
+        if len(s) == 4:
+            return f'#{s[1] * 2}{s[2] * 2}{s[3] * 2}'
+        return s.lower()
+
+    rgb_match = re.match(r'rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', s)
+    if rgb_match:
+        r, g, b = (int(x) for x in rgb_match.groups())
+        return f'#{r:02x}{g:02x}{b:02x}'
+
+    hsl_match = re.match(r'hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)', s)
+    if hsl_match:
+        import colorsys
+
+        h_deg, s_pct, l_pct = (float(x) for x in hsl_match.groups())
+        r, g, b = colorsys.hls_to_rgb(h_deg / 360, l_pct / 100, s_pct / 100)
+        return f'#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}'
+
+    return s  # return as-is if format not recognised
+
+
+# Mapping of DataFrame column name → bins.json lookup key.
+# Where the column name matches the bins.json key, only one entry is needed.
+# Where they differ (e.g. a calculated column), map explicitly.
+COLUMN_TO_BIN_KEY: dict[str, str] = {
+    'low_lying_ratio': 'low_lying_ratio',
+    'lf_riparian_prop': 'lf_riparian_prop',
+    'fldpln_access': 'fldpln_access',
+    'land_use_intens': 'land_use_intens',
+    'lf_agriculture_prop': 'lf_agriculture_prop',
+    'road_dens': 'road_dens',
+    'confinement_ratio': 'confinement_ratio',
+    'brat_hist_capacity': 'brat_hist_capacity',
+    'brat_capacity': 'brat_capacity',
+    'riparian_condition': 'riparian_condition',
+}
+
+
+def apply_all_bins(
+    df: pd.DataFrame,
+    column_to_bin_key: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """Apply bins from bins.json to every mappable column in the DataFrame.
+
+    For each column listed in *column_to_bin_key* that exists in *df*, three
+    new columns are added:
+        * ``{col}_bin``      – the human-readable label from bins.json
+        * ``{col}_color``    – the corresponding colour converted to hex
+        * ``{col}_bin_sort`` – 0-based integer preserving the defined bin order
+
+    This is designed to produce "Power BI ready" data: end-users can use
+    the ``_color`` column directly for conditional formatting, the
+    ``_bin`` column for slicers / legends, and ``_bin_sort`` for the
+    "Sort by Column" feature in Power BI (since label sort order is
+    lost when written to Parquet).
+
+    Args:
+        df: Input DataFrame (not modified in-place; a copy is returned).
+        column_to_bin_key: Mapping of df column → bins.json key.
+            Defaults to ``COLUMN_TO_BIN_KEY`` if not supplied.
+
+    Returns:
+        pd.DataFrame with the additional columns.
+    """
+    log = Logger('apply_all_bins')
+    if column_to_bin_key is None:
+        column_to_bin_key = COLUMN_TO_BIN_KEY
+
+    for col, bin_key in column_to_bin_key.items():
+        if col not in df.columns:
+            log.debug(f"Column '{col}' not in DataFrame – skipping")
+            continue
+        edges, labels, colours = get_bins_info(bin_key)
+        hex_colours = [color_to_hex(c) for c in colours]
+
+        bin_col = f'{col}_bin'
+        color_col = f'{col}_color'
+        sort_col = f'{col}_bin_sort'
+
+        df[bin_col] = pd.cut(df[col], bins=edges, labels=labels, include_lowest=True)
+        # Map each bin label to its hex colour and sort order
+        label_to_hex = dict(zip(labels, hex_colours))
+        label_to_sort = {label: idx for idx, label in enumerate(labels)}
+        df[color_col] = df[bin_col].map(label_to_hex)
+        df[sort_col] = df[bin_col].map(label_to_sort)
+
+        log.debug(f"Added {bin_col}, {color_col}, {sort_col} ({len(labels)} bins)")
+
     return df
 
 
@@ -155,8 +243,6 @@ CALCULATED_COLS = {
     'channel_length_ex': channel_length_example,
     'low_lying_ratio_bins': lambda df: bin_continuous_column(df, 'low_lying_ratio'),
     'riparian_veg_departure_as_departure': riparian_veg_departure_as_departure,
-    'riparian_veg_departure_bins': lambda df: bin_continuous_column(df, 'riparian_veg_departure_as_departure',
-                                                                    bin_lookup_nm='riparian_veg_departure',
-                                                                    binned_field_friendly='Riparian Vegetation Departure'),
+    'riparian_veg_departure_bins': lambda df: bin_continuous_column(df, 'riparian_veg_departure_as_departure', bin_lookup_nm='riparian_veg_departure', binned_field_friendly='Riparian Vegetation Departure'),
     'land_use_intens_bins': lambda df: bin_continuous_column(df, 'land_use_intens'),
 }
