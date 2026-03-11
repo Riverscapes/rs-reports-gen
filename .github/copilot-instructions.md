@@ -42,6 +42,9 @@
   - Run: `python -m reports.rpt_riverscapes_inventory.main --help`
   - See: `src/reports/rpt_riverscapes_inventory/README.md`
 
+## Local development environment
+- typically may not have python installed in the system path, but should be available via uv, ie use the python in `rs-reports-gen\.venv\`
+
 ## Testing
 - For end-to-end testing, `test_report_smoke.py` fans out across every report. If modifying and testing a specific report, limit using `pytest -k "<report_name>"`
 

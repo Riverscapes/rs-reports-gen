@@ -19,6 +19,7 @@ dependencies = [
     "geopandas>=1.1.1",
     "inquirer>=3.4.1",
     "jinja2>=3.1.6",
+    "questionary>=2.1.0",
     "kaleido>=1.1.0",
     "lonboard>=0.14.0",
     "openpyxl>=3.1.5",
@@ -39,6 +40,7 @@ dependencies = [
 [project.scripts]
 rpt-igo-project = "reports.rpt_igo_project.main:main"
 rpt-rivers-need-space = "reports.rpt_rivers_need_space.main:main"
+rpt-data-mart = "reports.rpt_data_mart.main:main"
 
 # Install these using uv by typing: "uv pip install ".[dev]"
 [project.optional-dependencies]

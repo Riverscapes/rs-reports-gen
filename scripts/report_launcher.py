@@ -9,16 +9,19 @@ will prompt for them interactively.
 """
 
 from __future__ import annotations
-from typing import Iterable
-from pathlib import Path
+
+import logging
+import shlex
+import sys
+import traceback
+from collections.abc import Iterable
 from dataclasses import dataclass
 from importlib import import_module
-import sys
-import shlex
-import traceback
-import logging
+from pathlib import Path
+
 import inquirer
 from termcolor import colored
+
 from util.prompt import prompt_for
 
 BASE_PACKAGE = "reports"
@@ -29,6 +32,7 @@ REPORTS_DIR = SRC_ROOT / "reports"
 @dataclass
 class ReportEntry:
     """Container describing a launchable report module."""
+
     name: str
     module_path: str
     display_name: str
@@ -69,17 +73,18 @@ def choose_report() -> ReportEntry:
         return None
 
     # Track the canonical package name so inquirer can return a stable value.
-    question_choices: list[tuple[str, ReportEntry]] = [
-        ("📋 " + entry.display_name, entry) for entry in reports
-    ]
+    question_choices: list[tuple[str, ReportEntry]] = [("📋 " + entry.display_name, entry) for entry in reports]
 
-    report = prompt_for([
-        inquirer.List(
-            "report",
-            message="Select a report to launch",
-            choices=question_choices,
-        ),
-    ], 'report')
+    report = prompt_for(
+        [
+            inquirer.List(
+                "report",
+                message="Select a report to launch",
+                choices=question_choices,
+            ),
+        ],
+        'report',
+    )
 
     return report
 
@@ -146,7 +151,7 @@ def launch_report(entry: ReportEntry, extra_args: list[str]) -> int:
 
 
 def main() -> int:
-    """ Main entry point for the report launcher.
+    """Main entry point for the report launcher.
 
     Returns:
         int: Exit code from the launched report, or 0 if no report was run.
