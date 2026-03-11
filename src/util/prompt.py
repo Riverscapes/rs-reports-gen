@@ -1,11 +1,12 @@
 """Utilities to handle interactive prompts consistently."""
+
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import inquirer
 from termcolor import colored
-
 
 QuestionSequence = Sequence[Any]
 
