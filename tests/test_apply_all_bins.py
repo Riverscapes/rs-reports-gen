@@ -3,9 +3,16 @@
 Copilot-generated test module.
 """
 
+import geopandas as gpd
 import pandas as pd
 import pytest
+from shapely.geometry import Point
 
+from util.metadata_export import (
+    _infer_logical_type,
+    _normalise_registry_dtype,
+    export_data_dictionary,
+)
 from util.rme.rme_common_dataprep import apply_all_bins, color_to_hex
 
 
@@ -105,3 +112,136 @@ class TestApplyAllBins:
         # 0.01 is in the first bin (sort 0), 0.03 is in the second (sort 1),
         # 0.80 is in a higher bin
         assert sorts[0] < sorts[1] < sorts[2]
+
+
+# ── export_data_dictionary (shared) ───────────────────────────────────
+
+
+class TestExportDataDictionary:
+    def test_writes_csv_with_expected_columns(self, tmp_path):
+        df = pd.DataFrame({"low_lying_ratio": [0.1], "some_text": ["hello"]})
+        out = tmp_path / "dd.csv"
+        export_data_dictionary({"tbl": df}, out)
+        result = pd.read_csv(out)
+        assert set(result.columns) == {
+            "table_name",
+            "column_name",
+            "friendly_name",
+            "description",
+            "data_unit",
+            "display_unit",
+            "dtype",
+            "in_registry",
+        }
+        assert list(result["column_name"]) == ["low_lying_ratio", "some_text"]
+        assert list(result["table_name"]) == ["tbl", "tbl"]
+
+    def test_includes_bin_columns_after_apply(self, tmp_path):
+        df = pd.DataFrame({"low_lying_ratio": [0.05, 0.30]})
+        df = apply_all_bins(df, {"low_lying_ratio": "low_lying_ratio"})
+        out = tmp_path / "dd.csv"
+        export_data_dictionary({"dgo": df}, out)
+        result = pd.read_csv(out)
+        col_names = set(result["column_name"])
+        assert "low_lying_ratio_bin" in col_names
+        assert "low_lying_ratio_color" in col_names
+        assert "low_lying_ratio_bin_sort" in col_names
+        # bin columns should have a friendly name containing "(bin)"
+        bin_row = result[result["column_name"] == "low_lying_ratio_bin"]
+        assert "(bin)" in bin_row["friendly_name"].iloc[0]
+        # bin columns should be marked in_registry
+        assert bin_row["in_registry"].iloc[0] == True
+
+    def test_one_row_per_column(self, tmp_path):
+        df = pd.DataFrame({"a": [1], "b": [2], "c": [3]})
+        out = tmp_path / "dd.csv"
+        export_data_dictionary({"t": df}, out)
+        result = pd.read_csv(out)
+        assert len(result) == 3
+
+    def test_multiple_tables(self, tmp_path):
+        df1 = pd.DataFrame({"x": [1]})
+        df2 = pd.DataFrame({"y": ["hello"], "z": [True]})
+        out = tmp_path / "dd.csv"
+        export_data_dictionary({"fact": df1, "dim": df2}, out)
+        result = pd.read_csv(out)
+        assert len(result) == 3
+        assert set(result["table_name"]) == {"fact", "dim"}
+
+    def test_in_registry_false_for_unknown_columns(self, tmp_path):
+        df = pd.DataFrame({"totally_unknown_xyz": [42]})
+        out = tmp_path / "dd.csv"
+        export_data_dictionary({"t": df}, out)
+        result = pd.read_csv(out)
+        assert result["in_registry"].iloc[0] == False
+
+    def test_dtype_uses_logical_enum(self, tmp_path):
+        df = pd.DataFrame(
+            {
+                "an_int": pd.array([1, 2], dtype="int64"),
+                "a_float": pd.array([1.0, 2.0], dtype="float64"),
+                "a_str": ["hello", "world"],
+                "a_bool": [True, False],
+            }
+        )
+        out = tmp_path / "dd.csv"
+        export_data_dictionary({"t": df}, out)
+        result = pd.read_csv(out)
+        type_map = dict(zip(result["column_name"], result["dtype"]))
+        assert type_map["an_int"] == "INTEGER"
+        assert type_map["a_float"] == "FLOAT"
+        assert type_map["a_str"] == "STRING"
+        assert type_map["a_bool"] == "BOOLEAN"
+
+    def test_geometry_column(self, tmp_path):
+        gdf = gpd.GeoDataFrame({"val": [1]}, geometry=[Point(0, 0)])
+        out = tmp_path / "dd.csv"
+        export_data_dictionary({"geo": gdf}, out)
+        result = pd.read_csv(out)
+        geom_row = result[result["column_name"] == "geometry"]
+        assert geom_row["dtype"].iloc[0] == "GEOMETRY"
+
+
+# ── _normalise_registry_dtype ─────────────────────────────────────────
+
+
+class TestNormaliseRegistryDtype:
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("REAL", "FLOAT"),
+            ("TEXT", "STRING"),
+            ("VARCHAR", "STRING"),
+            ("INT", "INTEGER"),
+            ("BIGINT", "INTEGER"),
+            ("BOOLEAN", "BOOLEAN"),
+            ("TIMESTAMP", "DATETIME"),
+            ("GEOMETRY", "GEOMETRY"),
+            ("", ""),
+        ],
+    )
+    def test_mapping(self, raw, expected):
+        assert _normalise_registry_dtype(raw) == expected
+
+
+# ── _infer_logical_type ───────────────────────────────────────────────
+
+
+class TestInferLogicalType:
+    def test_int(self):
+        assert _infer_logical_type(pd.Series([1, 2], dtype="int64")) == "INTEGER"
+
+    def test_float(self):
+        assert _infer_logical_type(pd.Series([1.0], dtype="float64")) == "FLOAT"
+
+    def test_string(self):
+        assert _infer_logical_type(pd.Series(["a", "b"])) == "STRING"
+
+    def test_bool(self):
+        assert _infer_logical_type(pd.Series([True, False])) == "BOOLEAN"
+
+    def test_datetime(self):
+        assert _infer_logical_type(pd.Series(pd.to_datetime(["2024-01-01"]))) == "DATETIME"
+
+    def test_categorical(self):
+        assert _infer_logical_type(pd.Series(pd.Categorical(["a", "b"]))) == "STRING"
