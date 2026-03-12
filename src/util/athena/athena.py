@@ -1,5 +1,6 @@
-""" Utility functions to get data from AWS Athena and return it in useful formats
-a version/copy of these functions can be found in multiple Riverscapes repositories
+"""Utility functions to get data from AWS Athena and return it in useful formats.
+
+A version/copy of these functions can be found in multiple Riverscapes repositories:
 * data-exchange-scripts
 * rs-reports-gen (this one)
 * athena
@@ -8,24 +9,83 @@ a version/copy of these functions can be found in multiple Riverscapes repositor
 Consider porting any improvements to these other repositories.
 
 ---
-REFACTOR proposal 2025-11-25 
-We don't need to name them 'athena' -- they are in the athena module so that is assumed
 
-locals: 
-get_aoi_geom_sql_expression 
-prepare_aoi_query : returns full SQL string after injecting {prefilter_condition} and {intersects_condition}
+## Query Template Contract
 
-public: 
-query_to_dataframe 
-query_to_local_parquet
-aoi_query_to_dataframe
-aoi_query_to_local_parquet
+Spatial AOI queries use a **CTE-based pattern**.  Callers supply a SQL template string
+that contains two mandatory placeholders::
+
+    SELECT <fields>
+    FROM input_geom, <your_table>
+    WHERE {prefilter_condition} AND {intersects_condition}
+
+**Rules for query templates:**
+
+1. The FROM clause **must** include ``input_geom,`` (with a trailing comma) as a
+   cross-join source before your data table.  ``input_geom`` is the CTE that
+   ``prepare_aoi_query`` prepends automatically -- it resolves to a single-row
+   relation containing the AOI geometry as ``input_geom.geom``.
+
+2. ``{prefilter_condition}`` (no WHERE keyword) is expanded to a bounding-box
+   overlap test against the struct field named by ``geom_bbox_field``, e.g.::
+
+       dgo_geom_bbox.xmax >= -109.1 AND dgo_geom_bbox.xmin <= -108.3 ...
+
+3. ``{intersects_condition}`` is expanded to::
+
+       ST_Intersects(<geom_field_expression>, input_geom.geom)
+
+   where ``geom_field_expression`` is a caller-supplied SQL expression that
+   evaluates to a geometry (e.g. ``ST_GeomFromBinary(dgo_geom)``).
+
+4. Because the AOI geometry hex is defined **once** in the CTE header, you may
+   also reference ``input_geom.geom`` in SELECT expressions (e.g. for
+   percent-intersection calculations) without duplicating the geometry string.
+
+**Example — simple DGO query:**::
+
+    query_str = (
+        f"SELECT {fields} FROM input_geom, raw_rme_pq2 "
+        "WHERE {prefilter_condition} AND {intersects_condition}"
+    )
+    aoi_query_to_local_parquet(
+        query_str,
+        geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
+        geom_bbox_field='dgo_geom_bbox',
+        aoi_gdf=aoi_gdf,
+        local_path=output_dir,
+    )
+
+**Example — HUC query with percent-intersection in SELECT:**::
+
+    query_str = (
+        f"SELECT {fields}, "
+        "100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) "
+        "    AS percent_intersection "
+        "FROM input_geom, "
+        "    (SELECT huc10, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
+        "WHERE {prefilter_condition} AND {intersects_condition}"
+    )
+
+---
+
+## Function Index
+
+locals:
+    get_aoi_geom_sql_expression
+    prepare_aoi_query : builds the CTE header and injects spatial conditions
+
+public:
+    query_to_dataframe
+    query_to_local_parquet
+    aoi_query_to_dataframe
+    aoi_query_to_local_parquet
 
 legacy:
-query_to_dict (it is more lightweight)
+    query_to_dict (more lightweight, no awswrangler)
 
-do we need both awswrangler and boto3 versions - perhaps not, but we can keep as legacy 
-they do not require pandas/pyarrow and can do csv/json parsing 
+do we need both awswrangler and boto3 versions - perhaps not, but we can keep as legacy
+they do not require pandas/pyarrow and can do csv/json parsing
 
 ## Older 'public' functions
 
@@ -37,23 +97,26 @@ they do not require pandas/pyarrow and can do csv/json parsing
 | athena_unload_to_dataframe     | UNLOAD     | DataFrame     | Large/complex/nested data       |
 
 """
-import time
-import re
+
+import csv
 import gzip
 import io
 import json
-import uuid
+import re
 import tempfile
-import csv
+import time
+import uuid
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 from urllib.parse import urlparse
-import boto3
+
 import awswrangler as wr
+import boto3
+import geopandas as gpd
 import pandas as pd
 from rsxml import Logger
-import geopandas as gpd
-from util import round_up, round_down
+
+from util import round_down, round_up
 
 # buffer, in decimal degrees, on centroids to capture DGO.
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
@@ -92,28 +155,82 @@ def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) ->
     return f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))"
 
 
-def prepare_aoi_query(querystr: str, geom_field_expression: str,
-                      geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> str:
-    """prepares a full SQL string to run after injecting {prefilter_condition} and {intersects_condition}
+def prepare_aoi_query(querystr: str, geom_field_expression: str, geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> str:
+    """Build a complete, ready-to-execute Athena SQL string from a spatial query template.
 
-        querystr (str): templated query with `{prefilter_condition}` and `{intersects_condition}`
-        geom_field_expression (str): must be a string that evaluates to a geometry, not WKT or WKB e.g. 'ST_GeomFromBinary(dgo_geom)'
-        geom_bbox_field (str): the name of the bounding box field to use for the prefilter
+    Prepends a CTE that defines the AOI geometry once::
 
+        WITH input_geom AS (SELECT ST_GeomFromBinary(from_hex('<wkb_hex>')) AS geom)
+
+    then injects two spatial conditions into the template:
+
+    * ``{prefilter_condition}`` → bounding-box overlap expression against
+      ``geom_bbox_field`` (fast row pre-filter, no geometry parsing required).
+    * ``{intersects_condition}`` → ``ST_Intersects(<geom_field_expression>, input_geom.geom)``
+      (precise polygon-level spatial filter).
+
+    The AOI geometry hex appears **exactly once** (in the CTE), so it counts against
+    Athena's 262,144-byte query-size limit only once.  The size budget is computed
+    precisely before requesting the geometry expression; if the geometry still exceeds
+    the limit after all other query text has been accounted for, a ``ValueError`` is raised.
+
+    **Query template requirements** (see module docstring for full examples):
+
+    * The template's FROM clause **must** include ``input_geom,`` so the CTE row is
+      available as a cross join::
+
+          FROM input_geom, my_table
+
+    * ``{prefilter_condition}`` and ``{intersects_condition}`` must both appear
+      exactly once in the template (immediately after the WHERE keyword and after
+      AND respectively).
+
+    * ``input_geom.geom`` may be used freely in the SELECT list (e.g. for
+      percent-intersection area calculations) without increasing the geometry
+      size cost, because it references the CTE alias.
+
+    Args:
+        querystr: SQL template containing ``{prefilter_condition}`` and
+            ``{intersects_condition}`` placeholders.  Must include ``input_geom,``
+            in the FROM clause.
+        geom_field_expression: SQL expression that evaluates to a geometry for
+            each data row, e.g. ``'ST_GeomFromBinary(dgo_geom)'``.  Used as the
+            first argument to ``ST_Intersects``.
+        geom_bbox_field: Name of the Athena struct field holding the row's
+            bounding box (with ``.xmin``, ``.xmax``, ``.ymin``, ``.ymax`` sub-fields),
+            e.g. ``'dgo_geom_bbox'``.
+        aoi_gdf: GeoDataFrame representing the Area of Interest.  All geometries
+            are unioned and converted to WKB hex.
+
+    Returns:
+        str: Complete SQL string ready to pass to ``query_to_dataframe`` or
+        ``query_to_local_parquet``.
+
+    Raises:
+        ValueError: If the AOI geometry (even after the precise size budget is
+            applied) would push the query over Athena's 262,144-byte limit.
     """
     log = Logger("Prepare AOI Query")
     prefilter_condition = generate_sql_bbox_where_condition_for_bounds(aoi_gdf, geom_bbox_field)
-    # this is not precise but I think it's a little conservative so we should be ok
-    length_of_query_less_aoi = len(querystr) + len(geom_field_expression) + len(prefilter_condition)
-    max_size_bytes = 262144 - length_of_query_less_aoi
-    aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf, max_size_bytes)
+
+    # Size budget: the AOI hex appears exactly once (in the CTE).
+    cte_wrapper = "WITH input_geom AS (SELECT  AS geom) "  # 46 chars of overhead
+    intersects_template = f"ST_Intersects({geom_field_expression}, input_geom.geom)"
+    placeholder_chars = len("{prefilter_condition}") + len("{intersects_condition}")
+    non_geom_overhead = len(cte_wrapper) + len(querystr) - placeholder_chars + len(prefilter_condition) + len(intersects_template)
+    max_geom_size = 262144 - non_geom_overhead
+    aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf, max_geom_size)
 
     if not aoi_geom_str:
         raise ValueError("AOI geometry exceeds Athena size limit. Simplify and try again.")
 
-    intersects_condition = f"ST_Intersects({geom_field_expression}, {aoi_geom_str})"
+    intersects_condition = f"ST_Intersects({geom_field_expression}, input_geom.geom)"
+    cte = f"WITH input_geom AS (SELECT {aoi_geom_str} AS geom) "
 
-    prepared_query = querystr.format(prefilter_condition=prefilter_condition, intersects_condition=intersects_condition)
+    prepared_query = cte + querystr.format(
+        prefilter_condition=prefilter_condition,
+        intersects_condition=intersects_condition,
+    )
     log.info(f"Query is \n{prepared_query}")
     return prepared_query
 
@@ -135,15 +252,11 @@ def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
     escaped = [val.replace("'", "''") for val in values]
     return ", ".join(f"'{val}'" for val in escaped)
 
+
 # ===== New Public API (uses awswrangler) =====
 
 
-def get_field_metadata(
-    authority: str = 'data-exchange-scripts',
-    tool_schema_name: str | Sequence[str] = 'rscontext_to_athena',
-    layer_id: str | Sequence[str] = '*',
-    column_names: str | Sequence[str] = '*'
-) -> pd.DataFrame:
+def get_field_metadata(authority: str = 'data-exchange-scripts', tool_schema_name: str | Sequence[str] = 'rscontext_to_athena', layer_id: str | Sequence[str] = '*', column_names: str | Sequence[str] = '*') -> pd.DataFrame:
     """Fetch field metadata records filtered by authority/layer/column info.
 
     Parameters
@@ -205,12 +318,7 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
 
     log.info(f"Executing UNLOAD to {s3_output}...")
     # This runs the query and saves the output to a new "folder" in S3
-    wr.athena.unload(
-        sql=query,
-        path=s3_output,
-        file_format="parquet",
-        database="default"
-    )
+    wr.athena.unload(sql=query, path=s3_output, file_format="parquet", database="default")
 
     log.info(f"Downloading Parquet files from {s3_output} to {local_path}...")
     local_path.mkdir(parents=True, exist_ok=True)
@@ -232,7 +340,7 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
 
 def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     """uses awswrangler to return a dataframe for a given query
-    args: 
+    args:
         query : the query to execute
         querylabel : optional label for log messages, handy when queries are running in parallel
 
@@ -241,7 +349,7 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     see docs for details https://aws-sdk-pandas.readthedocs.io/en/3.14.0/stubs/awswrangler.athena.read_sql_query.html
 
     PROS:
-    *   Faster for mid and big result sizes 
+    *   Faster for mid and big result sizes
     *   Can handle some level of nested types.
     *   Does not modify Glue Data Catalog
 
@@ -275,16 +383,39 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
         return pd.DataFrame()  # Return empty DataFrame for downstream code
 
 
-def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str,
-                           geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
-    """run any query against athena for an area of interest, building the required aoi conditions from the supplied aoi_gdf
-        and return dataframe
-        querystr (str): templated query with `{prefilter_condition}` and `{intersects_condition}`
-        geom_field_expression (str): expression that evaluates to a geometry, not WKT or WKB 
-                                e.g. 'ST_GeomFromBinary(dgo_geom)'
-        geom_bbox_field (str): the name of the bounding box field to use for the prefilter
+def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str, geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
+    """Execute a spatial AOI query against Athena and return the results as a DataFrame.
 
-        Returns: geodataframe. 
+    Delegates spatial condition injection to ``prepare_aoi_query`` (see that function's
+    docstring for the full query template contract and requirements).
+
+    The query template must:
+
+    * Contain ``input_geom,`` in the FROM clause.
+    * Contain ``{prefilter_condition}`` and ``{intersects_condition}`` placeholders.
+
+    Example::
+
+        df = aoi_query_to_dataframe(
+            querystr="SELECT allot_no, allot_name FROM input_geom, blm_natl_grazing_allotments "
+                     "WHERE {prefilter_condition} AND {intersects_condition}",
+            geometry_field_expression="ST_GeomFromBinary(geometry)",
+            geom_bbox_field="geometry_bbox",
+            aoi_gdf=my_aoi_gdf,
+        )
+
+    Args:
+        querystr: SQL template with ``{prefilter_condition}`` and ``{intersects_condition}``
+            placeholders and ``input_geom,`` in the FROM clause.
+        geometry_field_expression: SQL expression evaluating to a geometry for each data
+            row, e.g. ``'ST_GeomFromBinary(dgo_geom)'``.
+        geom_bbox_field: Name of the bounding-box struct field used for the pre-filter,
+            e.g. ``'dgo_geom_bbox'``.
+        aoi_gdf: GeoDataFrame representing the Area of Interest.
+
+    Returns:
+        pandas.DataFrame: Query results.  Returns an empty DataFrame if the query
+        fails or returns no rows.
     """
     prepared_query = prepare_aoi_query(querystr, geometry_field_expression, geom_bbox_field, aoi_gdf)
     df = query_to_dataframe(prepared_query, 'aoi_query')
@@ -292,25 +423,58 @@ def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str,
 
 
 def aoi_query_to_local_parquet(
-        querystr: str,
-        geometry_field_expression: str,
-        geom_bbox_field: str,
-        aoi_gdf: gpd.GeoDataFrame,
-        local_path: Path,
+    querystr: str,
+    geometry_field_expression: str,
+    geom_bbox_field: str,
+    aoi_gdf: gpd.GeoDataFrame,
+    local_path: Path,
 ) -> None:
-    """
-    Runs a spatial query against an Athena table based on an AOI, and unloads the
-    results as Parquet files to a local directory.
+    """Execute a spatial AOI query against Athena and save the results as Parquet files locally.
 
-    This function constructs a SQL query that filters a source table by the
-    bounding box of the AOI and then performs a precise spatial intersection.
+    Two-stage spatial filter:
+
+    1. **Bounding-box pre-filter** (``{prefilter_condition}``) — cheap struct-field
+       comparison that eliminates rows without unpacking geometry binaries.
+    2. **Precise polygon intersection** (``{intersects_condition}``) — full
+       ``ST_Intersects`` check against the AOI geometry defined in the
+       ``input_geom`` CTE.
+
+    Delegates spatial condition injection to ``prepare_aoi_query`` (see that function's
+    docstring for the full query template contract and requirements).
+
+    The query template must:
+
+    * Contain ``input_geom,`` in the FROM clause (cross-join to the AOI CTE).
+    * Contain ``{prefilter_condition}`` and ``{intersects_condition}`` placeholders.
+    * Use curly-brace escaping for any other literal braces in f-strings, e.g. ``{{}}``.
+
+    Example::
+
+        query_str = (
+            f"SELECT {fields} FROM input_geom, raw_rme_pq2 "
+            "WHERE {prefilter_condition} AND {intersects_condition}"
+        )
+        aoi_query_to_local_parquet(
+            querystr=query_str,
+            geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
+            geom_bbox_field="dgo_geom_bbox",
+            aoi_gdf=aoi_gdf,
+            local_path=Path("output/dgo_pq"),
+        )
 
     Args:
-        querystr (str): templated query with `{prefilter_condition}` (should be immediately after WHERE keyword) and `{intersects_condition}` placeholders
-        geom_field_expression (str) : must be a string that evaluates to a geometry, not WKT or WKB e.g. 'ST_GeomFromBinary(dgo_geom)'
-        aoi_gdf (gpd.GeoDataFrame): GeoDataFrame representing the Area of Interest.
-        geom_bbox_field (str): the name of the bounding box field to use for the prefilter
-        local_path (Path): The local directory where output Parquet files will be saved.
+        querystr: SQL template with ``{prefilter_condition}`` and ``{intersects_condition}``
+            placeholders and ``input_geom,`` in the FROM clause.
+        geometry_field_expression: SQL expression that evaluates to a geometry for each
+            data row.  Must produce an actual geometry object (not raw WKB/WKT bytes),
+            e.g. ``'ST_GeomFromBinary(dgo_geom)'``.
+        geom_bbox_field: Name of the Athena struct field holding the row's bounding box
+            (sub-fields: ``.xmin``, ``.xmax``, ``.ymin``, ``.ymax``),
+            e.g. ``'dgo_geom_bbox'``.
+        aoi_gdf: GeoDataFrame representing the Area of Interest.  All geometries are
+            unioned before being embedded in the CTE.
+        local_path: Directory where the resulting Parquet file(s) will be saved.
+            Created automatically if it does not exist.
     """
     log = Logger("AOI Query to Local PQ")
 
@@ -324,11 +488,7 @@ def aoi_query_to_local_parquet(
 # === LEGACY Helpers (do not use awswrangler) ===
 
 
-def _run_athena_query(
-    s3_output_path: str,
-    query: str,
-    max_wait: int = 600
-) -> tuple[str, str] | None:
+def _run_athena_query(s3_output_path: str, query: str, max_wait: int = 600) -> tuple[str, str] | None:
     """
     Run an Athena query and wait for completion.
 
@@ -362,13 +522,8 @@ def _run_athena_query(
     response = athena.start_query_execution(
         QueryString=query,
         WorkGroup=ATHENA_WORKGROUP,
-        QueryExecutionContext={
-            'Database': 'default',
-            'Catalog': 'AwsDataCatalog'
-        },
-        ResultConfiguration={
-            'OutputLocation': s3_output_path
-        }
+        QueryExecutionContext={'Database': 'default', 'Catalog': 'AwsDataCatalog'},
+        ResultConfiguration={'OutputLocation': s3_output_path},
     )
     query_execution_id = response['QueryExecutionId']
     start_time = time.time()
@@ -413,8 +568,7 @@ def fix_s3_uri(argstr: str) -> str:
 
 
 def get_s3_file(s3path: str, localpath: str):
-    """Download a file from S3 to local path, fixing S3 URI if needed.
-    """
+    """Download a file from S3 to local path, fixing S3 URI if needed."""
     s3_uri = fix_s3_uri(s3path)
     download_file_from_s3(s3_uri, localpath)
 
@@ -588,6 +742,7 @@ def compare_wkb_wkt(gdf: gpd.GeoDataFrame):
     log.info("WKB version:")
     log.info(f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))")
 
+
 # =============================================================
 # === LEGACY SPECIALIZED QUERIES FOR SPATIAL INTERSECTION =====
 # could still be useful for some purposes
@@ -614,7 +769,7 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
 
 def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     """
-    DEPRECATED - 
+    DEPRECATED -
     Get the total bounds (minx, miny, maxx, maxy)
     'buffer' by BUFFER_CENTROID_TO_BB_DD and
     return SQL where clause for latitude and longitude within this expanded box
@@ -667,15 +822,18 @@ def generate_sql_bbox_where_condition_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox
     miny = round_down(float(miny), 6)
     maxx = round_up(float(maxx), 6)
     maxy = round_up(float(maxy), 6)
-    bounds_expression = (
-        f"{bbox_fld_nm}.xmax >= {minx} AND {bbox_fld_nm}.xmin <= {maxx} "
-        f"AND {bbox_fld_nm}.ymax >= {miny} AND {bbox_fld_nm}.ymin <= {maxy}"
-    )
+    bounds_expression = f"{bbox_fld_nm}.xmax >= {minx} AND {bbox_fld_nm}.xmin <= {maxx} AND {bbox_fld_nm}.ymax >= {miny} AND {bbox_fld_nm}.ymin <= {maxy}"
     return bounds_expression
 
 
-def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq",
-                         geometry_field_clause: str | None = 'ST_GeomFromBinary(dgo_geom)', bbox_field: str | None = None) -> str | None:
+def run_aoi_athena_query(
+    aoi_gdf: gpd.GeoDataFrame,
+    s3_bucket: str | None = None,
+    fields_str: str = "",
+    source_table: str = "raw_rme_pq",
+    geometry_field_clause: str | None = 'ST_GeomFromBinary(dgo_geom)',
+    bbox_field: str | None = None,
+) -> str | None:
     """Run Athena query `select (field_str) from (source_table)` on supplied AOI geodataframe
     also includes the dgo geometry (polygon)
     the source table must have fields:
@@ -709,10 +867,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
 
     aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf)
     if not aoi_geom_str:
-        raise ValueError(
-            "AOI geometry exceeds the maximum supported size for Athena. "
-            "Simplify the AOI with util.prepare_gdf_for_athena before calling run_aoi_athena_query."
-        )
+        raise ValueError("AOI geometry exceeds the maximum supported size for Athena. Simplify the AOI with util.prepare_gdf_for_athena before calling run_aoi_athena_query.")
 
     log.info(f'Built AOI geometry string for query. Length {len(aoi_geom_str):,} bytes')
 

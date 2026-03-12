@@ -12,6 +12,7 @@ import shutil
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 
 # 3rd party
@@ -24,15 +25,18 @@ from rsxml.util import safe_makedirs
 
 # Local
 from reports.rpt_data_mart import __version__ as report_version
-from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols
+from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols  # TODO no-cross-report imports
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
 from util.metadata_export import export_data_dictionary
 from util.pandas import RSFieldMeta, load_gdf_from_pq
 from util.rme.rme_common_dataprep import apply_all_bins
 
-# Fields requested from the rpt_rme_pq Athena view.
-# Same core set as rpt_riverscapes_inventory plus geometry for GeoParquet.
+# ---------------------------------------------------------------------------
+# Field lists for each dataset
+# ---------------------------------------------------------------------------
+
+# DGO fields from the rpt_rme_pq Athena view.
 DGO_FIELDS = (
     "level_path, seg_distance, centerline_length, segment_area, "
     "fcode, fcode_desc, longitude, latitude, "
@@ -51,6 +55,125 @@ DGO_FIELDS = (
     "riparian_veg_departure, riparian_condition, "
     "rme_project_id, rme_project_name, graz_globalid"
 )
+
+# HUC10 watershed boundary + RS Context metadata.
+HUC_FIELDS = "huc10.huc10 AS huc, rscontext.project_id, rscontext.hucname, rscontext.hucareasqkm, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
+
+# BLM National Grazing Allotments.
+GRAZING_FIELDS = "allot_no, allot_name, admin_st, adm_ofc_cd, st_allot, globalid"
+
+
+# ---------------------------------------------------------------------------
+# Dataset query configuration
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DatasetQuery:
+    """Configuration for querying a single dataset from Athena.
+
+    Copilot-generated class.
+    """
+
+    name: str
+    query_template: str
+    geometry_field_expression: str
+    geom_bbox_field: str
+
+
+def _build_dataset_queries() -> list[DatasetQuery]:
+    """Return query configurations for all Data Mart datasets.
+
+    Copilot-generated function.
+    """
+    return [
+        DatasetQuery(
+            name="dgo",
+            # TODO: move to a production source once it exists
+            query_template=(f"SELECT {DGO_FIELDS} FROM input_geom, dev_riverscapes.materialized_rpt_rme_grazing_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
+            geom_bbox_field="dgo_geom_bbox",
+        ),
+        DatasetQuery(
+            name="huc",
+            query_template=(
+                f"SELECT {HUC_FIELDS} "
+                "FROM input_geom, "
+                "(SELECT huc10, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
+                "LEFT JOIN rs_context_huc10 rscontext ON huc10.huc10 = rscontext.huc "
+                "WHERE {prefilter_condition} AND {intersects_condition}"
+            ),
+            geometry_field_expression="huc10.geom",
+            geom_bbox_field="geometry_bbox",
+        ),
+        DatasetQuery(
+            name="grazing",
+            query_template=(f"SELECT {GRAZING_FIELDS} FROM input_geom, default.blm_natl_grazing_allotments WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            geometry_field_expression="ST_GeomFromBinary(geometry)",
+            geom_bbox_field="geometry_bbox",
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Helper functions for repeated operations
+# ---------------------------------------------------------------------------
+
+
+def _query_dataset(
+    dataset: DatasetQuery,
+    query_gdf: gpd.GeoDataFrame,
+    staging_path: Path,
+) -> None:
+    """Run a single Athena spatial query and write results to local staging Parquet.
+
+    Copilot-generated function.
+    """
+    log = Logger(f"Query {dataset.name}")
+    log.info(f"Querying Athena for {dataset.name} data …")
+    aoi_query_to_local_parquet(
+        dataset.query_template,
+        geometry_field_expression=dataset.geometry_field_expression,
+        geom_bbox_field=dataset.geom_bbox_field,
+        aoi_gdf=query_gdf,
+        local_path=staging_path,
+    )
+    log.info(f"{dataset.name} query complete → {staging_path}")
+
+
+def _strip_pint_types(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert Pint-typed columns to plain numeric dtypes for Parquet export.
+
+    Copilot-generated function.
+    """
+    for col in list(df.columns):
+        if isinstance(df[col].dtype, pint_pandas.PintType):
+            df[col] = df[col].pint.magnitude
+    return df
+
+
+def _export_parquet(df: pd.DataFrame, output_path: Path) -> Path:
+    """Strip Pint types and write a DataFrame to Parquet.
+
+    Copilot-generated function.
+    """
+    df = _strip_pint_types(df)
+    df.to_parquet(output_path, index=False)
+    Logger("Export").info(f"Parquet written to {output_path} ({len(df)} rows, {len(df.columns)} cols)")
+    return output_path
+
+
+def _cleanup_staging(staging_path: Path) -> None:
+    """Remove a staging directory if it exists.
+
+    Copilot-generated function.
+    """
+    try:
+        if staging_path.exists():
+            shutil.rmtree(staging_path)
+            Logger("Cleanup").info(f"Deleted staging folder {staging_path}")
+    except Exception as err:
+        Logger("Cleanup").warning(f"Failed to delete staging folder: {err}")
 
 
 def define_fields(unit_system: str = "SI") -> None:
@@ -80,12 +203,13 @@ def export_data_mart(
     """Orchestrate the Data Mart export.
 
     1. Read AOI shapefile and simplify for Athena.
-    2. Query Athena for DGO data (or reuse existing Parquet).
-    3. Add calculated columns, apply units, apply bins + colours.
-    4. Write the enriched GeoParquet to ``report_dir/data_mart.parquet``.
+    2. Query Athena for DGO, HUC, and Grazing data in parallel
+       (or reuse existing Parquet for DGO).
+    3. Add calculated columns, apply units, and apply bins + colours to DGO.
+    4. Write each dataset to ``report_dir/exports/<name>.parquet``.
 
     Returns:
-        Path to the written Parquet file.
+        Path to the exports subfolder containing all Parquet files.
 
     Copilot-generated function.
     """
@@ -100,72 +224,69 @@ def export_data_mart(
         log.warning(f"Input polygon simplified (tolerance {simplification_results.tolerance_m} m) for Athena query.")
 
     safe_makedirs(str(report_dir))
+    exports_dir = report_dir / "exports"
+    safe_makedirs(str(exports_dir))
+    staging_dir = report_dir / "staging"
+    safe_makedirs(str(staging_dir))
 
-    # Background task: load metadata
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    # ---- Determine which datasets need a live Athena query ----
+    all_datasets = _build_dataset_queries()
+    datasets_to_query = [ds for ds in all_datasets if not (ds.name == "dgo" and parquet_override)]
+    if parquet_override:
+        if not Path(parquet_override).exists():
+            raise FileNotFoundError(f"Parquet path '{parquet_override}' does not exist")
+        log.info(f"Using supplied Parquet at {parquet_override} for DGO")
+
+    # ---- Query all datasets + load metadata in parallel ----
+    max_workers = len(datasets_to_query) + 1  # +1 for metadata
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         meta_future = executor.submit(define_fields, unit_system)
+        query_futures = {ds.name: executor.submit(_query_dataset, ds, query_gdf, staging_dir / ds.name) for ds in datasets_to_query}
 
-        # ---------- DGO data ----------
-        if parquet_override:
-            parquet_data_source = Path(parquet_override)
-            if not parquet_data_source.exists():
-                raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
-            log.info(f"Using supplied Parquet at {parquet_override}")
-        else:
-            parquet_data_source = report_dir / "pq"
-            log.info("Querying Athena for DGO data …")
-            # TODO: move to a production source once it exists
-            # rpt_rme_pq works except it does not have the graz_globalid field
-            query_str = f"SELECT {DGO_FIELDS} FROM dev_riverscapes.materialized_rpt_rme_grazing_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"
-            aoi_query_to_local_parquet(
-                query_str,
-                geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
-                geom_bbox_field="dgo_geom_bbox",
-                aoi_gdf=query_gdf,
-                local_path=parquet_data_source,
-            )
+        # Wait for all queries
+        for name, future in query_futures.items():
+            future.result()
+            log.info(f"{name} query finished")
 
-        data_gdf = load_gdf_from_pq(parquet_data_source)
-
-        # Wait for metadata
         meta_future.result()
         log.info("Field metadata loaded.")
 
-    # ---------- Enrich ----------
-    data_gdf = add_calculated_rme_cols(data_gdf)
-    data_gdf, _ = RSFieldMeta().apply_units(data_gdf)
+    # ---- Load, process, and export each dataset ----
+    all_tables: dict[str, pd.DataFrame] = {}
 
-    # Apply bins + hex colours for every mappable column
-    data_gdf = apply_all_bins(data_gdf)
-    log.info(f"DataFrame enriched: {len(data_gdf)} rows, {len(data_gdf.columns)} columns")
+    # DGO: calculated cols → units → bins
+    dgo_staging = Path(parquet_override) if parquet_override else staging_dir / "dgo"
+    dgo_df = load_gdf_from_pq(dgo_staging)
+    dgo_df = add_calculated_rme_cols(dgo_df)
+    dgo_df, _ = RSFieldMeta().apply_units(dgo_df)
+    dgo_df = apply_all_bins(dgo_df)
+    log.info(f"DGO enriched: {len(dgo_df)} rows, {len(dgo_df.columns)} cols")
+    _export_parquet(dgo_df, exports_dir / "dgo.parquet")
+    all_tables["dgo"] = dgo_df
 
-    # ---------- Export ----------
-    # Strip Pint unit dtypes to plain numerics — PyArrow/Parquet does not support pint dtypes
-    for col in list(data_gdf.columns):
-        if isinstance(data_gdf[col].dtype, pint_pandas.PintType):
-            data_gdf[col] = data_gdf[col].pint.magnitude
+    # HUC
+    huc_df = load_gdf_from_pq(staging_dir / "huc")
+    log.info(f"HUC loaded: {len(huc_df)} rows, {len(huc_df.columns)} cols")
+    _export_parquet(huc_df, exports_dir / "huc.parquet")
+    all_tables["huc"] = huc_df
 
-    output_path = report_dir / "data_mart.parquet"
-    data_gdf.to_parquet(output_path, index=False)
-    log.info(f"Data Mart Parquet written to {output_path}")
+    # Grazing
+    grazing_df = load_gdf_from_pq(staging_dir / "grazing")
+    log.info(f"Grazing loaded: {len(grazing_df)} rows, {len(grazing_df.columns)} cols")
+    _export_parquet(grazing_df, exports_dir / "grazing.parquet")
+    all_tables["grazing"] = grazing_df
 
-    # Data dictionary — describe every column for report builders
+    # ---- Data dictionary covering all datasets ----
     dict_path = report_dir / "data_dictionary.csv"
-    export_data_dictionary({"dgo": data_gdf}, dict_path)
+    export_data_dictionary(all_tables, dict_path)
 
-    # Clean up staging Parquet if not needed
-    if not keep_parquet and not parquet_override:
-        try:
-            staging = report_dir / "pq"
-            if staging.exists():
-                shutil.rmtree(staging)
-                log.info(f"Deleted staging folder {staging}")
-        except Exception as err:
-            log.warning(f"Failed to delete staging folder: {err}")
+    # ---- Clean up staging ----
+    if not keep_parquet:
+        _cleanup_staging(staging_dir)
 
     log.title("Data Mart Export Complete")
-    log.info(f"Output: {output_path}")
-    return output_path
+    log.info(f"Output: {exports_dir}")
+    return exports_dir
 
 
 def main() -> None:
@@ -202,7 +323,7 @@ def main() -> None:
     log.info(f"Version: {report_version}")
 
     try:
-        export_data_mart(
+        exports_dir = export_data_mart(
             args.report_name,
             output_path,
             args.path_to_shape,
@@ -210,6 +331,7 @@ def main() -> None:
             parquet_override=args.parquet_path,
             keep_parquet=args.keep_parquet,
         )
+        log.info(f"Exports written to {exports_dir}")
 
         process = psutil.Process(os.getpid())
         mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), "peak_wset") else process.memory_info().rss / 1024 / 1024
