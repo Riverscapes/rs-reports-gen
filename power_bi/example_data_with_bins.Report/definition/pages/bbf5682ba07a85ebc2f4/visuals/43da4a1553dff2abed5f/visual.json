@@ -1,0 +1,39 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "43da4a1553dff2abed5f",
+  "position": {
+    "x": 12.962025316455696,
+    "y": 11.341772151898734,
+    "z": 0,
+    "height": 69.670886075949369,
+    "width": 468.253164556962,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Las Cruces Power BI Demo ",
+                    "textStyle": {
+                      "fontSize": "24pt"
+                    }
+                  },
+                  {
+                    "value": " Page 2"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

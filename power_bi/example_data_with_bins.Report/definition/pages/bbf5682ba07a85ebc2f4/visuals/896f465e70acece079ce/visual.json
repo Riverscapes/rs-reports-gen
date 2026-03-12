@@ -1,0 +1,81 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "896f465e70acece079ce",
+  "position": {
+    "x": 13.102362204724409,
+    "y": 123.96850393700787,
+    "z": 3000,
+    "height": 556.34645669291342,
+    "width": 619.84251968503941,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "pivotTable",
+    "query": {
+      "queryState": {
+        "Columns": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "ownership_desc"
+                }
+              },
+              "queryRef": "rme_extract_deets.ownership_desc",
+              "nativeQueryRef": "ownership_desc",
+              "active": true
+            }
+          ]
+        },
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Grazing Allotments"
+                    }
+                  },
+                  "Property": "Grazing Allotment"
+                }
+              },
+              "queryRef": "Grazing Allotments.Grazing Allotment",
+              "nativeQueryRef": "Grazing Allotment",
+              "active": true
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "centerline length"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(rme_extract_deets.centerline_length)",
+              "nativeQueryRef": "Sum of centerline length"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

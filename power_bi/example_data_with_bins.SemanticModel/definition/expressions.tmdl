@@ -1,0 +1,45 @@
+/// combine all Parquet files from a local folder into a single table
+expression fn_LoadParquetFolder = ```
+		/**
+		 * Reusable function to combine all Parquet files from a local folder into a single table.
+		 * Input: FolderPath (e.g., "C:\Data\ParquetFolder\")
+		 * Output: A consolidated table containing only the Parquet data, automatically stripping out file metadata (File Name, Dates, etc.).
+		 * Remarks: looks at the first file for the structure and assumes all files have the same structure. 
+		 */
+		(FolderPath as text) as table =>
+		let
+		    // 1. Get the list of files from the folder
+		    Source = Folder.Files(FolderPath),
+		    
+		    // 2. Filter for parquet or extensionless files
+		    FilteredRows = Table.SelectRows(Source, each ([Extension] = "") or ([Extension] = ".parquet")),
+		    
+		    // 3. Extract Parquet content into a new column called "Data"
+		    AddedCustom = Table.AddColumn(FilteredRows, "Data", each Parquet.Document([Content])),
+		    
+		    // 4. CRITICAL: Drop all the "Folder" metadata columns (Name, Date, etc.)
+		    // We only keep the "Data" column which contains our nested tables
+		    OnlyDataColumn = Table.SelectColumns(AddedCustom, {"Data"}),
+		    
+		    // 5. Dynamically grab column names from the first file found to expand correctly
+		    ColumnNames = Table.ColumnNames(OnlyDataColumn{0}[Data]),
+		    
+		    // 6. Expand the tables - now only the Parquet data remains
+		    ExpandedContent = Table.ExpandTableColumn(OnlyDataColumn, "Data", ColumnNames)
+		in
+		    ExpandedContent
+		```
+	lineageTag: 5741ff31-12c9-4368-a723-7f77cedf0dd2
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Function
+
+/// Source folder. Exports subfolder should have the parquet files.
+expression DataMartRoot = "C:\nardata\pydataroot\rpt-data-mart\pastures_cluster_in_nm_-_Data_Mart" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: c732b1e7-e168-4085-8adb-bf7caf013164
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Text
+

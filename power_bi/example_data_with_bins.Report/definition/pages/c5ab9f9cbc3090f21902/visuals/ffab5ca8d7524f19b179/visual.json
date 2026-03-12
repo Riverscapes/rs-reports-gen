@@ -1,0 +1,122 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "ffab5ca8d7524f19b179",
+  "position": {
+    "x": 388.87744593202888,
+    "y": 0,
+    "z": 0,
+    "height": 238.59938208032958,
+    "width": 356,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "barChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "ownership"
+                }
+              },
+              "queryRef": "rme_extract_deets.ownership",
+              "nativeQueryRef": "ownership",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Agriculture"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(rme_extract_deets.lf_agriculture)",
+              "nativeQueryRef": "Sum of Agriculture"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Developed Land Area"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(rme_extract_deets.lf_developed)",
+              "nativeQueryRef": "Sum of Developed Land Area"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "isDefaultSort": true
+      }
+    },
+    "objects": {
+      "legend": [
+        {
+          "properties": {
+            "showGradientLegend": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Agriculture and Developed Land Area by Ownership'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "parentGroupName": "d8af8beaea14938662a2"
+}

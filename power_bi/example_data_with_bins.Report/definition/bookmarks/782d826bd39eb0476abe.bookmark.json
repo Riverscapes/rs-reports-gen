@@ -1,0 +1,914 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmark/2.0.0/schema.json",
+  "displayName": "Recovery Potential",
+  "name": "782d826bd39eb0476abe",
+  "options": {
+    "targetVisualNames": [
+      "d8af8beaea14938662a2",
+      "ffab5ca8d7524f19b179",
+      "b29782fafe590d095da2",
+      "5c89472b232b34ddc105"
+    ],
+    "suppressData": true
+  },
+  "explorationState": {
+    "version": "1.3",
+    "activeSection": "c5ab9f9cbc3090f21902",
+    "sections": {
+      "c5ab9f9cbc3090f21902": {
+        "visualContainers": {
+          "2a8fcc8b69c9f3c09fd7": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "63bb99ed9a7507cc907e",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "bbe0a6d9c5ca802562de",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Riverscape Area (m²)"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pieChart",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 1,
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "463109463ea04689301c": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "b5269b9045a991231c6e",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Riverscape Area (m²)"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "60e5498b932e900c3986",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Centerline (m)"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "3be2a5103522a3801bc4",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Area per Length (m²/m)"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "73e2cdf4a49d3b831212",
+                  "type": "Advanced",
+                  "expression": {
+                    "Aggregation": {
+                      "Expression": {
+                        "Column": {
+                          "Expression": {
+                            "SourceRef": {
+                              "Entity": "RiverscapeMetricEngine"
+                            }
+                          },
+                          "Property": "Channel Length"
+                        }
+                      },
+                      "Function": 0
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "7a75ac0a08d0447d1404",
+                  "type": "Advanced",
+                  "expression": {
+                    "Aggregation": {
+                      "Expression": {
+                        "Column": {
+                          "Expression": {
+                            "SourceRef": {
+                              "Entity": "RiverscapeMetricEngine"
+                            }
+                          },
+                          "Property": "hect_vb_per_km"
+                        }
+                      },
+                      "Function": 1
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "multiRowCard",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Riverscape Area (m²)"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "4d44313bdb1677fb4e5c": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "111b065c862db72ccd05",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fcodelookup"
+                        }
+                      },
+                      "Property": "Flow Type"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "2076b65b2b4b96659bd2",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Riverscape Area (m²)"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pieChart",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Riverscape Area (m²)"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fcodelookup"
+                        }
+                      },
+                      "Property": "Flow Type"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "74cfe4d234d6063efc91": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "ec19bdcb222383156d05",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Prop Riparian Bin"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "dd10a6cc93d9a0708a3a",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fcodelookup"
+                        }
+                      },
+                      "Property": "Flow Type"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "9f60401b469204122a7c",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "DGO Count"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "columnChart",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "DGO Count"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Prop Riparian Bin"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "95320d2709c87bbdaa41": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "70baad641b318931a00e",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Low Lying Ratio Bin"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "661bca20b5703b359778",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fcodelookup"
+                        }
+                      },
+                      "Property": "Flow Type"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "617134d45cda47cd54a2",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "DGO Count"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "columnChart",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "DGO Count"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Low Lying Ratio Bin"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "a0ad2250fd5bed7ee647": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "007f14931011dd542750",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "fldpln_access bin"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "ed66c68fe1d1a7d2ec07",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fcodelookup"
+                        }
+                      },
+                      "Property": "Flow Type"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "ae32fc83c2a597226b0a",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "DGO Count"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "columnChart",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 1,
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "fldpln_access bin"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "fldpln_access bin"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "6cea296276ac5a9e9ba0": {
+            "singleVisual": {
+              "visualType": "actionButton",
+              "objects": {}
+            }
+          },
+          "746472b14973825b8219": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "fd91a216998060223abd",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fcodelookup"
+                        }
+                      },
+                      "Property": "Flow Type"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "f4d27b392c206ad987d5",
+                  "type": "Advanced",
+                  "expression": {
+                    "Aggregation": {
+                      "Expression": {
+                        "Column": {
+                          "Expression": {
+                            "SourceRef": {
+                              "Entity": "RiverscapeMetricEngine"
+                            }
+                          },
+                          "Property": "stream_order"
+                        }
+                      },
+                      "Function": 1
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "92548dba128c4ce039d0",
+                  "type": "Advanced",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "longitude"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "6f6da847d805180ee639",
+                  "type": "Advanced",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "latitude"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "azureMap",
+              "objects": {}
+            }
+          },
+          "7c96fdea5c335fe83ec3": {
+            "singleVisual": {
+              "visualType": "textbox",
+              "objects": {}
+            }
+          },
+          "9e3f50c1b2c8c94d6416": {
+            "singleVisual": {
+              "visualType": "actionButton",
+              "objects": {}
+            }
+          },
+          "b533045eb9fe6f4cd3f5": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "b5bf07007a06952be257",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Stream Name"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "2316ec7d207a8ea304c9",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Centerline (m)"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "tableEx",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Total Centerline (m)"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "ffab5ca8d7524f19b179": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "0b3121519c65e5308e4e",
+                  "type": "Advanced",
+                  "expression": {
+                    "Aggregation": {
+                      "Expression": {
+                        "Column": {
+                          "Expression": {
+                            "SourceRef": {
+                              "Entity": "RiverscapeMetricEngine"
+                            }
+                          },
+                          "Property": "Developed Land Area"
+                        }
+                      },
+                      "Function": 0
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "0ae0a51751d3576501e2",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "e5e2390253e099d8e009",
+                  "type": "Advanced",
+                  "expression": {
+                    "Aggregation": {
+                      "Expression": {
+                        "Column": {
+                          "Expression": {
+                            "SourceRef": {
+                              "Entity": "RiverscapeMetricEngine"
+                            }
+                          },
+                          "Property": "Agriculture"
+                        }
+                      },
+                      "Function": 0
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "barChart",
+              "objects": {},
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "b29782fafe590d095da2": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "3b90db60b086369141b5",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fcodelookup"
+                        }
+                      },
+                      "Property": "Flow Type"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "2d2c6cdb22a5c04da588",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "DGO Count"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "a13e5cbb00774e20c2a5",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Land Use Intensity Bin"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "columnChart",
+              "objects": {},
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Land Use Intensity Bin"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "5c89472b232b34ddc105": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "c4e4293007e70e0239c9",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "207e08e775184651db36",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Road Density"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "b16b9bfb8dea0ed053e3",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "Rail Density"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "clusteredBarChart",
+              "objects": {},
+              "activeProjections": {
+                "Category": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "visualContainerGroups": {
+          "6899a14b15fd5e76f694": {
+            "isHidden": true
+          },
+          "d8af8beaea14938662a2": {
+            "isHidden": false
+          }
+        }
+      }
+    },
+    "objects": {
+      "merge": {
+        "outspacePane": [
+          {
+            "properties": {
+              "expanded": {
+                "expr": {
+                  "Literal": {
+                    "Value": "false"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+table huc10_context_elevation_bins
+	lineageTag: 4eefd292-cec5-4385-986f-4a87136976db
+
+	column 'elevation bin (m)'
+		dataType: int64
+		formatString: 0
+		lineageTag: a3bdce82-c85a-4fca-959d-69555c6b2143
+		summarizeBy: sum
+		sourceColumn: elevation bin (m)
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Total Cell Count'
+		dataType: double
+		lineageTag: 5f7857e3-9b6b-4b0e-a8d6-4b7f620d2358
+		summarizeBy: sum
+		sourceColumn: Total Cell Count
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition huc10_context_elevation_bins = m
+		mode: import
+		source =
+				let
+				    Source = huc10_context,
+				    #"Removed Columns" = Table.RemoveColumns(Source,{"project_id", "hucname", "hucareasqkm", "min_elevation", "max_elevation"}),
+				    #"Expanded dem_bins" = Table.ExpandListColumn(#"Removed Columns", "dem_bins"),
+				    #"Expanded dem_bins1" = Table.ExpandRecordColumn(#"Expanded dem_bins", "dem_bins", {"bin", "cell_count"}, {"bin", "cell_count"}),
+				    #"Grouped Rows" = Table.Group(#"Expanded dem_bins1", {"bin"}, {{"Total Cell Count", each List.Sum([cell_count]), type nullable number}}),
+				    #"Sorted Rows" = Table.Sort(#"Grouped Rows",{{"bin", Order.Ascending}}),
+				    #"Renamed Columns" = Table.RenameColumns(#"Sorted Rows",{{"bin", "elevation bin (m)"}})
+				in
+				    #"Renamed Columns"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

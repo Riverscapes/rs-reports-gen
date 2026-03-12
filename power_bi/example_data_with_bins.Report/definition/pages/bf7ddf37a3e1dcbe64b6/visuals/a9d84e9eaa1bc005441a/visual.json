@@ -1,0 +1,51 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "a9d84e9eaa1bc005441a",
+  "position": {
+    "x": 685.43073742246725,
+    "y": 50.282563749138525,
+    "z": 1000,
+    "height": 112.03308063404549,
+    "width": 431.37146795313578
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "huc10_context"
+                    }
+                  },
+                  "Property": "Lowest Elevation"
+                }
+              },
+              "queryRef": "huc10_context.Lowest Elevation",
+              "nativeQueryRef": "Lowest Elevation"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "huc10_context"
+                    }
+                  },
+                  "Property": "Highest Elevation"
+                }
+              },
+              "queryRef": "huc10_context.Highest Elevation",
+              "nativeQueryRef": "Highest Elevation"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

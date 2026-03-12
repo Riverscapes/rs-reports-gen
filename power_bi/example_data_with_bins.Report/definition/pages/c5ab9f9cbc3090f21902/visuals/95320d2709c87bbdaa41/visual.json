@@ -1,0 +1,128 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "95320d2709c87bbdaa41",
+  "position": {
+    "x": 0,
+    "y": 0,
+    "z": 2000,
+    "height": 238.59938208032958,
+    "width": 356,
+    "tabOrder": 6000
+  },
+  "visual": {
+    "visualType": "columnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "Low Lying Ratio Bin"
+                }
+              },
+              "queryRef": "rme_extract_deets.Low Lying Ratio Bin",
+              "nativeQueryRef": "Low Lying Ratio Bin",
+              "active": true
+            }
+          ]
+        },
+        "Series": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fcodelookup"
+                    }
+                  },
+                  "Property": "Flow Type"
+                }
+              },
+              "queryRef": "fcodelookup.FCodeDesc",
+              "nativeQueryRef": "Flow Type"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "DGO Count"
+                }
+              },
+              "queryRef": "rme_extract_deets.DGO Count",
+              "nativeQueryRef": "DGO Count"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "RiverscapeMetricEngine"
+                  }
+                },
+                "Property": "Low Lying Ratio Bin"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ]
+      }
+    },
+    "objects": {
+      "legend": [
+        {
+          "properties": {
+            "showGradientLegend": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            },
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "categoryAxis": [
+        {
+          "properties": {
+            "concatenateLabels": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "parentGroupName": "6899a14b15fd5e76f694"
+}

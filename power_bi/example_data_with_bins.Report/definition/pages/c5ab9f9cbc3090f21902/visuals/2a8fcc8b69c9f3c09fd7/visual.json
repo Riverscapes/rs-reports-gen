@@ -1,0 +1,148 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "2a8fcc8b69c9f3c09fd7",
+  "position": {
+    "x": 0,
+    "y": 200.91139240506328,
+    "z": 3000,
+    "height": 202.53164556962025,
+    "width": 247.8987341772152,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "treemap",
+    "query": {
+      "queryState": {
+        "Group": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "ownership"
+                }
+              },
+              "queryRef": "rme_extract_deets.ownership",
+              "nativeQueryRef": "ownership",
+              "active": true
+            }
+          ]
+        },
+        "Tooltips": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "RiverscapeMetricEngine"
+                        }
+                      },
+                      "Property": "ownership_desc"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(rme_extract_deets.ownership_desc)",
+              "nativeQueryRef": "Ownership Description",
+              "displayName": "Ownership Description"
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "Total Riverscape Area (m²)"
+                }
+              },
+              "queryRef": "rme_extract_deets.Total Riverscape Area (m²)",
+              "nativeQueryRef": "Total Riverscape Area (m²)"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "RiverscapeMetricEngine"
+                  }
+                },
+                "Property": "ownership"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ]
+      }
+    },
+    "objects": {
+      "legend": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "labels": [
+        {
+          "properties": {
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "12D"
+                }
+              }
+            },
+            "labelDisplayUnits": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Riverscape Area by ownership'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

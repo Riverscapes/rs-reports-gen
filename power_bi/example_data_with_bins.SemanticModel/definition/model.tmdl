@@ -1,0 +1,22 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-CA
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["RiverscapeMetricEngine","fcodelookup","fn_LoadParquetFolder","Grazing Allotments","huc10_context","huc10_context_elevation_bins","DataMartRoot"]
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_ProTooling = ["DevMode","TMDLView_Desktop","TMDL-Extension"]
+
+ref table RiverscapeMetricEngine
+ref table fcodelookup
+ref table 'Grazing Allotments'
+ref table huc10_context
+ref table huc10_context_elevation_bins
+
+ref cultureInfo en-US
+

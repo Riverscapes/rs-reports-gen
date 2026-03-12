@@ -1,0 +1,84 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "43faefea876d20b4328b",
+  "position": {
+    "x": 881.5944540727902,
+    "y": 602.0797227036395,
+    "z": 0,
+    "height": 104.19410745233968,
+    "width": 338.16291161178509,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Contact",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "14pt"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "For questions, suggestions, "
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "or support, please email"
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "lorin@northarrowresearch.com",
+                    "textStyle": {
+                      "fontWeight": "bold"
+                    },
+                    "url": "mailto:lorin@northarrowresearch.com"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "radius": {
+              "expr": {
+                "Literal": {
+                  "Value": "16D"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

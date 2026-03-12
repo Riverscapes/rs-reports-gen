@@ -1,0 +1,110 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "85f3c21f59485dc98c1a",
+  "position": {
+    "x": 857.65557163531116,
+    "y": 88.914616497829243,
+    "z": 0,
+    "height": 238.95803183791608,
+    "width": 357.51085383502175,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "scatterChart",
+    "query": {
+      "queryState": {
+        "Series": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fcodelookup"
+                    }
+                  },
+                  "Property": "Flow Type"
+                }
+              },
+              "queryRef": "fcodelookup.FCodeDesc",
+              "nativeQueryRef": "FCodeDesc"
+            }
+          ]
+        },
+        "X": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "longitude"
+                }
+              },
+              "queryRef": "rme_extract_deets.longitude",
+              "nativeQueryRef": "longitude",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "latitude"
+                }
+              },
+              "queryRef": "rme_extract_deets.latitude",
+              "nativeQueryRef": "latitude"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'ScatterPlot FCodeDesc,longitude and latitude '"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'scatterplot works offline'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}
