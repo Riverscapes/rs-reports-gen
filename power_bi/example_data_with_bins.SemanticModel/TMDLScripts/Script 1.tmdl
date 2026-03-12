@@ -1,0 +1,1270 @@
+createOrReplace
+
+	table rme_extract_deets
+		lineageTag: 64a56c84-b5df-4dd5-b1d2-d81e3f34ebf4
+
+		measure 'Total Riverscape Area' = sum(rme_extract_deets[segment_area])
+			lineageTag: b592f3c8-aa06-43dc-aa33-c2d9cf2bcb18
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		measure 'Area per Length' = DIVIDE([Total Riverscape Area], [Total Centerline])
+			lineageTag: 22eba2c0-c47e-4004-a61e-6cdf080d211f
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		measure 'Total Centerline' = sum(rme_extract_deets[centerline_length])
+			lineageTag: 29a15c88-78c9-4052-8604-5f45d944323f
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		measure 'DGO Count' = COUNTROWS(rme_extract_deets)
+			formatString: 0
+			lineageTag: ea097bd0-afd9-40ce-b328-d8c32a397fb8
+
+		column level_path
+			dataType: string
+			lineageTag: 8f444158-5076-4b33-8994-3d958f023b66
+			summarizeBy: none
+			sourceColumn: level_path
+
+			annotation SummarizationSetBy = Automatic
+
+		column seg_distance
+			dataType: int64
+			formatString: 0
+			lineageTag: f4dc7537-7a86-4b69-9580-179d605d61e8
+			summarizeBy: sum
+			sourceColumn: seg_distance
+
+			annotation SummarizationSetBy = Automatic
+
+		column centerline_length
+			dataType: double
+			lineageTag: 024148de-d00b-4854-a199-a455a019d054
+			summarizeBy: sum
+			sourceColumn: centerline_length
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column segment_area
+			dataType: double
+			lineageTag: 650e156c-c8ff-4f9b-b0e3-58bbfb4c8414
+			summarizeBy: sum
+			sourceColumn: segment_area
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column fcode
+			dataType: int64
+			formatString: 0
+			lineageTag: 80249dd4-5cbd-447c-a9e6-5543f3d69c4a
+			summarizeBy: none
+			sourceColumn: fcode
+
+			annotation SummarizationSetBy = Automatic
+
+		column longitude
+			dataType: double
+			lineageTag: b28a0013-8297-499a-9615-4b1d15367228
+			summarizeBy: none
+			sourceColumn: longitude
+
+			annotation SummarizationSetBy = User
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column latitude
+			dataType: double
+			lineageTag: 2df288a5-31dd-4a2d-b1da-46c069233a12
+			summarizeBy: none
+			sourceColumn: latitude
+
+			annotation SummarizationSetBy = User
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column ownership
+			dataType: string
+			lineageTag: afb2949c-f9ee-48bc-839b-810dd1e0144f
+			summarizeBy: none
+			sourceColumn: ownership
+
+			annotation SummarizationSetBy = Automatic
+
+		column state
+			dataType: string
+			lineageTag: 220caa59-914d-4644-8c0d-ab870a2056a8
+			summarizeBy: none
+			sourceColumn: state
+
+			annotation SummarizationSetBy = Automatic
+
+		column county
+			dataType: string
+			lineageTag: 9b3f18f1-9a15-40ea-8882-9283a566e9db
+			summarizeBy: none
+			sourceColumn: county
+
+			annotation SummarizationSetBy = Automatic
+
+		column drainage_area
+			dataType: double
+			lineageTag: 497b0b89-25c3-43bf-892e-eb9e271bbb90
+			summarizeBy: sum
+			sourceColumn: drainage_area
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column watershed_id
+			dataType: int64
+			formatString: 0
+			lineageTag: 70a660e0-ae37-4ddb-908f-f4afac4289ec
+			summarizeBy: sum
+			sourceColumn: watershed_id
+
+			annotation SummarizationSetBy = Automatic
+
+		column stream_name
+			dataType: string
+			lineageTag: 7537b79b-c79c-46a7-8f5b-a5e061536034
+			summarizeBy: none
+			sourceColumn: stream_name
+
+			annotation SummarizationSetBy = Automatic
+
+		column stream_order
+			dataType: int64
+			formatString: 0
+			lineageTag: fbd75b3d-bed6-4a1a-8f2f-3f135b07127d
+			summarizeBy: sum
+			sourceColumn: stream_order
+
+			annotation SummarizationSetBy = Automatic
+
+		column headwater
+			dataType: int64
+			formatString: 0
+			lineageTag: aa6a7538-e846-4a65-ba0c-5cf0db4a0566
+			summarizeBy: sum
+			sourceColumn: headwater
+
+			annotation SummarizationSetBy = Automatic
+
+		column stream_length
+			dataType: double
+			lineageTag: accb692f-21a4-4f53-9db7-0375f5b47138
+			summarizeBy: sum
+			sourceColumn: stream_length
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column waterbody_type
+			dataType: int64
+			formatString: 0
+			lineageTag: 443d5b5b-32b0-4251-b179-bb0f9c940a03
+			summarizeBy: sum
+			sourceColumn: waterbody_type
+
+			annotation SummarizationSetBy = Automatic
+
+		column waterbody_extent
+			dataType: double
+			lineageTag: c32d31bf-893f-48fb-ab64-f64793ceea1e
+			summarizeBy: sum
+			sourceColumn: waterbody_extent
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column ecoregion3
+			dataType: string
+			lineageTag: 4fac4ada-a32c-4fe3-975f-e4632877def6
+			summarizeBy: none
+			sourceColumn: ecoregion3
+
+			annotation SummarizationSetBy = Automatic
+
+		column ecoregion4
+			dataType: string
+			lineageTag: fc9e79c0-ff47-45d7-a49b-a513b4d8f96a
+			summarizeBy: none
+			sourceColumn: ecoregion4
+
+			annotation SummarizationSetBy = Automatic
+
+		column elevation
+			dataType: double
+			lineageTag: 55337f95-288b-40d0-b0b7-07a5e4d518a8
+			summarizeBy: sum
+			sourceColumn: elevation
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column geology
+			dataType: string
+			lineageTag: b486d8a7-7c4a-42ed-b0c5-ce74886d9227
+			summarizeBy: none
+			sourceColumn: geology
+
+			annotation SummarizationSetBy = Automatic
+
+		column huc12
+			dataType: string
+			lineageTag: bf18a745-d016-4391-b5b8-fb5c7a013d23
+			summarizeBy: none
+			sourceColumn: huc12
+
+			annotation SummarizationSetBy = Automatic
+
+		column prim_channel_gradient
+			dataType: double
+			lineageTag: 7c2f4abb-1c86-4dfe-b116-0d31add7428e
+			summarizeBy: sum
+			sourceColumn: prim_channel_gradient
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column valleybottom_gradient
+			dataType: double
+			lineageTag: bc0c744d-8c35-4b8f-95aa-3c171a7cd7f8
+			summarizeBy: sum
+			sourceColumn: valleybottom_gradient
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column rel_flow_length
+			dataType: double
+			lineageTag: 01acafb4-e0d1-4d42-a54f-3acc6dcee0c1
+			summarizeBy: sum
+			sourceColumn: rel_flow_length
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column confluences
+			dataType: int64
+			formatString: 0
+			lineageTag: e4d548f8-9160-4887-afcb-f6bfd255552b
+			summarizeBy: sum
+			sourceColumn: confluences
+
+			annotation SummarizationSetBy = Automatic
+
+		column diffluences
+			dataType: int64
+			formatString: 0
+			lineageTag: e410f8cc-d1ee-4db5-937c-427504b25171
+			summarizeBy: sum
+			sourceColumn: diffluences
+
+			annotation SummarizationSetBy = Automatic
+
+		column tributaries
+			dataType: int64
+			formatString: 0
+			lineageTag: 6b044f68-5255-410e-95e0-22824a3bc80d
+			summarizeBy: sum
+			sourceColumn: tributaries
+
+			annotation SummarizationSetBy = Automatic
+
+		column tribs_per_km
+			dataType: double
+			lineageTag: 8ebfdecb-4ec2-4e01-8400-458630a153b8
+			summarizeBy: sum
+			sourceColumn: tribs_per_km
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column planform_sinuosity
+			dataType: double
+			lineageTag: eb2eee6f-a8ad-4d5c-a7c3-f94ffc0ed1d7
+			summarizeBy: sum
+			sourceColumn: planform_sinuosity
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lowlying_area
+			dataType: double
+			lineageTag: c94804b5-9dd7-47cc-aad4-189d1e7b5074
+			summarizeBy: sum
+			sourceColumn: lowlying_area
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column elevated_area
+			dataType: double
+			lineageTag: b8f31854-996c-4607-a9be-d73b613fa3e2
+			summarizeBy: sum
+			sourceColumn: elevated_area
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column channel_area
+			dataType: double
+			lineageTag: e0730a47-b651-45e5-9209-c628426ca34f
+			summarizeBy: sum
+			sourceColumn: channel_area
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column floodplain_area
+			dataType: double
+			lineageTag: f3238f58-c970-4000-98d2-05b8604c5eb1
+			summarizeBy: sum
+			sourceColumn: floodplain_area
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column integrated_width
+			dataType: double
+			lineageTag: 2365bab5-c1c8-47fc-a277-a39583a765fa
+			summarizeBy: sum
+			sourceColumn: integrated_width
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column active_channel_ratio
+			dataType: double
+			lineageTag: 4c073304-417e-4ec4-98f8-a97753dd5288
+			summarizeBy: sum
+			sourceColumn: active_channel_ratio
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column low_lying_ratio
+			dataType: double
+			lineageTag: e11dbd77-0d4a-4dfd-aa6f-5ccdc03b7234
+			summarizeBy: sum
+			sourceColumn: low_lying_ratio
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column elevated_ratio
+			dataType: double
+			lineageTag: 6d2cee0c-69e4-40ca-9f2e-5f415eebc2c8
+			summarizeBy: sum
+			sourceColumn: elevated_ratio
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column floodplain_ratio
+			dataType: double
+			lineageTag: ef672929-7d5c-4cd6-990a-a25ac7007f8c
+			summarizeBy: sum
+			sourceColumn: floodplain_ratio
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column acres_vb_per_mile
+			dataType: double
+			lineageTag: decff973-e46b-4565-92ab-a873df53e8d7
+			summarizeBy: sum
+			sourceColumn: acres_vb_per_mile
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column hect_vb_per_km
+			dataType: double
+			lineageTag: 182234da-e16c-49fb-a82a-b52fb92cb32f
+			summarizeBy: sum
+			sourceColumn: hect_vb_per_km
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column channel_width
+			dataType: double
+			lineageTag: 79368f5a-69b8-4766-9f54-902f69e6bc16
+			summarizeBy: sum
+			sourceColumn: channel_width
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column confinement_ratio
+			dataType: double
+			lineageTag: 6043c343-32c6-423e-a5e2-f06929c09fe9
+			summarizeBy: sum
+			sourceColumn: confinement_ratio
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column constriction_ratio
+			dataType: double
+			lineageTag: 16f74b56-7af1-4e71-a6c8-2cec4f5c3140
+			summarizeBy: sum
+			sourceColumn: constriction_ratio
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column confining_margins
+			dataType: double
+			lineageTag: c4ab4b5a-d409-4763-83b4-c1511b77bcc9
+			summarizeBy: sum
+			sourceColumn: confining_margins
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column constricting_margins
+			dataType: double
+			lineageTag: c3bc1daf-7b32-432d-92fe-ee628c5896eb
+			summarizeBy: sum
+			sourceColumn: constricting_margins
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_evt
+			dataType: string
+			lineageTag: d12398b2-586c-4294-9cc0-ad08f6684b8b
+			summarizeBy: none
+			sourceColumn: lf_evt
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_bps
+			dataType: string
+			lineageTag: 6f3eb391-911b-4a25-8883-ad8f3c093d42
+			summarizeBy: none
+			sourceColumn: lf_bps
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_agriculture_prop
+			dataType: double
+			lineageTag: ffa8f9ec-fdbf-4584-b253-1d708e8b43b5
+			summarizeBy: sum
+			sourceColumn: lf_agriculture_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_agriculture
+			dataType: double
+			lineageTag: b53f4d7c-2ac2-474e-85f7-361408d2fb7e
+			summarizeBy: sum
+			sourceColumn: lf_agriculture
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_conifer_prop
+			dataType: double
+			lineageTag: 0c5c1d5e-6265-4c08-8684-9790d6bf99d4
+			summarizeBy: sum
+			sourceColumn: lf_conifer_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_conifer
+			dataType: double
+			lineageTag: 61ec375e-48ab-463e-ad78-bd3daab46cde
+			summarizeBy: sum
+			sourceColumn: lf_conifer
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_conifer_hardwood_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: 65b1c2a1-15b8-4392-8141-2e871987bdbb
+			summarizeBy: sum
+			sourceColumn: lf_conifer_hardwood_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_conifer_hardwood
+			dataType: int64
+			formatString: 0
+			lineageTag: dd4e56d0-ba0e-4fcb-8fd6-c6ac36d26b84
+			summarizeBy: sum
+			sourceColumn: lf_conifer_hardwood
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_developed_prop
+			dataType: double
+			lineageTag: 9f04f1cc-ea39-4b7b-bee5-8785420471e2
+			summarizeBy: sum
+			sourceColumn: lf_developed_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_developed
+			dataType: double
+			lineageTag: 5be26eb1-9bef-4b6f-b6a4-e5bff6a6d54d
+			summarizeBy: sum
+			sourceColumn: lf_developed
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_exotic_herbaceous_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: dffbd7cf-4ba5-489c-b148-d76658a33e19
+			summarizeBy: sum
+			sourceColumn: lf_exotic_herbaceous_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_exotic_herbaceous
+			dataType: int64
+			formatString: 0
+			lineageTag: f16585f8-44a7-4a22-8837-06f0a1e6842d
+			summarizeBy: sum
+			sourceColumn: lf_exotic_herbaceous
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_exotic_tree_shrub_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: 199ba901-565c-43c4-8e90-fe2a0bbdb669
+			summarizeBy: sum
+			sourceColumn: lf_exotic_tree_shrub_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_exotic_tree_shrub
+			dataType: int64
+			formatString: 0
+			lineageTag: 00f8e040-9c4a-45b6-989e-36d18886124d
+			summarizeBy: sum
+			sourceColumn: lf_exotic_tree_shrub
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_grassland_prop
+			dataType: double
+			lineageTag: 81d4851a-b813-41d6-9ed0-3df3c8c0ac18
+			summarizeBy: sum
+			sourceColumn: lf_grassland_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_grassland
+			dataType: double
+			lineageTag: 7e165a4a-b86e-4303-95a4-e2a89b1fa311
+			summarizeBy: sum
+			sourceColumn: lf_grassland
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hardwood_prop
+			dataType: double
+			lineageTag: 7ee08327-9b52-4d20-bf71-801e330c048c
+			summarizeBy: sum
+			sourceColumn: lf_hardwood_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hardwood
+			dataType: double
+			lineageTag: e4e2cfae-916f-4a02-90b8-40ca24d1a8e9
+			summarizeBy: sum
+			sourceColumn: lf_hardwood
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_riparian_prop
+			dataType: double
+			lineageTag: cabb9a45-a872-47ab-8a78-48eb63a1f4a5
+			summarizeBy: sum
+			sourceColumn: lf_riparian_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_riparian
+			dataType: double
+			lineageTag: 1e0e5a84-62a7-49a2-afbf-d6bebac01c76
+			summarizeBy: sum
+			sourceColumn: lf_riparian
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_shrubland_prop
+			dataType: double
+			lineageTag: 4d9673d7-588e-4fda-aee1-acad26ce43c6
+			summarizeBy: sum
+			sourceColumn: lf_shrubland_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_shrubland
+			dataType: double
+			lineageTag: c7453ec6-3037-4aed-80b4-4dcd9e00bfdc
+			summarizeBy: sum
+			sourceColumn: lf_shrubland
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_sparsely_vegetated_prop
+			dataType: double
+			lineageTag: 33711134-2291-4968-a676-a7b4881c89d3
+			summarizeBy: sum
+			sourceColumn: lf_sparsely_vegetated_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_sparsely_vegetated
+			dataType: double
+			lineageTag: 004c5e7e-e3f3-4b0b-9482-06dee2d3062c
+			summarizeBy: sum
+			sourceColumn: lf_sparsely_vegetated
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_conifer_prop
+			dataType: double
+			lineageTag: ce881f96-fa34-405d-9039-4f27e946e6b5
+			summarizeBy: sum
+			sourceColumn: lf_hist_conifer_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_conifer
+			dataType: double
+			lineageTag: b1a15dbd-4b1c-43a0-8d16-3a730d07ad84
+			summarizeBy: sum
+			sourceColumn: lf_hist_conifer
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_conifer_hardwood_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: 2e6398c9-1918-4bb6-acc0-dec7f0007cf7
+			summarizeBy: sum
+			sourceColumn: lf_hist_conifer_hardwood_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_conifer_hardwood
+			dataType: int64
+			formatString: 0
+			lineageTag: 74966347-ca92-41db-bec4-d5e0bc87308f
+			summarizeBy: sum
+			sourceColumn: lf_hist_conifer_hardwood
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_grassland_prop
+			dataType: double
+			lineageTag: bc7585c1-569f-4a23-ba9a-f0ec78e358cc
+			summarizeBy: sum
+			sourceColumn: lf_hist_grassland_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_grassland
+			dataType: double
+			lineageTag: 5459b718-2dcf-44de-9a8c-a63e24b65974
+			summarizeBy: sum
+			sourceColumn: lf_hist_grassland
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_hardwood_prop
+			dataType: double
+			lineageTag: e87d6b26-6944-4e89-ad03-ede7844d335a
+			summarizeBy: sum
+			sourceColumn: lf_hist_hardwood_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_hardwood
+			dataType: double
+			lineageTag: 166e06ea-cd17-46be-affa-c15cf2e6a142
+			summarizeBy: sum
+			sourceColumn: lf_hist_hardwood
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_hardwood_conifer_prop
+			dataType: double
+			lineageTag: 5b6789e0-6803-41a5-8910-5cf294436aeb
+			summarizeBy: sum
+			sourceColumn: lf_hist_hardwood_conifer_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_hardwood_conifer
+			dataType: double
+			lineageTag: ea4eacf0-3716-44dd-b8ea-d68e16fd004d
+			summarizeBy: sum
+			sourceColumn: lf_hist_hardwood_conifer
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_peatland_forest_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: 2fc70c0e-193f-4d47-9010-f75eb252f638
+			summarizeBy: sum
+			sourceColumn: lf_hist_peatland_forest_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_peatland_forest
+			dataType: int64
+			formatString: 0
+			lineageTag: d60b678f-e953-4f2d-b384-63b2ff0c1401
+			summarizeBy: sum
+			sourceColumn: lf_hist_peatland_forest
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_peatland_nonforest_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: 86461b55-eb12-4df9-a807-3870bf26fb41
+			summarizeBy: sum
+			sourceColumn: lf_hist_peatland_nonforest_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_peatland_nonforest
+			dataType: int64
+			formatString: 0
+			lineageTag: 01428772-42e2-4265-9244-7b36a5970731
+			summarizeBy: sum
+			sourceColumn: lf_hist_peatland_nonforest
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_riparian_prop
+			dataType: double
+			lineageTag: 755dcba3-4960-4bd2-9f39-9c175b7b7c07
+			summarizeBy: sum
+			sourceColumn: lf_hist_riparian_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_riparian
+			dataType: double
+			lineageTag: 29eedd65-04fe-4193-94e0-d3b7612fabfb
+			summarizeBy: sum
+			sourceColumn: lf_hist_riparian
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_savanna_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: 5aa6674a-6965-4328-943a-1453d1ae7e5b
+			summarizeBy: sum
+			sourceColumn: lf_hist_savanna_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_savanna
+			dataType: int64
+			formatString: 0
+			lineageTag: bbf91ef1-4d28-47da-969d-30ef0bf01264
+			summarizeBy: sum
+			sourceColumn: lf_hist_savanna
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_shrubland_prop
+			dataType: double
+			lineageTag: 85e7a047-af22-4050-8c2e-15758df9f010
+			summarizeBy: sum
+			sourceColumn: lf_hist_shrubland_prop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_shrubland
+			dataType: double
+			lineageTag: 87b643e0-ae2e-48e6-a31a-3fbb35818654
+			summarizeBy: sum
+			sourceColumn: lf_hist_shrubland
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column lf_hist_sparsely_vegetated_prop
+			dataType: int64
+			formatString: 0
+			lineageTag: b66e6a83-42bc-4ed6-9c1d-fa03b72fcae0
+			summarizeBy: sum
+			sourceColumn: lf_hist_sparsely_vegetated_prop
+
+			annotation SummarizationSetBy = Automatic
+
+		column lf_hist_sparsely_vegetated
+			dataType: int64
+			formatString: 0
+			lineageTag: c59db5a7-cc74-48de-8866-2c2967c74101
+			summarizeBy: sum
+			sourceColumn: lf_hist_sparsely_vegetated
+
+			annotation SummarizationSetBy = Automatic
+
+		column ex_riparian
+			dataType: double
+			lineageTag: f9c47aee-afc5-4b73-beb5-1bde471631dc
+			summarizeBy: sum
+			sourceColumn: ex_riparian
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column hist_riparian
+			dataType: double
+			lineageTag: 96cdfac9-0d5a-40ea-af7f-a3ae1088ee43
+			summarizeBy: sum
+			sourceColumn: hist_riparian
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column prop_riparian
+			dataType: double
+			lineageTag: 32b28f75-9e00-47c2-8b59-e3274b1aa04b
+			summarizeBy: sum
+			sourceColumn: prop_riparian
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column hist_prop_riparian
+			dataType: double
+			lineageTag: 5dbc3ba2-2ce2-47cd-8e07-fd07072f28d8
+			summarizeBy: sum
+			sourceColumn: hist_prop_riparian
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column riparian_veg_departure
+			dataType: double
+			lineageTag: 1f712779-dfdc-4716-92cc-4747ca4e6570
+			summarizeBy: sum
+			sourceColumn: riparian_veg_departure
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column ag_conversion
+			dataType: int64
+			formatString: 0
+			lineageTag: f9581fa8-4bc9-48cd-8cd4-bb7e8c4ab122
+			summarizeBy: sum
+			sourceColumn: ag_conversion
+
+			annotation SummarizationSetBy = Automatic
+
+		column develop
+			dataType: double
+			lineageTag: 7a785f3b-14f8-4e50-b647-bbe16db3c0cb
+			summarizeBy: sum
+			sourceColumn: develop
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column grass_shrub_conversion
+			dataType: double
+			lineageTag: bba26c2e-9389-4c05-9027-352012aefe99
+			summarizeBy: sum
+			sourceColumn: grass_shrub_conversion
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column conifer_encroachment
+			dataType: double
+			lineageTag: 46c5d7e8-8fa0-474a-9ed3-d30f71a6522b
+			summarizeBy: sum
+			sourceColumn: conifer_encroachment
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column invasive_conversion
+			dataType: int64
+			formatString: 0
+			lineageTag: 06c6ccad-ae47-410d-a809-a2e43c595f8d
+			summarizeBy: sum
+			sourceColumn: invasive_conversion
+
+			annotation SummarizationSetBy = Automatic
+
+		column riparian_condition
+			dataType: double
+			lineageTag: 7e572242-7f98-4f3d-b45e-80bd18d6b834
+			summarizeBy: sum
+			sourceColumn: riparian_condition
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column qlow
+			dataType: double
+			lineageTag: 47422304-6e90-4ca2-83db-501fbac8a730
+			summarizeBy: sum
+			sourceColumn: qlow
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column q2
+			dataType: double
+			lineageTag: ba6aead5-9052-439c-9216-a011fa437d4f
+			summarizeBy: sum
+			sourceColumn: q2
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column splow
+			dataType: double
+			lineageTag: 3bb569cc-e06b-4536-9620-847c2c4ec61d
+			summarizeBy: sum
+			sourceColumn: splow
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column sphigh
+			dataType: double
+			lineageTag: daf75339-98d4-4569-8491-1871fa8deb69
+			summarizeBy: sum
+			sourceColumn: sphigh
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column road_len
+			dataType: double
+			lineageTag: 079054f1-81cb-4e22-bc1a-59d38f50af2b
+			summarizeBy: sum
+			sourceColumn: road_len
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column road_dens
+			dataType: double
+			lineageTag: db2b9ca2-8836-45ad-8881-49cb46ecba41
+			summarizeBy: sum
+			sourceColumn: road_dens
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column rail_len
+			dataType: int64
+			formatString: 0
+			lineageTag: 80fd01cc-7fef-4109-a367-2aaefd9707df
+			summarizeBy: sum
+			sourceColumn: rail_len
+
+			annotation SummarizationSetBy = Automatic
+
+		column rail_dens
+			dataType: int64
+			formatString: 0
+			lineageTag: a015e6cc-354d-4566-be91-ceaaf17bf365
+			summarizeBy: sum
+			sourceColumn: rail_dens
+
+			annotation SummarizationSetBy = Automatic
+
+		column land_use_intens
+			dataType: double
+			lineageTag: 2bad0fd3-8abd-4db3-bbfe-4a6e7ee1a0d8
+			summarizeBy: sum
+			sourceColumn: land_use_intens
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column road_dist
+			dataType: int64
+			formatString: 0
+			lineageTag: 2ae2124a-f420-4c53-a61a-cdccc3a8aab1
+			summarizeBy: sum
+			sourceColumn: road_dist
+
+			annotation SummarizationSetBy = Automatic
+
+		column rail_dist
+			dataType: string
+			lineageTag: df9254af-df87-4590-aecf-042a424c939a
+			summarizeBy: none
+			sourceColumn: rail_dist
+
+			annotation SummarizationSetBy = Automatic
+
+		column div_dist
+			dataType: int64
+			formatString: 0
+			lineageTag: 11b623e5-dfba-48b1-8124-9ec168dba866
+			summarizeBy: sum
+			sourceColumn: div_dist
+
+			annotation SummarizationSetBy = Automatic
+
+		column canal_dist
+			dataType: int64
+			formatString: 0
+			lineageTag: 66fc9146-e2fb-4dd7-aa91-41248433b026
+			summarizeBy: sum
+			sourceColumn: canal_dist
+
+			annotation SummarizationSetBy = Automatic
+
+		column infra_dist
+			dataType: int64
+			formatString: 0
+			lineageTag: e7e35e27-6697-47dc-827d-b7c250d7881a
+			summarizeBy: sum
+			sourceColumn: infra_dist
+
+			annotation SummarizationSetBy = Automatic
+
+		column fldpln_access
+			dataType: double
+			lineageTag: e8d67a61-4437-4673-8e82-d3a42638b6c2
+			summarizeBy: sum
+			sourceColumn: fldpln_access
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column access_fldpln_extent
+			dataType: double
+			lineageTag: 15e30ac1-c430-4b39-aef6-fb10f04325a9
+			summarizeBy: sum
+			sourceColumn: access_fldpln_extent
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column brat_capacity
+			dataType: double
+			lineageTag: 677f2116-a9b4-4624-a9a2-c7cc3c2baf65
+			summarizeBy: sum
+			sourceColumn: brat_capacity
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column brat_hist_capacity
+			dataType: double
+			lineageTag: ea50c8f6-3ea2-416f-89e5-d98c3ee997c1
+			summarizeBy: sum
+			sourceColumn: brat_hist_capacity
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column brat_risk
+			dataType: string
+			lineageTag: e1235ca3-05fd-4e57-8880-138f7aeab873
+			summarizeBy: none
+			sourceColumn: brat_risk
+
+			annotation SummarizationSetBy = Automatic
+
+		column brat_opportunity
+			dataType: string
+			lineageTag: 075f6996-4bc4-494c-9881-f7383b3c96ed
+			summarizeBy: none
+			sourceColumn: brat_opportunity
+
+			annotation SummarizationSetBy = Automatic
+
+		column brat_limitation
+			dataType: string
+			lineageTag: 1edbbae9-6025-40dd-ab9d-6571603e4fac
+			summarizeBy: none
+			sourceColumn: brat_limitation
+
+			annotation SummarizationSetBy = Automatic
+
+		column brat_complex_size
+			dataType: double
+			lineageTag: aa6fe7fe-3830-47ce-aba7-55c9befd1a26
+			summarizeBy: sum
+			sourceColumn: brat_complex_size
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column brat_hist_complex_size
+			dataType: double
+			lineageTag: 67ee9415-106f-4d5b-b7e7-edffff94e6cc
+			summarizeBy: sum
+			sourceColumn: brat_hist_complex_size
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column dam_setting
+			dataType: string
+			lineageTag: 5a28008c-b406-4785-988a-dfb8f5b6df86
+			summarizeBy: none
+			sourceColumn: dam_setting
+
+			annotation SummarizationSetBy = Automatic
+
+		column 'rip prop bin' = round(DIVIDE(rme_extract_deets[prop_riparian], 0.1),0)
+			lineageTag: 022df323-b363-48bc-9ae0-62447b2950ee
+			summarizeBy: sum
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		column 'fldplnaccess bin' = ROUND(DIVIDE(rme_extract_deets[fldpln_access],0.1),0)
+			lineageTag: 0c676e6b-1060-4529-943a-fc059dacfdc5
+			summarizeBy: sum
+
+			annotation SummarizationSetBy = Automatic
+
+			annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+		partition rme_extract_deets = m
+			mode: import
+			source =
+					let
+					    Source = Csv.Document(File.Contents("C:\nardata\work\reporting\sample_gis\raw_rme_extract_100_1lp_upstream.csv"),[Delimiter=",", Columns=132, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+					    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+					    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"rme_version", type text}, {"rme_version_int", Int64.Type}, {"rme_date_created_ts", Int64.Type}, {"level_path", type text}, {"seg_distance", Int64.Type}, {"centerline_length", type number}, {"segment_area", type number}, {"fcode", Int64.Type}, {"longitude", type number}, {"latitude", type number}, {"ownership", type text}, {"state", type text}, {"county", type text}, {"drainage_area", type number}, {"watershed_id", Int64.Type}, {"stream_name", type text}, {"stream_order", Int64.Type}, {"headwater", Int64.Type}, {"stream_length", type number}, {"waterbody_type", Int64.Type}, {"waterbody_extent", type number}, {"ecoregion3", type text}, {"ecoregion4", type text}, {"elevation", type number}, {"geology", type text}, {"huc12", type text}, {"prim_channel_gradient", type number}, {"valleybottom_gradient", type number}, {"rel_flow_length", type number}, {"confluences", Int64.Type}, {"diffluences", Int64.Type}, {"tributaries", Int64.Type}, {"tribs_per_km", type number}, {"planform_sinuosity", type number}, {"lowlying_area", type number}, {"elevated_area", type number}, {"channel_area", type number}, {"floodplain_area", type number}, {"integrated_width", type number}, {"active_channel_ratio", type number}, {"low_lying_ratio", type number}, {"elevated_ratio", type number}, {"floodplain_ratio", type number}, {"acres_vb_per_mile", type number}, {"hect_vb_per_km", type number}, {"channel_width", type number}, {"confinement_ratio", type number}, {"constriction_ratio", type number}, {"confining_margins", type number}, {"constricting_margins", type number}, {"lf_evt", type text}, {"lf_bps", type text}, {"lf_agriculture_prop", type number}, {"lf_agriculture", type number}, {"lf_conifer_prop", type number}, {"lf_conifer", type number}, {"lf_conifer_hardwood_prop", Int64.Type}, {"lf_conifer_hardwood", Int64.Type}, {"lf_developed_prop", type number}, {"lf_developed", type number}, {"lf_exotic_herbaceous_prop", Int64.Type}, {"lf_exotic_herbaceous", Int64.Type}, {"lf_exotic_tree_shrub_prop", Int64.Type}, {"lf_exotic_tree_shrub", Int64.Type}, {"lf_grassland_prop", type number}, {"lf_grassland", type number}, {"lf_hardwood_prop", type number}, {"lf_hardwood", type number}, {"lf_riparian_prop", type number}, {"lf_riparian", type number}, {"lf_shrubland_prop", type number}, {"lf_shrubland", type number}, {"lf_sparsely_vegetated_prop", type number}, {"lf_sparsely_vegetated", type number}, {"lf_hist_conifer_prop", type number}, {"lf_hist_conifer", type number}, {"lf_hist_conifer_hardwood_prop", Int64.Type}, {"lf_hist_conifer_hardwood", Int64.Type}, {"lf_hist_grassland_prop", type number}, {"lf_hist_grassland", type number}, {"lf_hist_hardwood_prop", type number}, {"lf_hist_hardwood", type number}, {"lf_hist_hardwood_conifer_prop", type number}, {"lf_hist_hardwood_conifer", type number}, {"lf_hist_peatland_forest_prop", Int64.Type}, {"lf_hist_peatland_forest", Int64.Type}, {"lf_hist_peatland_nonforest_prop", Int64.Type}, {"lf_hist_peatland_nonforest", Int64.Type}, {"lf_hist_riparian_prop", type number}, {"lf_hist_riparian", type number}, {"lf_hist_savanna_prop", Int64.Type}, {"lf_hist_savanna", Int64.Type}, {"lf_hist_shrubland_prop", type number}, {"lf_hist_shrubland", type number}, {"lf_hist_sparsely_vegetated_prop", Int64.Type}, {"lf_hist_sparsely_vegetated", Int64.Type}, {"ex_riparian", type number}, {"hist_riparian", type number}, {"prop_riparian", type number}, {"hist_prop_riparian", type number}, {"riparian_veg_departure", type number}, {"ag_conversion", Int64.Type}, {"develop", type number}, {"grass_shrub_conversion", type number}, {"conifer_encroachment", type number}, {"invasive_conversion", Int64.Type}, {"riparian_condition", type number}, {"qlow", type number}, {"q2", type number}, {"splow", type number}, {"sphigh", type number}, {"road_len", type number}, {"road_dens", type number}, {"rail_len", Int64.Type}, {"rail_dens", Int64.Type}, {"land_use_intens", type number}, {"road_dist", Int64.Type}, {"rail_dist", type text}, {"div_dist", Int64.Type}, {"canal_dist", Int64.Type}, {"infra_dist", Int64.Type}, {"fldpln_access", type number}, {"access_fldpln_extent", type number}, {"brat_capacity", type number}, {"brat_hist_capacity", type number}, {"brat_risk", type text}, {"brat_opportunity", type text}, {"brat_limitation", type text}, {"brat_complex_size", type number}, {"brat_hist_complex_size", type number}, {"dam_setting", type text}, {"dgo_geom", type text}}),
+					    #"Removed Other Columns" = Table.SelectColumns(#"Changed Type",{"level_path", "seg_distance", "centerline_length", "segment_area", "fcode", "longitude", "latitude", "ownership", "state", "county", "drainage_area", "watershed_id", "stream_name", "stream_order", "headwater", "stream_length", "waterbody_type", "waterbody_extent", "ecoregion3", "ecoregion4", "elevation", "geology", "huc12", "prim_channel_gradient", "valleybottom_gradient", "rel_flow_length", "confluences", "diffluences", "tributaries", "tribs_per_km", "planform_sinuosity", "lowlying_area", "elevated_area", "channel_area", "floodplain_area", "integrated_width", "active_channel_ratio", "low_lying_ratio", "elevated_ratio", "floodplain_ratio", "acres_vb_per_mile", "hect_vb_per_km", "channel_width", "confinement_ratio", "constriction_ratio", "confining_margins", "constricting_margins", "lf_evt", "lf_bps", "lf_agriculture_prop", "lf_agriculture", "lf_conifer_prop", "lf_conifer", "lf_conifer_hardwood_prop", "lf_conifer_hardwood", "lf_developed_prop", "lf_developed", "lf_exotic_herbaceous_prop", "lf_exotic_herbaceous", "lf_exotic_tree_shrub_prop", "lf_exotic_tree_shrub", "lf_grassland_prop", "lf_grassland", "lf_hardwood_prop", "lf_hardwood", "lf_riparian_prop", "lf_riparian", "lf_shrubland_prop", "lf_shrubland", "lf_sparsely_vegetated_prop", "lf_sparsely_vegetated", "lf_hist_conifer_prop", "lf_hist_conifer", "lf_hist_conifer_hardwood_prop", "lf_hist_conifer_hardwood", "lf_hist_grassland_prop", "lf_hist_grassland", "lf_hist_hardwood_prop", "lf_hist_hardwood", "lf_hist_hardwood_conifer_prop", "lf_hist_hardwood_conifer", "lf_hist_peatland_forest_prop", "lf_hist_peatland_forest", "lf_hist_peatland_nonforest_prop", "lf_hist_peatland_nonforest", "lf_hist_riparian_prop", "lf_hist_riparian", "lf_hist_savanna_prop", "lf_hist_savanna", "lf_hist_shrubland_prop", "lf_hist_shrubland", "lf_hist_sparsely_vegetated_prop", "lf_hist_sparsely_vegetated", "ex_riparian", "hist_riparian", "prop_riparian", "hist_prop_riparian", "riparian_veg_departure", "ag_conversion", "develop", "grass_shrub_conversion", "conifer_encroachment", "invasive_conversion", "riparian_condition", "qlow", "q2", "splow", "sphigh", "road_len", "road_dens", "rail_len", "rail_dens", "land_use_intens", "road_dist", "rail_dist", "div_dist", "canal_dist", "infra_dist", "fldpln_access", "access_fldpln_extent", "brat_capacity", "brat_hist_capacity", "brat_risk", "brat_opportunity", "brat_limitation", "brat_complex_size", "brat_hist_complex_size", "dam_setting"})
+					in
+					    #"Removed Other Columns"
+
+		annotation PBI_NavigationStepName = Navigation
+
+		annotation PBI_ResultType = Table
+

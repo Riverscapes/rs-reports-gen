@@ -1,0 +1,97 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "395e1af587977eda6fb1",
+  "position": {
+    "x": 25.255605381165918,
+    "y": 121.68609865470852,
+    "z": 2000,
+    "height": 238.78026905829597,
+    "width": 708.30493273542606,
+    "tabOrder": 1000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "Road Density"
+                }
+              },
+              "queryRef": "rme_extract_deets.Road Density (measure)",
+              "nativeQueryRef": "Road Density (measure)"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "road_dens"
+                }
+              },
+              "queryRef": "Sum(rme_extract_deets.road_dens)",
+              "nativeQueryRef": "road_dens"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "centerline length"
+                }
+              },
+              "queryRef": "Sum(rme_extract_deets.centerline_length)",
+              "nativeQueryRef": "centerline_length"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "road_len"
+                }
+              },
+              "queryRef": "Sum(rme_extract_deets.road_len)",
+              "nativeQueryRef": "road_len"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "RiverscapeMetricEngine"
+                  }
+                },
+                "Property": "road_len"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "b533045eb9fe6f4cd3f5",
+  "position": {
+    "x": 499.60865087538622,
+    "y": 203.00720906282186,
+    "z": 7000,
+    "height": 208.28012358393411,
+    "width": 210.91658084449023,
+    "tabOrder": 4000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "Stream Name"
+                }
+              },
+              "queryRef": "rme_extract_deets.stream_name",
+              "nativeQueryRef": "Stream Name"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "RiverscapeMetricEngine"
+                    }
+                  },
+                  "Property": "Total Centerline (m)"
+                }
+              },
+              "queryRef": "rme_extract_deets.Total Centerline (m)",
+              "nativeQueryRef": "Centerline length (m)",
+              "displayName": "Centerline length (m)"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "RiverscapeMetricEngine"
+                  }
+                },
+                "Property": "Stream Name"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ]
+      }
+    },
+    "objects": {
+      "columnHeaders": [
+        {
+          "properties": {
+            "autoSizeColumnWidth": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnWidth": [
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "117.20084386452996D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "rme_extract_deets.stream_name"
+          }
+        },
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "71.5748031496063D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "rme_extract_deets.Total Centerline (m)"
+          }
+        }
+      ],
+      "total": [
+        {
+          "properties": {
+            "totals": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

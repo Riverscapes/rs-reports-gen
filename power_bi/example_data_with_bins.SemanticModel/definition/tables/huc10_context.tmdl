@@ -1,0 +1,87 @@
+table huc10_context
+	lineageTag: 136bee93-189f-470c-aa44-a8a272acc6cd
+
+	measure 'Lowest Elevation' = min(huc10_context[min_elevation])
+		lineageTag: 1066505c-277c-4c90-921c-3187439c4376
+
+	measure 'Highest Elevation' = max(huc10_context[max_elevation])
+		lineageTag: 613fa245-f7bd-475d-8387-95ca836f9b4c
+
+	column huc
+		dataType: string
+		lineageTag: 83926936-2193-497e-b421-8a8761919be7
+		summarizeBy: none
+		sourceColumn: huc
+
+		annotation SummarizationSetBy = Automatic
+
+	column project_id
+		dataType: string
+		lineageTag: 194abb7d-dcc9-4087-b7c5-fa01e744cb66
+		summarizeBy: none
+		sourceColumn: project_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column hucname
+		dataType: string
+		lineageTag: a7a5c38e-0c44-4bca-8ecb-60fb340b7897
+		summarizeBy: none
+		sourceColumn: hucname
+
+		annotation SummarizationSetBy = Automatic
+
+	column hucareasqkm
+		dataType: double
+		lineageTag: 493e224d-05e7-42a5-842b-13bfbca981c6
+		summarizeBy: sum
+		sourceColumn: hucareasqkm
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column min_elevation
+		dataType: double
+		lineageTag: 3547dc3c-ca46-4c14-8470-74c249dc5664
+		summarizeBy: sum
+		sourceColumn: min_elevation
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column max_elevation
+		dataType: double
+		lineageTag: f03cd3c1-61ce-4508-9532-fbf96a472889
+		summarizeBy: sum
+		sourceColumn: max_elevation
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column percent_intersection
+		dataType: double
+		lineageTag: 1bec3f78-acd3-4b7d-8e64-9467b6ad95b2
+		summarizeBy: none
+		sourceColumn: percent_intersection
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition huc10_context = m
+		mode: import
+		source =
+				let
+				    Source = Parquet.Document(File.Contents(DataMartRoot & "\exports\huc.parquet")),
+				    #"Expanded dem_bins" = Table.ExpandRecordColumn(Source, "dem_bins", {"min", "max", "bins"}, {"min", "max", "bins"}),
+				    #"Renamed Columns" = Table.RenameColumns(#"Expanded dem_bins",{{"min", "min_elevation"}, {"max", "max_elevation"}, {"bins", "dem_bins"}})
+				in
+				    #"Renamed Columns"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

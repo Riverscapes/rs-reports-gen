@@ -1,0 +1,64 @@
+table 'Grazing Allotments'
+	lineageTag: 8cc58388-fd8a-4c78-ac49-ad9bde8d471a
+
+	column allot_no
+		dataType: string
+		lineageTag: 0d327cf5-405a-47b1-9aab-04ab1cc44ed7
+		summarizeBy: none
+		sourceColumn: allot_no
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Grazing Allotment'
+		dataType: string
+		lineageTag: 93b57853-a5f7-4664-8e06-8ae59da28b59
+		summarizeBy: none
+		sourceColumn: Grazing Allotment
+
+		annotation SummarizationSetBy = Automatic
+
+	column admin_st
+		dataType: string
+		lineageTag: 46dc07a4-230b-4c18-932b-b6e6b087d48f
+		summarizeBy: none
+		sourceColumn: admin_st
+
+		annotation SummarizationSetBy = Automatic
+
+	column adm_ofc_cd
+		dataType: string
+		lineageTag: 70b0b4ec-d70d-4bd9-8c24-e94b41c2349a
+		summarizeBy: none
+		sourceColumn: adm_ofc_cd
+
+		annotation SummarizationSetBy = Automatic
+
+	column st_allot
+		dataType: string
+		lineageTag: e8f27e59-0a7d-41f5-83b5-8c0c24d2ddd8
+		summarizeBy: none
+		sourceColumn: st_allot
+
+		annotation SummarizationSetBy = Automatic
+
+	column globalid
+		dataType: string
+		lineageTag: 38f53113-2d9a-4221-988e-6396ed651c7c
+		summarizeBy: none
+		sourceColumn: globalid
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Grazing Allotments' = m
+		mode: import
+		source =
+				let
+				    Source = Parquet.Document(File.Contents(DataMartRoot & "\exports\grazing.parquet")),
+				    #"Renamed Columns" = Table.RenameColumns(Source,{{"allot_name", "Grazing Allotment"}})
+				in
+				    #"Renamed Columns"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

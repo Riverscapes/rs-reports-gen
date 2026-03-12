@@ -1,0 +1,86 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 0
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 303,
+            "y": 0
+          },
+          "nodeIndex": "fcodelookup",
+          "nodeLineageTag": "5d9f4b96-9ac8-4c61-b90b-f2f86c6a6418",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 1
+        },
+        {
+          "location": {
+            "x": 687,
+            "y": 41
+          },
+          "nodeIndex": "Grazing Allotments",
+          "nodeLineageTag": "8cc58388-fd8a-4c78-ac49-ad9bde8d471a",
+          "size": {
+            "height": 232.06948968512484,
+            "width": 234
+          },
+          "zIndex": 2
+        },
+        {
+          "location": {
+            "x": 0,
+            "y": 0
+          },
+          "nodeIndex": "RiverscapeMetricEngine",
+          "size": {
+            "height": 779,
+            "width": 272
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 971,
+            "y": 265.5
+          },
+          "nodeIndex": "huc10_context",
+          "nodeLineageTag": "136bee93-189f-470c-aa44-a8a272acc6cd",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1120.3293051359517,
+            "y": 563.57854984894266
+          },
+          "nodeIndex": "huc10_context_elevation_bins",
+          "nodeLineageTag": "4eefd292-cec5-4385-986f-4a87136976db",
+          "size": {
+            "height": 145,
+            "width": 302.537764350453
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "All tables",
+      "zoomValue": 83.165829145728637,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "All tables",
+  "defaultDiagram": "All tables"
+}
