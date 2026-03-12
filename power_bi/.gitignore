@@ -1,0 +1,10 @@
+### Power BI Project (.pbip) ###
+
+# Ignore local user settings and metadata caches
+**/.pbi/
+
+# ignore compiled Power BI binaries if you treat the .pbip as your single source of truth
+*.pbix
+
+# Ignore Power BI backup files
+*.pbix.backup
