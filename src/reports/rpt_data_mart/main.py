@@ -138,7 +138,7 @@ def _query_dataset(
         aoi_gdf=query_gdf,
         local_path=staging_path,
     )
-    log.info(f"{dataset.name} query complete → {staging_path}")
+    log.info(f"{dataset.name} query complete -> {staging_path}")
 
 
 def _strip_pint_types(df: pd.DataFrame) -> pd.DataFrame:
