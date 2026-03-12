@@ -1,0 +1,8 @@
+relationship AutoDetected_34c90a73-093c-478d-a891-6753277fca3c
+	fromColumn: RiverscapeMetricEngine.fcode
+	toColumn: fcodelookup.FCode
+
+relationship 90337928-ce22-96b3-3190-09bdea0b09da
+	fromColumn: RiverscapeMetricEngine.graz_globalid
+	toColumn: 'Grazing Allotments'.globalid
+

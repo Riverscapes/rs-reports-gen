@@ -1,0 +1,690 @@
+table RiverscapeMetricEngine
+	lineageTag: 64a56c84-b5df-4dd5-b1d2-d81e3f34ebf4
+
+	measure 'Total Riverscape Area (m²)' = sum('RiverscapeMetricEngine'[Riverscape Area])
+		formatString: #,0
+		lineageTag: b592f3c8-aa06-43dc-aa33-c2d9cf2bcb18
+
+	measure 'Area per Length (m²/m)' = DIVIDE([Total Riverscape Area (m²)], [Total Centerline (m)])
+		lineageTag: 22eba2c0-c47e-4004-a61e-6cdf080d211f
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Centerline (m)' = sum('RiverscapeMetricEngine'[centerline length])
+		formatString: #,0
+		lineageTag: 29a15c88-78c9-4052-8604-5f45d944323f
+
+	measure 'DGO Count' = COUNTROWS('RiverscapeMetricEngine')
+		formatString: 0
+		lineageTag: ea097bd0-afd9-40ce-b328-d8c32a397fb8
+
+	measure 'Road Density' = divide(sum('RiverscapeMetricEngine'[road_len]),sum('RiverscapeMetricEngine'[centerline length]))
+		lineageTag: b2c50387-bcec-4c9e-900f-d40ff4cc76c9
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Rail Density' = divide(sum('RiverscapeMetricEngine'[rail_len]),sum('RiverscapeMetricEngine'[centerline length]))
+		lineageTag: 27394015-a5ec-4944-8df5-fff2f4a57e6e
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Riverscape Area (mi²)' = sum('RiverscapeMetricEngine'[Riverscape Area])/2589988.11
+		lineageTag: 89f780d2-5c8c-4218-8a8d-f693513ec436
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Centerline (mi)' = sum('RiverscapeMetricEngine'[centerline length])/1609.344
+		lineageTag: 0746bc5a-e541-4ea2-808d-18d2d0ac6fd8
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column level_path
+		dataType: string
+		lineageTag: 8f444158-5076-4b33-8994-3d958f023b66
+		summarizeBy: none
+		sourceColumn: level_path
+
+		annotation SummarizationSetBy = Automatic
+
+	column seg_distance
+		dataType: int64
+		formatString: 0
+		lineageTag: f4dc7537-7a86-4b69-9580-179d605d61e8
+		summarizeBy: sum
+		sourceColumn: seg_distance
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'centerline length'
+		dataType: double
+		lineageTag: 024148de-d00b-4854-a199-a455a019d054
+		summarizeBy: sum
+		sourceColumn: centerline length
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Riverscape Area'
+		dataType: double
+		lineageTag: 650e156c-c8ff-4f9b-b0e3-58bbfb4c8414
+		summarizeBy: sum
+		sourceColumn: Riverscape Area
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column fcode
+		dataType: int64
+		formatString: 0
+		lineageTag: 80249dd4-5cbd-447c-a9e6-5543f3d69c4a
+		summarizeBy: none
+		sourceColumn: fcode
+
+		annotation SummarizationSetBy = Automatic
+
+	column longitude
+		dataType: double
+		lineageTag: b28a0013-8297-499a-9615-4b1d15367228
+		summarizeBy: none
+		sourceColumn: longitude
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column latitude
+		dataType: double
+		lineageTag: 2df288a5-31dd-4a2d-b1da-46c069233a12
+		summarizeBy: none
+		sourceColumn: latitude
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column ownership
+		dataType: string
+		lineageTag: afb2949c-f9ee-48bc-839b-810dd1e0144f
+		summarizeBy: none
+		sourceColumn: ownership
+
+		annotation SummarizationSetBy = Automatic
+
+	column drainage_area
+		dataType: double
+		lineageTag: 497b0b89-25c3-43bf-892e-eb9e271bbb90
+		summarizeBy: sum
+		sourceColumn: drainage_area
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Stream Name'
+		dataType: string
+		lineageTag: 7537b79b-c79c-46a7-8f5b-a5e061536034
+		summarizeBy: none
+		sourceColumn: Stream Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column stream_order
+		dataType: int64
+		formatString: 0
+		lineageTag: fbd75b3d-bed6-4a1a-8f2f-3f135b07127d
+		summarizeBy: sum
+		sourceColumn: stream_order
+
+		annotation SummarizationSetBy = Automatic
+
+	column stream_length
+		dataType: double
+		lineageTag: accb692f-21a4-4f53-9db7-0375f5b47138
+		summarizeBy: sum
+		sourceColumn: stream_length
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column huc12
+		dataType: string
+		lineageTag: bf18a745-d016-4391-b5b8-fb5c7a013d23
+		summarizeBy: none
+		sourceColumn: huc12
+
+		annotation SummarizationSetBy = Automatic
+
+	column channel_area
+		dataType: double
+		lineageTag: e0730a47-b651-45e5-9209-c628426ca34f
+		summarizeBy: sum
+		sourceColumn: channel_area
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column integrated_width
+		dataType: double
+		lineageTag: 2365bab5-c1c8-47fc-a277-a39583a765fa
+		summarizeBy: sum
+		sourceColumn: integrated_width
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column low_lying_ratio
+		dataType: double
+		lineageTag: e11dbd77-0d4a-4dfd-aa6f-5ccdc03b7234
+		summarizeBy: sum
+		sourceColumn: low_lying_ratio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column elevated_ratio
+		dataType: double
+		lineageTag: 6d2cee0c-69e4-40ca-9f2e-5f415eebc2c8
+		summarizeBy: sum
+		sourceColumn: elevated_ratio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column floodplain_ratio
+		dataType: double
+		lineageTag: ef672929-7d5c-4cd6-990a-a25ac7007f8c
+		summarizeBy: sum
+		sourceColumn: floodplain_ratio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Acres of Valley Bottom per Mile'
+		dataType: double
+		lineageTag: decff973-e46b-4565-92ab-a873df53e8d7
+		summarizeBy: sum
+		sourceColumn: Acres of Valley Bottom per Mile
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hect_vb_per_km
+		dataType: double
+		lineageTag: 182234da-e16c-49fb-a82a-b52fb92cb32f
+		summarizeBy: sum
+		sourceColumn: hect_vb_per_km
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'channel width'
+		dataType: double
+		lineageTag: 79368f5a-69b8-4766-9f54-902f69e6bc16
+		summarizeBy: sum
+		sourceColumn: channel width
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column lf_agriculture_prop
+		dataType: double
+		displayFolder: LandFire
+		lineageTag: ffa8f9ec-fdbf-4584-b253-1d708e8b43b5
+		summarizeBy: sum
+		sourceColumn: lf_agriculture_prop
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Agriculture
+		dataType: double
+		displayFolder: LandFire
+		lineageTag: b53f4d7c-2ac2-474e-85f7-361408d2fb7e
+		summarizeBy: sum
+		sourceColumn: Agriculture
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column lf_developed_prop
+		dataType: double
+		displayFolder: LandFire
+		lineageTag: 9f04f1cc-ea39-4b7b-bee5-8785420471e2
+		summarizeBy: sum
+		sourceColumn: lf_developed_prop
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Developed Land Area'
+		dataType: double
+		displayFolder: LandFire
+		lineageTag: 5be26eb1-9bef-4b6f-b6a4-e5bff6a6d54d
+		summarizeBy: sum
+		sourceColumn: Developed Land Area
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column lf_riparian_prop
+		dataType: double
+		displayFolder: LandFire
+		lineageTag: cabb9a45-a872-47ab-8a78-48eb63a1f4a5
+		summarizeBy: sum
+		sourceColumn: lf_riparian_prop
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column lf_riparian
+		dataType: double
+		displayFolder: LandFire
+		lineageTag: 1e0e5a84-62a7-49a2-afbf-d6bebac01c76
+		summarizeBy: sum
+		sourceColumn: lf_riparian
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column ex_riparian
+		dataType: double
+		lineageTag: f9c47aee-afc5-4b73-beb5-1bde471631dc
+		summarizeBy: sum
+		sourceColumn: ex_riparian
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hist_riparian
+		dataType: double
+		lineageTag: 96cdfac9-0d5a-40ea-af7f-a3ae1088ee43
+		summarizeBy: sum
+		sourceColumn: hist_riparian
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column prop_riparian
+		dataType: double
+		lineageTag: 32b28f75-9e00-47c2-8b59-e3274b1aa04b
+		summarizeBy: sum
+		sourceColumn: prop_riparian
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hist_prop_riparian
+		dataType: double
+		lineageTag: 5dbc3ba2-2ce2-47cd-8e07-fd07072f28d8
+		summarizeBy: sum
+		sourceColumn: hist_prop_riparian
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column develop
+		dataType: double
+		lineageTag: 7a785f3b-14f8-4e50-b647-bbe16db3c0cb
+		summarizeBy: sum
+		sourceColumn: develop
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column road_len
+		dataType: double
+		displayFolder: Anthro
+		lineageTag: 079054f1-81cb-4e22-bc1a-59d38f50af2b
+		summarizeBy: sum
+		sourceColumn: road_len
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column road_dens
+		dataType: double
+		displayFolder: Anthro
+		lineageTag: db2b9ca2-8836-45ad-8881-49cb46ecba41
+		summarizeBy: sum
+		sourceColumn: road_dens
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column rail_len
+		dataType: double
+		lineageTag: 80fd01cc-7fef-4109-a367-2aaefd9707df
+		summarizeBy: sum
+		sourceColumn: rail_len
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column rail_dens
+		dataType: double
+		displayFolder: Anthro
+		lineageTag: a015e6cc-354d-4566-be91-ceaaf17bf365
+		summarizeBy: sum
+		sourceColumn: rail_dens
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column land_use_intens
+		dataType: double
+		lineageTag: 2bad0fd3-8abd-4db3-bbfe-4a6e7ee1a0d8
+		summarizeBy: sum
+		sourceColumn: land_use_intens
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column road_dist
+		dataType: double
+		displayFolder: Anthro
+		lineageTag: 2ae2124a-f420-4c53-a61a-cdccc3a8aab1
+		summarizeBy: sum
+		sourceColumn: road_dist
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column rail_dist
+		dataType: double
+		displayFolder: Anthro
+		lineageTag: df9254af-df87-4590-aecf-042a424c939a
+		summarizeBy: sum
+		sourceColumn: rail_dist
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column div_dist
+		dataType: double
+		lineageTag: 11b623e5-dfba-48b1-8124-9ec168dba866
+		summarizeBy: sum
+		sourceColumn: div_dist
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column canal_dist
+		dataType: double
+		lineageTag: 66fc9146-e2fb-4dd7-aa91-41248433b026
+		summarizeBy: sum
+		sourceColumn: canal_dist
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column infra_dist
+		dataType: double
+		lineageTag: e7e35e27-6697-47dc-827d-b7c250d7881a
+		summarizeBy: sum
+		sourceColumn: infra_dist
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column fldpln_access
+		dataType: double
+		lineageTag: e8d67a61-4437-4673-8e82-d3a42638b6c2
+		summarizeBy: sum
+		sourceColumn: fldpln_access
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column access_fldpln_extent
+		dataType: double
+		lineageTag: 15e30ac1-c430-4b39-aef6-fb10f04325a9
+		summarizeBy: sum
+		sourceColumn: access_fldpln_extent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'fldpln_access bin' = ```
+			
+			VAR NumberOfBins = 6
+			VAR BinWidth = 1 / NumberOfBins
+			VAR BinStart = 
+			    // Handle the upper boundary (1.0) as a special case
+			    IF(
+			        'RiverscapeMetricEngine'[fldpln_access] = 1,
+			        1 - BinWidth, // Place it in the last bin (e.g., 80-100%)
+			        FLOOR('RiverscapeMetricEngine'[fldpln_access] / BinWidth, 1) * BinWidth
+			    )
+			RETURN
+			    FORMAT(BinStart, "0%") & " - " & FORMAT(BinStart + BinWidth, "0%")
+			```
+		lineageTag: 0c676e6b-1060-4529-943a-fc059dacfdc5
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Prop Riparian Bin' = ```
+			
+			VAR NumberOfBins = 6
+			VAR BinWidth = 1 / NumberOfBins
+			VAR BinStart = 
+			    // Handle the upper boundary (1.0) as a special case
+			    IF(
+			        'RiverscapeMetricEngine'[prop_riparian] = 1,
+			        1 - BinWidth, // Place it in the last bin (e.g., 80-100%)
+			        FLOOR('RiverscapeMetricEngine'[prop_riparian] / BinWidth, 1) * BinWidth
+			    )
+			RETURN
+			    FORMAT(BinStart, "0%") & " - " & FORMAT(BinStart + BinWidth, "0%")
+			```
+		lineageTag: 9cb1b3c1-8761-43eb-926f-691e37e88cc4
+		summarizeBy: none
+		sortByColumn: 'Prop Riparian 6 bin sort'
+
+		changedProperty = SortByColumn
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Prop Riparian 6 bin sort' =
+			
+			VAR NumberOfBins = 6 // or 10, or 20
+			RETURN
+			    IF(
+			        'RiverscapeMetricEngine'[prop_riparian] = 1,
+			        NumberOfBins - 1,
+			        FLOOR('RiverscapeMetricEngine'[prop_riparian] * NumberOfBins, 1)
+			    )
+		formatString: 0
+		lineageTag: ac576fb6-70aa-427b-8e54-f1140cbe97ef
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Low Lying Ratio Bin' = ```
+			
+			VAR NumberOfBins = 6
+			VAR BinWidth = 1 / NumberOfBins
+			VAR BinStart = 
+			    // Handle the upper boundary (1.0) as a special case
+			    IF(
+			        'RiverscapeMetricEngine'[low_lying_ratio] = 1,
+			        1 - BinWidth, // Place it in the last bin (e.g., 80-100%)
+			        FLOOR('RiverscapeMetricEngine'[low_lying_ratio] / BinWidth, 1) * BinWidth
+			    )
+			RETURN
+			    FORMAT(BinStart, "0%") & " - " & FORMAT(BinStart + BinWidth, "0%")
+			```
+		formatString: 0
+		lineageTag: 4dc30cb8-9eb4-4549-88bd-6dd692e508b7
+		summarizeBy: none
+		sortByColumn: 'Low Lying Ratio Bin sort'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Channel Length' = 'RiverscapeMetricEngine'[rel_flow_length] * 'RiverscapeMetricEngine'[centerline length]
+		lineageTag: 8be3da68-2e66-46a1-9235-9aa6e2627ee9
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Low Lying Ratio Bin sort' =
+			
+			VAR NumberOfBins = 6 // or 10, or 20
+			RETURN
+			    IF(
+			        'RiverscapeMetricEngine'[low_lying_ratio] = 1,
+			        NumberOfBins - 1,
+			        FLOOR('RiverscapeMetricEngine'[low_lying_ratio] * NumberOfBins, 1)
+			    )
+		formatString: 0
+		lineageTag: 45e6bf8d-0909-4722-a4c1-d0adacd268b2
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Land Use Intensity Bin' = ```
+			
+			VAR NumberOfBins = 6
+			VAR BinWidth = 100 / NumberOfBins
+			VAR BinStart = 
+			    // Handle the upper boundary (100) as a special case
+			    IF(
+			        'RiverscapeMetricEngine'[land_use_intens] = 100,
+			        1 - BinWidth, // Place it in the last bin (e.g., 80-100%)
+			        FLOOR('RiverscapeMetricEngine'[land_use_intens] / BinWidth, 1) * BinWidth
+			    )
+			RETURN
+			    FORMAT(BinStart, "0") & " - " & FORMAT(BinStart + BinWidth, "0")
+			```
+		lineageTag: f4ed355c-5128-4d2b-8a2b-aaffd5a40e6e
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column rel_flow_length
+		dataType: double
+		lineageTag: fc7542df-eb42-4aa8-87d8-1ebf5837243c
+		summarizeBy: sum
+		sourceColumn: rel_flow_length
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column state
+		dataType: string
+		lineageTag: 8431fc94-d6ca-4d4d-906d-b376e550d41a
+		summarizeBy: none
+		sourceColumn: state
+
+		annotation SummarizationSetBy = Automatic
+
+	column county
+		dataType: string
+		lineageTag: 6caff27a-d474-40c3-b053-5708c0daabdf
+		summarizeBy: none
+		sourceColumn: county
+
+		annotation SummarizationSetBy = Automatic
+
+	column ownership_desc
+		dataType: string
+		lineageTag: 86c2cba1-3213-4f9b-b06d-935e422759d3
+		summarizeBy: none
+		sourceColumn: ownership_desc
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Proportion Riparian'
+		dataType: string
+		lineageTag: a5df9800-a794-4030-b59d-f2529e4e2432
+		summarizeBy: none
+		sourceColumn: Proportion Riparian
+		sortByColumn: lf_riparian_prop_bin_sort
+
+		changedProperty = SortByColumn
+
+		annotation SummarizationSetBy = Automatic
+
+	column lf_riparian_prop_color
+		dataType: string
+		lineageTag: ff691a86-d2b7-45cd-9cd8-3fb72c053441
+		summarizeBy: none
+		sourceColumn: lf_riparian_prop_color
+
+		annotation SummarizationSetBy = Automatic
+
+	column lf_riparian_prop_bin_sort
+		dataType: int64
+		formatString: 0
+		lineageTag: d4df7ecb-8a0c-432b-b985-3721240b34d3
+		summarizeBy: sum
+		sourceColumn: lf_riparian_prop_bin_sort
+
+		annotation SummarizationSetBy = Automatic
+
+	column graz_globalid
+		dataType: string
+		lineageTag: 3c19352c-c164-4fe1-be90-cb64f98bd507
+		summarizeBy: none
+		sourceColumn: graz_globalid
+
+		annotation SummarizationSetBy = Automatic
+
+	partition RiverscapeMetricEngine = m
+		mode: import
+		source = ```
+				let
+				    Source = Parquet.Document(File.Contents(DataMartRoot & "\exports\dgo.parquet")),
+				    
+				    // Apply original data typing
+				    // Parquet usually detects these, but keeping this step ensures visuals don't break
+				    #"Changed Type" = Table.TransformColumnTypes(Source,{{"level_path", type text}, {"seg_distance", Int64.Type}, {"centerline_length", type number}, {"segment_area", type number}, {"fcode", Int64.Type}, {"longitude", type number}, {"latitude", type number}, {"ownership", type text}, {"state", type text}, {"county", type text}, {"drainage_area", type number}, {"stream_name", type text}, {"stream_order", Int64.Type}, {"stream_length", type number}, {"huc12", type text}, {"rel_flow_length", type number}, {"integrated_width", type number}, {"acres_vb_per_mile", type number}, {"hect_vb_per_km", type number}, {"channel_width", type number}, {"channel_area", type number}, {"lf_agriculture_prop", type number}, {"lf_agriculture", type number}, {"lf_developed_prop", type number}, {"lf_riparian_prop", type number}, {"road_dist", type number}, {"land_use_intens", type number}, {"rail_dens", type number}, {"rail_len", type number}, {"road_dens", type number}, {"road_len", type number}, {"develop", type number}, {"hist_prop_riparian", type number}, {"prop_riparian", type number}, {"hist_riparian", type number}, {"ex_riparian", type number}, {"lf_riparian", type number}, {"infra_dist", type number}, {"riparian_veg_departure", type number}, {"brat_hist_capacity", type number}, {"brat_capacity", type number}, {"confinement_ratio", type number}, {"access_fldpln_extent", type number}, {"fldpln_access", type number}, {"rme_project_id", type text}, {"rme_project_name", type text}, {"riparian_condition", type number}, {"rail_dist", type number}, {"div_dist", type number}, {"canal_dist", type number}, {"floodplain_ratio", type number}, {"elevated_ratio", type number}, {"low_lying_ratio", type number}, {"lf_developed", type number}}),
+				
+				    // Final selection of columns (Matches your original query exactly)
+				    #"Removed Other Columns" = Table.SelectColumns(#"Changed Type",{"level_path", "seg_distance", "centerline_length", "segment_area", "fcode", "longitude", "latitude", "ownership", "ownership_desc", "state", "county", "drainage_area", "stream_name", "stream_order", "stream_length", "huc12", "rel_flow_length", "channel_area", "integrated_width", "low_lying_ratio", "elevated_ratio", "floodplain_ratio", "acres_vb_per_mile", "hect_vb_per_km", "channel_width", "lf_agriculture_prop", "lf_agriculture", "lf_developed_prop", "lf_developed", "lf_riparian_prop", "lf_riparian", "ex_riparian", "hist_riparian", "prop_riparian", "hist_prop_riparian", "develop", "road_len", "road_dens", "rail_len", "rail_dens", "land_use_intens", "road_dist", "rail_dist", "div_dist", "canal_dist", "infra_dist", "fldpln_access", "access_fldpln_extent", "graz_globalid", "lf_riparian_prop_bin", "lf_riparian_prop_color", "lf_riparian_prop_bin_sort"}),
+				    #"Renamed Columns" = Table.RenameColumns(#"Removed Other Columns",{{"segment_area", "Riverscape Area"}, {"stream_name", "Stream Name"}, {"acres_vb_per_mile", "Acres of Valley Bottom per Mile"}, {"lf_agriculture", "Agriculture"}, {"centerline_length", "centerline length"}, {"channel_width", "channel width"}, {"lf_developed", "Developed Land Area"}, {"lf_riparian_prop_bin", "Proportion Riparian"}})
+				in
+				    #"Renamed Columns"
+				```
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

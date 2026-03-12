@@ -1,0 +1,51 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "c806d346d931515b2bd0",
+  "position": {
+    "x": 685.43073742246725,
+    "y": 279.64162646450723,
+    "z": 1001,
+    "height": 359.91729841488632,
+    "width": 431.37146795313578
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "huc10_context"
+                    }
+                  },
+                  "Property": "hucname"
+                }
+              },
+              "queryRef": "huc10_context.hucname",
+              "nativeQueryRef": "hucname"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "huc10_context"
+                    }
+                  },
+                  "Property": "percent_intersection"
+                }
+              },
+              "queryRef": "huc10_context.percent_intersection",
+              "nativeQueryRef": "percent_intersection"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

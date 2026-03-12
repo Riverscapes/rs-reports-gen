@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "4f77ae8dd57b9939b00d",
+  "position": {
+    "x": 40.578911095796,
+    "y": 50.282563749138525,
+    "z": 0,
+    "height": 589.276361130255,
+    "width": 604.27291523087524
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "huc10_context_elevation_bins"
+                    }
+                  },
+                  "Property": "elevation bin (m)"
+                }
+              },
+              "queryRef": "huc10_context_elevation_bins.bin",
+              "nativeQueryRef": "elevation bin (m)",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "huc10_context_elevation_bins"
+                        }
+                      },
+                      "Property": "Total Cell Count"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(huc10_context_elevation_bins.Total Cell Count)",
+              "nativeQueryRef": "Sum of Total Cell Count"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "huc10_context_elevation_bins"
+                  }
+                },
+                "Property": "elevation bin (m)"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ]
+      }
+    },
+    "objects": {
+      "valueAxis": [
+        {
+          "properties": {
+            "titleText": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Relative Area (total cell count)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Elevation Profile (Hypsometry)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

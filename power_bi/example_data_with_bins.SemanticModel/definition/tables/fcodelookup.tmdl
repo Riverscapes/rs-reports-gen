@@ -1,0 +1,43 @@
+table fcodelookup
+	lineageTag: 5d9f4b96-9ac8-4c61-b90b-f2f86c6a6418
+
+	measure 'Location Description' = ```
+			
+			VAR hucs = DISTINCTCOUNT('RiverscapeMetricEngine'[huc12])
+			RETURN 
+			[DGO Count] & " DGOs in HUC " & MIN('RiverscapeMetricEngine'[huc12]) & IF(hucs>1, " and " & hucs-1 & " others","") & " (" & MIN('RiverscapeMetricEngine'[county]) & ", " & MIN ('RiverscapeMetricEngine'[state]) & ")"
+			```
+		lineageTag: 9d501dc8-3cbc-4eae-9c13-bd8abe070247
+
+	column FCode
+		dataType: int64
+		formatString: 0
+		lineageTag: 6ef53cb8-0057-4503-8d85-fae0d9e043ed
+		summarizeBy: none
+		sourceColumn: FCode
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Flow Type'
+		dataType: string
+		lineageTag: 58938030-1e81-4367-9b7f-1eeab28ca870
+		summarizeBy: none
+		sourceColumn: Flow Type
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fcodelookup = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents("C:\nardata\work\reporting\sample_gis\fcodelookup.csv"),[Delimiter=",", Columns=2, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+				    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"FCode", Int64.Type}, {"FCodeDesc", type text}}),
+				    #"Renamed Columns" = Table.RenameColumns(#"Changed Type",{{"FCodeDesc", "Flow Type"}})
+				in
+				    #"Renamed Columns"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+
