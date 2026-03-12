@@ -8,6 +8,7 @@ import sys
 import shutil
 import traceback
 import psutil  # for checking locally
+
 # 3rd party imports
 import pandas as pd
 import geopandas as gpd
@@ -15,10 +16,7 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from util import prepare_gdf_for_athena
-from util.athena import (
-    aoi_query_to_local_parquet,
-    get_field_metadata
-)
+from util.athena import aoi_query_to_local_parquet, get_field_metadata
 from util.html import RSReport
 from util.pandas import load_gdf_from_pq, pprint_df_meta
 from util.pandas import RSFieldMeta
@@ -43,11 +41,7 @@ _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference 
 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
-    raw_table_meta = get_field_metadata(
-        authority='data-exchange-scripts',
-        tool_schema_name='rsdynamics_to_athena',
-        layer_id=["rsdynamics", "rsdynamics_metrics"]
-    )
+    raw_table_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='rsdynamics_to_athena', layer_id=["rsdynamics", "rsdynamics_metrics"])
     _FIELD_META.field_meta = raw_table_meta
 
     create_report_view_metadata()
@@ -73,7 +67,6 @@ def create_report_view_metadata():
         'rd_project_id': 'rsdynamics',
         'centerline_length': 'rsdynamics',
         'segment_area': 'rsdynamics',
-
         # rsdynamics_metrics
         'dgo_id': 'rsdynamics_metrics',
         'landcover': 'rsdynamics_metrics',
@@ -83,7 +76,7 @@ def create_report_view_metadata():
         'area': 'rsdynamics_metrics',
         'areapc': 'rsdynamics_metrics',
         'width': 'rsdynamics_metrics',
-        'widthpc': 'rsdynamics_metrics'
+        'widthpc': 'rsdynamics_metrics',
     }
 
     # Create the View Metadata
@@ -93,23 +86,13 @@ def create_report_view_metadata():
         # Check if we've already defined this view field (idempotency for Singleton)
         if not _FIELD_META.get_field_meta(col, report_view_name):
             try:
-                _FIELD_META.duplicate_meta(
-                    orig_name=col,
-                    orig_layer_id=source_layer_id,
-                    new_name=col,
-                    new_layer_id=report_view_name
-                )
+                _FIELD_META.duplicate_meta(orig_name=col, orig_layer_id=source_layer_id, new_name=col, new_layer_id=report_view_name)
             except Exception as e:
                 # Log warning but continue; allows report to run even if one field is missing metadata
                 log.warning(f"Could not map metadata for view '{report_view_name}': {source_layer_id}.{col} -> {e}")
 
 
-def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.GeoDataFrame,
-                report_dir: Path, report_name: str,
-                include_static: bool = True,
-                include_pdf: bool = True,
-                error_message: str | None = None
-                ):
+def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Path, report_name: str, include_static: bool = True, include_pdf: bool = True, error_message: str | None = None):
     """
     Generates HTML report(s) in report_dir.
     Args:
@@ -130,18 +113,20 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
     appendices = {}
 
     if error_message is None:
-        figures.update({
-            "map": make_aoi_outline_map(aoi_df),
-            "profile-wet": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "wet", "confidence": "95"}),
-            "profile-active": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "active", "confidence": "68"}),
-            "area-histogram-30": area_histogram(dynmetrics),
-            "area-change-vs-baseline": line_change_vs_baseline(gdf, dynmetrics, 'area'),
-            "width-change-vs-baseline": line_change_vs_baseline(gdf, dynmetrics, 'width'),
-            "area-line-5yr": linechart(dynmetrics, 'area'),
-            "areapc-line-5yr": linechart(dynmetrics, 'areapc'),
-            "width-line-5yr": linechart(dynmetrics, 'width'),
-            "widthpc-line-5yr": linechart(dynmetrics, 'widthpc')
-        })
+        figures.update(
+            {
+                "map": make_aoi_outline_map(aoi_df),
+                "profile-wet": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "wet", "confidence": "95"}),
+                "profile-active": longitudinal_profile(gdf, dynmetrics, filters={"landcover": "active", "confidence": "68"}),
+                "area-histogram-30": area_histogram(dynmetrics),
+                "area-change-vs-baseline": line_change_vs_baseline(gdf, dynmetrics, 'area'),
+                "width-change-vs-baseline": line_change_vs_baseline(gdf, dynmetrics, 'width'),
+                "area-line-5yr": linechart(dynmetrics, 'area'),
+                "areapc-line-5yr": linechart(dynmetrics, 'areapc'),
+                "width-line-5yr": linechart(dynmetrics, 'width'),
+                "widthpc-line-5yr": linechart(dynmetrics, 'widthpc'),
+            }
+        )
 
         appendices = {
             "project_ids": project_id_list(gdf, id_col='rd_project_id', name_col='rs_project_name'),
@@ -163,12 +148,12 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
     if error_message:
         report.add_html_elements('error_message', {'text': error_message})
     else:
-        for (name, fig) in figures.items():
+        for name, fig in figures.items():
             report.add_figure(name, fig)
 
         # calculate statistics and make cards
         all_stats = statistics(gdf)
-        metrics_for_key_indicators = ['count_dgos', 'total_segment_area', 'total_centerline_length',  'integrated_valley_bottom_width']
+        metrics_for_key_indicators = ['count_dgos', 'total_segment_area', 'total_centerline_length', 'integrated_valley_bottom_width']
         metric_data_for_key_indicators = {k: all_stats[k] for k in metrics_for_key_indicators if k in all_stats}
 
         report.add_html_elements('cards', metric_cards(metric_data_for_key_indicators))
@@ -192,8 +177,7 @@ def make_report(gdf: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, aoi_df: gpd.Geo
 
 
 def get_report_data(aoi_gdf: gpd.GeoDataFrame, report_dir: Path, parquet_override: Path | None) -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
-    """Get the report data for AOI, either from Athena using the AOI or from parquet files at parquet_override (does not use the AOI)
-    """
+    """Get the report data for AOI, either from Athena using the AOI or from parquet files at parquet_override (does not use the AOI)"""
     log = Logger('Get report data')
     if parquet_override:
         parquet_data_source = Path(parquet_override)
@@ -209,7 +193,8 @@ def get_report_data(aoi_gdf: gpd.GeoDataFrame, report_dir: Path, parquet_overrid
         if simplification_results.simplified:
             log.warning(
                 f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
-                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com.""")
+                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
+            )
 
         log.info("Querying Athena for data for AOI")
 
@@ -252,7 +237,7 @@ SELECT
             )
         )
     ) AS metrics_list
-FROM rsdynamics r
+FROM input_geom, rsdynamics r
 JOIN rsdynamics_metrics m 
     ON (r.rd_project_id = m.rd_project_id AND r.dgo_id = m.dgo_id)
 JOIN data_exchange_projects p
@@ -263,13 +248,7 @@ GROUP BY
     r.dgo_id
 """
 
-        aoi_query_to_local_parquet(
-            query_str,
-            geometry_field_expression='ST_GeomFromBinary(dgo_geom)',
-            geom_bbox_field='dgo_geom_bbox',
-            aoi_gdf=query_gdf,
-            local_path=parquet_data_source
-        )
+        aoi_query_to_local_parquet(query_str, geometry_field_expression='ST_GeomFromBinary(dgo_geom)', geom_bbox_field='dgo_geom_bbox', aoi_gdf=query_gdf, local_path=parquet_data_source)
 
     df_raw = load_gdf_from_pq(parquet_data_source, geometry_col=None)
 
@@ -315,12 +294,16 @@ GROUP BY
     return (df_geo_data, df_metrics)
 
 
-def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: str,
-                             include_pdf: bool = True, unit_system: str = "SI",
-                             parquet_override: Path | None = None,
-                             keep_parquet: bool = False,
-                             ):
-    """ Orchestrates the report generation process:
+def make_report_orchestrator(
+    report_name: str,
+    report_dir: Path,
+    path_to_shape: str,
+    include_pdf: bool = True,
+    unit_system: str = "SI",
+    parquet_override: Path | None = None,
+    keep_parquet: bool = False,
+):
+    """Orchestrates the report generation process:
 
     Args:
         report_name (str): The name of the report.
@@ -390,11 +373,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
 
-    make_report(gdf_dgo, df_metrics, aoi_gdf, report_dir, report_name,
-                include_static=include_pdf,
-                include_pdf=include_pdf,
-                error_message=error_msg
-                )
+    make_report(gdf_dgo, df_metrics, aoi_gdf, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf, error_message=error_msg)
 
     if not keep_parquet and not parquet_override:
         try:
@@ -409,26 +388,15 @@ def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: 
 
 
 def main():
-    """ Main function to parse arguments and generate the report
-    """
+    """Main function to parse arguments and generate the report"""
     parser = argparse.ArgumentParser()
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
-    parser.add_argument(
-        '--use-parquet',
-        dest='parquet_path',
-        type=Path,
-        default=None,
-        help='Use an existing Parquet file or directory instead of running the Athena AOI query'
-    )
-    parser.add_argument(
-        '--keep-parquet',
-        action='store_true',
-        help='Keep the downloaded AOI Parquet files instead of deleting the pq folder'
-    )
+    parser.add_argument('--use-parquet', dest='parquet_path', type=Path, default=None, help='Use an existing Parquet file or directory instead of running the Athena AOI query')
+    parser.add_argument('--keep-parquet', action='store_true', help='Keep the downloaded AOI Parquet files instead of deleting the pq folder')
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -448,14 +416,15 @@ def main():
     log.info(f"Report Version: {report_version}")
 
     try:
-        make_report_orchestrator(args.report_name,
-                                 output_path,
-                                 args.path_to_shape,
-                                 args.include_pdf,
-                                 args.unit_system,
-                                 parquet_override=args.parquet_path,
-                                 keep_parquet=args.keep_parquet,
-                                 )
+        make_report_orchestrator(
+            args.report_name,
+            output_path,
+            args.path_to_shape,
+            args.include_pdf,
+            args.unit_system,
+            parquet_override=args.parquet_path,
+            keep_parquet=args.keep_parquet,
+        )
 
         # While we work on performance, this is helpful
         process = psutil.Process(os.getpid())
