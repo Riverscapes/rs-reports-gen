@@ -106,6 +106,7 @@ class FieldMetaValues:
         "no_convert",
         "description",
         "preferred_format",
+        "theme",
     ]
 
     def __init__(self):
@@ -118,13 +119,15 @@ class FieldMetaValues:
         self.no_convert: bool = False
         self.description: str = ""
         self.preferred_format: str = ""
+        self.theme: str = ""
 
     # Make it printable for easier debugging
     def __repr__(self):
         return (
             f"FieldMetaValues(layer_id='{self.layer_id}', name='{self.name}', friendly_name='{self.friendly_name}', "
             f"data_unit='{self.data_unit}', display_unit='{self.display_unit}', "
-            f"dtype='{self.dtype}', no_convert={self.no_convert}, preferred_format='{self.preferred_format}')"
+            f"dtype='{self.dtype}', no_convert={self.no_convert}, preferred_format='{self.preferred_format}', "
+            f"theme='{self.theme}')"
         )
 
 
@@ -320,6 +323,7 @@ class RSFieldMeta:
         no_convert: bool = False,
         description: str = "",
         preferred_format: str | None = None,
+        theme: str = "",
     ):
         """Add a new column to the metadata DataFrame if it does not already exist.
 
@@ -333,6 +337,7 @@ class RSFieldMeta:
             no_convert: If True, values stay in `display_unit`/`data_unit` order without conversion.
             description: Tooltip/help text exposed to end users.
             preferred_format: Optional Python format string for formatting magnitudes.
+            theme: Grouping/folder label for the field (e.g. display folder in Power BI).
 
         TODO: make layer_id mandatory for all metadata rows.
         """
@@ -357,6 +362,7 @@ class RSFieldMeta:
         self._field_meta.loc[unique_id, "no_convert"] = bool(no_convert)
         self._field_meta.loc[unique_id, "description"] = description
         self._field_meta.loc[unique_id, "preferred_format"] = preferred_format
+        self._field_meta.loc[unique_id, "theme"] = theme
 
     def _no_data_warning(self):
         """Warn if no metadata is set."""
@@ -451,6 +457,7 @@ class RSFieldMeta:
         new_dtype: str | None = None,
         new_no_convert: bool | None = None,
         new_preferred_format: str | None = None,
+        new_theme: str | None = None,
     ) -> FieldMetaValues | None:
         """Duplicate a row of the metadata table, optionally overriding fields.
 
@@ -499,6 +506,7 @@ class RSFieldMeta:
             no_convert=new_no_convert if new_no_convert is not None else fm.no_convert,
             description=new_description if new_description is not None else fm.description,
             preferred_format=new_preferred_format if new_preferred_format is not None else fm.preferred_format,
+            theme=new_theme if new_theme is not None else fm.theme,
         )
 
         self._log.info(f"Duplicated metadata from '{orig_id}' to '{new_id}'.")
@@ -537,6 +545,7 @@ class RSFieldMeta:
         meta_values.no_convert = bool(meta_row.get("no_convert", False))
         meta_values.description = str(meta_row.get("description", ''))
         meta_values.preferred_format = str(meta_row.get("preferred_format", '') or '')
+        meta_values.theme = str(meta_row.get('theme', '') or '')
         return meta_values
 
     def get_friendly_name(self, column_name: str, layer_id: str | None = None) -> str:
@@ -691,6 +700,10 @@ class RSFieldMeta:
     def set_preferred_format(self, col, preferred_format, layer_id: str | None = None):
         """Set the preferred format for a column in the metadata."""
         self.__set_value(col, "preferred_format", preferred_format, layer_id)
+
+    def set_theme(self, col, theme, layer_id: str | None = None):
+        """Set the theme (display folder / grouping label) for a column in the metadata."""
+        self.__set_value(col, "theme", theme, layer_id)
 
     @staticmethod
     def _resolve_layer_context(df: pd.DataFrame | None, layer_id: str | None) -> str | None:
