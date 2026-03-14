@@ -11,7 +11,13 @@ Enhance the Python metadata export to include `theme`, `preferred_format`, and r
 
 2. **Inherit `theme` in `apply_all_bins`**: When `apply_all_bins` registers `_bin`, `_color`, and `_bin_sort` columns via `meta.add_field_meta(...)`, pass `theme=source_theme` so derived columns group with their parent.
 
-3. **Add resolved `export_unit` to data dictionary**:  Update `export_data_dictionary` to accept a new `applied_units: dict[str, pint.Unit | None]` parameter and output `theme`, `preferred_format`, and a new `export_unit` column. `export_unit` is sourced from the `applied_units` dict returned by `RSFieldMeta.apply_units()` — this is the authoritative record of what unit each column's data was actually converted to, accounting for `display_unit` overrides, unit system preferences, and `no_convert` flags. The `data_unit` (to be renamed `original_data_unit`) and `display_unit` columns remain in the CSV for provenance. Columns not in `applied_units` (e.g., bin columns added after `apply_units`) get an empty `export_unit`.
+3. **Add resolved `export_unit` to data dictionary**:  Restructure `export_data_dictionary` to accept per-table applied-units alongside each DataFrame, and output `theme`, `preferred_format`, and a new `export_unit` column.
+
+   **Signature change**: Replace the flat `tables: dict[str, pd.DataFrame]` with `tables: dict[str, TableEntry]`, where `TableEntry` is a `NamedTuple(df, applied_units)`.  Each table's `applied_units` dict (column_name → pint.Unit | None) comes from the return value of `RSFieldMeta.apply_units()` and is the authoritative record of what unit each column's data was actually converted to. Tables without unit processing pass an empty dict.
+
+   **Layer-id resolution**: Inside the per-table loop, resolve `layer_id` from `df.attrs["layer_id"]` (using `RSFieldMeta._resolve_layer_context`) and pass it to `get_field_meta(col, layer_id)` for disambiguation.  This mirrors the pattern `apply_units` already uses.
+
+   `export_unit` is populated per-table from that table's `applied_units` dict — no cross-table key collision possible.  The `data_unit` and `display_unit` columns remain in the CSV for provenance.  Columns not in `applied_units` (e.g., bin columns added after `apply_units`) get an empty `export_unit`.
 
 4. **Update tests**: Update assertions in `test_apply_all_bins.py` (and any other tests checking the data dictionary CSV schema) to expect the new columns.
 
@@ -77,20 +83,33 @@ Enhance the Python metadata export to include `theme`, `preferred_format`, and r
 
 ### Phase 4: Unit Handling & main.py Plumbing
 
-Wire up `apply_units` for all tables and propagate the applied-units dicts through to the data dictionary:
+Wire up `apply_units` for all tables and build per-table `TableEntry` objects for the data dictionary:
 
 1. **Capture applied_units for DGO**: Change `dgo_df, _ = RSFieldMeta().apply_units(dgo_df)` to `dgo_df, dgo_applied_units = RSFieldMeta().apply_units(dgo_df)`.
 2. **Call `apply_units` on HUC and Grazing**: Even if they currently have few unit-bearing columns, `apply_units` also coerces dtypes (string, int, float) and future-proofs the pipeline:
    ```python
    huc_df, huc_applied_units = RSFieldMeta().apply_units(huc_df)
    grazing_df, grazing_applied_units = RSFieldMeta().apply_units(grazing_df)
-3. Merge and pass to export_data_dictionary:
-```python
-all_applied_units = {**dgo_applied_units, **huc_applied_units, **grazing_applied_units}
-export_data_dictionary(all_tables, dict_path, applied_units=all_applied_units)
-```
-4. Review and expand set_display_unit calls in rpt_data_mart/main.py for any columns that should have user-facing unit labels different from data_unit.
-5. Unit abbreviation for PBI column names: The applied_units dict contains pint.Unit objects. The PBIP script formats them with Pint's compact notation (`f"{unit:~P}"` → km, m²) for column display names. The data dictionary stores the full unit name for provenance; abbreviation happens at PBIP generation time.
+   ```
+3. **Build `TableEntry` per table and pass to `export_data_dictionary`**:
+   ```python
+   from util.metadata_export import export_data_dictionary, TableEntry
+   all_tables: dict[str, TableEntry] = {
+       "dgo": TableEntry(df=dgo_df, applied_units=dgo_applied_units),
+       "huc": TableEntry(df=huc_df, applied_units=huc_applied_units),
+       "grazing": TableEntry(df=grazing_df, applied_units=grazing_applied_units),
+   }
+   export_data_dictionary(all_tables, dict_path)
+   ```
+   Each table's `applied_units` stays coupled with its DataFrame — no cross-table key collision.
+4. **Update `export_data_dictionary` signature and `layer_id` resolution**:
+   - Change `tables` parameter type from `dict[str, pd.DataFrame]` to `dict[str, TableEntry]`.
+   - Inside the per-table loop, resolve `layer_id` from `entry.df.attrs["layer_id"]` via `RSFieldMeta._resolve_layer_context(entry.df, None)`.
+   - Pass `layer_id` to `meta.get_field_meta(col, layer_id)` for disambiguation.
+   - Look up `export_unit` from `entry.applied_units.get(col)` — scoped to that table.
+5. Review and expand `set_display_unit` calls in `rpt_data_mart/main.py` for any columns that should have user-facing unit labels different from `data_unit`.
+6. **Unit abbreviation for PBI column names**: The `applied_units` dict contains `pint.Unit` objects. The PBIP script formats them with Pint's compact notation (`f"{unit:~P}"` → km, m²) for column display names. The data dictionary stores the full unit name for provenance; abbreviation happens at PBIP generation time.
+7. **Update tests**: Existing tests that call `export_data_dictionary` with a plain `dict[str, pd.DataFrame]` must be updated to use `TableEntry` (with `applied_units={}` for tables that don't go through `apply_units`).
 
 
 
@@ -102,11 +121,11 @@ export_data_dictionary(all_tables, dict_path, applied_units=all_applied_units)
 |------|--------|
 | `src/util/pandas/RSFieldMeta.py` | Add `theme` to `VALID_COLUMNS`, `FieldMetaValues`, `add_field_meta`, `get_field_meta` |
 | `src/util/rme/rme_common_dataprep.py` | Pass `theme` in `apply_all_bins` metadata registration |
-| `src/util/metadata_export.py` | Add `theme`, `preferred_format`, `export_unit` to CSV output |
+| `src/util/metadata_export.py` | Add `TableEntry` NamedTuple; restructure `export_data_dictionary` to accept `dict[str, TableEntry]`; resolve `layer_id` from `df.attrs`; add `theme`, `preferred_format`, `export_unit` to CSV output |
 | `scripts/update_pbi_model.py` | **New** — reads data dictionary, generates TMDL files |
-| `tests/test_apply_all_bins.py` | Update data dictionary assertions for new columns |
+| `tests/test_apply_all_bins.py` | Update data dictionary assertions for new columns; update calls to use `TableEntry` |
 | `tests/test_pbi_format_translation.py` | **New** — format translation tests |
-| `src/reports/rpt_data_mart/main.py` | Capture applied_units dicts, call apply_units on all tables, pass to export_data_dictionary |
+| `src/reports/rpt_data_mart/main.py` | Capture applied_units dicts, call apply_units on all tables, build `TableEntry` per table, pass to export_data_dictionary |
 
 ---
 
@@ -133,6 +152,7 @@ export_data_dictionary(all_tables, dict_path, applied_units=all_applied_units)
 - **`\r\n` line endings**: Required for Power BI Desktop compatibility.
 - **Deterministic UUID v5 lineageTags**: Hash-based GUIDs from stable identifiers (table + raw column name). Idempotent output, free lineageTag preservation across regenerations.
 - **Accept duplicate-meta risk for bins**: `add_field_meta` rejects duplicates; accepted since bin columns are generated fresh each run.
+- **Per-table `TableEntry` for data dictionary**: `export_data_dictionary` accepts `dict[str, TableEntry]` where `TableEntry = NamedTuple(df, applied_units)`. This keeps each table's applied units scoped to its DataFrame, avoids cross-table key collisions, and is a step toward DataFrame-local metadata without requiring a full architectural rethink.
 
 ---
 
@@ -141,3 +161,4 @@ export_data_dictionary(all_tables, dict_path, applied_units=all_applied_units)
 - **Programmatic DAX measures**: Generate measures from metadata in a future phase.
 - **DataMartRoot default value**: Set a sensible default or empty string so PBI always prompts.
 - **Relationship auto-generation**: Derive relationships from foreign key conventions in the data dictionary.
+- **DataFrame-local metadata**: Move away from the Borg singleton toward DataFrames maintaining their own metadata (e.g. via `df.attrs`). The Athena-sourced registry would remain the initial source of truth, but post-processing steps (unit conversion, calculated columns, bins) would write metadata back into the DataFrame rather than a global store. This would make column provenance explicit per-table and eliminate ambiguity issues. The current `attrs["layer_id"]` and per-table `TableEntry.applied_units` patterns are steps in this direction.
