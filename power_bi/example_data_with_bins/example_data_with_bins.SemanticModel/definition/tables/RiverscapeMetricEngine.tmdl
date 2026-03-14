@@ -10,7 +10,7 @@ table RiverscapeMetricEngine
 
 		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
-	measure 'Total Centerline (m)' = sum('RiverscapeMetricEngine'[centerline length])
+	measure 'Total Centerline (m)' = sum('RiverscapeMetricEngine'[centerline length 957])
 		formatString: #,0
 		lineageTag: 29a15c88-78c9-4052-8604-5f45d944323f
 
@@ -18,12 +18,12 @@ table RiverscapeMetricEngine
 		formatString: 0
 		lineageTag: ea097bd0-afd9-40ce-b328-d8c32a397fb8
 
-	measure 'Road Density' = divide(sum('RiverscapeMetricEngine'[road_len]),sum('RiverscapeMetricEngine'[centerline length]))
+	measure 'Road Density' = divide(sum('RiverscapeMetricEngine'[road_len]),sum('RiverscapeMetricEngine'[centerline length 957]))
 		lineageTag: b2c50387-bcec-4c9e-900f-d40ff4cc76c9
 
 		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
-	measure 'Rail Density' = divide(sum('RiverscapeMetricEngine'[rail_len]),sum('RiverscapeMetricEngine'[centerline length]))
+	measure 'Rail Density' = divide(sum('RiverscapeMetricEngine'[rail_len]),sum('RiverscapeMetricEngine'[centerline length 957]))
 		lineageTag: 27394015-a5ec-4944-8df5-fff2f4a57e6e
 
 		annotation PBI_FormatHint = {"isGeneralNumber":true}
@@ -33,7 +33,7 @@ table RiverscapeMetricEngine
 
 		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
-	measure 'Total Centerline (mi)' = sum('RiverscapeMetricEngine'[centerline length])/1609.344
+	measure 'Total Centerline (mi)' = sum('RiverscapeMetricEngine'[centerline length 957])/1609.344
 		lineageTag: 0746bc5a-e541-4ea2-808d-18d2d0ac6fd8
 
 		annotation PBI_FormatHint = {"isGeneralNumber":true}
@@ -55,11 +55,12 @@ table RiverscapeMetricEngine
 
 		annotation SummarizationSetBy = Automatic
 
-	column 'centerline length'
+	/// caterpillars
+	column 'centerline length 957'
 		dataType: double
 		lineageTag: 024148de-d00b-4854-a199-a455a019d054
 		summarizeBy: sum
-		sourceColumn: centerline length
+		sourceColumn: centerline length 957
 
 		annotation SummarizationSetBy = Automatic
 
@@ -438,6 +439,7 @@ table RiverscapeMetricEngine
 
 		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
+	/// penguins
 	column canal_dist
 		dataType: double
 		lineageTag: 66fc9146-e2fb-4dd7-aa91-41248433b026
@@ -555,7 +557,7 @@ table RiverscapeMetricEngine
 
 		annotation SummarizationSetBy = Automatic
 
-	column 'Channel Length' = 'RiverscapeMetricEngine'[rel_flow_length] * 'RiverscapeMetricEngine'[centerline length]
+	column 'Channel Length' = 'RiverscapeMetricEngine'[rel_flow_length] * 'RiverscapeMetricEngine'[centerline length 957]
 		lineageTag: 8be3da68-2e66-46a1-9235-9aa6e2627ee9
 		summarizeBy: sum
 
@@ -679,7 +681,7 @@ table RiverscapeMetricEngine
 				
 				    // Final selection of columns (Matches your original query exactly)
 				    #"Removed Other Columns" = Table.SelectColumns(#"Changed Type",{"level_path", "seg_distance", "centerline_length", "segment_area", "fcode", "longitude", "latitude", "ownership", "ownership_desc", "state", "county", "drainage_area", "stream_name", "stream_order", "stream_length", "huc12", "rel_flow_length", "channel_area", "integrated_width", "low_lying_ratio", "elevated_ratio", "floodplain_ratio", "acres_vb_per_mile", "hect_vb_per_km", "channel_width", "lf_agriculture_prop", "lf_agriculture", "lf_developed_prop", "lf_developed", "lf_riparian_prop", "lf_riparian", "ex_riparian", "hist_riparian", "prop_riparian", "hist_prop_riparian", "develop", "road_len", "road_dens", "rail_len", "rail_dens", "land_use_intens", "road_dist", "rail_dist", "div_dist", "canal_dist", "infra_dist", "fldpln_access", "access_fldpln_extent", "graz_globalid", "lf_riparian_prop_bin", "lf_riparian_prop_color", "lf_riparian_prop_bin_sort"}),
-				    #"Renamed Columns" = Table.RenameColumns(#"Removed Other Columns",{{"segment_area", "Riverscape Area"}, {"stream_name", "Stream Name"}, {"acres_vb_per_mile", "Acres of Valley Bottom per Mile"}, {"lf_agriculture", "Agriculture"}, {"centerline_length", "centerline length"}, {"channel_width", "channel width"}, {"lf_developed", "Developed Land Area"}, {"lf_riparian_prop_bin", "Proportion Riparian"}})
+				    #"Renamed Columns" = Table.RenameColumns(#"Removed Other Columns",{{"segment_area", "Riverscape Area"}, {"stream_name", "Stream Name"}, {"acres_vb_per_mile", "Acres of Valley Bottom per Mile"}, {"lf_agriculture", "Agriculture"}, {"centerline_length", "centerline length 957"}, {"channel_width", "channel width"}, {"lf_developed", "Developed Land Area"}, {"lf_riparian_prop_bin", "Proportion Riparian"}})
 				in
 				    #"Renamed Columns"
 				```
