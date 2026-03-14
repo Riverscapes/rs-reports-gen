@@ -110,6 +110,7 @@ def _normalise_registry_dtype(registry_dtype: str) -> str:
 def export_data_dictionary(
     tables: dict[str, pd.DataFrame],
     output_path: Path,
+    applied_units: dict[str, "pint.Unit | None"] | None = None,
 ) -> Path:
     """Write a CSV data dictionary describing columns across one or more tables.
 
@@ -118,18 +119,24 @@ def export_data_dictionary(
     the RSFieldMeta singleton where available.
 
     Output columns:
-        table_name     – the dict key identifying the source table
-        column_name    – from df.columns (ground truth)
-        friendly_name  – RSFieldMeta or Title Case fallback
-        description    – RSFieldMeta or empty
-        data_unit      – RSFieldMeta
-        display_unit   – RSFieldMeta
-        dtype          – logical type from the standard enum
-        in_registry    – True if RSFieldMeta had metadata for this column
+        table_name      – the dict key identifying the source table
+        column_name     – from df.columns (ground truth)
+        friendly_name   – RSFieldMeta or Title Case fallback
+        description     – RSFieldMeta or empty
+        data_unit       – RSFieldMeta (original unit on ingested data)
+        display_unit    – RSFieldMeta (explicit display-unit override)
+        export_unit     – resolved unit the data was actually converted to
+        dtype           – logical type from the standard enum
+        preferred_format – Python format string from RSFieldMeta
+        theme           – grouping / display-folder label from RSFieldMeta
+        in_registry     – True if RSFieldMeta had metadata for this column
 
     Args:
         tables: Mapping of table name → DataFrame.
         output_path: Path to write the CSV to.
+        applied_units: Optional mapping of column name → pint.Unit (or None)
+            as returned by ``RSFieldMeta.apply_units()``.  Used to populate
+            the ``export_unit`` column.
 
     Returns:
         The output_path that was written.
@@ -138,6 +145,8 @@ def export_data_dictionary(
     """
     log = Logger("Data Dictionary")
     meta = RSFieldMeta()
+    if applied_units is None:
+        applied_units = {}
     rows: list[dict] = []
 
     for table_name, df in tables.items():
@@ -151,12 +160,20 @@ def export_data_dictionary(
                 data_unit = str(fm.data_unit) if fm.data_unit else ""
                 display_unit = str(fm.display_unit) if fm.display_unit else ""
                 dtype = _normalise_registry_dtype(fm.dtype) if fm.dtype else _infer_logical_type(df[col])
+                preferred_format = fm.preferred_format or ""
+                theme = fm.theme or ""
             else:
                 friendly = col.replace("_", " ").title()
                 desc = ""
                 data_unit = ""
                 display_unit = ""
                 dtype = _infer_logical_type(df[col])
+                preferred_format = ""
+                theme = ""
+
+            # Resolve export_unit from applied_units dict
+            au = applied_units.get(col)
+            export_unit = str(au) if au else ""
 
             rows.append(
                 {
@@ -166,7 +183,10 @@ def export_data_dictionary(
                     "description": desc,
                     "data_unit": data_unit,
                     "display_unit": display_unit,
+                    "export_unit": export_unit,
                     "dtype": dtype,
+                    "preferred_format": preferred_format,
+                    "theme": theme,
                     "in_registry": has_meta,
                 }
             )

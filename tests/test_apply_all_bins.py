@@ -130,7 +130,10 @@ class TestExportDataDictionary:
             "description",
             "data_unit",
             "display_unit",
+            "export_unit",
             "dtype",
+            "preferred_format",
+            "theme",
             "in_registry",
         }
         assert list(result["column_name"]) == ["low_lying_ratio", "some_text"]

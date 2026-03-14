@@ -236,23 +236,28 @@ def apply_all_bins(
 
         # Register metadata so the data dictionary picks up these columns
         source_friendly = meta.get_friendly_name(col)
+        source_fm = meta.get_field_meta(col)
+        source_theme = source_fm.theme if source_fm else ""
         meta.add_field_meta(
             name=bin_col,
             friendly_name=f'{source_friendly} (bin)',
             description=f'Categorical bin label for {source_friendly}, derived from bins.json',
             dtype='TEXT',
+            theme=source_theme,
         )
         meta.add_field_meta(
             name=color_col,
             friendly_name=f'{source_friendly} (color)',
             description=f'Hex colour for the bin, use with Power BI conditional formatting "Format by field value"',
             dtype='TEXT',
+            theme=source_theme,
         )
         meta.add_field_meta(
             name=sort_col,
             friendly_name=f'{source_friendly} (sort)',
             description=f'Sort order integer for {bin_col}; use Power BI "Sort by Column" on {bin_col}',
             dtype='INTEGER',
+            theme=source_theme,
         )
 
         log.debug(f"Added {bin_col}, {color_col}, {sort_col} ({len(labels)} bins)")
