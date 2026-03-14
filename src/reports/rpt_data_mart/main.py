@@ -28,7 +28,7 @@ from reports.rpt_data_mart import __version__ as report_version
 from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols  # TODO no-cross-report imports
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
-from util.metadata_export import export_data_dictionary
+from util.metadata_export import TableEntry, export_data_dictionary
 from util.pandas import RSFieldMeta, load_gdf_from_pq
 from util.rme.rme_common_dataprep import apply_all_bins
 
@@ -252,29 +252,29 @@ def export_data_mart(
         log.info("Field metadata loaded.")
 
     # ---- Load, process, and export each dataset ----
-    all_tables: dict[str, pd.DataFrame] = {}
+    all_tables: dict[str, TableEntry] = {}
 
     # DGO: calculated cols → units → bins
     dgo_staging = Path(parquet_override) if parquet_override else staging_dir / "dgo"
     dgo_df = load_gdf_from_pq(dgo_staging)
     dgo_df = add_calculated_rme_cols(dgo_df)
-    dgo_df, _ = RSFieldMeta().apply_units(dgo_df)
+    dgo_df, dgo_applied_units = RSFieldMeta().apply_units(dgo_df)
     dgo_df = apply_all_bins(dgo_df)
     log.info(f"DGO enriched: {len(dgo_df)} rows, {len(dgo_df.columns)} cols")
     _export_parquet(dgo_df, exports_dir / "dgo.parquet")
-    all_tables["dgo"] = dgo_df
+    all_tables["dgo"] = TableEntry(df=dgo_df, applied_units=dgo_applied_units)
 
     # HUC
     huc_df = load_gdf_from_pq(staging_dir / "huc")
     log.info(f"HUC loaded: {len(huc_df)} rows, {len(huc_df.columns)} cols")
     _export_parquet(huc_df, exports_dir / "huc.parquet")
-    all_tables["huc"] = huc_df
+    all_tables["huc"] = TableEntry(df=huc_df)
 
     # Grazing
     grazing_df = load_gdf_from_pq(staging_dir / "grazing")
     log.info(f"Grazing loaded: {len(grazing_df)} rows, {len(grazing_df.columns)} cols")
     _export_parquet(grazing_df, exports_dir / "grazing.parquet")
-    all_tables["grazing"] = grazing_df
+    all_tables["grazing"] = TableEntry(df=grazing_df)
 
     # ---- Data dictionary covering all datasets ----
     dict_path = report_dir / "data_dictionary.csv"

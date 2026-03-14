@@ -8,13 +8,30 @@ Copilot-generated module.
 """
 
 from pathlib import Path
+from typing import NamedTuple
 
 import geopandas as gpd
 import pandas as pd
+import pint
 import pint_pandas
 from rsxml import Logger
 
 from util.pandas import RSFieldMeta
+
+
+class TableEntry(NamedTuple):
+    """A DataFrame bundled with its per-column applied units.
+
+    Attributes:
+        df: The DataFrame containing the table data.
+        applied_units: Mapping of column name → resolved pint.Unit (or None),
+            as returned by ``RSFieldMeta.apply_units()``.  Pass an empty dict
+            for tables that haven't been through unit conversion.
+    """
+
+    df: pd.DataFrame
+    applied_units: dict[str, pint.Unit | None] = {}
+
 
 # Logical type enum matching the schema used by the metadata registry.
 LOGICAL_TYPES = frozenset(
@@ -108,15 +125,16 @@ def _normalise_registry_dtype(registry_dtype: str) -> str:
 
 
 def export_data_dictionary(
-    tables: dict[str, pd.DataFrame],
+    tables: dict[str, TableEntry],
     output_path: Path,
-    applied_units: dict[str, "pint.Unit | None"] | None = None,
 ) -> Path:
     """Write a CSV data dictionary describing columns across one or more tables.
 
-    For each (table_name, DataFrame) pair, iterates the **actual columns**
+    For each (table_name, TableEntry) pair, iterates the **actual columns**
     in the DataFrame (ground truth) and enriches each with metadata from
-    the RSFieldMeta singleton where available.
+    the RSFieldMeta singleton where available.  ``layer_id`` is resolved from
+    ``df.attrs["layer_id"]`` when present, mirroring ``apply_units`` behaviour,
+    so that columns with the same name in different layers are disambiguated.
 
     Output columns:
         table_name      – the dict key identifying the source table
@@ -132,11 +150,8 @@ def export_data_dictionary(
         in_registry     – True if RSFieldMeta had metadata for this column
 
     Args:
-        tables: Mapping of table name → DataFrame.
+        tables: Mapping of table name → TableEntry(df, applied_units).
         output_path: Path to write the CSV to.
-        applied_units: Optional mapping of column name → pint.Unit (or None)
-            as returned by ``RSFieldMeta.apply_units()``.  Used to populate
-            the ``export_unit`` column.
 
     Returns:
         The output_path that was written.
@@ -145,13 +160,15 @@ def export_data_dictionary(
     """
     log = Logger("Data Dictionary")
     meta = RSFieldMeta()
-    if applied_units is None:
-        applied_units = {}
     rows: list[dict] = []
 
-    for table_name, df in tables.items():
+    for table_name, entry in tables.items():
+        df = entry.df
+        table_applied_units = entry.applied_units or {}
+        layer_id = RSFieldMeta._resolve_layer_context(df, None)
+
         for col in df.columns:
-            fm = meta.get_field_meta(col)
+            fm = meta.get_field_meta(col, layer_id)
             has_meta = fm is not None and bool(fm.friendly_name)
 
             if has_meta:
@@ -171,8 +188,8 @@ def export_data_dictionary(
                 preferred_format = ""
                 theme = ""
 
-            # Resolve export_unit from applied_units dict
-            au = applied_units.get(col)
+            # Resolve export_unit from this table's applied_units
+            au = table_applied_units.get(col)
             export_unit = str(au) if au else ""
 
             rows.append(
