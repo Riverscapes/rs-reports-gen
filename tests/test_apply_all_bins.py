@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import Point
 
 from util.metadata_export import (
+    TableEntry,
     _infer_logical_type,
     _normalise_registry_dtype,
     export_data_dictionary,
@@ -121,7 +122,7 @@ class TestExportDataDictionary:
     def test_writes_csv_with_expected_columns(self, tmp_path):
         df = pd.DataFrame({"low_lying_ratio": [0.1], "some_text": ["hello"]})
         out = tmp_path / "dd.csv"
-        export_data_dictionary({"tbl": df}, out)
+        export_data_dictionary({"tbl": TableEntry(df=df)}, out)
         result = pd.read_csv(out)
         assert set(result.columns) == {
             "table_name",
@@ -143,7 +144,7 @@ class TestExportDataDictionary:
         df = pd.DataFrame({"low_lying_ratio": [0.05, 0.30]})
         df = apply_all_bins(df, {"low_lying_ratio": "low_lying_ratio"})
         out = tmp_path / "dd.csv"
-        export_data_dictionary({"dgo": df}, out)
+        export_data_dictionary({"dgo": TableEntry(df=df)}, out)
         result = pd.read_csv(out)
         col_names = set(result["column_name"])
         assert "low_lying_ratio_bin" in col_names
@@ -158,7 +159,7 @@ class TestExportDataDictionary:
     def test_one_row_per_column(self, tmp_path):
         df = pd.DataFrame({"a": [1], "b": [2], "c": [3]})
         out = tmp_path / "dd.csv"
-        export_data_dictionary({"t": df}, out)
+        export_data_dictionary({"t": TableEntry(df=df)}, out)
         result = pd.read_csv(out)
         assert len(result) == 3
 
@@ -166,7 +167,7 @@ class TestExportDataDictionary:
         df1 = pd.DataFrame({"x": [1]})
         df2 = pd.DataFrame({"y": ["hello"], "z": [True]})
         out = tmp_path / "dd.csv"
-        export_data_dictionary({"fact": df1, "dim": df2}, out)
+        export_data_dictionary({"fact": TableEntry(df=df1), "dim": TableEntry(df=df2)}, out)
         result = pd.read_csv(out)
         assert len(result) == 3
         assert set(result["table_name"]) == {"fact", "dim"}
@@ -174,7 +175,7 @@ class TestExportDataDictionary:
     def test_in_registry_false_for_unknown_columns(self, tmp_path):
         df = pd.DataFrame({"totally_unknown_xyz": [42]})
         out = tmp_path / "dd.csv"
-        export_data_dictionary({"t": df}, out)
+        export_data_dictionary({"t": TableEntry(df=df)}, out)
         result = pd.read_csv(out)
         assert result["in_registry"].iloc[0] == False
 
@@ -188,7 +189,7 @@ class TestExportDataDictionary:
             }
         )
         out = tmp_path / "dd.csv"
-        export_data_dictionary({"t": df}, out)
+        export_data_dictionary({"t": TableEntry(df=df)}, out)
         result = pd.read_csv(out)
         type_map = dict(zip(result["column_name"], result["dtype"]))
         assert type_map["an_int"] == "INTEGER"
@@ -199,7 +200,7 @@ class TestExportDataDictionary:
     def test_geometry_column(self, tmp_path):
         gdf = gpd.GeoDataFrame({"val": [1]}, geometry=[Point(0, 0)])
         out = tmp_path / "dd.csv"
-        export_data_dictionary({"geo": gdf}, out)
+        export_data_dictionary({"geo": TableEntry(df=gdf)}, out)
         result = pd.read_csv(out)
         geom_row = result[result["column_name"] == "geometry"]
         assert geom_row["dtype"].iloc[0] == "GEOMETRY"
