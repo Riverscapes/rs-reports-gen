@@ -51,7 +51,7 @@
                       "Entity": "RiverscapeMetricEngine"
                     }
                   },
-                  "Property": "centerline length"
+                  "Property": "centerline length 957"
                 }
               },
               "queryRef": "Sum(rme_extract_deets.centerline_length)",
