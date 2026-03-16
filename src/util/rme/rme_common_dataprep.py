@@ -5,9 +5,10 @@ import re
 import numpy as np
 import pandas as pd
 from rsxml import Logger
-from util import round_up, round_down
-from util.pandas import RSFieldMeta
+
+from util import round_down, round_up
 from util.figures import get_bins_info  # future enhancement: move the fn since it is a data function not a figure function
+from util.pandas import RSFieldMeta
 
 # dictionary of functions is at the bottom
 
@@ -171,15 +172,18 @@ def color_to_hex(color_str: str) -> str:
 # Mapping of DataFrame column name → bins.json lookup key.
 # Where the column name matches the bins.json key, only one entry is needed.
 # Where they differ (e.g. a calculated column), map explicitly.
+# FUTURE ENHANCEMENT: these should come from `preferred_bin_definition` in Athena `layer_definitions_latest` view
+# Will also require that bins.json be a shared published resource probably in xml.riverscapes.net
 COLUMN_TO_BIN_KEY: dict[str, str] = {
     'low_lying_ratio': 'low_lying_ratio',
     'lf_riparian_prop': 'lf_riparian_prop',
     'fldpln_access': 'fldpln_access',
     'land_use_intens': 'land_use_intens',
     'lf_agriculture_prop': 'lf_agriculture_prop',
-    'road_dens': 'road_dens',
+    'road_dens': 'road_density',
+    'rail_dens': 'road_density',
     'confinement_ratio': 'confinement_ratio',
-    'brat_hist_capacity': 'brat_hist_capacity',
+    'brat_hist_capacity': 'brat_capacity',
     'brat_capacity': 'brat_capacity',
     'riparian_condition': 'riparian_condition',
 }
