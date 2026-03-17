@@ -29,6 +29,7 @@ def main() -> list[str] | None:
         UNIT_SYSTEM       – "SI" or "imperial"
         DM_PARQUET_PATH   – reuse an existing Parquet folder/file
         DM_KEEP_PARQUET   – "1"/"true" to keep staging Parquet
+        DM_GENERATE_PBI   – "1"/"true" to generate a Power BI project
 
     Returns:
         List of string arguments, or ``None`` if the user cancels.
@@ -105,6 +106,16 @@ def main() -> list[str] | None:
             print("\nCancelled. Exiting.\n")
             return None
 
+    # ── Generate Power BI ─────────────────────────────────────────────
+    gen_pbi_env = os.environ.get("DM_GENERATE_PBI")
+    if gen_pbi_env is not None:
+        generate_pbi = is_truthy(gen_pbi_env)
+    else:
+        generate_pbi = questionary.confirm("Generate a Power BI (.pbip) project?", default=True).ask()
+        if generate_pbi is None:
+            print("\nCancelled. Exiting.\n")
+            return None
+
     # ── Build argument list ───────────────────────────────────────────
     output_dir = os.path.join(data_root, "rpt-data-mart", report_name.replace(" ", "_"))
 
@@ -121,5 +132,8 @@ def main() -> list[str] | None:
 
     if keep_parquet:
         args.append("--keep-parquet")
+
+    if generate_pbi:
+        args.append("--generate-pbi")
 
     return args
