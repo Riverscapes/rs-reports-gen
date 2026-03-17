@@ -22,6 +22,14 @@ from util.pandas import RSFieldMeta
 class TableEntry(NamedTuple):
     """A DataFrame bundled with its per-column applied units.
 
+    This is a stepping stone toward full DataFrame-local metadata: eventually
+    each DataFrame's ``attrs`` dict should carry its own field metadata and
+    applied units, eliminating the need for the RSFieldMeta Borg singleton
+    and this separate sidecar.  Until then, ``TableEntry`` keeps each table's
+    applied units tightly coupled with its DataFrame so that
+    ``export_data_dictionary`` can resolve ``export_unit`` per-table without
+    cross-table key collisions.
+
     Attributes:
         df: The DataFrame containing the table data.
         applied_units: Mapping of column name → resolved pint.Unit (or None),
@@ -165,6 +173,15 @@ def export_data_dictionary(
     for table_name, entry in tables.items():
         df = entry.df
         table_applied_units = entry.applied_units or {}
+        # Resolve layer_id from df.attrs["layer_id"] when present, mirroring
+        # the pattern used by apply_units.  This disambiguates columns that
+        # share a name across layers (e.g. "huc" in rpt_rme vs rs_context_huc10).
+        # Note: _resolve_unique_id does NOT fall back to an all-layers search
+        # when a layer_id is provided — columns not registered in that specific
+        # layer will appear as "not in registry".  Only set attrs["layer_id"]
+        # on DataFrames whose columns come from a single registry layer.
+        # Future: once metadata is DataFrame-local (carried in attrs), this
+        # lookup can be replaced by a direct attrs read.
         layer_id = RSFieldMeta._resolve_layer_context(df, None)
 
         for col in df.columns:
