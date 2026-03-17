@@ -363,7 +363,7 @@ def main() -> None:
 
             pbi_dir = output_path / "pbi"
             dict_path = output_path / "data_dictionary.csv"
-            generate_pbip(dict_path, pbi_dir, model_name=args.report_name)
+            generate_pbip(dict_path, pbi_dir, model_name=args.report_name, data_mart_root=output_path)
             log.info(f"Power BI project generated in {pbi_dir}")
 
         process = psutil.Process(os.getpid())

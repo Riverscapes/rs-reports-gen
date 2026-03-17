@@ -1,7 +1,9 @@
 """Generate a fresh PBIP semantic model from a data dictionary CSV.
 
 Reads ``data_dictionary.csv`` produced by the Data Mart export and writes
-a complete Power BI ``.pbip`` project folder with TMDL definition files.
+a complete Power BI ``.pbip`` project folder with TMDL definition files and
+a PBIR-format (Enhanced Report Format) Report definition.
+
 Friendly names, units, display folders, tooltips, format strings, and
 sorting logic all inherit from the Athena-sourced metadata captured in the CSV.
 
@@ -42,6 +44,10 @@ _ureg = pint.UnitRegistry()
 
 # All generated TMDL files use Windows line endings (PBI Desktop requirement).
 CRLF = "\r\n"
+
+# Deterministic 20-char hex page name for the blank initial report page.
+# Derived from UUID5 so regeneration is byte-identical.
+_INITIAL_PAGE_NAME: str = uuid.uuid5(NAMESPACE_UUID, "report.page.1").hex[:20]
 
 # Bare TMDL identifier: letters, digits, underscores, starting with a letter.
 _BARE_IDENT_RE = re.compile(r"^[a-zA-Z_]\w*$")
@@ -316,14 +322,23 @@ def _generate_table_tmdl(table_name: str, columns: list[ColumnDef]) -> str:
     return CRLF.join(lines) + CRLF
 
 
-def _generate_expressions_tmdl() -> str:
+def _generate_expressions_tmdl(data_mart_root: str = "") -> str:
     """Generate ``expressions.tmdl`` with ``DataMartRoot`` and ``fn_LoadParquetFolder``.
+
+    M expressions are written inline (no triple-backtick delimiters) to match
+    the PBIR format that PBI Desktop saves.
+
+    Args:
+        data_mart_root: Pre-populate the ``DataMartRoot`` parameter value.  When
+            supplied the generated model opens without requiring the user to set
+            the path manually.  Backslashes are kept verbatim (M language does
+            not use backslash as an escape character).
 
     Copilot-generated function.
     """
     lines = [
         "/// combine all Parquet files from a local folder into a single table",
-        "expression fn_LoadParquetFolder = ```",
+        "expression fn_LoadParquetFolder =",
         "\t\t/**",
         "\t\t * Reusable function: combine all Parquet files from a folder into one table.",
         '\t\t * Input: FolderPath (e.g., "C:\\Data\\ParquetFolder\\")',
@@ -339,7 +354,6 @@ def _generate_expressions_tmdl() -> str:
         '\t\t    ExpandedContent = Table.ExpandTableColumn(OnlyDataColumn, "Data", ColumnNames)',
         "\t\tin",
         "\t\t    ExpandedContent",
-        "\t\t```",
         f"\tlineageTag: {_lineage_tag('fn_LoadParquetFolder')}",
         "",
         "\tannotation PBI_NavigationStepName = Navigation",
@@ -347,7 +361,7 @@ def _generate_expressions_tmdl() -> str:
         "\tannotation PBI_ResultType = Function",
         "",
         "/// Source folder. Exports subfolder should have the parquet files.",
-        'expression DataMartRoot = "" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]',
+        f'expression DataMartRoot = "{data_mart_root}" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]',
         f"\tlineageTag: {_lineage_tag('DataMartRoot')}",
         "",
         "\tannotation PBI_NavigationStepName = Navigation",
@@ -399,16 +413,6 @@ def _generate_database_tmdl() -> str:
         "\tcompatibilityLevel: 1600",
     ]
     return CRLF.join(lines) + CRLF
-
-
-def _generate_relationships_tmdl() -> str:
-    """Generate an empty ``relationships.tmdl``.
-
-    Relationships can be created interactively in PBI Desktop.
-
-    Copilot-generated function.
-    """
-    return CRLF
 
 
 def _generate_culture_tmdl() -> str:
@@ -502,6 +506,162 @@ def _generate_diagram_layout_json() -> str:
     return json.dumps(obj, indent=2) + "\n"
 
 
+def _generate_editor_settings_json() -> str:
+    """Generate ``SemanticModel/.pbi/editorSettings.json``.
+
+    These are the default PBI Desktop editor options written when a model is
+    first opened.  Committing them avoids spurious diffs on first open.
+
+    Copilot-generated function.
+    """
+    obj = {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/semanticModel/editorSettings/1.0.0/schema.json",
+        "autodetectRelationships": True,
+        "parallelQueryLoading": True,
+        "typeDetectionEnabled": True,
+        "relationshipImportEnabled": True,
+        "shouldNotifyUserOfNameConflictResolution": True,
+    }
+    return json.dumps(obj, indent=2) + "\n"
+
+
+def _generate_report_version_json() -> str:
+    """Generate ``Report/definition/version.json`` for PBIR format.
+
+    Copilot-generated function.
+    """
+    obj = {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json",
+        "version": "2.0.0",
+    }
+    return json.dumps(obj, indent=2) + "\n"
+
+
+# ── Riverscapes brand theme ────────────────────────────────────────────
+# Palette derived from base.css:
+#   primary navy  #003166  (--header-color / --accent-color)
+#   text          #222222  (--text-color)
+#   muted bg      #f1f4f9  (--muted-bg)
+#   chart bg      #e5ecf6  (--chart-bg)
+#   error red     #c75146  (error-message border)
+#   metric slate  #4a5764  (--metric-number)
+# Data-series colors are derived from those anchors with enough contrast
+# and hue variety to read clearly on white / light-gray backgrounds.
+_RS_THEME_NAME = "Riverscapes"
+_RS_THEME_FILE = "BaseThemes/Riverscapes.json"
+
+# Standard PBI theme JSON (import format).
+# ``dataColors`` drives chart/visual series colors.
+# ``good`` / ``neutral`` / ``bad`` colour KPI and conditional-format visuals.
+_RS_THEME: dict = {
+    "name": _RS_THEME_NAME,
+    "dataColors": [
+        "#003166",  # deep navy — primary brand
+        "#2171a8",  # river blue
+        "#5ba4cf",  # sky / shallow water
+        "#4a7c59",  # riparian green
+        "#d97b2b",  # warm amber / sediment
+        "#a05436",  # brown earth
+        "#4a5764",  # slate (--metric-number)
+        "#c75146",  # accent red
+    ],
+    "background": "#ffffff",
+    "foreground": "#222222",
+    "tableAccent": "#003166",
+    "good": "#4a7c59",
+    "neutral": "#4a5764",
+    "bad": "#c75146",
+}
+
+
+def _generate_riverscapes_theme_json() -> str:
+    """Generate the Riverscapes brand theme file.
+
+    Written to ``StaticResources/SharedResources/BaseThemes/Riverscapes.json``
+    so the theme is self-contained within the report and opens without
+    depending on any particular version of PBI Desktop.
+
+    Copilot-generated function.
+    """
+    return json.dumps(_RS_THEME, indent=2) + "\n"
+
+
+def _generate_report_json() -> str:
+    """Generate ``Report/definition/report.json`` for PBIR format.
+
+    References the bundled Riverscapes theme via ``resourcePackages`` so the
+    report opens correctly on any PBI Desktop version without relying on a
+    built-in shared theme.
+
+    Copilot-generated function.
+    """
+    obj = {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/3.1.0/schema.json",
+        "themeCollection": {
+            "baseTheme": {
+                "name": _RS_THEME_NAME,
+                "reportVersionAtImport": {"visual": "2.5.0", "report": "3.1.0", "page": "2.3.0"},
+                "type": "SharedResources",
+            }
+        },
+        "resourcePackages": [
+            {
+                "name": "SharedResources",
+                "type": "SharedResources",
+                "items": [
+                    {
+                        "name": _RS_THEME_NAME,
+                        "path": _RS_THEME_FILE,
+                        "type": "BaseTheme",
+                    }
+                ],
+            }
+        ],
+        "settings": {
+            "useStylableVisualContainerHeader": True,
+            "exportDataMode": "AllowSummarized",
+            "defaultDrillFilterOtherVisuals": True,
+            "allowChangeFilterTypes": True,
+            "useEnhancedTooltips": True,
+            "useDefaultAggregateDisplayName": True,
+        },
+    }
+    return json.dumps(obj, indent=2) + "\n"
+
+
+def _generate_pages_json(page_name: str) -> str:
+    """Generate ``Report/definition/pages/pages.json`` for PBIR format.
+
+    Copilot-generated function.
+    """
+    obj = {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
+        "pageOrder": [page_name],
+        "activePageName": page_name,
+    }
+    return json.dumps(obj, indent=2) + "\n"
+
+
+def _generate_page_json(page_name: str) -> str:
+    """Generate a minimal ``page.json`` for PBIR format.
+
+    The page ``name`` must match the containing folder name.  PBI Desktop
+    uses a 20-character hex string; we generate one deterministically via
+    ``_INITIAL_PAGE_NAME``.
+
+    Copilot-generated function.
+    """
+    obj = {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.0.0/schema.json",
+        "name": page_name,
+        "displayName": "Page 1",
+        "displayOption": "FitToPage",
+        "height": 720,
+        "width": 1280,
+    }
+    return json.dumps(obj, indent=2) + "\n"
+
+
 # ── File I/O ────────────────────────────────────────────────────────────
 
 
@@ -525,6 +685,7 @@ def generate_pbip(
     data_dict_path: Path,
     output_dir: Path,
     model_name: str = "datamart",
+    data_mart_root: Path | None = None,
 ) -> Path:
     """Generate a complete PBIP semantic model from a data dictionary CSV.
 
@@ -532,6 +693,9 @@ def generate_pbip(
         data_dict_path: Path to ``data_dictionary.csv``.
         output_dir: Root directory to write the ``.pbip`` project into.
         model_name: Base name for the ``.pbip`` / folder names.
+        data_mart_root: If supplied, pre-populates the ``DataMartRoot`` Power
+            Query parameter so the report opens ready to refresh without the
+            user needing to set the path manually.
 
     Returns:
         Path to the generated ``.pbip`` file.
@@ -555,8 +719,7 @@ def generate_pbip(
     # ── TMDL files ──
     _write(def_dir / "database.tmdl", _generate_database_tmdl())
     _write(def_dir / "model.tmdl", _generate_model_tmdl(table_names))
-    _write(def_dir / "expressions.tmdl", _generate_expressions_tmdl())
-    _write(def_dir / "relationships.tmdl", _generate_relationships_tmdl())
+    _write(def_dir / "expressions.tmdl", _generate_expressions_tmdl(str(data_mart_root) if data_mart_root else ""))
     _write(cultures_dir / "en-US.tmdl", _generate_culture_tmdl())
 
     for tbl_name, columns in tables.items():
@@ -570,8 +733,16 @@ def generate_pbip(
     _write(sm_dir / "definition.pbism", _generate_pbism_json())
     _write(sm_dir / ".platform", _generate_platform_json(model_name, "SemanticModel", sm_logical_id))
     _write(sm_dir / "diagramLayout.json", _generate_diagram_layout_json())
+    _write(sm_dir / ".pbi" / "editorSettings.json", _generate_editor_settings_json())
+
+    # ── PBIR Report definition ──
     _write(rpt_dir / "definition.pbir", _generate_pbir_json(model_name))
     _write(rpt_dir / ".platform", _generate_platform_json(model_name, "Report", rpt_logical_id))
+    _write(rpt_dir / "definition" / "version.json", _generate_report_version_json())
+    _write(rpt_dir / "definition" / "report.json", _generate_report_json())
+    _write(rpt_dir / "definition" / "pages" / "pages.json", _generate_pages_json(_INITIAL_PAGE_NAME))
+    _write(rpt_dir / "definition" / "pages" / _INITIAL_PAGE_NAME / "page.json", _generate_page_json(_INITIAL_PAGE_NAME))
+    _write(rpt_dir / "StaticResources" / "SharedResources" / "BaseThemes" / "Riverscapes.json", _generate_riverscapes_theme_json())
 
     pbip_path = output_dir / f"{model_name}.pbip"
     print(f"PBIP project generated: {pbip_path}")
