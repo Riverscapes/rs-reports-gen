@@ -183,11 +183,14 @@ def define_fields(unit_system: str = "SI") -> None:
     """
     meta = RSFieldMeta()
     meta.field_meta = get_field_metadata(
-        authority="data-exchange-scripts",
+        authority="data-exchange-scripts,riverscapes-tools",
         tool_schema_name="*",
-        layer_id="raw_rme,rpt_rme,rs_context_huc10",
+        layer_id="raw_rme,rpt_rme,rs_context_huc10,blm_natl_grazing_allotments",
     )
     meta.unit_system = unit_system
+    # Display-unit overrides: convert raw Athena units to user-facing units.
+    # Review: add set_display_unit calls here for any column whose data_unit
+    # from Athena should be presented differently (e.g. m → km).
     meta.set_display_unit("centerline_length", "kilometer")
     meta.set_display_unit("segment_area", "kilometer ** 2")
 
@@ -252,9 +255,24 @@ def export_data_mart(
         log.info("Field metadata loaded.")
 
     # ---- Load, process, and export each dataset ----
+    # Each table goes through apply_units for dtype coercion and unit conversion,
+    # then its applied_units dict is bundled into a TableEntry so the data
+    # dictionary records exactly what unit each column's data was converted to.
+    #
+    # Future direction (DataFrame-local metadata): Currently metadata lives in
+    # the RSFieldMeta Borg singleton and applied_units is carried separately via
+    # TableEntry.  As we move toward DataFrame-local metadata, each df.attrs
+    # should carry its own metadata dict (field meta + applied units) so that
+    # downstream consumers don't need the global singleton.  The per-table
+    # TableEntry pattern and attrs["layer_id"] are stepping stones toward that.
     all_tables: dict[str, TableEntry] = {}
 
     # DGO: calculated cols → units → bins
+    # Note: DGO columns span multiple registry layers (raw_rme, rpt_rme), so
+    # we intentionally leave attrs["layer_id"] unset.  _resolve_unique_id
+    # does not fall back from a layer-specific search to all-layers, so
+    # pinning a single layer_id would cause columns from the other layer
+    # to lose metadata.  Unique column names across layers avoid ambiguity.
     dgo_staging = Path(parquet_override) if parquet_override else staging_dir / "dgo"
     dgo_df = load_gdf_from_pq(dgo_staging)
     dgo_df = add_calculated_rme_cols(dgo_df)
@@ -264,17 +282,21 @@ def export_data_mart(
     _export_parquet(dgo_df, exports_dir / "dgo.parquet")
     all_tables["dgo"] = TableEntry(df=dgo_df, applied_units=dgo_applied_units)
 
-    # HUC
+    # HUC: dtype coercion + unit conversion
     huc_df = load_gdf_from_pq(staging_dir / "huc")
+    huc_df.attrs["layer_id"] = "rs_context_huc10"
+    huc_df, huc_applied_units = RSFieldMeta().apply_units(huc_df)
     log.info(f"HUC loaded: {len(huc_df)} rows, {len(huc_df.columns)} cols")
     _export_parquet(huc_df, exports_dir / "huc.parquet")
-    all_tables["huc"] = TableEntry(df=huc_df)
+    all_tables["huc"] = TableEntry(df=huc_df, applied_units=huc_applied_units)
 
-    # Grazing
+    # Grazing: dtype coercion (no unit-bearing columns currently in registry)
     grazing_df = load_gdf_from_pq(staging_dir / "grazing")
+    grazing_df.attrs["layer_id"] = 'blm_natl_grazing_allotments'
+    grazing_df, grazing_applied_units = RSFieldMeta().apply_units(grazing_df)
     log.info(f"Grazing loaded: {len(grazing_df)} rows, {len(grazing_df.columns)} cols")
     _export_parquet(grazing_df, exports_dir / "grazing.parquet")
-    all_tables["grazing"] = TableEntry(df=grazing_df)
+    all_tables["grazing"] = TableEntry(df=grazing_df, applied_units=grazing_applied_units)
 
     # ---- Data dictionary covering all datasets ----
     dict_path = report_dir / "data_dictionary.csv"

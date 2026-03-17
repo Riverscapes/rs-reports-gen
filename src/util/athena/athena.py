@@ -256,13 +256,13 @@ def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
 # ===== New Public API (uses awswrangler) =====
 
 
-def get_field_metadata(authority: str = 'data-exchange-scripts', tool_schema_name: str | Sequence[str] = 'rscontext_to_athena', layer_id: str | Sequence[str] = '*', column_names: str | Sequence[str] = '*') -> pd.DataFrame:
+def get_field_metadata(authority: str | Sequence[str] = 'data-exchange-scripts', tool_schema_name: str | Sequence[str] = 'rscontext_to_athena', layer_id: str | Sequence[str] = '*', column_names: str | Sequence[str] = '*') -> pd.DataFrame:
     """Fetch field metadata records filtered by authority/layer/column info.
 
     Parameters
     ----------
-    authority: str
-        Partition authority to filter on (exact match).
+    authority: str | Sequence[str]
+        Partition authority to filter on. Accepts '*', comma-delimited string, or iterable of names.
     tool_schema_name: str | Sequence[str]
         Pipeline/name filter. Accepts '*', comma-delimited string, or iterable of names.
     layer_id: str | Sequence[str]
@@ -277,6 +277,12 @@ def get_field_metadata(authority: str = 'data-exchange-scripts', tool_schema_nam
     """
     log = Logger('Get metadata')
     log.info("Getting metadata from Athena")
+
+    authority_clause = _normalize_to_sql_list(authority)
+    if authority_clause:
+        where_authority = f"authority IN ({authority_clause})"
+    else:
+        where_authority = "1=1"
 
     tool_schema_name_clause = _normalize_to_sql_list(tool_schema_name)
     if tool_schema_name_clause:
@@ -297,10 +303,10 @@ def get_field_metadata(authority: str = 'data-exchange-scripts', tool_schema_nam
         and_col_name = ""
 
     query = f"""
-SELECT layer_id, layer_name, name, friendly_name, data_unit, description, theme, dtype
+SELECT authority, layer_id, layer_name, name, friendly_name, data_unit, description, theme, dtype, preferred_format
 FROM layer_definitions_latest
-WHERE authority = '{authority}' {and_schema_name} {and_layer_id} {and_col_name}
-ORDER BY layer_name, column_index, name
+WHERE {where_authority} {and_schema_name} {and_layer_id} {and_col_name}
+ORDER BY authority, layer_name, column_index, name
 """
     df = query_to_dataframe(query, "layer_definitions")
     if df.empty:
