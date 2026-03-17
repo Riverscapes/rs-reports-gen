@@ -1,7 +1,8 @@
 """Generate a Data Mart export – enriched Parquet files with bins and colours
 for Power BI, notebooks, and other self-service analytics consumers.
+Also exports `data_dictionary.csv` containing valuable metadata.
 
-Copilot-generated module.
+Copilot-generated module, directed by Lorin March 2026.
 """
 
 # Standard library
@@ -210,6 +211,7 @@ def export_data_mart(
        (or reuse existing Parquet for DGO).
     3. Add calculated columns, apply units, and apply bins + colours to DGO.
     4. Write each dataset to ``report_dir/exports/<name>.parquet``.
+    5. Write ``report_dir/data_dictionary.csv`` with metadata for all tables.
 
     Returns:
         Path to the exports subfolder containing all Parquet files.
@@ -329,6 +331,7 @@ def main() -> None:
         help="Reuse existing Parquet directory instead of querying Athena",
     )
     parser.add_argument("--keep-parquet", action="store_true", help="Keep staging Parquet files")
+    parser.add_argument("--generate-pbi", action="store_true", help="Generate a Power BI (.pbip) project from the data dictionary")
 
     args = dotenv.parse_args_env(parser)
 
@@ -354,6 +357,14 @@ def main() -> None:
             keep_parquet=args.keep_parquet,
         )
         log.info(f"Exports written to {exports_dir}")
+
+        if args.generate_pbi:
+            from util.pbi_model import generate_pbip
+
+            pbi_dir = output_path / "pbi"
+            dict_path = output_path / "data_dictionary.csv"
+            generate_pbip(dict_path, pbi_dir, model_name=args.report_name)
+            log.info(f"Power BI project generated in {pbi_dir}")
 
         process = psutil.Process(os.getpid())
         mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), "peak_wset") else process.memory_info().rss / 1024 / 1024
