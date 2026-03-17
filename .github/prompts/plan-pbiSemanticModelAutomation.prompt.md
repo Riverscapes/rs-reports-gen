@@ -111,6 +111,36 @@ Wire up `apply_units` for all tables and build per-table `TableEntry` objects fo
 6. **Unit abbreviation for PBI column names**: The `applied_units` dict contains `pint.Unit` objects. The PBIP script formats them with Pint's compact notation (`f"{unit:~P}"` → km, m²) for column display names. The data dictionary stores the full unit name for provenance; abbreviation happens at PBIP generation time.
 7. **Update tests**: Existing tests that call `export_data_dictionary` with a plain `dict[str, pd.DataFrame]` must be updated to use `TableEntry` (with `applied_units={}` for tables that don't go through `apply_units`).
 
+---
+
+### Phase 5: Bin Dimension Tables & Hidden Helper Columns
+
+Extract bin triplets from the fact table into star-schema dimension tables and hide implementation columns, making the model easier to work with in PBI Desktop — especially for conditional formatting by color.
+
+1. **Detect bin triplets in `_resolve_columns`**: During Pass 2, identify groups of `{metric}_bin`, `{metric}_color`, `{metric}_bin_sort` columns sharing a common prefix. Collect these into a `BinGroup` dataclass (`metric_prefix`, `bin_col`, `color_col`, `sort_col`, `source_table`).
+
+2. **Generate dimension table TMDL per bin group**: For each `BinGroup`, emit a `{metric_prefix}_bins.tmdl` with three columns (`_bin`, `_color`, `_bin_sort`). The columns use raw Parquet names as `sourceColumn` — no renaming. The partition uses Power Query that references the source fact table, selects the three columns, removes duplicates, and removes blank rows — mirroring the manually-created `brat_capacity_bins` pattern:
+
+```
+let
+Source = {fact_table},
+#"Removed Other Columns" = Table.SelectColumns(Source, {"{bin_col}", "{color_col}", "{sort_col}"}),
+#"Removed Duplicates" = Table.Distinct(#"Removed Other Columns", {"{bin_col}"}),
+#"Removed Blank Rows" = Table.SelectRows(#"Removed Duplicates", each not List.IsEmpty(List.RemoveMatchingItems(Record.FieldValues(_), {"", null})))
+in
+#"Removed Blank Rows"
+```
+
+3. **Generate relationships**: Populate `_generate_relationships_tmdl` to emit one relationship per bin group, joining the fact table's `_bin_sort` column to the dimension table's `_bin_sort` column. Use deterministic UUID v5 for relationship IDs (`{table}.relationship.{metric_prefix}`). Relationship cardinality: many-to-one (fact → dimension).
+
+4. **Hide `_color` and `_bin_sort` columns in the fact table**: Add `isHidden: true` to `_generate_column_tmdl` for columns whose raw name ends with `_color` or `_bin_sort`. These columns remain functional (sortByColumn and the relationship still reference them) but are hidden from the PBI field list, decluttering ~20 helper columns.
+
+5. **Register dimension tables in `model.tmdl`**: Add each `{metric_prefix}_bins` to `PBI_QueryOrder` and emit `ref table` entries.
+
+6. **lineageTag stability**: Dimension table and column lineageTags use `{metric_prefix}_bins.table` and `{metric_prefix}_bins.column.{raw_col}` as UUID v5 keys — stable across regenerations.
+
+
+
 
 
 ---
@@ -122,7 +152,7 @@ Wire up `apply_units` for all tables and build per-table `TableEntry` objects fo
 | `src/util/pandas/RSFieldMeta.py` | Add `theme` to `VALID_COLUMNS`, `FieldMetaValues`, `add_field_meta`, `get_field_meta` |
 | `src/util/rme/rme_common_dataprep.py` | Pass `theme` in `apply_all_bins` metadata registration |
 | `src/util/metadata_export.py` | Add `TableEntry` NamedTuple; restructure `export_data_dictionary` to accept `dict[str, TableEntry]`; resolve `layer_id` from `df.attrs`; add `theme`, `preferred_format`, `export_unit` to CSV output |
-| `scripts/update_pbi_model.py` | **New** — reads data dictionary, generates TMDL files |
+| `scripts/update_pbi_model.py` | Add `BinGroup` detection in `_resolve_columns`; add `_generate_dimension_table_tmdl`; populate `_generate_relationships_tmdl`; add `isHidden` to `_generate_column_tmdl` for `_color`/`_bin_sort` columns; register dimension tables in `_generate_model_tmdl` |
 | `tests/test_apply_all_bins.py` | Update data dictionary assertions for new columns; update calls to use `TableEntry` |
 | `tests/test_pbi_format_translation.py` | **New** — format translation tests |
 | `src/reports/rpt_data_mart/main.py` | Capture applied_units dicts, call apply_units on all tables, build `TableEntry` per table, pass to export_data_dictionary |
@@ -141,6 +171,9 @@ Wire up `apply_units` for all tables and build per-table `TableEntry` objects fo
    - Tooltips show descriptions
    - Format strings render correctly
    - Bin columns sort by their sort-order column
+5. Verify dimension tables: each bin group (e.g., `low_lying_ratio_bins`, `confinement_ratio_bins`, etc.) appears as a separate table with 3 columns and a relationship to `dgo`.
+6. Verify `_color` and `_bin_sort` columns are hidden in the `dgo` field list but the `_bin` label columns remain visible.
+7. Test conditional formatting: in a map or table visual, use "Format by field value" referencing the dimension table's `_color` column — colors should apply correctly via the relationship.
 
 ---
 
@@ -153,12 +186,13 @@ Wire up `apply_units` for all tables and build per-table `TableEntry` objects fo
 - **Deterministic UUID v5 lineageTags**: Hash-based GUIDs from stable identifiers (table + raw column name). Idempotent output, free lineageTag preservation across regenerations.
 - **Accept duplicate-meta risk for bins**: `add_field_meta` rejects duplicates; accepted since bin columns are generated fresh each run.
 - **Per-table `TableEntry` for data dictionary**: `export_data_dictionary` accepts `dict[str, TableEntry]` where `TableEntry = NamedTuple(df, applied_units)`. This keeps each table's applied units scoped to its DataFrame, avoids cross-table key collisions, and is a step toward DataFrame-local metadata without requiring a full architectural rethink.
+- **Star-schema for bins**: Dimension tables mirror the user's manually-created `brat_capacity_bins` pattern — Power Query references the fact table, deduplicates, and strips blanks. This makes `_color` columns usable for PBI's "Format by field value" conditional formatting across a relationship.
+- **Hidden helper columns**: `_color` and `_bin_sort` remain in the fact table (required for sortByColumn and relationship joins) but are hidden from the UI to reduce clutter.
 
 ---
 
 ### Future Enhancements (out of scope)
 
-- **Programmatic DAX measures**: Generate measures from metadata in a future phase.
+- **Pre-generated DAX measures**: Generate a `_Measures` table with common aggregations — length-weighted averages for ratio metrics (e.g., Riparian Condition Index weighted by `centerline_length`), sum totals for area/length fields, DGO count, and bin distribution percentages (% of network length per category). Requires a measures registry (metadata-driven from a `measure_type` column in the data dictionary or a separate `measures.csv`) and a `_generate_measures_tmdl` function. The TMDL syntax is straightforward (`measure 'Name' = SUMX(...)` with `formatString` and `displayFolder`).
 - **DataMartRoot default value**: Set a sensible default or empty string so PBI always prompts.
-- **Relationship auto-generation**: Derive relationships from foreign key conventions in the data dictionary.
 - **DataFrame-local metadata**: Move away from the Borg singleton toward DataFrames maintaining their own metadata (e.g. via `df.attrs`). The Athena-sourced registry would remain the initial source of truth, but post-processing steps (unit conversion, calculated columns, bins) would write metadata back into the DataFrame rather than a global store. This would make column provenance explicit per-table and eliminate ambiguity issues. The current `attrs["layer_id"]` and per-table `TableEntry.applied_units` patterns are steps in this direction.
