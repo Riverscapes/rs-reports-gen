@@ -29,6 +29,10 @@ from reports.rpt_data_mart import __version__ as report_version
 from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols  # TODO no-cross-report imports
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.climate_engine_connections import (
+    enrich_vegetation_cover_df,
+    get_vegetation_cover_timeseries,
+)
 from util.metadata_export import TableEntry, export_data_dictionary
 from util.pandas import RSFieldMeta, load_gdf_from_pq
 from util.rme.rme_common_dataprep import apply_all_bins
@@ -243,18 +247,27 @@ def export_data_mart(
         log.info(f"Using supplied Parquet at {parquet_override} for DGO")
 
     # ---- Query all datasets + load metadata in parallel ----
-    max_workers = len(datasets_to_query) + 1  # +1 for metadata
+    max_workers = len(datasets_to_query) + 2  # +1 metadata, +1 Climate Engine
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         meta_future = executor.submit(define_fields, unit_system)
+        ce_veg_future = executor.submit(get_vegetation_cover_timeseries, query_gdf)
         query_futures = {ds.name: executor.submit(_query_dataset, ds, query_gdf, staging_dir / ds.name) for ds in datasets_to_query}
 
-        # Wait for all queries
+        # Wait for all Athena queries
         for name, future in query_futures.items():
             future.result()
             log.info(f"{name} query finished")
 
         meta_future.result()
         log.info("Field metadata loaded.")
+
+        # Climate Engine – non-critical; log on failure and continue
+        ce_veg_df: pd.DataFrame | None = None
+        try:
+            ce_veg_df = ce_veg_future.result()
+            log.info("Climate Engine vegetation cover query finished")
+        except Exception as e:
+            log.warning(f"Climate Engine vegetation query failed (non-fatal): {e}")
 
     # ---- Load, process, and export each dataset ----
     # Each table goes through apply_units for dtype coercion and unit conversion,
@@ -299,6 +312,15 @@ def export_data_mart(
     log.info(f"Grazing loaded: {len(grazing_df)} rows, {len(grazing_df.columns)} cols")
     _export_parquet(grazing_df, exports_dir / "grazing.parquet")
     all_tables["grazing"] = TableEntry(df=grazing_df, applied_units=grazing_applied_units)
+
+    # Climate Engine: vegetation cover timeseries
+    if ce_veg_df is not None:
+        ce_veg_enriched = enrich_vegetation_cover_df(ce_veg_df)
+        log.info(f"Climate Engine veg cover: {len(ce_veg_enriched)} rows, {len(ce_veg_enriched.columns)} cols")
+        _export_parquet(ce_veg_enriched, exports_dir / "vegetation_cover.parquet")
+        all_tables["vegetation_cover"] = TableEntry(df=ce_veg_enriched, applied_units={})
+    else:
+        log.warning("Climate Engine vegetation data unavailable – skipping vegetation_cover table")
 
     # ---- Data dictionary covering all datasets ----
     dict_path = report_dir / "data_dictionary.csv"
