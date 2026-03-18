@@ -173,63 +173,68 @@ def get_vegetation_cover_timeseries(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     return df
 
 
-def vegetation_cover_timeseries_charts(df: pd.DataFrame):
-    """
-    Creates a set of line charts for vegetation cover timeseries using Plotly Express.
-    Returns a Plotly Figure object with subplots (one for each variable).
-    """
-    import plotly.express as px
+# Mapping from Climate Engine RAP_COVER variable codes to human-readable names.
+# Used by both data-enrichment (enrich_vegetation_cover_df) and charting.
+RAP_COVER_VARIABLE_MAP: dict[str, str] = {
+    "AFG": "Annual Forb and Grass Cover",
+    "PFG": "Perennial Forb and Grass Cover",
+    "SHR": "Shrub Cover",
+    "TRE": "Tree Cover",
+    "BGR": "Bare Ground Cover",
+    "LTR": "Litter Cover",
+}
 
-    # Clean up column names to match our variable map keys
-    # The API returns columns like "AFG (%)", "PFG (%)", etc.
-    # We want to map these to full names used in the titles.
-    # Define the mapping from code to full name
-    variable_map = {
-        "AFG": "Annual Forb and Grass Cover",
-        "PFG": "Perennial Forb and Grass Cover",
-        "SHR": "Shrub Cover",
-        "TRE": "Tree Cover",
-        "BGR": "Bare Ground Cover",
-        "LTR": "Litter Cover",
-    }
 
-    # Find the matching columns in the dataframe
+def enrich_vegetation_cover_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename raw Climate Engine RAP_COVER columns to human-readable names.
+
+    The API returns columns like ``AFG (%)``, ``PFG (%)``, etc.  This function
+    renames them using :data:`RAP_COVER_VARIABLE_MAP` and keeps only the Date
+    column plus the matched vegetation variables.
+
+    Returns a new DataFrame; the input is not modified.
+
+    Copilot-generated function.
+    """
     df_renamed = df.copy()
 
-    # Create dictionary to rename specific columns like 'AFG (%)' -> 'Annual Forb and Grass Cover'
-    rename_cols = {}
-
-    # We need to handle that the column names might have units like "AFG (%)" or "AFG"
-    # We iterate over the columns in the dataframe and see if they start with our known codes.
-    found_vars = []
+    rename_cols: dict[str, str] = {}
+    found_vars: list[str] = []
 
     for col in df.columns:
-        # Skip 'Date' column
         if col.lower() == "date":
             continue
-
-        for code, full_name in variable_map.items():
-            # Check if column starts with the code (e.g. "AFG" in "AFG (%)")
+        for code, full_name in RAP_COVER_VARIABLE_MAP.items():
             if col.startswith(code):
                 rename_cols[col] = full_name
                 found_vars.append(full_name)
                 break
 
     if not rename_cols:
-        print(
-            "Warning: No matching vegetation variables found in dataframe columns:",
-            df.columns,
-        )
-        return None
+        Logger("Enrich Veg Cover").warning(f"No matching vegetation variables found in columns: {list(df.columns)}")
+        return df_renamed
 
-    # Rename columns
     df_renamed = df_renamed.rename(columns=rename_cols)
 
-    # Only keep Date + found variables
     target_cols = ["Date"] + found_vars
-    # Use intersection to be safe against missing Date or other issues, though Date is expected
     available_cols = [c for c in target_cols if c in df_renamed.columns]
-    df_subset = df_renamed[available_cols]
+    return df_renamed[available_cols]
+
+
+def vegetation_cover_timeseries_charts(df: pd.DataFrame):
+    """Create faceted line charts for vegetation cover timeseries using Plotly.
+
+    Enriches column names via :func:`enrich_vegetation_cover_df` then plots.
+    Returns a Plotly Figure object with subplots (one per variable).
+    """
+    import plotly.express as px
+
+    df_subset = enrich_vegetation_cover_df(df)
+
+    # Identify the vegetation variable columns (everything except Date)
+    found_vars = [c for c in df_subset.columns if c != "Date"]
+    if not found_vars:
+        return None
 
     # Melt to long format: Date, Variable, Value
     df_melted = df_subset.melt(id_vars=["Date"], var_name="Variable", value_name="Cover (%)")
