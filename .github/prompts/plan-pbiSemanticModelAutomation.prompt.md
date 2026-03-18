@@ -3,6 +3,8 @@
 **TL;DR**
 Enhance the Python metadata export to include `theme`, `preferred_format`, and resolved export units. Then, create a generation script that writes fresh TMDL definition files for a new Power BI (.pbip) semantic model, where friendly names, units, folders, tooltips, format strings, and sorting logic all inherit from the Athena source metadata. The model uses a `DataMartRoot` parameter for data connectivity.
 
+STATUS: All except Phase 5 have been implemented. Also, we have moved to the Power BI Enhanced Report Format (PBIR) and this is now the standard we aim for (see https://learn.microsoft.com/en-us/power-bi/developer/projects/projects-report for documentation).
+
 ---
 
 ### Phase 1: Enhance Python Metadata System
