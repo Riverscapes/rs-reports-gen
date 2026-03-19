@@ -38,37 +38,6 @@ from util.pandas import RSFieldMeta, load_gdf_from_pq
 from util.rme.rme_common_dataprep import apply_all_bins
 
 # ---------------------------------------------------------------------------
-# Field lists for each dataset
-# ---------------------------------------------------------------------------
-
-# DGO fields from the rpt_rme_pq Athena view.
-DGO_FIELDS = (
-    "level_path, seg_distance, centerline_length, segment_area, "
-    "fcode, fcode_desc, longitude, latitude, "
-    "ownership, ownership_desc, state, county, drainage_area, "
-    "stream_name, stream_order, stream_length, huc12, "
-    "rel_flow_length, channel_area, integrated_width, "
-    "low_lying_ratio, elevated_ratio, floodplain_ratio, "
-    "acres_vb_per_mile, hect_vb_per_km, channel_width, "
-    "lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, "
-    "lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, "
-    "prop_riparian, hist_prop_riparian, develop, "
-    "road_len, road_dens, rail_len, rail_dens, land_use_intens, "
-    "road_dist, rail_dist, div_dist, canal_dist, infra_dist, "
-    "fldpln_access, access_fldpln_extent, confinement_ratio, "
-    "brat_capacity, brat_hist_capacity, "
-    "riparian_veg_departure, riparian_condition, "
-    "rme_project_id, rme_project_name, graz_globalid"
-)
-
-# HUC10 watershed boundary + RS Context metadata.
-HUC_FIELDS = "huc10.huc10 AS huc, rscontext.project_id, rscontext.hucname, rscontext.hucareasqkm, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
-
-# BLM National Grazing Allotments.
-GRAZING_FIELDS = "allot_no, allot_name, admin_st, adm_ofc_cd, st_allot, globalid"
-
-
-# ---------------------------------------------------------------------------
 # Dataset query configuration
 # ---------------------------------------------------------------------------
 
@@ -86,23 +55,51 @@ class DatasetQuery:
     geom_bbox_field: str
 
 
-def _build_dataset_queries() -> list[DatasetQuery]:
+def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]:
     """Return query configurations for all Data Mart datasets.
 
     Copilot-generated function.
     """
+    # DGO fields from the rpt_rme_pq Athena view (or in this case the POC derivative that includes the grazing allotment id).
+    dgo_fields = (
+        "level_path, seg_distance, centerline_length, segment_area, "
+        "fcode, fcode_desc, longitude, latitude, "
+        "ownership, ownership_desc, state, county, drainage_area, "
+        "stream_name, stream_order, stream_length, huc12, "
+        "rel_flow_length, channel_area, integrated_width, "
+        "low_lying_ratio, elevated_ratio, floodplain_ratio, "
+        "acres_vb_per_mile, hect_vb_per_km, channel_width, "
+        "lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, "
+        "lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, "
+        "prop_riparian, hist_prop_riparian, develop, "
+        "road_len, road_dens, rail_len, rail_dens, land_use_intens, "
+        "road_dist, rail_dist, div_dist, canal_dist, infra_dist, "
+        "fldpln_access, access_fldpln_extent, confinement_ratio, "
+        "brat_capacity, brat_hist_capacity, "
+        "riparian_veg_departure, riparian_condition, "
+        "rme_project_id, rme_project_name, graz_globalid"
+    )
+    if include_geometry:
+        dgo_fields += ", dgo_geom"
+
+    # HUC10 watershed boundary + RS Context metadata.
+    huc_fields = "huc10.huc10 AS huc, rscontext.project_id, rscontext.hucname, rscontext.hucareasqkm, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
+
+    # BLM National Grazing Allotments.
+    grazing_fields = "allot_no, allot_name, admin_st, adm_ofc_cd, st_allot, globalid"
+
     return [
         DatasetQuery(
             name="dgo",
             # TODO: move to a production source once it exists
-            query_template=(f"SELECT {DGO_FIELDS} FROM input_geom, dev_riverscapes.materialized_rpt_rme_grazing_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            query_template=(f"SELECT {dgo_fields} FROM input_geom, dev_riverscapes.materialized_rpt_rme_grazing_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
             geom_bbox_field="dgo_geom_bbox",
         ),
         DatasetQuery(
             name="huc",
             query_template=(
-                f"SELECT {HUC_FIELDS} "
+                f"SELECT {huc_fields} "
                 "FROM input_geom, "
                 "(SELECT huc10, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
                 "LEFT JOIN rs_context_huc10 rscontext ON huc10.huc10 = rscontext.huc "
@@ -113,7 +110,7 @@ def _build_dataset_queries() -> list[DatasetQuery]:
         ),
         DatasetQuery(
             name="grazing",
-            query_template=(f"SELECT {GRAZING_FIELDS} FROM input_geom, default.blm_natl_grazing_allotments WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            query_template=(f"SELECT {grazing_fields} FROM input_geom, default.blm_natl_grazing_allotments WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(geometry)",
             geom_bbox_field="geometry_bbox",
         ),
@@ -207,6 +204,7 @@ def export_data_mart(
     unit_system: str = "SI",
     parquet_override: Path | None = None,
     keep_parquet: bool = False,
+    include_geometry: bool = False,
 ) -> Path:
     """Orchestrate the Data Mart export.
 
@@ -239,7 +237,7 @@ def export_data_mart(
     safe_makedirs(str(staging_dir))
 
     # ---- Determine which datasets need a live Athena query ----
-    all_datasets = _build_dataset_queries()
+    all_datasets = _build_dataset_queries(include_geometry=include_geometry)
     datasets_to_query = [ds for ds in all_datasets if not (ds.name == "dgo" and parquet_override)]
     if parquet_override:
         if not Path(parquet_override).exists():
@@ -354,6 +352,7 @@ def main() -> None:
     )
     parser.add_argument("--keep-parquet", action="store_true", help="Keep staging Parquet files")
     parser.add_argument("--generate-pbi", action="store_true", help="Generate a Power BI (.pbip) project from the data dictionary")
+    parser.add_argument("--include-geometry", action="store_true", help="Include polygon geometries in dataset (increases size significantly)")
 
     args = dotenv.parse_args_env(parser)
 
@@ -377,6 +376,7 @@ def main() -> None:
             unit_system=args.unit_system,
             parquet_override=args.parquet_path,
             keep_parquet=args.keep_parquet,
+            include_geometry=args.include_geometry,
         )
         log.info(f"Exports written to {exports_dir}")
 
