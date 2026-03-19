@@ -30,6 +30,7 @@ def main() -> list[str] | None:
         DM_PARQUET_PATH   – reuse an existing Parquet folder/file
         DM_KEEP_PARQUET   – "1"/"true" to keep staging Parquet
         DM_GENERATE_PBI   – "1"/"true" to generate a Power BI project
+        DM_INCLUDE_GEOMETRY – "1"/"true" to include polygon geometries
 
     Returns:
         List of string arguments, or ``None`` if the user cancels.
@@ -116,6 +117,16 @@ def main() -> list[str] | None:
             print("\nCancelled. Exiting.\n")
             return None
 
+    # ── Include Geometry ──────────────────────────────────────────────
+    inc_geom_env = os.environ.get("DM_INCLUDE_GEOMETRY")
+    if inc_geom_env is not None:
+        include_geometry = is_truthy(inc_geom_env)
+    else:
+        include_geometry = questionary.confirm("Include polygon geometries in dataset (increases size significantly)?", default=False).ask()
+        if include_geometry is None:
+            print("\nCancelled. Exiting.\n")
+            return None
+
     # ── Build argument list ───────────────────────────────────────────
     output_dir = os.path.join(data_root, "rpt-data-mart", report_name.replace(" ", "_"))
 
@@ -135,5 +146,8 @@ def main() -> list[str] | None:
 
     if generate_pbi:
         args.append("--generate-pbi")
+
+    if include_geometry:
+        args.append("--include-geometry")
 
     return args
