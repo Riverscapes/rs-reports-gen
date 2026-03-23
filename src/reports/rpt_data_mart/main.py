@@ -29,6 +29,7 @@ from reports.rpt_data_mart import __version__ as report_version
 from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols  # TODO no-cross-report imports
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.attains_assessment import query_attains_assessments
 from util.climate_engine_connections import (
     enrich_vegetation_cover_df,
     get_vegetation_cover_timeseries,
@@ -245,10 +246,11 @@ def export_data_mart(
         log.info(f"Using supplied Parquet at {parquet_override} for DGO")
 
     # ---- Query all datasets + load metadata in parallel ----
-    max_workers = len(datasets_to_query) + 2  # +1 metadata, +1 Climate Engine
+    max_workers = len(datasets_to_query) + 3  # +1 metadata, +1 Climate Engine, +1 ATTAINS
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         meta_future = executor.submit(define_fields, unit_system)
         ce_veg_future = executor.submit(get_vegetation_cover_timeseries, query_gdf)
+        attains_future = executor.submit(query_attains_assessments, query_gdf)
         query_futures = {ds.name: executor.submit(_query_dataset, ds, query_gdf, staging_dir / ds.name) for ds in datasets_to_query}
 
         # Wait for all Athena queries
@@ -266,6 +268,18 @@ def export_data_mart(
             log.info("Climate Engine vegetation cover query finished")
         except Exception as e:
             log.warning(f"Climate Engine vegetation query failed (non-fatal): {e}")
+
+        # ATTAINS – non-critical; log on failure and continue
+        attains_df: pd.DataFrame | None = None
+        try:
+            attains_df = attains_future.result()
+            if attains_df is not None and not attains_df.empty:
+                log.info(f"ATTAINS query finished: {len(attains_df)} records")
+            else:
+                attains_df = None
+                log.info("ATTAINS query returned no records")
+        except Exception as e:
+            log.warning(f"ATTAINS query failed (non-fatal): {e}")
 
     # ---- Load, process, and export each dataset ----
     # Each table goes through apply_units for dtype coercion and unit conversion,
@@ -319,6 +333,14 @@ def export_data_mart(
         all_tables["vegetation_cover"] = TableEntry(df=ce_veg_enriched, applied_units={})
     else:
         log.warning("Climate Engine vegetation data unavailable – skipping vegetation_cover table")
+
+    # ATTAINS: EPA water quality assessments
+    if attains_df is not None:
+        log.info(f"ATTAINS assessments: {len(attains_df)} rows, {len(attains_df.columns)} cols")
+        _export_parquet(attains_df, exports_dir / "attains.parquet")
+        all_tables["attains"] = TableEntry(df=attains_df, applied_units={})
+    else:
+        log.warning("ATTAINS data unavailable – skipping attains table")
 
     # ---- Data dictionary covering all datasets ----
     dict_path = report_dir / "data_dictionary.csv"
