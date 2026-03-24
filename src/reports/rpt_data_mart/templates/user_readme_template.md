@@ -21,8 +21,8 @@ This package contains the following artifacts:
 - **`data_dictionary.csv`**: Contains comprehensive field-level metadata for all exported columns. This includes original and friendly names, definitions, data types, and explicit units applied.
 - **`pbi/`**: (If generated) Contains a ready-to-use Power BI (.pbip) project templated from the data dictionary.
 - **`data_mart.log`**: Build process execution logs, identifying any warnings, geometries simplified, or external dependencies (like ATTAINS) skipped.
-- **readme.md**: markdown version of the instructions you are reading now
-- **project.html**: html version of the instructions you are reading now
+- **`readme.md`**: the instructions you are reading now, in markdown format
+- **`project.html`**: the instructions you are reading now, in html format
 
 ## How to use this data
 
@@ -49,6 +49,22 @@ df = pd.read_parquet("exports/dgo.parquet")
 ### Power BI
 
 If you enabled `--generate-pbi`, you can open the `.pbip` project directory within `pbi/`. It has been generated dynamically with relationships and metadata corresponding to your specific extract.
+
+#### Connecting to alternate data source locations
+
+The supplied pbip file comes with a parameter, `DataMartRoot` that should be populated with the path to the root folder containing the `exports` folder of data.
+
+If the data is local, connect to it with the `File.Contents` connector. If it is on the web use the `Web.Contents` connector. You can search and replace "File.Contents(DataMartRoot" with "Web.Contents(DataMartRoot)". Example in context:
+
+`Source = Parquet.Document(Web.Contents(DataMartRoot & "exports/huc.parquet")),`
+
+#### Merging data models
+
+Using the [TMDL View in Power BI Desktop](https://learn.microsoft.com/en-us/power-bi/transform-model/desktop-tmdl-view), you can quickly apply many changes to semantic models. For this model, you will need the:
+
+- Tables
+- Expressions
+- Relationships
 
 ## Units & Metadata
 
