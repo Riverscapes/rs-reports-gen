@@ -18,9 +18,11 @@ from pathlib import Path
 
 # 3rd party
 import geopandas as gpd
+import markdown
 import pandas as pd
 import pint_pandas
 import psutil
+from jinja2 import Template
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
@@ -198,6 +200,38 @@ def define_fields(unit_system: str = "SI") -> None:
     meta.set_display_unit("segment_area", "kilometer ** 2")
 
 
+def generate_readme(report_dir: Path) -> None:
+    """Generate a README.md file describing the Data Mart export.
+    And a simple HTML variant as well (not a full report - maybe future enhancement)
+    """
+    src_dir = Path(__file__).parent
+    template_path = src_dir / 'templates' / 'user_readme_template.md'
+    with open(template_path, encoding='utf-8') as f:
+        template = Template(f.read())
+
+    context = {"report_version": report_version}
+    readme_contents = template.render(context)
+
+    # Write Markdown README
+    readme_md_path = report_dir / 'README.md'
+    with open(readme_md_path, 'w', encoding='utf-8') as f:
+        f.write(readme_contents)
+    Logger("Docs").info(f"Generated {readme_md_path.name}")
+
+    # Write simple HTML variant
+    html_contents = markdown.markdown(readme_contents, extensions=['tables', 'fenced_code'])
+    html_template_path = src_dir / 'templates' / 'user_readme_template.html'
+    with open(html_template_path, encoding='utf-8') as f:
+        html_template = Template(f.read())
+
+    html_doc = html_template.render(html_contents=html_contents)
+
+    readme_html_path = report_dir / 'report.html'
+    with open(readme_html_path, 'w', encoding='utf-8') as f:
+        f.write(html_doc)
+    Logger("Docs").info(f"Generated {readme_html_path.name}")
+
+
 def export_data_mart(
     report_name: str,
     report_dir: Path,
@@ -349,6 +383,9 @@ def export_data_mart(
     # ---- Clean up staging ----
     if not keep_parquet:
         _cleanup_staging(staging_dir)
+
+    # ---- Generate Documentation ----
+    generate_readme(report_dir)
 
     log.title("Data Mart Export Complete")
     log.info(f"Output: {exports_dir}")
