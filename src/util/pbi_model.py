@@ -111,6 +111,29 @@ class ColumnDef:
     display_folder: str = ""
 
 
+@dataclass(frozen=True)
+class JoinDef:
+    """Relationship definition between two model tables.
+
+    Uses raw source column names from the data dictionary; generation resolves
+    to the actual PBI column names used in table TMDL.
+
+    Copilot-generated class.
+    """
+
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+
+
+# Data Mart relationship definitions (raw/source column names).
+MODEL_JOINS: list[JoinDef] = [
+    JoinDef(from_table="dgo", from_column="graz_globalid", to_table="grazing", to_column="globalid"),
+    JoinDef(from_table="dgo", from_column="pastures_rs_row_id", to_table="pastures", to_column="rs_row_id"),
+]
+
+
 # ── Pure helper functions ───────────────────────────────────────────────
 
 
@@ -264,6 +287,11 @@ def _generate_column_tmdl(col: ColumnDef) -> list[str]:
 
     lines.append(f"\t\tlineageTag: {col.lineage_tag}")
     lines.append(f"\t\tsummarizeBy: {col.summarize_by}")
+
+    # Keep helper sort columns in the model, but hide them from report authors.
+    if col.column_name.endswith("_bin_sort"):
+        lines.append("\t\tisHidden: true")
+
     lines.append(f"\t\tsourceColumn: {col.column_name}")
 
     if col.data_category:
@@ -401,6 +429,58 @@ def _generate_model_tmdl(table_names: list[str]) -> str:
     lines.append("ref cultureInfo en-US")
 
     return CRLF.join(lines) + CRLF
+
+
+def _build_pbi_name_map(tables: dict[str, list[ColumnDef]]) -> dict[tuple[str, str], str]:
+    """Map (table_name, source_column_name) to resolved PBI column name.
+
+    Copilot-generated function.
+    """
+    name_map: dict[tuple[str, str], str] = {}
+    for table_name, columns in tables.items():
+        for col in columns:
+            name_map[(table_name, col.column_name)] = col.pbi_name
+    return name_map
+
+
+def _format_column_ref(table_name: str, pbi_column_name: str) -> str:
+    """Format ``Table.Column`` reference with TMDL-safe quoting.
+
+    Copilot-generated function.
+    """
+    return f"{_quote_name(table_name)}.{_quote_name(pbi_column_name)}"
+
+
+def _generate_relationships_tmdl(tables: dict[str, list[ColumnDef]], joins: list[JoinDef]) -> tuple[str, list[str]]:
+    """Generate ``relationships.tmdl`` from join definitions.
+
+    Only relationships whose tables/columns exist in the resolved model are
+    emitted, so generation remains robust across varying data dictionaries.
+
+    Returns:
+        Tuple of (relationships_tmdl_content, skipped_relationship_descriptions).
+
+    Copilot-generated function.
+    """
+    name_map = _build_pbi_name_map(tables)
+    lines: list[str] = []
+    skipped: list[str] = []
+
+    for join in joins:
+        from_pbi = name_map.get((join.from_table, join.from_column))
+        to_pbi = name_map.get((join.to_table, join.to_column))
+        if not from_pbi or not to_pbi:
+            skipped.append(f"{join.from_table}.{join.from_column} => {join.to_table}.{join.to_column}")
+            continue
+
+        rel_name = _lineage_tag(f"relationship.{join.from_table}.{join.from_column}.{join.to_table}.{join.to_column}")
+        lines.append(f"relationship {rel_name}")
+        lines.append(f"\tfromColumn: {_format_column_ref(join.from_table, from_pbi)}")
+        lines.append(f"\ttoColumn: {_format_column_ref(join.to_table, to_pbi)}")
+        lines.append("")
+
+    content = CRLF.join(lines).rstrip() + CRLF if lines else ""
+    return content, skipped
 
 
 def _generate_database_tmdl() -> str:
@@ -719,6 +799,10 @@ def generate_pbip(
     # ── TMDL files ──
     _write(def_dir / "database.tmdl", _generate_database_tmdl())
     _write(def_dir / "model.tmdl", _generate_model_tmdl(table_names))
+    relationships_tmdl, skipped_relationships = _generate_relationships_tmdl(tables, MODEL_JOINS)
+    _write(def_dir / "relationships.tmdl", relationships_tmdl)
+    for rel in skipped_relationships:
+        print(f"WARNING: Skipped relationship {rel}; one or both columns were not found in the generated model.")
     _write(def_dir / "expressions.tmdl", _generate_expressions_tmdl(str(data_mart_root) if data_mart_root else ""))
     _write(cultures_dir / "en-US.tmdl", _generate_culture_tmdl())
 
