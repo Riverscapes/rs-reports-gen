@@ -80,7 +80,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         "fldpln_access, access_fldpln_extent, confinement_ratio, "
         "brat_capacity, brat_hist_capacity, "
         "riparian_veg_departure, riparian_condition, "
-        "rme_project_id, rme_project_name, graz_globalid"
+        "rme_project_id, rme_project_name, graz_globalid,pastures_rs_row_id"
     )
     if include_geometry:
         dgo_fields += ", dgo_geom"
@@ -97,7 +97,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         DatasetQuery(
             name="dgo",
             # TODO: move to a production source once it exists
-            query_template=(f"SELECT {dgo_fields} FROM input_geom, dev_riverscapes.materialized_rpt_rme_grazing_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            query_template=(f"SELECT {dgo_fields} FROM input_geom, dev_riverscapes.materialized_rpt_rme_blm_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
             geom_bbox_field="dgo_geom_bbox",
         ),
