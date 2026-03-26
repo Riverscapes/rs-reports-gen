@@ -86,10 +86,12 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         dgo_fields += ", dgo_geom"
 
     # HUC10 watershed boundary + RS Context metadata.
-    huc_fields = "huc10.huc10 AS huc, rscontext.project_id, rscontext.hucname, rscontext.hucareasqkm, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
+    huc_fields = "huc10.huc10 AS huc, huc10.name as hucname, huc10.areasqkm as hucareasqkm, rscontext.project_id, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
 
     # BLM National Grazing Allotments.
     grazing_fields = "allot_no, allot_name, admin_st, adm_ofc_cd, st_allot, globalid"
+
+    pastures_fields = "rs_row_id, st_allot_past, st_allot_past_name, st_allot_past_multi, past_name, gis_acres"
 
     return [
         DatasetQuery(
@@ -100,12 +102,15 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
             geom_bbox_field="dgo_geom_bbox",
         ),
         DatasetQuery(
-            name="huc",
+            name="huc10_rscontext",
+            # TODO: the new has_rme should use the same query as dgo query - or there may be a better performing way to do this.
             query_template=(
-                f"SELECT {huc_fields} "
+                f"SELECT {huc_fields}, "
+                " CASE WHEN huc10.huc10 IN (SELECT DISTINCT substr(huc12, 1, 10) FROM rpt_rme_pq) THEN 1 ELSE 0 END AS has_rme "
                 "FROM input_geom, "
-                "(SELECT huc10, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
+                "(SELECT huc10, name, areasqkm, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
                 "LEFT JOIN rs_context_huc10 rscontext ON huc10.huc10 = rscontext.huc "
+                "LEFT JOIN rpt_rme_pq ON huc10.huc10 = substr(rpt_rme_pq.)"
                 "WHERE {prefilter_condition} AND {intersects_condition}"
             ),
             geometry_field_expression="huc10.geom",
@@ -114,6 +119,12 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         DatasetQuery(
             name="grazing",
             query_template=(f"SELECT {grazing_fields} FROM input_geom, default.blm_natl_grazing_allotments WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            geometry_field_expression="ST_GeomFromBinary(geometry)",
+            geom_bbox_field="geometry_bbox",
+        ),
+        DatasetQuery(
+            name="pastures",
+            query_template=(f"SELECT {pastures_fields} FROM input_geom, rs_raw.blm_natl_grazing_pasture_polygons_snapshot_20260324 WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(geometry)",
             geom_bbox_field="geometry_bbox",
         ),
@@ -344,12 +355,12 @@ def export_data_mart(
     all_tables["dgo"] = TableEntry(df=dgo_df, applied_units=dgo_applied_units)
 
     # HUC: dtype coercion + unit conversion
-    huc_df = load_gdf_from_pq(staging_dir / "huc")
+    huc_df = load_gdf_from_pq(staging_dir / "huc10_rscontext")
     huc_df.attrs["layer_id"] = "rs_context_huc10"
     huc_df, huc_applied_units = RSFieldMeta().apply_units(huc_df)
-    log.info(f"HUC loaded: {len(huc_df)} rows, {len(huc_df.columns)} cols")
-    _export_parquet(huc_df, exports_dir / "huc.parquet")
-    all_tables["huc"] = TableEntry(df=huc_df, applied_units=huc_applied_units)
+    log.info(f"HUC10_rscontext loaded: {len(huc_df)} rows, {len(huc_df.columns)} cols")
+    _export_parquet(huc_df, exports_dir / "huc10_rscontext.parquet")
+    all_tables["huc10_rscontext"] = TableEntry(df=huc_df, applied_units=huc_applied_units)
 
     # Grazing: dtype coercion (no unit-bearing columns currently in registry)
     grazing_df = load_gdf_from_pq(staging_dir / "grazing")
