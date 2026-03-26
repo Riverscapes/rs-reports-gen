@@ -1,9 +1,12 @@
 {
     "folders": [
-        {
-            "name": "🏠 Git Root",
-            "path": "."
-        },
+      {
+        "name": "🏠 Git Root",
+        "path": "."
+      },
+      {
+        "path": "../../pydataroot/rpt-data-mart/cordwood-draw-lease-nm-past_-_Data_Mart/pbi"
+      }
     ],
     "settings": {
         "terminal.integrated.defaultProfile.linux": "zsh",
