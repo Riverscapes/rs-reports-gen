@@ -110,7 +110,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
                 "FROM input_geom, "
                 "(SELECT huc10, name, areasqkm, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
                 "LEFT JOIN rs_context_huc10 rscontext ON huc10.huc10 = rscontext.huc "
-                "LEFT JOIN rpt_rme_pq ON huc10.huc10 = substr(rpt_rme_pq.)"
+                "LEFT JOIN rpt_rme_pq ON huc10.huc10 = substr(rpt_rme_pq.huc12, 1, 10) "
                 "WHERE {prefilter_condition} AND {intersects_condition}"
             ),
             geometry_field_expression="huc10.geom",
@@ -201,7 +201,7 @@ def define_fields(unit_system: str = "SI") -> None:
     meta.field_meta = get_field_metadata(
         authority="data-exchange-scripts,riverscapes-tools",
         tool_schema_name="*",
-        layer_id="raw_rme,rpt_rme,rs_context_huc10,blm_natl_grazing_allotments",
+        layer_id="raw_rme,rpt_rme,rs_context_huc10,blm_natl_grazing_allotments,blm-natl-grazing-pasture-polygons",
     )
     meta.unit_system = unit_system
     # Display-unit overrides: convert raw Athena units to user-facing units.
@@ -255,7 +255,7 @@ def export_data_mart(
     """Orchestrate the Data Mart export.
 
     1. Read AOI shapefile and simplify for Athena.
-    2. Query Athena for DGO, HUC, and Grazing data in parallel
+    2. Query Athena for DGO, HUC, Grazing, and Pastures data in parallel
        (or reuse existing Parquet for DGO).
     3. Add calculated columns, apply units, and apply bins + colours to DGO.
     4. Write each dataset to ``report_dir/exports/<name>.parquet``.
@@ -369,6 +369,14 @@ def export_data_mart(
     log.info(f"Grazing loaded: {len(grazing_df)} rows, {len(grazing_df.columns)} cols")
     _export_parquet(grazing_df, exports_dir / "grazing.parquet")
     all_tables["grazing"] = TableEntry(df=grazing_df, applied_units=grazing_applied_units)
+
+    # Pastures: dtype coercion (currently no unit-bearing columns)
+    pastures_df = load_gdf_from_pq(staging_dir / "pastures")
+    pastures_df.attrs["layer_id"] = "blm-natl-grazing-pasture-polygons"
+    pastures_df, pastures_applied_units = RSFieldMeta().apply_units(pastures_df)
+    log.info(f"Pastures loaded: {len(pastures_df)} rows, {len(pastures_df.columns)} cols")
+    _export_parquet(pastures_df, exports_dir / "pastures.parquet")
+    all_tables["pastures"] = TableEntry(df=pastures_df, applied_units=pastures_applied_units)
 
     # Climate Engine: vegetation cover timeseries
     if ce_veg_df is not None:
