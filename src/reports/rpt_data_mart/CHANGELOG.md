@@ -3,6 +3,8 @@
 ## 0.1.2 March 2026
 
 * rename table `huc` to `huc10_rscontext`
+* add pastures table
+* add relationships between tables to Power BI model
 
 ## 0.1.1 March 2026
 
