@@ -21,7 +21,7 @@ GROUP BY stream_name
 """
     df = aoi_query_to_dataframe(querystr, geom_field_clause, geom_bbox_field, aoi_gdf)
     if df.empty:
-        df = pd.DataFrame(columns=["stream_name", "total_riverscape_length", "max_stream_order", "level_path_count", "rs_area_per_length"], data=[["No stream names found", 10.0, 3, 1]])
+        df = pd.DataFrame(columns=["stream_name", "total_riverscape_length", "max_stream_order", "level_path_count", "rs_area_per_length"], data=[["No stream names found", 10.0, 3, 1, 1.0]])
         df["stream_name"] = df["stream_name"].astype(str)
         df["total_riverscape_length"] = df["total_riverscape_length"].astype(float)
         df["max_stream_order"] = df["max_stream_order"].astype(int)
