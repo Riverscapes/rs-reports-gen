@@ -1,7 +1,7 @@
 import os
-from termcolor import colored
 
 import inquirer
+from termcolor import colored
 
 from util.prompt import prompt_for
 
@@ -33,39 +33,41 @@ def main():
     # IF we have everything we need from environment variables then we can skip the prompts
     if os.environ.get("RSI_AOI_GEOJSON"):
         if not os.path.exists(os.path.join(os.environ.get("RSI_AOI_GEOJSON"))):
-            raise RuntimeError(
-                colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+            raise RuntimeError(colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
         geojson_file = os.environ.get("RSI_AOI_GEOJSON")
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the example folder
         base_dir = os.path.dirname(__file__)
 
         # Use inquirer to choose a geojson file in the  "{env:DATA_ROOT}/rpt-rivers-need-space/example" directory
-        geojson_filename = prompt_for([
-            inquirer.List(
-                'geojson',
-                message="Select a geojson file to use as the AOI",
-                choices=[
-                    f for f in os.listdir(os.path.join(base_dir, "example")) if f.endswith('.geojson')
-                ],
-            ),
-        ], 'geojson')
+        geojson_filename = prompt_for(
+            [
+                inquirer.List(
+                    'geojson',
+                    message="Select a geojson file to use as the AOI",
+                    choices=[f for f in os.listdir(os.path.join(base_dir, "example")) if f.endswith('.geojson')],
+                ),
+            ],
+            'geojson',
+        )
         geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
 
     if os.environ.get("RSI_CSV"):
         if not os.path.exists(os.path.join(os.environ.get("RSI_CSV"))):
-            raise RuntimeError(
-                colored(f"\nThe RSI_CSV environment variable is set to '{os.environ.get('RSI_CSV')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+            raise RuntimeError(colored(f"\nThe RSI_CSV environment variable is set to '{os.environ.get('RSI_CSV')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
         csv_file = os.environ.get("RSI_CSV")
     else:
         # No CSV file provided. Ask for an optional csv path
-        csv_file = prompt_for([
-            inquirer.Text(
-                'csv',
-                message="Optional: Enter a path to a CSV file to use for results (leave blank to query Athena)",
-                default="",
-            ),
-        ], 'csv')
+        csv_file = prompt_for(
+            [
+                inquirer.Text(
+                    'csv',
+                    message="Optional: Enter a path to a CSV file to use for results (leave blank to query Athena)",
+                    default="",
+                ),
+            ],
+            'csv',
+        )
         # Strip leading/trailing quotes if present
         if csv_file:
             csv_file = csv_file.strip().strip('"').strip("'")
@@ -76,17 +78,17 @@ def main():
             raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # Ask for unit system
-        unit_system = prompt_for([
-            inquirer.List(
-                'unit_system',
-                message="Select a unit system to use",
-                choices=[
-                    "SI",
-                    "imperial"
-                ],
-                default="SI"
-            ),
-        ], 'unit_system')
+        unit_system = prompt_for(
+            [
+                inquirer.List(
+                    'unit_system',
+                    message="Select a unit system to use",
+                    choices=["SI", "imperial"],
+                    default="SI",
+                ),
+            ],
+            'unit_system',
+        )
 
     if os.environ.get("RSI_REPORT_NAME"):
         report_name = os.environ.get("RSI_REPORT_NAME")
@@ -97,19 +99,19 @@ def main():
     if os.environ.get("INCLUDE_PDF"):
         include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
     else:
-        include_pdf = prompt_for([
-            inquirer.Confirm(
-                'include_pdf',
-                message="Include a PDF version of the report? (Default is No)",
-                default=False
-            ),
-        ], 'include_pdf')
+        include_pdf = prompt_for(
+            [
+                inquirer.Confirm('include_pdf', message="Include a PDF version of the report? (Default is No)", default=False),
+            ],
+            'include_pdf',
+        )
 
     args = [
         os.path.join(data_root, "rpt-riverscapes-stream-names", report_name.replace(" ", "_")),
         geojson_file,
         report_name,
-        "--unit_system", unit_system,
+        "--unit_system",
+        unit_system,
     ]
     if include_pdf:
         args.append("--include_pdf")
