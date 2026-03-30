@@ -1,5 +1,9 @@
 # Riverscapes Stream Names Report
 
+## Version 0.3.1
+
+* Sort file outputs
+
 ## Version 0.3.0
 
 * Multiple word clouds with different metrics
