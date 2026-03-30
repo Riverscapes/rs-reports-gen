@@ -1,6 +1,7 @@
-"""Figure generation for Stream Names Report
-"""
+"""Figure generation for Stream Names Report"""
+
 from pathlib import Path
+
 import pandas as pd
 from wordcloud import WordCloud
 
@@ -10,9 +11,7 @@ from reports.rpt_stream_names.colour_gradient import stream_colour_from_order
 def word_cloud_data(df: pd.DataFrame, frequency_field: str) -> pd.DataFrame:
     """process to go from raw df to just what we need"""
     df_copy = df[['stream_name', frequency_field, 'max_stream_order']].copy()
-    df_copy['stream_order_colour'] = df_copy['max_stream_order'].apply(
-        stream_colour_from_order
-    )
+    df_copy['stream_order_colour'] = df_copy['max_stream_order'].apply(stream_colour_from_order)
 
     return df_copy
 
@@ -44,31 +43,19 @@ def word_cloud(indf: pd.DataFrame, output_dir: Path, frequency_field: str):
     else:
         # 2. Build frequency dict: { stream_name: {frequency_field} }
         #    Assumes frequency field is already aggregated & unit-baked (we don't need units).
-        freq_series = (
-            df
-            .dropna(subset=['stream_name', frequency_field])
-            .set_index('stream_name')[frequency_field]
-        )
+        freq_series = df.dropna(subset=['stream_name', frequency_field]).set_index('stream_name')[frequency_field]
 
         # Convert to plain dict with float values
-        freq_dict = {
-            name: float(val)
-            for name, val in freq_series.items()
-            if float(val) > 0
-        }
+        freq_dict = {name: float(val) for name, val in freq_series.items() if float(val) > 0}
 
         if not freq_dict:
             freq_dict = {"no_stream_names": 1.0}
 
-        print(freq_dict)  # debug only
+        # print(freq_dict)  # debug only
 
         # 2b. Build colour lookup dict: { stream_name: stream_order_colour }
         if 'stream_order_colour' in df.columns:
-            colour_lookup = {
-                row['stream_name']: row['stream_order_colour']
-                for _, row in df.iterrows()
-                if isinstance(row['stream_order_colour'], str)
-            }
+            colour_lookup = {row['stream_name']: row['stream_order_colour'] for _, row in df.iterrows() if isinstance(row['stream_order_colour'], str)}
         else:
             # Fallback: default to black if no colour column
             colour_lookup = {name: "#000000" for name in freq_dict.keys()}
