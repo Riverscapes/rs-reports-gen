@@ -25,6 +25,15 @@ from util.html import RSReport
 from util.pdf import make_pdf_from_html
 
 
+def sort_dataframe_for_deterministic_output(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a deterministically sorted copy of a dataframe for stable file outputs."""
+    if df.empty:
+        return df.reset_index(drop=True)
+
+    sort_columns = list(df.columns)
+    return df.sort_values(by=sort_columns, kind="mergesort", na_position="last").reset_index(drop=True)
+
+
 def make_report(
     df: pd.DataFrame,
     aoi_gdf: gpd.GeoDataFrame,
@@ -135,7 +144,9 @@ def make_report_orchestrator(
 
         log.info("Querying athena for data for AOI")
         data_df = get_wcdata_for_aoi(query_gdf)
-        data_df.to_csv(csv_data_path)
+
+    data_df = sort_dataframe_for_deterministic_output(data_df)
+    data_df.to_csv(csv_data_path, index=False)
     # given the data groups by stream name and there are only ~80k distinct stream names in CONUS this shouldn't blow up
     data_df.to_excel(report_dir / 'data' / 'data.xlsx', index=False)
 
