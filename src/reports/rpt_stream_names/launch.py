@@ -6,6 +6,16 @@ from termcolor import colored
 from util.prompt import prompt_for
 
 
+def is_truthy(value: str | None) -> bool:
+    """Returns True if the string represents a truthy value.
+    Accepts "1", "true", "yes" (case-insensitive, ignores whitespace).
+    Any other value, including None, returns False.
+    """
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes"}
+
+
 def main():
     """The purpose of this function is to return an array of arguments that will satisfy the
     main() function in the report
@@ -96,8 +106,9 @@ def main():
         report_name = geojson_file.split(os.path.sep)[-1].replace('.geojson', '').replace(' ', '_') + " - Riverscapes Stream Names"
 
     # Ask for whether or not to include PDF. Default to NO
-    if os.environ.get("INCLUDE_PDF"):
-        include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
+    include_pdf_env = os.environ.get("INCLUDE_PDF", None)
+    if include_pdf_env is not None:
+        include_pdf = is_truthy(include_pdf_env)
     else:
         include_pdf = prompt_for(
             [
