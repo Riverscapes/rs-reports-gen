@@ -25,7 +25,7 @@ def main():
     Environment variables that can be set:
         For all reports:
             DATA_ROOT - Path to the outputs folder. A subfolder rpt-rivers-need-space will be created if it does not exist (REQUIRED)
-            UNIT_SYSTEM - unit system to use: "SI" or "imperial" (optional, default is "SI")
+            UNIT_SYSTEM - unit system to use: "SI" or "imperial" (optional, default is "SI") NOT USED IN THIS REPORT
             INCLUDE_PDF - whether to include a PDF version of the report (optional, default is True)
 
         Report-specific variables:
@@ -82,23 +82,23 @@ def main():
         if csv_file:
             csv_file = csv_file.strip().strip('"').strip("'")
 
-    if os.environ.get("UNIT_SYSTEM"):
-        unit_system = os.environ.get("UNIT_SYSTEM")
-        if unit_system not in ["SI", "imperial"]:
-            raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        # Ask for unit system
-        unit_system = prompt_for(
-            [
-                inquirer.List(
-                    'unit_system',
-                    message="Select a unit system to use",
-                    choices=["SI", "imperial"],
-                    default="SI",
-                ),
-            ],
-            'unit_system',
-        )
+    # if os.environ.get("UNIT_SYSTEM"):
+    #     unit_system = os.environ.get("UNIT_SYSTEM")
+    #     if unit_system not in ["SI", "imperial"]:
+    #         raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
+    # else:
+    #     # Ask for unit system
+    #     unit_system = prompt_for(
+    #         [
+    #             inquirer.List(
+    #                 'unit_system',
+    #                 message="Select a unit system to use",
+    #                 choices=["SI", "imperial"],
+    #                 default="SI",
+    #             ),
+    #         ],
+    #         'unit_system',
+    #     )
 
     if os.environ.get("RSI_REPORT_NAME"):
         report_name = os.environ.get("RSI_REPORT_NAME")
@@ -121,8 +121,8 @@ def main():
         os.path.join(data_root, "rpt-riverscapes-stream-names", report_name.replace(" ", "_")),
         geojson_file,
         report_name,
-        "--unit_system",
-        unit_system,
+        # "--unit_system",
+        # unit_system,
     ]
     if include_pdf:
         args.append("--include_pdf")
