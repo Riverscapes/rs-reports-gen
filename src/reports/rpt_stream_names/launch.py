@@ -3,17 +3,7 @@ import os
 import inquirer
 from termcolor import colored
 
-from util.prompt import prompt_for
-
-
-def is_truthy(value: str | None) -> bool:
-    """Returns True if the string represents a truthy value.
-    Accepts "1", "true", "yes" (case-insensitive, ignores whitespace).
-    Any other value, including None, returns False.
-    """
-    if value is None:
-        return False
-    return value.strip().lower() in {"1", "true", "yes"}
+from util.prompt import is_truthy, prompt_for
 
 
 def main():
