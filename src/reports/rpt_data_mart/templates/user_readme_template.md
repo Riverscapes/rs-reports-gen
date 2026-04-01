@@ -15,7 +15,6 @@ This package contains the following artifacts:
 - **`exports/`**: Contains the output Parquet files.
   - `dgo.parquet`: Riverscapes drainage network attributes and metrics, binned into standardized categories.
   - `huc.parquet`: Watershed boundary statistics and metadata.
-  - `grazing.parquet`: BLM National Grazing Allotments (if overlapping).
   - `vegetation_cover.parquet`: (Optional) Vegetation cover timeseries extracted via Climate Engine.
   - `attains.parquet`: (Optional) EPA water quality assessments.
 - **`data_dictionary.csv`**: Contains comprehensive field-level metadata for all exported columns. This includes original and friendly names, definitions, data types, and explicit units applied.

@@ -129,8 +129,8 @@ class JoinDef:
 
 # Data Mart relationship definitions (raw/source column names).
 MODEL_JOINS: list[JoinDef] = [
-    JoinDef(from_table="dgo", from_column="graz_globalid", to_table="grazing", to_column="globalid"),
-    JoinDef(from_table="dgo", from_column="pastures_rs_row_id", to_table="pastures", to_column="rs_row_id"),
+    JoinDef(from_table="dgo", from_column="pasture_rs_row_id", to_table="pastures", to_column="rs_row_id"),
+    JoinDef(from_table="dgo", from_column="huc10", to_table="huc10_rscontext", to_column="HUC10"),
 ]
 
 
@@ -338,7 +338,7 @@ def _generate_table_tmdl(table_name: str, columns: list[ColumnDef]) -> str:
     lines.append("\t\tmode: import")
     lines.append("\t\tsource =")
     lines.append("\t\t\t\tlet")
-    lines.append(f'\t\t\t\t    Source = Parquet.Document(File.Contents(DataMartRoot & "\\exports\\{table_name}.parquet"))')
+    lines.append(f'\t\t\t\t    Source = Parquet.Document(Web.Contents(DataMartRoot & "\\exports\\{table_name}.parquet"))')
     lines.append("\t\t\t\tin")
     lines.append("\t\t\t\t    Source")
 
