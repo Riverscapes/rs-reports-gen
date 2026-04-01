@@ -1,5 +1,12 @@
 # Version History
 
+## 0.1.3 2026-April
+
+* remove grazing allotments table
+* connects to new Athena objects - materialized for entire nation, not just New Mexico
+* performance improvements in HUC10 query
+* adds join between dgos & huc10
+
 ## 0.1.2 March 2026
 
 * rename table `huc` to `huc10_rscontext`

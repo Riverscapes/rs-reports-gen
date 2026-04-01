@@ -63,12 +63,12 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
 
     Copilot-generated function.
     """
-    # DGO fields from the rpt_rme_pq Athena view (or in this case the POC derivative that includes the grazing allotment id).
+    # DGO fields from the rs_rpt intersections Athena table
     dgo_fields = (
         "level_path, seg_distance, centerline_length, segment_area, "
         "fcode, fcode_desc, longitude, latitude, "
         "ownership, ownership_desc, state, county, drainage_area, "
-        "stream_name, stream_order, stream_length, huc12, "
+        "stream_name, stream_order, stream_length, huc12, huc10, "
         "rel_flow_length, channel_area, integrated_width, "
         "low_lying_ratio, elevated_ratio, floodplain_ratio, "
         "acres_vb_per_mile, hect_vb_per_km, channel_width, "
@@ -80,24 +80,23 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         "fldpln_access, access_fldpln_extent, confinement_ratio, "
         "brat_capacity, brat_hist_capacity, "
         "riparian_veg_departure, riparian_condition, "
-        "rme_project_id, rme_project_name, graz_globalid,pastures_rs_row_id"
+        "rme_project_id, rme_project_name, pasture_rs_row_id "
     )
-    if include_geometry:
-        dgo_fields += ", dgo_geom"
 
     # HUC10 watershed boundary + RS Context metadata.
     huc_fields = "huc10.huc10 AS huc, huc10.name as hucname, huc10.areasqkm as hucareasqkm, rscontext.project_id, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
 
-    # BLM National Grazing Allotments.
-    grazing_fields = "allot_no, allot_name, admin_st, adm_ofc_cd, st_allot, globalid"
+    pastures_fields = "rs_row_id, allot_no, allot_name, past_no, past_name, admin_st, adm_ofc_cd, adm_unit_cd, st_allot_past, st_allot_past_name, st_allot_past_multi"
 
-    pastures_fields = "rs_row_id, st_allot_past, st_allot_past_name, st_allot_past_multi, past_name, gis_acres"
+    if include_geometry:
+        dgo_fields += ", dgo_geom"
+        # TODO (ENHANCEMENT): add geometry for other tables
+        # huc_fields += ", huc10.geom" # [ERROR] [Setup] NOT_SUPPORTED: Unsupported Hive type: Geometry
 
     return [
         DatasetQuery(
             name="dgo",
-            # TODO: move to a production source once it exists
-            query_template=(f"SELECT {dgo_fields} FROM input_geom, dev_riverscapes.materialized_rpt_rme_blm_nm WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            query_template=(f"SELECT {dgo_fields} FROM input_geom, rs_rpt.rpt_rme_intersections WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(dgo_geom)",
             geom_bbox_field="dgo_geom_bbox",
         ),
@@ -105,26 +104,21 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
             name="huc10_rscontext",
             # TODO: the new has_rme should use the same query as dgo query - or there may be a better performing way to do this.
             query_template=(
-                f"SELECT {huc_fields}, "
-                " CASE WHEN huc10.huc10 IN (SELECT DISTINCT substr(huc12, 1, 10) FROM rpt_rme_pq) THEN 1 ELSE 0 END AS has_rme "
+                ", rme_huc10s AS (SELECT DISTINCT substr(huc12,1,10) AS huc10 FROM rs_rpt.rpt_rme_intersections) "
+                f" SELECT {huc_fields}, "
+                "CASE WHEN huc10.huc10 IS NOT null THEN 1 ELSE 0 END AS has_rme "
                 "FROM input_geom, "
                 "(SELECT huc10, name, areasqkm, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
                 "LEFT JOIN rs_context_huc10 rscontext ON huc10.huc10 = rscontext.huc "
-                "LEFT JOIN rpt_rme_pq ON huc10.huc10 = substr(rpt_rme_pq.huc12, 1, 10) "
+                "LEFT JOIN rme_huc10s ON huc10.huc10 = rme_huc10s.huc10 "
                 "WHERE {prefilter_condition} AND {intersects_condition}"
             ),
             geometry_field_expression="huc10.geom",
             geom_bbox_field="geometry_bbox",
         ),
         DatasetQuery(
-            name="grazing",
-            query_template=(f"SELECT {grazing_fields} FROM input_geom, default.blm_natl_grazing_allotments WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
-            geometry_field_expression="ST_GeomFromBinary(geometry)",
-            geom_bbox_field="geometry_bbox",
-        ),
-        DatasetQuery(
             name="pastures",
-            query_template=(f"SELECT {pastures_fields} FROM input_geom, rs_raw.blm_natl_grazing_pasture_polygons_snapshot_20260324 WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            query_template=(f"SELECT {pastures_fields} FROM input_geom, rs_raw.blm_natl_grazing_pasture_polygons WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(geometry)",
             geom_bbox_field="geometry_bbox",
         ),
@@ -201,7 +195,7 @@ def define_fields(unit_system: str = "SI") -> None:
     meta.field_meta = get_field_metadata(
         authority="data-exchange-scripts,riverscapes-tools",
         tool_schema_name="*",
-        layer_id="raw_rme,rpt_rme,rs_context_huc10,blm_natl_grazing_allotments,blm-natl-grazing-pasture-polygons",
+        layer_id="raw_rme,rpt_rme,rs_context_huc10,blm-natl-grazing-pasture-polygons",
     )
     meta.unit_system = unit_system
     # Display-unit overrides: convert raw Athena units to user-facing units.
@@ -255,7 +249,7 @@ def export_data_mart(
     """Orchestrate the Data Mart export.
 
     1. Read AOI shapefile and simplify for Athena.
-    2. Query Athena for DGO, HUC, Grazing, and Pastures data in parallel
+    2. Query Athena for DGO, HUC, Pastures data in parallel
        (or reuse existing Parquet for DGO).
     3. Add calculated columns, apply units, and apply bins + colours to DGO.
     4. Write each dataset to ``report_dir/exports/<name>.parquet``.
@@ -361,14 +355,6 @@ def export_data_mart(
     log.info(f"HUC10_rscontext loaded: {len(huc_df)} rows, {len(huc_df.columns)} cols")
     _export_parquet(huc_df, exports_dir / "huc10_rscontext.parquet")
     all_tables["huc10_rscontext"] = TableEntry(df=huc_df, applied_units=huc_applied_units)
-
-    # Grazing: dtype coercion (no unit-bearing columns currently in registry)
-    grazing_df = load_gdf_from_pq(staging_dir / "grazing")
-    grazing_df.attrs["layer_id"] = 'blm_natl_grazing_allotments'
-    grazing_df, grazing_applied_units = RSFieldMeta().apply_units(grazing_df)
-    log.info(f"Grazing loaded: {len(grazing_df)} rows, {len(grazing_df.columns)} cols")
-    _export_parquet(grazing_df, exports_dir / "grazing.parquet")
-    all_tables["grazing"] = TableEntry(df=grazing_df, applied_units=grazing_applied_units)
 
     # Pastures: dtype coercion (currently no unit-bearing columns)
     pastures_df = load_gdf_from_pq(staging_dir / "pastures")
