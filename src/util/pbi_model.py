@@ -338,7 +338,7 @@ def _generate_table_tmdl(table_name: str, columns: list[ColumnDef]) -> str:
     lines.append("\t\tmode: import")
     lines.append("\t\tsource =")
     lines.append("\t\t\t\tlet")
-    lines.append(f'\t\t\t\t    Source = Parquet.Document(Web.Contents(DataMartRoot & "\\exports\\{table_name}.parquet"))')
+    lines.append(f'\t\t\t\t    Source = fn_LoadParquet("{table_name}.parquet")')
     lines.append("\t\t\t\tin")
     lines.append("\t\t\t\t    Source")
 
@@ -351,7 +351,7 @@ def _generate_table_tmdl(table_name: str, columns: list[ColumnDef]) -> str:
 
 
 def _generate_expressions_tmdl(data_mart_root: str = "") -> str:
-    """Generate ``expressions.tmdl`` with ``DataMartRoot`` and ``fn_LoadParquetFolder``.
+    """Generate ``expressions.tmdl`` with reusable loaders and ``DataMartRoot``.
 
     M expressions are written inline (no triple-backtick delimiters) to match
     the PBIR format that PBI Desktop saves.
@@ -365,6 +365,33 @@ def _generate_expressions_tmdl(data_mart_root: str = "") -> str:
     Copilot-generated function.
     """
     lines = [
+        "/// Load one Parquet file from DataMartRoot with auto connector selection.",
+        "expression fn_LoadParquet =",
+        "\t\t/**",
+        "\t\t * Reusable function: load one Parquet file from DataMartRoot.",
+        "\t\t * Uses Web.Contents + Binary.Buffer for http(s) roots and",
+        "\t\t * File.Contents for local/UNC paths.",
+        '\t\t * Input: FileName (e.g., "dgo.parquet")',
+        "\t\t * Output: A table from that Parquet file.",
+        "\t\t */",
+        "\t\t(FileName as text) as table =>",
+        "\t\tlet",
+        "\t\t    RootLower = Text.Lower(DataMartRoot),",
+        '\t\t    IsWebRoot = Text.StartsWith(RootLower, "http://") or Text.StartsWith(RootLower, "https://"),',
+        '\t\t    WebPath = DataMartRoot & "/exports/" & FileName,',
+        '\t\t    FilePath = DataMartRoot & "\\exports\\" & FileName,',
+        "\t\t    SourceBinary = if IsWebRoot",
+        "\t\t        then Binary.Buffer(Web.Contents(WebPath))",
+        "\t\t        else File.Contents(FilePath),",
+        "\t\t    Source = Parquet.Document(SourceBinary)",
+        "\t\tin",
+        "\t\t    Source",
+        f"\tlineageTag: {_lineage_tag('fn_LoadParquet')}",
+        "",
+        "\tannotation PBI_NavigationStepName = Navigation",
+        "",
+        "\tannotation PBI_ResultType = Function",
+        "",
         "/// combine all Parquet files from a local folder into a single table",
         "expression fn_LoadParquetFolder =",
         "\t\t/**",
@@ -416,7 +443,7 @@ def _generate_model_tmdl(table_names: list[str]) -> str:
     ]
 
     # annotations and ref statements are root-level (no indent) in TMDL
-    query_order = table_names + ["fn_LoadParquetFolder", "DataMartRoot"]
+    query_order = table_names + ["fn_LoadParquet", "fn_LoadParquetFolder", "DataMartRoot"]
     lines.append(f"annotation PBI_QueryOrder = {json.dumps(query_order)}")
     lines.append("")
     lines.append('annotation PBI_ProTooling = ["DevMode","TMDLView_Desktop","TMDL-Extension"]')
