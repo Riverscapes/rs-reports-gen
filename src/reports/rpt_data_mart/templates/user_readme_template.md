@@ -53,9 +53,17 @@ If you enabled `--generate-pbi`, you can open the `.pbip` project directory with
 
 The supplied pbip file comes with a parameter, `DataMartRoot` that should be populated with the path to the root folder containing the `exports` folder of data. See above for getting the remote URL.  *Do not include a trailing slash.*
 
-If the data is local, connect to it with the `File.Contents` connector. If it is on the web use the `Web.Contents` connector. You can search and replace "Web.Contents(DataMartRoot" with "File.Contents(DataMartRoot)". Example in context:
+You only need to set `DataMartRoot`.
 
-`Source = Parquet.Document(Web.Contents(DataMartRoot & "exports/huc.parquet")),`
+- For web data, set it to a URL root like `https://reports.riverscapes.net/public/<report_id>`.
+- For local data, set it to a local folder path like `C:\Data\my_export`.
+
+The generated model automatically chooses the right connector:
+
+- `Web.Contents` (with `Binary.Buffer`) for `http(s)` roots
+- `File.Contents` for local/UNC paths
+
+No table-by-table edits are required.
 
 #### Merging data models
 
