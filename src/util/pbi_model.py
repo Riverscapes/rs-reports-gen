@@ -130,7 +130,7 @@ class JoinDef:
 # Data Mart relationship definitions (raw/source column names).
 MODEL_JOINS: list[JoinDef] = [
     JoinDef(from_table="dgo", from_column="pasture_rs_row_id", to_table="pastures", to_column="rs_row_id"),
-    JoinDef(from_table="dgo", from_column="huc10", to_table="huc10_rscontext", to_column="HUC10"),
+    JoinDef(from_table="dgo", from_column="huc10", to_table="huc10_rscontext", to_column="huc"),
 ]
 
 
