@@ -106,7 +106,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
             query_template=(
                 ", rme_huc10s AS (SELECT DISTINCT substr(huc12,1,10) AS huc10 FROM rs_rpt.rpt_rme_intersections) "
                 f" SELECT {huc_fields}, "
-                "CASE WHEN huc10.huc10 IS NOT null THEN 1 ELSE 0 END AS has_rme "
+                "CASE WHEN rme_huc10s.huc10 IS NOT null THEN 1 ELSE 0 END AS has_rme "
                 "FROM input_geom, "
                 "(SELECT huc10, name, areasqkm, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
                 "LEFT JOIN rs_context_huc10 rscontext ON huc10.huc10 = rscontext.huc "
