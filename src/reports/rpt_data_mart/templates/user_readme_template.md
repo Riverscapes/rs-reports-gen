@@ -29,7 +29,7 @@ This package contains the following artifacts:
 
 You don't need to download the data to work with it. This is especially handy for large, public reports. For personal reports, keep in mind the files are removed from the server after 7 days.
 
-Look for the report ID on the platform. It is a 36-character sequence of letters and numbers. The export root path can then be build from this, e.g. `https://reports.riverscapes.net/public/88cbee03-6ee5-4b26-8094-234abe9a6e28/`. All the other files listed above are relative to this.
+Look for the report ID on the platform. It is a 36-character sequence of letters and numbers. The export root path can then be build from this, e.g. `https://reports.riverscapes.net/public/88cbee03-6ee5-4b26-8094-234abe9a6e28`. All the other files listed above are relative to this.
 
 ### Python / Jupyter
 
@@ -51,9 +51,9 @@ If you enabled `--generate-pbi`, you can open the `.pbip` project directory with
 
 #### Connecting to alternate data source locations
 
-The supplied pbip file comes with a parameter, `DataMartRoot` that should be populated with the path to the root folder containing the `exports` folder of data.
+The supplied pbip file comes with a parameter, `DataMartRoot` that should be populated with the path to the root folder containing the `exports` folder of data. See above for getting the remote URL.  *Do not include a trailing slash.*
 
-If the data is local, connect to it with the `File.Contents` connector. If it is on the web use the `Web.Contents` connector. You can search and replace "File.Contents(DataMartRoot" with "Web.Contents(DataMartRoot)". Example in context:
+If the data is local, connect to it with the `File.Contents` connector. If it is on the web use the `Web.Contents` connector. You can search and replace "Web.Contents(DataMartRoot" with "File.Contents(DataMartRoot)". Example in context:
 
 `Source = Parquet.Document(Web.Contents(DataMartRoot & "exports/huc.parquet")),`
 
