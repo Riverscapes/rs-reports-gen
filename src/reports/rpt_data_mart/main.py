@@ -40,6 +40,8 @@ from util.metadata_export import TableEntry, export_data_dictionary
 from util.pandas import RSFieldMeta, load_gdf_from_pq
 from util.rme.rme_common_dataprep import apply_all_bins
 
+PBI_MODEL_NAME = "Riverscapes Data Mart Report"
+
 # ---------------------------------------------------------------------------
 # Dataset query configuration
 # ---------------------------------------------------------------------------
@@ -449,8 +451,8 @@ def main() -> None:
 
             pbi_dir = output_path / "pbi"
             dict_path = output_path / "data_dictionary.csv"
-            generate_pbip(dict_path, pbi_dir, model_name=args.report_name, data_mart_root=output_path)
-            log.info(f"Power BI project generated in {pbi_dir}")
+            generate_pbip(dict_path, pbi_dir, model_name=PBI_MODEL_NAME, data_mart_root=output_path)
+            log.info(f"Power BI project generated in {pbi_dir} with model name '{PBI_MODEL_NAME}'")
 
         process = psutil.Process(os.getpid())
         mem_mb = process.memory_info().peak_wset / 1024 / 1024 if hasattr(process.memory_info(), "peak_wset") else process.memory_info().rss / 1024 / 1024
