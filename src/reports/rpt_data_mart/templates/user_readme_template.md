@@ -51,14 +51,12 @@ If you enabled `--generate-pbi`, you can open the `.pbip` project directory with
 
 #### Connecting to alternate data source locations
 
-The supplied pbip file comes with a parameter, `DataMartRoot` that should be populated with the path to the root folder containing the `exports` folder of data. See above for getting the remote URL.  *Do not include a trailing slash.*
-
-You only need to set `DataMartRoot`.
+The supplied pbip file comes with a parameter, `DataMartRoot` that should be populated with the path to the root folder containing the `exports` folder of data. See above for getting the remote URL.
 
 - For web data, set it to a URL root like `https://reports.riverscapes.net/public/<report_id>`.
 - For local data, set it to a local folder path like `C:\Data\my_export`.
 
-The generated model automatically chooses the right connector:
+The generated model uses a custom Power Query function `fn_LoadParquet` that will automatically choose the right connector:
 
 - `Web.Contents` (with `Binary.Buffer`) for `http(s)` roots
 - `File.Contents` for local/UNC paths
