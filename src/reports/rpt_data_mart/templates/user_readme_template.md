@@ -56,12 +56,11 @@ The supplied pbip file comes with a parameter, `DataMartRoot` that should be pop
 - For web data, set it to a URL root like `https://reports.riverscapes.net/public/<report_id>`.
 - For local data, set it to a local folder path like `C:\Data\my_export`.
 
-The generated model uses a custom Power Query function `fn_LoadParquet` that will automatically choose the right connector:
+The generated model uses a custom Power Query function `fn_LoadParquet` that defaults to web loading with `Web.Contents` + `Binary.Buffer`.
 
-- `Web.Contents` (with `Binary.Buffer`) for `http(s)` roots
-- `File.Contents` for local/UNC paths
+If you want local loading, edit `fn_LoadParquet` once in `expressions.tmdl` by uncommenting the `File.Contents` line and commenting the `Web.Contents` line.
 
-No table-by-table edits are required.
+`DataMartRoot` should not include a trailing slash.
 
 #### Merging data models
 
