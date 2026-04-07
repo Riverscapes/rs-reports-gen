@@ -377,7 +377,7 @@ def _generate_expressions_tmdl(data_mart_root: str = "") -> str:
         "\t\t(FileName as text) as table =>",
         "\t\tlet",
         "\t\t    RootRaw = Text.Trim(DataMartRoot),",
-        '\t\t    RootNormalized = Text.TrimEnd(RootRaw, {"/", "\\\\"}),',
+        '\t\t    RootNormalized = Text.TrimEnd(RootRaw, {"/", Character.FromNumber(92)}),',
         "\t\t    RootScheme = Text.Lower(try Uri.Parts(RootNormalized)[Scheme] otherwise \"\"),",
         '\t\t    IsWebRoot = RootScheme = "http" or RootScheme = "https",',
         '\t\t    WebPath = RootNormalized & "/exports/" & FileName,',
