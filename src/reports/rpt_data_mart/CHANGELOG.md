@@ -1,5 +1,9 @@
 # Version History
 
+## 0.1.4 2026-April
+
+* improve Power BI data loading (web or local)
+
 ## 0.1.3 2026-April
 
 * remove grazing allotments table
