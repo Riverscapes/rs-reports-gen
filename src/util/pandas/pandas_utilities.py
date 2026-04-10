@@ -1,19 +1,19 @@
 from pathlib import Path
+
 import geopandas as gpd
 import pandas as pd
-from shapely import wkt, wkb
-from rsxml import Logger
-import pint
 import pyarrow.parquet as pq
+from rsxml import Logger
+from shapely import wkb, wkt
+
 from util.athena.athena_unload_utils import list_athena_unload_payload_files
 from util.pandas import RSFieldMeta
-ureg = pint.UnitRegistry()
 
 
 def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = None):
     """Pretty print a summary of a dataframe AND the metadata
-    the layer_id is used for metadata disambiguation, if provided 
-    otherwise, if the df has attrs['layer_id'] that is used 
+    the layer_id is used for metadata disambiguation, if provided
+    otherwise, if the df has attrs['layer_id'] that is used
     """
     if not layer_id:
         # Try to resolve layer_id from dataframe attributes
@@ -66,19 +66,21 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = N
                 formatted_sample = "<Format Error>"
                 errors.append(f"Format error for '{col_str}': {e}")
 
-        rows.append({
-            'i': i,
-            'col': col_str,
-            'dtype': dtype_str,
-            'table': t_name,
-            'friendly': f_name,
-            'unit': d_unit,
-            'fmt': p_fmt,
-            'na': str(na_count),
-            'distinct': str(distinct_count),
-            'raw': raw_sample_str,
-            'formatted': formatted_sample
-        })
+        rows.append(
+            {
+                'i': i,
+                'col': col_str,
+                'dtype': dtype_str,
+                'table': t_name,
+                'friendly': f_name,
+                'unit': d_unit,
+                'fmt': p_fmt,
+                'na': str(na_count),
+                'distinct': str(distinct_count),
+                'raw': raw_sample_str,
+                'formatted': formatted_sample,
+            }
+        )
 
     # --- TABLE 1: Metadata ---
     print("METADATA SUMMARY")
@@ -90,18 +92,15 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = N
     w_unit = 15
     w_fmt = 20
 
-    header1 = (
-        f"{'#':<{w_idx}} {'Column':<{w_col}} {'Type':<{w_type}} {'Table':<{w_table}} "
-        f"{'Friendly Name':<{w_friendly}} {'Unit':<{w_unit}} {'Preferred Fmt':<{w_fmt}}"
-    )
+    header1 = f"{'#':<{w_idx}} {'Column':<{w_col}} {'Type':<{w_type}} {'Table':<{w_table}} {'Friendly Name':<{w_friendly}} {'Unit':<{w_unit}} {'Preferred Fmt':<{w_fmt}}"
     print(header1)
     print('-' * len(header1))
 
     for r in rows:
         print(
-            f"{r['i']:<{w_idx}} {r['col'][:w_col - 1]:<{w_col}} {r['dtype'][:w_type - 1]:<{w_type}} "
-            f"{r['table'][:w_table - 1]:<{w_table}} {r['friendly'][:w_friendly - 1]:<{w_friendly}} "
-            f"{r['unit'][:w_unit - 1]:<{w_unit}} {r['fmt'][:w_fmt - 1]:<{w_fmt}}"
+            f"{r['i']:<{w_idx}} {r['col'][: w_col - 1]:<{w_col}} {r['dtype'][: w_type - 1]:<{w_type}} "
+            f"{r['table'][: w_table - 1]:<{w_table}} {r['friendly'][: w_friendly - 1]:<{w_friendly}} "
+            f"{r['unit'][: w_unit - 1]:<{w_unit}} {r['fmt'][: w_fmt - 1]:<{w_fmt}}"
         )
     print('\n')
 
@@ -112,18 +111,12 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = N
     w_raw = 30
     w_formatted = 30
 
-    header2 = (
-        f"{'#':<{w_idx}} {'Column':<{w_col}} {'NA Count':<{w_na}} {'Distinct':<{w_distinct}} "
-        f"{'Sample (Raw)':<{w_raw}} {'Sample (Formatted)':<{w_formatted}}"
-    )
+    header2 = f"{'#':<{w_idx}} {'Column':<{w_col}} {'NA Count':<{w_na}} {'Distinct':<{w_distinct}} {'Sample (Raw)':<{w_raw}} {'Sample (Formatted)':<{w_formatted}}"
     print(header2)
     print('-' * len(header2))
 
     for r in rows:
-        print(
-            f"{r['i']:<{w_idx}} {r['col'][:w_col - 1]:<{w_col}} {r['na']:<{w_na}} {r['distinct']:<{w_distinct}} "
-            f"{r['raw'][:w_raw - 1]:<{w_raw}} {r['formatted'][:w_formatted - 1]:<{w_formatted}}"
-        )
+        print(f"{r['i']:<{w_idx}} {r['col'][: w_col - 1]:<{w_col}} {r['na']:<{w_na}} {r['distinct']:<{w_distinct}} {r['raw'][: w_raw - 1]:<{w_raw}} {r['formatted'][: w_formatted - 1]:<{w_formatted}}")
     print('\n')
 
     if errors:
@@ -134,7 +127,7 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = N
 
 
 def load_gdf_from_csv(csv_path) -> gpd.GeoDataFrame:
-    """ load csv from athena query into gdf
+    """load csv from athena query into gdf
 
     Args:
         csv_path (_type_): _path to csv
