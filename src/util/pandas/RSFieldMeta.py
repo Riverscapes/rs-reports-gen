@@ -41,6 +41,7 @@ import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed
 from rsxml import Logger
 
+# shared canonical unit registry
 ureg = pint.get_application_registry()
 
 SI_SYSTEMS = ['SI', 'imperial']
@@ -58,6 +59,7 @@ SI_TO_IMPERIAL: dict[str, str] = {
     'meter ** 3': 'foot ** 3',
     'kilometer': 'mile',
     'millimeter': 'inch',
+    'hectare': 'acre',
     'kilometer ** 2': 'acre',
     'kilogram': 'pound',
     # compound units

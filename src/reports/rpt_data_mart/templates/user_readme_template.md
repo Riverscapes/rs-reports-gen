@@ -1,6 +1,6 @@
 # Riverscapes Data Mart Export
 
-**Version**: {{ report_version }}
+**Version**: {{ report_version }}. (This is the version of the extraction algorithm, not of the data itself.)
 
 ## Overview
 
@@ -17,8 +17,11 @@ This package contains the following artifacts:
   - `huc.parquet`: Watershed boundary statistics and metadata.
   - `vegetation_cover.parquet`: (Optional) Vegetation cover timeseries extracted via Climate Engine.
   - `attains.parquet`: (Optional) EPA water quality assessments.
+  - `nid.parquet`: National Inventory Dams search results for the area of interest
+  - `pastures.parquet`: From the BLM National Pastures dataset
+  - `pastures_nm_bootheel.parquet`: From April update to Pastures prepared for NM Bootheel
 - **`data_dictionary.csv`**: Contains comprehensive field-level metadata for all exported columns. This includes original and friendly names, definitions, data types, and explicit units applied.
-- **`pbi/`**: (If generated) Contains a ready-to-use Power BI (.pbip) project templated from the data dictionary.
+- **`pbi/`**: (If generated) Contains a ready-to-use Power BI (.pbip) project templated from the data dictionary and defined relationships.
 - **`data_mart.log`**: Build process execution logs, identifying any warnings, geometries simplified, or external dependencies (like ATTAINS) skipped.
 - **`readme.md`**: the instructions you are reading now, in markdown format
 - **`project.html`**: the instructions you are reading now, in html format
@@ -56,9 +59,7 @@ The supplied pbip file comes with a parameter, `DataMartRoot` that should be pop
 - For web data, set it to a URL root like `https://reports.riverscapes.net/public/<report_id>`.
 - For local data, set it to a local folder path like `C:\Data\my_export`.
 
-The generated model uses a custom Power Query function `fn_LoadParquet` that defaults to web loading with `Web.Contents` + `Binary.Buffer`.
-
-To load from a local file you may need to edit `fn_LoadParquet` in `expressions.tmdl` or in Power Query. Comment out the `Web.Contents` line and uncomment the `File.Contents` line.
+The generated model uses a custom Power Query function `fn_LoadParquet` that checks the DataMartRoot to determine if should use `Web.Contents` + `Binary.Buffer` or `File.Contents`. If you need to edit `fn_LoadParquet`, look in `expressions.tmdl` or in Power Query.
 
 #### Merging data models
 
