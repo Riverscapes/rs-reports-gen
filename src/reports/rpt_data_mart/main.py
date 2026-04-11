@@ -26,9 +26,11 @@ from jinja2 import Template
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-# Local
 from reports.rpt_data_mart import __version__ as report_version
-from reports.rpt_riverscapes_inventory.dataprep import add_calculated_rme_cols, define_nid_columns, get_nid_data  # TODO no-cross-report imports
+
+# Local
+from reports.rpt_data_mart.dataprep import add_calculated_rme_cols
+from reports.rpt_riverscapes_inventory.dataprep import get_nid_data  # TODO no-cross-report imports - move nid stuff to util
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
 from util.attains_assessment import query_attains_assessments
