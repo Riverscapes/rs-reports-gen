@@ -130,7 +130,10 @@ class JoinDef:
 # Data Mart relationship definitions (raw/source column names).
 MODEL_JOINS: list[JoinDef] = [
     JoinDef(from_table="dgo", from_column="pasture_rs_row_id", to_table="pastures", to_column="rs_row_id"),
+    JoinDef(from_table="dgo", from_column="pasture_nm_pasture_id", to_table="pastures_nm_bootheel", to_column="pasture_id"),
     JoinDef(from_table="dgo", from_column="huc10", to_table="huc10_rscontext", to_column="huc"),
+    JoinDef(from_table="nid", from_column="pasture_id", to_table="pastures_nm_bootheel", to_column="pasture_id"),
+    JoinDef(from_table="nid", from_column="HUC10_Code", to_table="huc10_rscontext", to_column="huc"),
 ]
 
 
@@ -369,8 +372,7 @@ def _generate_expressions_tmdl(data_mart_root: str = "") -> str:
         "expression fn_LoadParquet =",
         "\t\t/**",
         "\t\t * Reusable function: load one Parquet file from DataMartRoot.",
-        "\t\t * Use Web.Contents + Binary.Buffer for http(s) roots and",
-        "\t\t * File.Contents for local/UNC paths.",
+        "\t\t * Auto-detects http(s) vs local/UNC paths.",
         '\t\t * Input: FileName (e.g., "dgo.parquet")',
         "\t\t * Output: A table from that Parquet file.",
         "\t\t */",
@@ -378,9 +380,10 @@ def _generate_expressions_tmdl(data_mart_root: str = "") -> str:
         "\t\tlet",
         "\t\t    // Assumes that DataMartRoot does not include trailing slash.",
         '\t\t    FilePath = DataMartRoot & "/exports/" & FileName,',
-        "\t\t    // if Local, uncomment this line and comment the last one",
-        "\t\t    // Source = Parquet.Document(File.Contents(FilePath))",
-        "\t\t    Source = Parquet.Document(Binary.Buffer(Web.Contents(FilePath)))",
+        '\t\t    Source = if Text.StartsWith(DataMartRoot, "http") then',
+        "\t\t        Parquet.Document(Binary.Buffer(Web.Contents(FilePath)))",
+        "\t\t    else",
+        "\t\t        Parquet.Document(File.Contents(FilePath))",
         "\t\tin",
         "\t\t    Source",
         f"\tlineageTag: {_lineage_tag('fn_LoadParquet')}",

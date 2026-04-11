@@ -192,6 +192,7 @@ COLUMN_TO_BIN_KEY: dict[str, str] = {
 def apply_all_bins(
     df: pd.DataFrame,
     column_to_bin_key: dict[str, str] | None = None,
+    layer_id: str | None = None,
 ) -> pd.DataFrame:
     """Apply bins from bins.json to every mappable column in the DataFrame.
 
@@ -211,12 +212,15 @@ def apply_all_bins(
         df: Input DataFrame (not modified in-place; a copy is returned).
         column_to_bin_key: Mapping of df column → bins.json key.
             Defaults to ``COLUMN_TO_BIN_KEY`` if not supplied.
+        layer_id: Optional metadata layer id for field lookups/registration.
+            If omitted, uses ``df.attrs['layer_id']`` when present.
 
     Returns:
         pd.DataFrame with the additional columns.
     """
     log = Logger('apply_all_bins')
     meta = RSFieldMeta()
+    resolved_layer_id = RSFieldMeta._resolve_layer_context(df, layer_id)
     if column_to_bin_key is None:
         column_to_bin_key = COLUMN_TO_BIN_KEY
 
@@ -233,17 +237,18 @@ def apply_all_bins(
 
         df[bin_col] = pd.cut(df[col], bins=edges, labels=labels, include_lowest=True)
         # Map each bin label to its hex colour and sort order
-        label_to_hex = dict(zip(labels, hex_colours))
+        label_to_hex = dict(zip(labels, hex_colours, strict=True))
         label_to_sort = {label: idx for idx, label in enumerate(labels)}
         df[color_col] = df[bin_col].map(label_to_hex)
         df[sort_col] = df[bin_col].map(label_to_sort)
 
         # Register metadata so the data dictionary picks up these columns
-        source_friendly = meta.get_friendly_name(col)
-        source_fm = meta.get_field_meta(col)
+        source_friendly = meta.get_friendly_name(col, resolved_layer_id)
+        source_fm = meta.get_field_meta(col, resolved_layer_id)
         source_theme = source_fm.theme if source_fm else ""
         meta.add_field_meta(
             name=bin_col,
+            layer_id=resolved_layer_id or "",
             friendly_name=f'{source_friendly} (bin)',
             description=f'Categorical bin label for {source_friendly}, derived from bins.json',
             dtype='TEXT',
@@ -251,13 +256,15 @@ def apply_all_bins(
         )
         meta.add_field_meta(
             name=color_col,
+            layer_id=resolved_layer_id or "",
             friendly_name=f'{source_friendly} (color)',
-            description=f'Hex colour for the bin, use with Power BI conditional formatting "Format by field value"',
+            description='Hex colour for the bin, use with Power BI conditional formatting "Format by field value"',
             dtype='TEXT',
             theme=source_theme,
         )
         meta.add_field_meta(
             name=sort_col,
+            layer_id=resolved_layer_id or "",
             friendly_name=f'{source_friendly} (sort)',
             description=f'Sort order integer for {bin_col}; use Power BI "Sort by Column" on {bin_col}',
             dtype='INTEGER',

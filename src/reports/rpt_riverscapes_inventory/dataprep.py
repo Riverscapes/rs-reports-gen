@@ -60,6 +60,36 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame | None:
         return None
 
 
+def define_nid_columns(nid_gdf: gpd.GeoDataFrame) -> tuple[pd.DataFrame, dict]:
+    meta = RSFieldMeta()
+    layer_id = nid_gdf.attrs.get('layer_id', 'NID')  # for disambiguating metadata
+
+    # Define metadata for NID fields
+
+    meta.add_field_meta(name='NAME', layer_id=layer_id, friendly_name='Dam Name', description='The official name of the dam. For dams that do not have an official name, the popular name is used.', theme='Description')
+    meta.add_field_meta(name='DAM_TYPES', layer_id=layer_id, friendly_name='Category describing the type of dam. If more than one type, types are separated by a semi-colon.', theme='Structure')
+    meta.add_field_meta(name='PURPOSES', layer_id=layer_id, friendly_name='Category describing the current purpose(s) for which the reservoir is used.', theme='Description')
+    meta.add_field_meta(
+        name='YEAR_COMPLETED', layer_id=layer_id, description='Year (four digits) when the original main dam structure was completed. If unknown, and reasonable estimate is unavailable, the value will be blank.', theme='Structure'
+    )
+    meta.add_field_meta(
+        name='HAZARD_POTENTIAL',
+        layer_id=layer_id,
+        description='Hazard Potential Classification Category to indicate the potential hazard to the downstream area resulting from failure or mis-operation of the dam or facilities. '
+        'It reflects probable loss of human life and impacts on economic, environmental, and lifeline interests. The hazard potential does not speak to the condition of the dam or the risk of the dam failing.',
+        theme='Inspection and Evaluation',
+    )
+    meta.add_field_meta(name='CONDITION_ASSESMENT', layer_id=layer_id, description='Assessment that best describes the condition of the dam based on available information.', theme='Inspection and Evaluation')
+    meta.add_field_meta(
+        name='NID_STORAGE', layer_id=layer_id, friendly_name='NID Storage', description="General storage of the dam.", data_unit='acre_feet', display_unit='acre_feet', dtype='REAL', preferred_format="{:,.0f}", theme='Structure'
+    )
+    meta.add_field_meta(name='NID_HEIGHT', layer_id=layer_id, friendly_name='NID Height', data_unit='foot', display_unit='foot', dtype='REAL', theme='Structure')
+    meta.add_field_meta(name='DRAINAGE_AREA', layer_id=layer_id, friendly_name='Drainage Area', data_unit='mile**2', display_unit='mile**2', dtype='REAL', theme='Structure')
+    meta.add_field_meta(name='MAX_DISCHARGE', layer_id=layer_id, friendly_name='Max Discharge', data_unit='foot**3 / second', display_unit='foot**3 / second', dtype='REAL', theme='Structure')
+
+    return meta.apply_units(nid_gdf, layer_id=layer_id)
+
+
 def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     """
     Format NID data for display in the report:
@@ -72,32 +102,22 @@ def prepare_nid_display_table(nid_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     if nid_gdf.empty:
         return pd.DataFrame()
 
-    meta = RSFieldMeta()
-    layer_id = nid_gdf.attrs.get('layer_id', 'NID')  # for disambiguating metadata
-
-    # Define metadata for NID fields
-
-    meta.add_field_meta(name='NID_STORAGE', layer_id=layer_id, friendly_name='NID Storage', description="General storage of the dam.", data_unit='acre_feet', display_unit='acre_feet', dtype='REAL', preferred_format="{:,.0f}")
-    meta.add_field_meta(name='NID_HEIGHT', layer_id=layer_id, friendly_name='NID Height', data_unit='foot', display_unit='foot', dtype='REAL')
-    meta.add_field_meta(name='DRAINAGE_AREA', layer_id=layer_id, friendly_name='Drainage Area', data_unit='mile**2', display_unit='mile**2', dtype='REAL')
-    meta.add_field_meta(name='MAX_DISCHARGE', layer_id=layer_id, friendly_name='Max Discharge', data_unit='foot**3 / second', display_unit='foot**3 / second', dtype='REAL')
-
     nid_display_cols = ['NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE', 'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE', 'NIDID']
 
     # Ensure we only work with available columns
     cols_to_use = [c for c in nid_display_cols if c in nid_gdf.columns]
 
-    # Pass layer_id='NID' to resolve ambiguities
     # Apply units formatting
-    display_gdf, _ = meta.apply_units(nid_gdf[cols_to_use].copy(), layer_id=layer_id)
+    display_df, _ = define_nid_columns(nid_gdf[cols_to_use].copy())
 
     # Create Hyperlink for NAME using NIDID
-    if 'NIDID' in display_gdf.columns and 'NAME' in display_gdf.columns:
-        display_gdf['NAME'] = display_gdf.apply(lambda row: f'<a href="https://nid.sec.usace.army.mil/nid/#/dams/system/{row["NIDID"]}/summary" target="_blank">{row["NAME"]}</a>', axis=1)
+    if 'NIDID' in display_df.columns and 'NAME' in display_df.columns:
+        display_df['NAME'] = display_df.apply(lambda row: f'<a href="https://nid.sec.usace.army.mil/nid/#/dams/system/{row["NIDID"]}/summary" target="_blank">{row["NAME"]}</a>', axis=1)
 
     # Final column selection for display
     final_cols = ['NAME', 'PRIMARY_OWNER_TYPE', 'RIVER_OR_STREAM', 'PRIMARY_PURPOSE', 'PRIMARY_DAM_TYPE', 'NID_STORAGE', 'NID_HEIGHT', 'DRAINAGE_AREA', 'MAX_DISCHARGE']
-    final_cols = [c for c in final_cols if c in display_gdf.columns]
+    final_cols = [c for c in final_cols if c in display_df.columns]
 
-    display_gdf = display_gdf.sort_values(by='NID_STORAGE', ascending=False)
-    return display_gdf[final_cols]
+    display_df = display_df.sort_values(by='NID_STORAGE', ascending=False)
+
+    return display_df[final_cols]
