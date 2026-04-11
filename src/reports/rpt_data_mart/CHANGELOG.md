@@ -1,5 +1,12 @@
 # Version History
 
+## 0.1.5 2026-April
+
+* adding ~80 additional DGO columns
+* adding updated New Mexico Bootheel pastures layer, spatially intersected with DGOs
+* adding National Inventory of Dams extract (calls USACE API)
+* making larger units default for most metrics (e.g. miles vs ft, acres vs ft²)
+
 ## 0.1.4 2026-April
 
 * improve Power BI data loading (web or local)

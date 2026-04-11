@@ -140,9 +140,10 @@ def export_data_dictionary(
 
     For each (table_name, TableEntry) pair, iterates the **actual columns**
     in the DataFrame (ground truth) and enriches each with metadata from
-    the RSFieldMeta singleton where available.  ``layer_id`` is resolved from
-    ``df.attrs["layer_id"]`` when present, mirroring ``apply_units`` behaviour,
-    so that columns with the same name in different layers are disambiguated.
+    the RSFieldMeta singleton where available. ``layer_id`` resolution prefers
+    ``df.attrs["layer_id"]`` (mirroring ``apply_units`` behaviour) and falls
+    back to ``table_name`` when attrs are missing, so columns with the same
+    name in different layers are disambiguated.
 
     Output columns:
         table_name      – the dict key identifying the source table
@@ -173,16 +174,17 @@ def export_data_dictionary(
     for table_name, entry in tables.items():
         df = entry.df
         table_applied_units = entry.applied_units or {}
-        # Resolve layer_id from df.attrs["layer_id"] when present, mirroring
-        # the pattern used by apply_units.  This disambiguates columns that
-        # share a name across layers (e.g. "huc" in rpt_rme vs rs_context_huc10).
+        # Resolve layer_id from df.attrs["layer_id"] when present (mirroring
+        # apply_units), else fall back to table_name. This disambiguates
+        # columns that share a name across layers (e.g. "huc" in rpt_rme vs
+        # rs_context_huc10) and avoids ambiguous lookups when attrs are absent.
         # Note: _resolve_unique_id does NOT fall back to an all-layers search
         # when a layer_id is provided — columns not registered in that specific
         # layer will appear as "not in registry".  Only set attrs["layer_id"]
         # on DataFrames whose columns come from a single registry layer.
         # Future: once metadata is DataFrame-local (carried in attrs), this
         # lookup can be replaced by a direct attrs read.
-        layer_id = RSFieldMeta._resolve_layer_context(df, None)
+        layer_id = RSFieldMeta._resolve_layer_context(df, None) or table_name
 
         for col in df.columns:
             fm = meta.get_field_meta(col, layer_id)
