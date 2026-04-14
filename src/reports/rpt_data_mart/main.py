@@ -390,7 +390,9 @@ def export_data_mart(
                     log.warning("No NID gdf returned.")
                 else:
                     log.info(f"NID background task finished. Found {len(nid_gdf)} dams.")
-                    # export raw to gpkg - TODO review if not wanted in production
+                    # export raw to gpkg -
+                    # NOTE: This step is not required in production since we just delete the staging_dir anyway
+                    # but useful in dev, allows repeated processing without requerying
                     if not nid_gdf.empty:
                         nid_gdf.to_file(staging_dir / "nid_dams.gpkg", driver="GPKG")
             except Exception as e:
