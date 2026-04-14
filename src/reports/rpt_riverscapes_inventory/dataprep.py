@@ -61,6 +61,9 @@ def get_nid_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame | None:
 
 
 def define_nid_columns(nid_gdf: gpd.GeoDataFrame) -> tuple[pd.DataFrame, dict]:
+    """Add field metadata for NID columns
+    TODO: Replace with the usace-nid metadata in Athena layer-definitions, as was done in `rpt_data_mart`
+    """
     meta = RSFieldMeta()
     layer_id = nid_gdf.attrs.get('layer_id', 'NID')  # for disambiguating metadata
 
