@@ -251,9 +251,12 @@ def define_fields(unit_system: str = "SI") -> None:
 
     # exceptions:
     meta.set_display_unit("elevation", ureg.meter, "dgo")
-    meta.set_display_unit("bin", ureg.meter, "dem_bins")
     meta.set_display_unit("q2", ureg.meter**3, "dgo")
     meta.set_display_unit("qlow", ureg.meter**3, "dgo")
+    meta.set_display_unit("dem_bins_min", ureg.meter, "rs_context_huc10")
+    meta.set_display_unit("dem_bins_max", ureg.meter, "rs_context_huc10")
+    meta.set_display_unit("dem_bins_bin_size", ureg.meter, "rs_context_huc10")
+    meta.set_display_unit("bin", ureg.meter, "dem_bins")
 
     # Duplicate 'huc' metadata into the 'dem_bins' layer so apply_units can resolve
     # it when processing the long-format dem_bins table (layer_id="dem_bins").
