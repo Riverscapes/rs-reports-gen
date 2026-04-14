@@ -113,9 +113,8 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         ),
         DatasetQuery(
             name="huc10_rscontext",
-            # TODO: the new has_rme should use the same query as dgo query - or there may be a better performing way to do this.
             query_template=(
-                ", rme_huc10s AS (SELECT DISTINCT substr(huc12,1,10) AS huc10 FROM rs_rpt.rpt_rme_intersections) "
+                ", rme_huc10s AS (SELECT DISTINCT huc10 FROM rs_rpt.rpt_rme_intersections) "
                 f" SELECT {huc_fields}, "
                 "CASE WHEN rme_huc10s.huc10 IS NOT null THEN 1 ELSE 0 END AS has_rme "
                 "FROM input_geom, "
