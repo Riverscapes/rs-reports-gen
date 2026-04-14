@@ -1,5 +1,9 @@
 # Version History
 
+## 0.1.6 2026-April
+
+* unnest dem_bins from within the rscontext_huc10 parquet -- allows for proper field definition and unit conversion
+
 ## 0.1.5 2026-April
 
 * adding ~80 additional DGO columns

@@ -29,7 +29,7 @@ from rsxml.util import safe_makedirs
 from reports.rpt_data_mart import __version__ as report_version
 
 # Local
-from reports.rpt_data_mart.dataprep import add_calculated_rme_cols
+from reports.rpt_data_mart.dataprep import add_calculated_rme_cols, unnest_dem_bins
 from reports.rpt_riverscapes_inventory.dataprep import get_nid_data  # TODO no-cross-report imports - move nid stuff to util
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
@@ -223,6 +223,17 @@ def define_fields(unit_system: str = "SI") -> None:
     )
     # Consolidate RME source layers under the Data Mart table layer id.
     registry_field_meta.loc[registry_field_meta["layer_id"].isin(["raw_rme", "rpt_rme"]), "layer_id"] = "dgo"
+
+    # Translate registry dotted struct names to flat column names produced by unnest_dem_bins.
+    # Scalar struct fields: replace '.' with '_' (e.g. dem_bins.min → dem_bins_min).
+    scalar_mask = registry_field_meta["name"].str.startswith("dem_bins.") & ~registry_field_meta["name"].str.startswith("dem_bins.bins.")
+    registry_field_meta.loc[scalar_mask, "name"] = registry_field_meta.loc[scalar_mask, "name"].str.replace(".", "_", regex=False)
+    # Bins array leaf fields: reassign to the 'dem_bins' layer and map to semantic column names.
+    bins_mask = registry_field_meta["name"].str.startswith("dem_bins.bins.")
+    registry_field_meta.loc[bins_mask, "layer_id"] = "dem_bins"
+    registry_field_meta.loc[registry_field_meta["name"] == "dem_bins.bins.bin", "name"] = "bin"
+    registry_field_meta.loc[registry_field_meta["name"] == "dem_bins.bins.cell_count", "name"] = "cell_count"
+
     meta.field_meta = registry_field_meta
     meta.unit_system = unit_system
     # Display-unit overrides: convert raw Athena units to user-facing units.
@@ -240,8 +251,13 @@ def define_fields(unit_system: str = "SI") -> None:
 
     # exceptions:
     meta.set_display_unit("elevation", ureg.meter, "dgo")
+    meta.set_display_unit("bin", ureg.meter, "dem_bins")
     meta.set_display_unit("q2", ureg.meter**3, "dgo")
     meta.set_display_unit("qlow", ureg.meter**3, "dgo")
+
+    # Duplicate 'huc' metadata into the 'dem_bins' layer so apply_units can resolve
+    # it when processing the long-format dem_bins table (layer_id="dem_bins").
+    meta.duplicate_meta("huc", "huc", orig_layer_id="rs_context_huc10", new_layer_id="dem_bins")
 
 
 def generate_readme(report_dir: Path) -> None:
@@ -416,11 +432,22 @@ def export_data_mart(
     # HUC: dtype coercion + unit conversion
     huc_staging = Path(parquet_override / "huc10_rscontext") if parquet_override else staging_dir / "huc10_rscontext"
     huc_df = load_gdf_from_pq(huc_staging)
+    huc_df, dem_bins_df = unnest_dem_bins(huc_df)
     huc_df.attrs["layer_id"] = "rs_context_huc10"
     huc_df, huc_applied_units = meta.apply_units(huc_df)
     log.info(f"HUC10_rscontext loaded: {len(huc_df)} rows, {len(huc_df.columns)} cols")
     _export_parquet(huc_df, exports_dir / "huc10_rscontext.parquet")
     all_tables["huc10_rscontext"] = TableEntry(df=huc_df, applied_units=huc_applied_units)
+
+    # DEM elevation bins: long-format table derived from the dem_bins struct
+    if dem_bins_df is not None and not dem_bins_df.empty:
+        dem_bins_df.attrs["layer_id"] = "dem_bins"
+        dem_bins_df, dem_bins_applied_units = meta.apply_units(dem_bins_df)
+        log.info(f"DEM elevation bins: {len(dem_bins_df)} rows, {len(dem_bins_df.columns)} cols")
+        _export_parquet(dem_bins_df, exports_dir / "huc10_dem_bins.parquet")
+        all_tables["huc10_dem_bins"] = TableEntry(df=dem_bins_df, applied_units=dem_bins_applied_units)
+    else:
+        log.warning("DEM elevation bins unavailable; skipping huc10_dem_bins table")
 
     # Pastures: dtype coercion (currently no unit-bearing columns)
     pastures_staging = Path(parquet_override / "pastures") if parquet_override else staging_dir / "pastures"
@@ -496,12 +523,15 @@ def export_data_mart(
             'HUC10_Code',
         ]
 
+        # add URL to USACE dam detail page before building cols_to_use
+        # Create Hyperlink for NAME using NIDID
+        if len(nid_gdf) > 0 and 'NIDID' in nid_gdf.columns:
+            nid_gdf['NID_URL'] = nid_gdf.apply(lambda row: f'https://nid.sec.usace.army.mil/nid/#/dams/system/{row["NIDID"]}/summary', axis=1)
+            meta.add_field_meta(name='NID_URL', layer_id=nid_gdf.attrs["layer_id"], friendly_name='URL for Dam Detail Page', description='Generated url linking to the dam detail web page', theme='Description')
+            nid_display_cols.append('NID_URL')
+
         # Ensure we only work with available columns
         cols_to_use = [c for c in nid_display_cols if c in nid_gdf.columns]
-        # add URL to USACE dam detail page
-        # Create Hyperlink for NAME using NIDID
-        nid_gdf['NID_URL'] = nid_gdf.apply(lambda row: f'https://nid.sec.usace.army.mil/nid/#/dams/system/{row["NIDID"]}/summary', axis=1)
-        meta.add_field_meta(name='NID_URL', layer_id=nid_gdf.attrs["layer_id"], friendly_name='URL for Dam Detail Page', description='Generated url linking to the dam detail web page', theme='Description')
 
         nid_display_df, nid_units = meta.apply_units(nid_gdf[cols_to_use].copy())
         # pandas currently preserves attrs through slice/copy and apply_units,
