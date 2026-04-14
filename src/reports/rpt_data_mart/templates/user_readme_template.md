@@ -12,19 +12,28 @@ The export contains pre-processed, flattened representations of the geodata foun
 
 This package contains the following artifacts:
 
-- **`exports/`**: Contains the output Parquet files.
-  - `dgo.parquet`: Riverscapes drainage network attributes and metrics, binned into standardized categories.
-  - `huc.parquet`: Watershed boundary statistics and metadata.
-  - `vegetation_cover.parquet`: (Optional) Vegetation cover timeseries extracted via Climate Engine.
-  - `attains.parquet`: (Optional) EPA water quality assessments.
-  - `nid.parquet`: National Inventory Dams search results for the area of interest
-  - `pastures.parquet`: From the BLM National Pastures dataset
-  - `pastures_nm_bootheel.parquet`: From April update to Pastures prepared for NM Bootheel
+- **`exports/`**: Contains the output Parquet files (see below)
 - **`data_dictionary.csv`**: Contains comprehensive field-level metadata for all exported columns. This includes original and friendly names, definitions, data types, and explicit units applied.
 - **`pbi/`**: (If generated) Contains a ready-to-use Power BI (.pbip) project templated from the data dictionary and defined relationships.
 - **`data_mart.log`**: Build process execution logs, identifying any warnings, geometries simplified, or external dependencies (like ATTAINS) skipped.
 - **`readme.md`**: the instructions you are reading now, in markdown format
 - **`project.html`**: the instructions you are reading now, in html format
+
+### Parquet Data
+
+Core Riverscapes Data
+
+- `dgo.parquet`: Riverscapes drainage network attributes and metrics, binned into standardized categories.
+- `huc10_dem_bins.parquet`: Watershed elevation bins
+- `huc10_rscontext.parquet`: Watershed boundary statistics and metadata.
+
+Additional Data
+
+- `attains.parquet`: (Optional) EPA water quality assessments.
+- `nid.parquet`: National Inventory Dams search results for the area of interest
+- `pastures.parquet`: From the BLM National Pastures dataset
+- `pastures_nm_bootheel.parquet`: From April update to Pastures prepared for NM Bootheel
+- `vegetation_cover.parquet`: (Optional) Vegetation cover timeseries extracted via Climate Engine.
 
 ## How to use this data
 
