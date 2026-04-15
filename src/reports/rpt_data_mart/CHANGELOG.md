@@ -3,6 +3,7 @@
 ## 0.1.7 2026-April
 
 * bug fixes in unit handling
+* NOTE 'pasture_id' and 'HUC10_Code' in the NID layer were manually added and populated for BLM - they are not yet part of the automated generation
 
 ## 0.1.6 2026-April
 
