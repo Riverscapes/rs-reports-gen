@@ -52,6 +52,8 @@ SI_SYSTEMS = ['SI', 'imperial']
 # FUTURE ENHANCEMENTS:
 # * handle all units "derived" with count?
 # * what about degrees vs percent for slope? is that an SI/imperial system choice?
+# NOTE: units here must be written *exactly* as pint str() would express them.
+# if unsure you can use `str(ureg.Unit('m^3'))` for example
 SI_TO_IMPERIAL: dict[str, str] = {
     # basic units
     'meter': 'foot',
@@ -82,7 +84,9 @@ IMPERIAL_TO_SI: dict[str, str] = {
     'foot ** 2': 'meter ** 2',
     'yard': 'meter',
     'mile ** 2': 'kilometer ** 2',
-    'acre_foot': 'meter ** 3',
+    'acre * foot': 'meter ** 3',
+    'yard ** 2': 'meter ** 2',
+    'yard ** 3': 'meter ** 3',
 }
 
 
@@ -828,7 +832,7 @@ class RSFieldMeta:
                 else:
                     applied_unit = self.get_system_units(applied_unit)
             except Exception as exc:  # pragma: no cover - log unexpected issues
-                self._log.warning(f"Unable to apply units '{fm.data_unit}' to column '{name}': {exc}")
+                self._log.warning(f"Unable to resolve display unit for field '{name}' in layer_id '{layer_id}' (data_unit='{fm.data_unit}', display_unit='{fm.display_unit}'): {exc}")
             return applied_unit
         return None
 

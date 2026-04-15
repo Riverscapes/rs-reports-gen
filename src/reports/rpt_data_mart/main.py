@@ -250,8 +250,8 @@ def define_fields(unit_system: str = "SI") -> None:
 
     # exceptions:
     meta.set_display_unit("elevation", ureg.meter, "dgo")
-    meta.set_display_unit("q2", ureg.meter**3, "dgo")
-    meta.set_display_unit("qlow", ureg.meter**3, "dgo")
+    meta.set_display_unit("q2", ureg.meter**3 / ureg.second, "dgo")
+    meta.set_display_unit("qlow", ureg.meter**3 / ureg.second, "dgo")
     meta.set_display_unit("dem_bins_min", ureg.meter, "rs_context_huc10")
     meta.set_display_unit("dem_bins_max", ureg.meter, "rs_context_huc10")
     meta.set_display_unit("dem_bins_bin_size", ureg.meter, "rs_context_huc10")
