@@ -58,6 +58,20 @@ REPORTS = [
         "expected_files": ["report.html"],
         "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "riverscapes_dynamics_test"],
     },
+    {
+        "name": "DataMart",
+        "module": "reports.rpt_data_mart.main",
+        "example_dir": "src/reports/rpt_data_mart/example",
+        "expected_files": ["data_dictionary.csv", "exports/dgo.parquet"],
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_data_mart_test"],
+    },
+    {
+        "name": "Stream Names (Wordcloud)",
+        "module": "reports.rpt_stream_names.main",
+        "example_dir": "src/reports/rpt_stream_names/example",
+        "expected_files": ["report.html", "figures/stream_names_level_path_count_scale2.png"],
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_stream_names_test"],
+    },
     # Add more reports or configurations as needed
 ]
 
