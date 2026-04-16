@@ -42,10 +42,13 @@ class MapData:
     labels: MapLabels
 
 
-def load_dgo_points(datamart_root: Path) -> gpd.GeoDataFrame:
-    """Load DGO points from the Data Mart parquet export as EPSG:4326 geometry."""
-
-    df = pd.read_parquet(datamart_root / "exports" / "dgo.parquet")
+def load_dgo_points(datamart_root: str | Path) -> gpd.GeoDataFrame:
+    """Load DGO points from the Data Mart parquet export as EPSG:4326 geometry.
+    Use str for URL, path for local file.
+    """
+    base = str(datamart_root)
+    parquet_path = f"{base}/exports/dgo.parquet" if base.startswith("http") else str(Path(base) / "exports" / "dgo.parquet")
+    df = pd.read_parquet(parquet_path)
     gdf = gpd.GeoDataFrame(
         df,
         geometry=gpd.points_from_xy(df["longitude"], df["latitude"]),
@@ -54,10 +57,12 @@ def load_dgo_points(datamart_root: Path) -> gpd.GeoDataFrame:
     return gdf
 
 
-def load_data_dictionary(datamart_root: Path) -> pd.DataFrame:
+def load_data_dictionary(datamart_root: str | Path) -> pd.DataFrame:
     """Load the CSV data dictionary for friendly names and metadata lookups."""
 
-    return pd.read_csv(datamart_root / "data_dictionary.csv")
+    base = str(datamart_root)
+    csv_path = f"{base}/data_dictionary.csv" if base.startswith("http") else str(Path(base) / "data_dictionary.csv")
+    return pd.read_csv(csv_path)
 
 
 def _friendly_name(
