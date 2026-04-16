@@ -4,6 +4,9 @@
         "name": "🏠 Git Root",
         "path": "."
       },
+      {
+        "path": "../../pydataroot/rpt-data-mart/pastures_cluster_in_nm_-_Data_Mart"
+      }
     ],
     "settings": {
         "terminal.integrated.defaultProfile.linux": "zsh",
