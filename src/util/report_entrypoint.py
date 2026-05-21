@@ -56,6 +56,7 @@ def build_report_parser(description: str = "Riverscapes report") -> argparse.Arg
         --unit_system   (str, default "SI")
         --use-parquet   (optional Path, dest='parquet_path')
         --keep-parquet  (flag)
+        --debug         (flag)
 
     Reports that don't need all of these can simply ignore the extra namespace
     attributes, or call ``argparse.ArgumentParser()`` directly for unusual cases
@@ -77,6 +78,7 @@ def build_report_parser(description: str = "Riverscapes report") -> argparse.Arg
         help="Reuse an existing Parquet directory instead of querying Athena",
     )
     parser.add_argument("--keep-parquet", action="store_true", help="Keep staging Parquet files")
+    parser.add_argument("--debug", help="Extra logging and raise errors with traceback.")
     return parser
 
 
@@ -108,7 +110,7 @@ def init_report_logging(
     return log
 
 
-def report_main_wrapper(log: Logger, run: Callable[[], Any]) -> None:
+def report_main_wrapper(log: Logger, run: Callable[[], Any], *, debug: bool = False) -> None:
     """Run *run*, log peak memory, and call ``sys.exit`` on failure.
 
     This replaces the try/except + traceback + sys.exit boilerplate present
@@ -125,6 +127,9 @@ def report_main_wrapper(log: Logger, run: Callable[[], Any]) -> None:
         log.info(f"Peak memory usage: {mem_mb:.2f} MB")
 
     except Exception as e:
+        if debug:
+            # Preserve full traceback and let debugger/pytest see the original error.
+            raise
         log.error(e)
         traceback.print_exc(file=sys.stdout)
         sys.exit(1)

@@ -1,0 +1,103 @@
+<!-- Downstream Geomorphic – body template
+     Rendered inside src/util/html/templates/template.html
+     Copilot-generated template.
+-->
+
+<section>
+  <div class="section-context">
+    <p>This Downstream Geomorphic Report presents longitudinal profiles of key
+      geomorphic indicators along level paths within the selected area of interest.
+      Data are sourced from the Riverscape Metric Engine (RME) and plotted against
+      segment distance to reveal how channel and valley-bottom characteristics
+      change from headwaters to mouth.</p>
+  </div>
+</section>
+
+<section id="toc">
+  <h2>Table of Contents</h2>
+  <ol class="toc-list">
+    <li><a href="#context">Stream Context</a></li>
+    <li><a href="#elevation-profiles">Elevation &amp; Drainage Area</a></li>
+    <li><a href="#channel-profiles">Channel Width &amp; Confinement</a></li>
+    <li><a href="#gradient-profiles">Gradient &amp; Sinuosity</a></li>
+    <li><a href="#floodplain-profiles">Floodplain Ratio &amp; Access</a></li>
+  </ol>
+</section>
+
+<section id="context">
+  <h2>Stream Context</h2>
+  <ul>
+    <li>Selection mode:</li>
+    <li>Number of DGOs:</li>
+    <li>Crosses HUC10:</li>
+  </ul>
+</section>
+
+<section id="elevation-profiles">
+  <h2>Elevation &amp; Drainage Area Profiles</h2>
+  <div class="section-context">
+    <p>Elevation and contributing drainage area plotted along segment distance for
+      each level path. These profiles illustrate the fundamental downstream
+      gradient and basin-area accumulation.</p>
+  </div>
+  {% for key, fig_html in figures.items() %}
+  {% if key.startswith('profile_') %}
+  <figure class="report-figure">
+    {{ fig_html|safe }}
+  </figure>
+  {% endif %}
+  {% endfor %}
+</section>
+
+<div class="page-break-before"></div>
+
+<section id="channel-profiles">
+  <h2>Channel Width &amp; Confinement Profiles</h2>
+  <div class="section-context">
+    <p>Channel width and confinement ratio along each level path. Confinement
+      indicates how tightly the channel is constrained by valley walls.</p>
+  </div>
+  {% for key, fig_html in figures.items() %}
+  {% if key.startswith('channel_') %}
+  <figure class="report-figure">
+    {{ fig_html|safe }}
+  </figure>
+  {% endif %}
+  {% endfor %}
+</section>
+
+<div class="page-break-before"></div>
+
+<section id="gradient-profiles">
+  <h2>Channel Gradient &amp; Sinuosity Profiles</h2>
+  <div class="section-context">
+    <p>Primary channel gradient and planform sinuosity along each level path.
+      Steeper gradients typically correspond to lower sinuosity in confined
+      headwater reaches.</p>
+  </div>
+  {% for key, fig_html in figures.items() %}
+  {% if key.startswith('gradient_') %}
+  <figure class="report-figure">
+    {{ fig_html|safe }}
+  </figure>
+  {% endif %}
+  {% endfor %}
+</section>
+
+<div class="page-break-before"></div>
+
+<section id="floodplain-profiles">
+  <h2>Floodplain Ratio &amp; Access Profiles</h2>
+  <div class="section-context">
+    <p>Floodplain proportion and floodplain access along each level path.
+      These indicators capture how much of the valley bottom is available as
+      active floodplain and how accessible it is to the channel.</p>
+  </div>
+  {% for key, fig_html in figures.items() %}
+  {% if key.startswith('floodplain_') %}
+  <figure class="report-figure">
+    {{ fig_html|safe }}
+  </figure>
+  {% endif %}
+  {% endfor %}
+</section>
