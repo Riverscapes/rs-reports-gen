@@ -42,6 +42,7 @@ dependencies = [
 rpt-igo-project = "reports.rpt_igo_project.main:main"
 rpt-rivers-need-space = "reports.rpt_rivers_need_space.main:main"
 rpt-data-mart = "reports.rpt_data_mart.main:main"
+rpt-downstream-geomorphic = "reports.rpt_downstream_geomorphic.main:main"
 
 # Install these using uv by typing: "uv pip install ".[dev]"
 [project.optional-dependencies]
