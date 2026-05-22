@@ -6,6 +6,10 @@ It consists of a python project for each report generator, as well as scripts ne
 
 Code to maintain the web UI that allows users to trigger report generation with custom parameters is in another repository, [`rs-reports-monorepo`](https://github.com/Riverscapes/rs-reports-monorepo).
 
+## Architecture Notes
+
+- Metadata and units architecture (legacy + target patterns, with code examples): [docs/metadata-architecture.md](docs/metadata-architecture.md)
+
 ## Setting up & running your own instance
 
 Use `uv sync`. If you're going to make any changes, there are additional libraries used for development. Run `uv sync --extra dev` instead.
