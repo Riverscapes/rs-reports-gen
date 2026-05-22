@@ -66,3 +66,7 @@ This ensures that any .ipynb files you commit will have their output cells autom
 ```sh
 uv run pre-commit run --all-files
 ```
+
+## Creating a new report
+
+See NEW_REPORT.md in the monorepo, and other resources in the docs folder of this repo.

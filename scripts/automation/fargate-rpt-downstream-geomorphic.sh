@@ -59,10 +59,17 @@ try() {
     return 1
   fi
 
+  # Extract level_path from the first feature in the FeatureCollection
+  LEVEL_PATH=$(python3 -c "import json,sys; d=json.load(sys.stdin); f=(d.get('features') or []); p=(f[0].get('properties') if f else {}) or {}; print(p.get('level_path', None))" < "$INPUTS_DIR/input.geojson")
+  if [[ -z "$LEVEL_PATH" || "$LEVEL_PATH" == "null" ]]; then
+    echo "Error: level_path not found in first feature properties of $INPUTS_DIR/input.geojson"
+    return 1
+  fi
+
   echo "======================  Running rpt-downstream-geomorphic ======================="
   python -m reports.rpt_downstream_geomorphic.main \
     "$OUTPUTS_DIR" \
-    "$INPUTS_DIR/input.geojson" \
+    "$LEVEL_PATH" \
     "$REPORT_NAME" \
     --unit_system "$UNIT_SYSTEM"
   if [[ $? != 0 ]]; then return 1; fi
