@@ -26,11 +26,36 @@
 
 <section id="context">
   <h2>Stream Context</h2>
-  <ul>
-    <li>Selection mode:</li>
-    <li>Number of DGOs:</li>
-    <li>Crosses HUC10:</li>
-  </ul>
+  <dl>
+    <dt>Selection mode</dt><dd>{{context.selection_mode}}</dd>
+  </dl>
+
+  <div class="table-wrap">
+    <table class="lp-table">
+      <caption>Top {{ lp_rows|length }} level paths by DGO count{% if lp_other and lp_other.count > 0 %} (plus aggregated remainder){% endif %}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Level Path ID</th>
+          <th scope="col">Stream Name<sup><a href="#fn1">1</a></sup></th>
+          <th scope="col">DGOs</th>
+          <th scope="col">Crosses HUC10</th>
+          <th scope="col">Repair Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lp in lp_rows %}
+        <tr>
+          <td>{{ lp.level_path }}</td>
+          <td>{{ lp.stream_name }}</td>
+          <td class="num">{{ lp.dgo_count }}</td>
+          <td>{{ "Yes" if lp.crosses_huc10 else "No" }}</td>
+          <td>{{ lp.repair_status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p id=""fn1">1. If more than one name, this is the name used for the longest area within the selection.</p>
+  </div>
 </section>
 
 <section id="elevation-profiles">
