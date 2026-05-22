@@ -32,29 +32,31 @@
 
   <div class="table-wrap">
     <table class="lp-table">
-      <caption>Top {{ lp_rows|length }} level paths by DGO count{% if lp_other and lp_other.count > 0 %} (plus aggregated remainder){% endif %}</caption>
+      <caption>Top {{ lp_summary|length }} level paths by total centerline length</caption>
       <thead>
         <tr>
           <th scope="col">Level Path ID</th>
           <th scope="col">Stream Name<sup><a href="#fn1">1</a></sup></th>
+          <th scope="col">Total Centerline Length</th>
           <th scope="col">DGOs</th>
           <th scope="col">Crosses HUC10</th>
           <th scope="col">Repair Status</th>
         </tr>
       </thead>
       <tbody>
-        {% for lp in lp_rows %}
+        {% for lp in lp_summary %}
         <tr>
           <td>{{ lp.level_path }}</td>
           <td>{{ lp.stream_name }}</td>
-          <td class="num">{{ lp.dgo_count }}</td>
-          <td>{{ "Yes" if lp.crosses_huc10 else "No" }}</td>
+          <td class="num">{{ lp.total_centerline_length }}</td>
+          <td class="num">{{ lp.num_dgos }}</td>
+          <td>{{ lp.crosses_huc10 }}</td>
           <td>{{ lp.repair_status }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    <p id=""fn1">1. If more than one name, this is the name used for the longest area within the selection.</p>
+    <p id="fn1">1. If more than one name, this is the name used for the longest total centerline length within the selection.</p>
   </div>
 </section>
 

@@ -82,6 +82,24 @@ def build_report_parser(description: str = "Riverscapes report") -> argparse.Arg
     return parser
 
 
+def add_parquet_cli_args(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the standard parquet CLI flags to a parser.
+
+    Copilot-generated function.
+    Future enhancement: consider if this is really helpful. If it is, expand use of this pattern. Otherwise remove it.
+    """
+    parser.add_argument(
+        "--use-parquet",
+        dest="parquet_path",
+        type=Path,
+        default=None,
+        help="Use an existing Parquet file or directory instead of running the Athena query",
+    )
+    parser.add_argument("--keep-parquet", dest="keep_parquet", action="store_true", help="Keep downloaded staging Parquet files")
+
+
 def parse_report_args(parser: argparse.ArgumentParser) -> tuple[argparse.Namespace, Path]:
     """Parse args via ``dotenv.parse_args_env``, create the output dir, return ``(args, output_path)``.
 
