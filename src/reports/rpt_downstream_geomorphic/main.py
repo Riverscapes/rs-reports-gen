@@ -8,6 +8,7 @@ Copilot-generated module.
 """
 
 import argparse
+import shutil
 from pathlib import Path
 
 import geopandas as gpd
@@ -17,7 +18,7 @@ from rsxml import Logger
 from reports.rpt_downstream_geomorphic import __version__ as report_version
 from reports.rpt_downstream_geomorphic.dataprep import (
     prepare_profile_data,
-    prepare_summary_data,
+    prepare_summary_data_top_n,
     query_rme_data,
 )
 from reports.rpt_downstream_geomorphic.figures import build_profile_figures
@@ -26,6 +27,7 @@ from util.html import RSReport
 from util.pandas import RSFieldMeta, load_gdf_from_pq
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (
+    add_parquet_cli_args,
     init_report_logging,
     parse_report_args,
     report_main_wrapper,
@@ -75,15 +77,17 @@ def make_report(
         report_type="Downstream Geomorphic",
         report_dir=report_dir,
         body_template_path=Path(__file__).parent / "templates" / "body.html",
-        css_paths=[Path(__file__).parent / "templates" / "report.css"],
+        # css_paths=[Path(__file__).parent / "templates" / "report.css"],
         report_version=report_version,
     )
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
     context = {'selection_mode': mode}
+    lp_summary = lp_summary_df.reset_index().to_dict(orient="records")
+
     report.add_html_elements('context', context)
-    report.add_html_elements('lp_summary', lp_summary_df.to_dict())
+    report.add_html_elements('lp_summary', lp_summary)
     report.render(fig_mode="interactive")
     log.info(f"HTML report written to {report_dir}")
 
@@ -91,40 +95,40 @@ def make_report(
         make_pdf_from_html(report_dir)
 
 
-def orchestrate(unit_system: str, dgoid: str, report_name: str, include_pdf: bool, output_path: Path) -> None:
+def orchestrate(
+    unit_system: str,
+    dgoid: str,
+    report_name: str,
+    include_pdf: bool,
+    output_path: Path,
+    parquet_path: Path | None = None,
+    keep_parquet: bool = False,
+) -> None:
     """Main orchestration: query → prepare → chart → render."""
     define_fields(unit_system)
-
+    log = Logger('Orchestrate')
     staging_path = output_path / "staging"
-    staging_path.mkdir(parents=True, exist_ok=True)
-
-    # if args.parquet_path:
-    #     log.info(f"Loading pre-staged Parquet from {args.parquet_path}")
-    #     rme_df = load_gdf_from_pq(args.parquet_path)
-    # else:
 
     # MODE - level_path
     mode = 'Whole Level Path'
 
-    rme_df = query_rme_data(dgoid, staging_path)
+    if parquet_path:
+        if not parquet_path.exists():
+            raise FileNotFoundError(f"Parquet path '{parquet_path}' does not exist")
+        log.info(f"Using supplied Parquet data files at {parquet_path}")
+        rme_df = load_gdf_from_pq(parquet_path)
+    else:
+        staging_path.mkdir(parents=True, exist_ok=True)
+        rme_df = query_rme_data(mode, dgoid, staging_path)
 
-    summary_df = prepare_summary_data(rme_df)
+    summary_df = prepare_summary_data_top_n(rme_df, 9)
     profile_df = prepare_profile_data(rme_df)
 
-    make_report(
-        profile_df,
-        summary_df,
-        mode,
-        output_path,
-        report_name,
-        include_pdf=include_pdf,
-    )
+    make_report(profile_df, summary_df, mode, output_path, report_name, include_pdf=include_pdf)
 
-    # if not args.keep_parquet and staging_path.exists():
-    #     import shutil
-
-    #     shutil.rmtree(staging_path)
-    #     log.info("Staging data removed")
+    if not parquet_path and not keep_parquet and staging_path.exists():
+        shutil.rmtree(staging_path)
+        log.info("Staging data removed")
 
 
 def main() -> None:
@@ -135,9 +139,23 @@ def main() -> None:
     parser.add_argument("report_name", help="Human-readable name for this export")
     parser.add_argument("--include_pdf", help="Include a PDF version of the report", action="store_true", default=False)
     parser.add_argument("--unit_system", help="Unit system: SI or imperial", type=str, default="SI")
+    add_parquet_cli_args(parser)
+
     args, output_path = parse_report_args(parser)
     log = init_report_logging(output_path, REPORT_SLUG)
-    report_main_wrapper(log, lambda: orchestrate(args.unit_system, args.dgoid, args.report_name, args.include_pdf, output_path), debug=True)
+    report_main_wrapper(
+        log,
+        lambda: orchestrate(
+            args.unit_system,
+            args.dgoid,
+            args.report_name,
+            args.include_pdf,
+            output_path,
+            args.parquet_path,
+            args.keep_parquet,
+        ),
+        debug=True,
+    )
 
 
 if __name__ == "__main__":

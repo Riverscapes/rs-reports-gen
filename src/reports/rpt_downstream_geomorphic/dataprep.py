@@ -17,7 +17,7 @@ from util.pandas import load_gdf_from_pq
 # Fields of interest for longitudinal profiles.
 # Extend this list as more indicators are needed.
 PROFILE_FIELDS = (
-    "level_path, seg_distance, centerline_length, segment_area, "
+    "level_path, centerline_length, segment_area, "
     "stream_name, stream_order, drainage_area, elevation, "
     "channel_width, confinement_ratio, constriction_ratio, "
     "integrated_width, floodplain_area, channel_area, "
@@ -56,7 +56,7 @@ def _query_whole_level_path(level_path: str):
         rme.huc2 = rme_seg.huc2 AND
         rme_seg.node_id = CONCAT(CAST (lat_key AS VARCHAR),'_', CAST (lon_key AS VARCHAR))
     )
-    select {PROFILE_FIELDS}, final_seg_dist, is_interhuc_lp, repair_status
+    select {PROFILE_FIELDS}, final_seg_dist as seg_distance, is_interhuc_lp, repair_status
     from rme
     WHERE level_path = '{{level_path}}'
     """
@@ -92,13 +92,75 @@ def query_rme_data(mode: str, level_path: str, staging_path: Path) -> pd.DataFra
     return df
 
 
+def _summarize_level_path_group(level_path: str | int, grp: pd.DataFrame) -> dict:
+    """Summarize one level_path group into a single row dictionary.
+
+    Copilot-generated function.
+    """
+    # Stream name with the greatest total centerline_length
+    name_lengths = grp.dropna(subset=["stream_name"]).groupby("stream_name")["centerline_length"].sum()
+    stream_name = name_lengths.idxmax() if not name_lengths.empty else None
+
+    # Crosses HUC10 boundary
+    crosses = "Yes" if grp["is_interhuc_lp"].any() else "No"
+
+    # Repair status - uniform per level_path, take first non-null value
+    repair_status = grp["repair_status"].dropna().iloc[0] if grp["repair_status"].notna().any() else None
+
+    total_centerline_length = grp["centerline_length"].fillna(0).sum()
+
+    return {
+        "level_path": level_path,
+        "stream_name": stream_name,
+        "total_centerline_length": total_centerline_length,
+        "num_dgos": len(grp),
+        "crosses_huc10": crosses,
+        "repair_status": repair_status,
+    }
+
+
 def prepare_summary_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Return one row per level_path with summary statistics.
+
+    Columns produced:
+        stream_name   – name whose segments have the greatest total centerline_length
+        total_centerline_length – sum of centerline_length across the level path
+        num_dgos      – count of DGO rows
+        crosses_huc10 – "Yes" / "No" based on is_interhuc_lp
+        repair_status – single status value (uniform per level_path)
+
+    Copilot-generated function.
     """
-    Dataframe with one row per level path and summary statistics
+    rows: list[dict] = []
+
+    for lp, grp in df.groupby("level_path"):
+        rows.append(_summarize_level_path_group(str(lp), grp))
+
+    return pd.DataFrame(rows).set_index("level_path")
+
+
+def prepare_summary_data_top_n(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    """Return top n level_paths by total_centerline_length and append an ALL OTHERS rollup row.
+
+    If there are n or fewer level paths, this returns the same output shape as
+    prepare_summary_data with no ALL OTHERS row.
+
+    Copilot-generated function.
     """
-    print(df)
-    newdf = df.groupby(['level_path']).count()
-    return newdf
+    if n < 1:
+        raise ValueError("n must be >= 1")
+
+    summary_df = prepare_summary_data(df)
+    if len(summary_df) <= n:
+        return summary_df
+
+    top_df = summary_df.sort_values("total_centerline_length", ascending=False).head(n)
+    top_level_paths = set(top_df.index.astype(str))
+
+    remaining_df = df[~df["level_path"].astype(str).isin(top_level_paths)]
+    all_others = _summarize_level_path_group("ALL OTHERS", remaining_df)
+
+    return pd.concat([top_df, pd.DataFrame([all_others]).set_index("level_path")])
 
 
 def prepare_profile_data(df: pd.DataFrame) -> pd.DataFrame:
