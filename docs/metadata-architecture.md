@@ -51,8 +51,6 @@ Characteristics:
 Example references:
 
 - Global metadata registry design: [src/util/pandas/RSFieldMeta.py](../src/util/pandas/RSFieldMeta.py)
-- Downstream geomorphic minimal metadata bootstrap: [src/reports/rpt_downstream_geomorphic/main.py#L39](../src/reports/rpt_downstream_geomorphic/main.py#L39)
-- Downstream geomorphic hardcoded chart labels: [src/reports/rpt_downstream_geomorphic/figures.py#L16](../src/reports/rpt_downstream_geomorphic/figures.py#L16)
 
 Risks:
 
@@ -72,6 +70,7 @@ Examples:
 
 - Metadata fetch API: [src/util/athena/athena.py#L259](../src/util/athena/athena.py#L259)
 - Data Mart metadata normalization and display-unit overrides: [src/reports/rpt_data_mart/main.py#L212](../src/reports/rpt_data_mart/main.py#L212)
+- Downstream geomorphic metadata fetch + layer normalization: [src/reports/rpt_downstream_geomorphic/main.py#L40](../src/reports/rpt_downstream_geomorphic/main.py#L40)
 
 ### 2) Keep layer context with each dataframe
 
@@ -82,6 +81,7 @@ Examples:
 
 - Layer context resolver: [src/util/pandas/RSFieldMeta.py#L715](../src/util/pandas/RSFieldMeta.py#L715)
 - Data Mart layer assignment before apply_units: [src/reports/rpt_data_mart/main.py#L427](../src/reports/rpt_data_mart/main.py#L427)
+- Downstream geomorphic source/profile/summary layer attrs: [src/reports/rpt_downstream_geomorphic/dataprep.py#L94](../src/reports/rpt_downstream_geomorphic/dataprep.py#L94)
 
 ### 3) Apply units and dtype coercion before presentation/export
 
@@ -92,6 +92,7 @@ Examples:
 
 - Unit and dtype application: [src/util/pandas/RSFieldMeta.py#L727](../src/util/pandas/RSFieldMeta.py#L727)
 - Capturing per-table applied_units in Data Mart: [src/reports/rpt_data_mart/main.py#L421](../src/reports/rpt_data_mart/main.py#L421)
+- Downstream geomorphic unit application before figure generation: [src/reports/rpt_downstream_geomorphic/main.py#L141](../src/reports/rpt_downstream_geomorphic/main.py#L141)
 
 ### 4) Register metadata for derived columns at creation time
 
@@ -103,6 +104,7 @@ Examples:
 - Bin augmentation + metadata registration: [src/util/rme/rme_common_dataprep.py#L192](../src/util/rme/rme_common_dataprep.py#L192)
 - Theme inheritance for derived bin columns: [src/util/rme/rme_common_dataprep.py#L248](../src/util/rme/rme_common_dataprep.py#L248)
 - Additional report-local derived metadata examples: [src/reports/rpt_watershed_summary/figures.py#L36](../src/reports/rpt_watershed_summary/figures.py#L36)
+- Downstream geomorphic summary derived-field metadata (duplicate + preferred format): [src/reports/rpt_downstream_geomorphic/dataprep.py#L126](../src/reports/rpt_downstream_geomorphic/dataprep.py#L126)
 
 ### 5) Drive outputs from metadata-aware structures
 
@@ -115,6 +117,8 @@ Examples:
 - TableEntry sidecar pattern (df + applied_units): [src/util/metadata_export.py#L22](../src/util/metadata_export.py#L22)
 - Data Mart dictionary generation call: [src/reports/rpt_data_mart/main.py#L552](../src/reports/rpt_data_mart/main.py#L552)
 - Metadata export tests: [tests/test_apply_all_bins.py#L122](../tests/test_apply_all_bins.py#L122)
+- Downstream geomorphic metadata-aware figure labels: [src/reports/rpt_downstream_geomorphic/figures.py#L55](../src/reports/rpt_downstream_geomorphic/figures.py#L55)
+- Downstream geomorphic metadata-aware summary table header/value rendering: [src/reports/rpt_downstream_geomorphic/main.py#L93](../src/reports/rpt_downstream_geomorphic/main.py#L93), [src/reports/rpt_downstream_geomorphic/templates/body.html#L40](../src/reports/rpt_downstream_geomorphic/templates/body.html#L40)
 
 ## Transitional Strategy (Current Recommendation)
 
@@ -140,24 +144,29 @@ Reference design note:
 - Assign df.attrs["layer_id"] for each dataframe.
 - Run apply_units before presentation or dictionary export.
 - Register metadata for every derived column.
+- Prefer metadata-defined formatting via preferred_format + RSFieldMeta.format_scalar for display values; avoid report-specific formatting helpers when RSFieldMeta can handle formatting.
 - Use metadata-based names/units in output labels; rely on RSFieldMeta fallback helpers instead of hardcoded label maps.
 - Add or update tests validating metadata-aware outputs.
 
-## Known Gap: Downstream Geomorphic (Current)
+## Implemented Example: Downstream Geomorphic
 
-Current state:
+Status:
 
-- Metadata is loaded in define_fields, but plot labels are mostly hardcoded and not yet metadata-driven.
+- The previously identified metadata/labeling gap for downstream geomorphic has been addressed.
 
-Primary references:
+What this implementation now demonstrates:
 
-- Metadata setup entrypoint: [src/reports/rpt_downstream_geomorphic/main.py#L39](../src/reports/rpt_downstream_geomorphic/main.py#L39)
-- Current chart-label implementation: [src/reports/rpt_downstream_geomorphic/figures.py#L79](../src/reports/rpt_downstream_geomorphic/figures.py#L79)
+- Unambiguous metadata layer strategy in report bootstrap (raw_rme + rpt_rme consolidated to report layer): [src/reports/rpt_downstream_geomorphic/main.py#L52](../src/reports/rpt_downstream_geomorphic/main.py#L52)
+- Layer context propagation via dataframe attrs across source, summary, and profile dataframes: [src/reports/rpt_downstream_geomorphic/dataprep.py#L94](../src/reports/rpt_downstream_geomorphic/dataprep.py#L94)
+- Metadata-aware figure axis/title/legend labels with fallback behavior: [src/reports/rpt_downstream_geomorphic/figures.py#L55](../src/reports/rpt_downstream_geomorphic/figures.py#L55)
+- Derived summary metadata registration in the same module where summary data is created: [src/reports/rpt_downstream_geomorphic/dataprep.py#L126](../src/reports/rpt_downstream_geomorphic/dataprep.py#L126)
+- Summary display label/value formatting driven by RSFieldMeta metadata (header + preferred_format + format_scalar): [src/reports/rpt_downstream_geomorphic/dataprep.py#L204](../src/reports/rpt_downstream_geomorphic/dataprep.py#L204)
+- Report template consumption of metadata-resolved summary header/value: [src/reports/rpt_downstream_geomorphic/templates/body.html#L40](../src/reports/rpt_downstream_geomorphic/templates/body.html#L40)
 
-Recommended next step:
+Test coverage currently added for this effort:
 
-- Refactor downstream geomorphic figure builders to use RSFieldMeta headers/friendly names and resolved display units when constructing axis labels and titles.
+- Minimum safety regression on downstream figure key/count generation: [tests/test_rpt_downstream_geomorphic_figures.py#L37](../tests/test_rpt_downstream_geomorphic_figures.py#L37)
 
-Companion implementation prompt:
+Companion implementation prompt (archival reference):
 
 - [.github/prompts/implement-rpt-downstream-geomorphic-metadata.prompt.md](../.github/prompts/implement-rpt-downstream-geomorphic-metadata.prompt.md)
