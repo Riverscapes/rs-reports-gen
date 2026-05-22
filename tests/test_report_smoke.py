@@ -72,6 +72,13 @@ REPORTS = [
         "expected_files": ["report.html", "figures/stream_names_level_path_count_scale2.png"],
         "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_stream_names_test"],
     },
+    {
+        "name": "Downstream Geomorphic Profiles",
+        "module": "reports.rpt_downstream_geomorphic.main",
+        "example_dir": "src/reports/rpt_downstream_geomorphic/example",
+        "expected_files": ["report.html"],
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), '30000700002914', "rpt_downstream_geomorphic_test"],
+    },
     # Add more reports or configurations as needed
 ]
 
