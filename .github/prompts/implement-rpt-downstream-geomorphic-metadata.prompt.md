@@ -1,6 +1,6 @@
 ## Prompt: Implement Metadata-Aware Units and Friendly Labels in `rpt_downstream_geomorphic`
 
-Use this prompt when asking an AI coding agent to implement metadata strategy in the downstream geomorphic report.
+Used this prompt when asking an AI coding agent to implement metadata strategy in the downstream geomorphic report. Work is substantially complete 2026-05-22.
 
 ## Goal
 
