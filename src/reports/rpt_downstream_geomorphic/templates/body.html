@@ -37,7 +37,7 @@
         <tr>
           <th scope="col">Level Path ID</th>
           <th scope="col">Stream Name<sup><a href="#fn1">1</a></sup></th>
-          <th scope="col">Total Centerline Length</th>
+          <th scope="col">{{ context.total_centerline_length_header }}</th>
           <th scope="col">DGOs</th>
           <th scope="col">Crosses HUC10</th>
           <th scope="col">Repair Status</th>
@@ -48,7 +48,7 @@
         <tr>
           <td>{{ lp.level_path }}</td>
           <td>{{ lp.stream_name }}</td>
-          <td class="num">{{ lp.total_centerline_length }}</td>
+          <td class="num">{{ lp.total_centerline_length_display|default(lp.total_centerline_length) }}</td>
           <td class="num">{{ lp.num_dgos }}</td>
           <td>{{ lp.crosses_huc10 }}</td>
           <td>{{ lp.repair_status }}</td>

@@ -7,9 +7,12 @@ Copilot-generated module.
 """
 
 import pandas as pd
+import pint_pandas
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from rsxml import Logger
+
+from util.pandas import RSFieldMeta
 
 # Indicators to chart as default profile panels.
 # Each tuple: (column_name, display_label, secondary_y).
@@ -27,26 +30,71 @@ DEFAULT_PROFILE_INDICATORS: list[tuple[str, str, bool]] = [
 ]
 
 
+def _get_plot_values(series: pd.Series) -> pd.Series:
+    """Return magnitudes for Pint series so Plotly gets plain numeric values.
+
+    Copilot-generated function.
+    """
+    if isinstance(series.dtype, pint_pandas.PintType):
+        return series.pint.magnitude
+    return series
+
+
+def _get_layer_id(df: pd.DataFrame) -> str | None:
+    """Return layer_id from dataframe attrs when available.
+
+    Copilot-generated function.
+    """
+    layer_id = df.attrs.get("layer_id")
+    if layer_id is None:
+        return None
+    layer_text = str(layer_id).strip()
+    return layer_text or None
+
+
+def _get_field_label(df: pd.DataFrame, column_name: str, fallback_if_missing: str | None = None) -> str:
+    """Get a metadata-aware label with optional fallback when metadata is absent.
+
+    Copilot-generated function.
+    """
+    meta = RSFieldMeta()
+    layer_id = _get_layer_id(df)
+
+    try:
+        has_meta = meta.get_field_meta(column_name, layer_id) is not None
+    except ValueError:
+        has_meta = False
+
+    if fallback_if_missing is not None and not has_meta:
+        return fallback_if_missing
+
+    try:
+        return meta.get_field_header(column_name, include_units=True, layer_id=layer_id)
+    except ValueError:
+        return fallback_if_missing or meta.get_friendly_name(column_name)
+
+
 def _build_single_profile(
     df: pd.DataFrame,
     level_path: str,
     y1_col: str,
     y2_col: str,
-    y1_label: str,
-    y2_label: str,
 ) -> go.Figure:
     """Build a dual-axis profile chart for one level path.
 
     Copilot-generated function.
     """
     lp_df = df[df["level_path"] == level_path].sort_values("seg_distance")
+    y1_label = _get_field_label(lp_df, y1_col)
+    y2_label = _get_field_label(lp_df, y2_col)
+    x_label = _get_field_label(lp_df, "seg_distance", fallback_if_missing="Segment Distance")
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     fig.add_trace(
         go.Scatter(
-            x=lp_df["seg_distance"],
-            y=lp_df[y1_col],
+            x=_get_plot_values(lp_df["seg_distance"]),
+            y=_get_plot_values(lp_df[y1_col]),
             name=y1_label,
             mode="lines",
         ),
@@ -54,8 +102,8 @@ def _build_single_profile(
     )
     fig.add_trace(
         go.Scatter(
-            x=lp_df["seg_distance"],
-            y=lp_df[y2_col],
+            x=_get_plot_values(lp_df["seg_distance"]),
+            y=_get_plot_values(lp_df[y2_col]),
             name=y2_label,
             mode="lines",
         ),
@@ -65,8 +113,8 @@ def _build_single_profile(
     stream_name = lp_df["stream_name"].dropna().unique()
     title_suffix = f" – {stream_name[0]}" if len(stream_name) else ""
     fig.update_layout(
-        title_text=f"{y1_label} & {y2_label} along Segment Distance{title_suffix}",
-        xaxis_title="Segment Distance",
+        title_text=f"{y1_label} & {y2_label} along {x_label}{title_suffix}",
+        xaxis_title=x_label,
         height=400,
         margin=dict(l=60, r=60, t=40, b=40),
     )
@@ -105,8 +153,6 @@ def build_profile_figures(df: pd.DataFrame) -> dict[str, go.Figure]:
             lp,
             y1_col="elevation",
             y2_col="drainage_area",
-            y1_label="Elevation",
-            y2_label="Drainage Area",
         )
 
         # Channel geometry
@@ -115,8 +161,6 @@ def build_profile_figures(df: pd.DataFrame) -> dict[str, go.Figure]:
             lp,
             y1_col="channel_width",
             y2_col="confinement_ratio",
-            y1_label="Channel Width",
-            y2_label="Confinement Ratio",
         )
 
         # Gradient + sinuosity
@@ -125,8 +169,6 @@ def build_profile_figures(df: pd.DataFrame) -> dict[str, go.Figure]:
             lp,
             y1_col="prim_channel_gradient",
             y2_col="planform_sinuosity",
-            y1_label="Channel Gradient",
-            y2_label="Sinuosity",
         )
 
         # Floodplain indicators
@@ -135,8 +177,6 @@ def build_profile_figures(df: pd.DataFrame) -> dict[str, go.Figure]:
             lp,
             y1_col="floodplain_ratio",
             y2_col="fldpln_access",
-            y1_label="Floodplain Ratio",
-            y2_label="Floodplain Access",
         )
 
     log.info(f"Generated {len(figures)} profile figures")
