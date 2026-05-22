@@ -53,16 +53,15 @@ Reference patterns:
 
 5. Tests (Phase 1: minimum required in this implementation task)
 
-- Add only the minimum safety tests needed to protect this change set.
-- Include exactly these checks:
-  - friendly/unit label appears when metadata exists;
-  - fallback label appears when metadata is unavailable;
+- Add only the minimum safety tests needed to protect this change set. For example: 
   - no regression in figure count/key generation.
 
 6. Expanded tests (Phase 2: separate follow-up task)
 
 - Defer broader test expansion to a dedicated follow-up task/PR.
 - Follow-up scope can include:
+  - fallback label appears when metadata is unavailable;
+  - friendly/unit label appears when metadata exists;
   - additional field combinations and chart permutations;
   - SI vs imperial matrix checks;
   - edge-case and snapshot-style validation.
@@ -83,8 +82,8 @@ Reference patterns:
 Phase 1 (minimum required now), run from repo root:
 
 ```powershell
-uv run pytest -k downstream_geomorphic
-uv run pytest tests/test_apply_all_bins.py
+uv run pytest test_report_smoke.py -k "Downstream"
+uv run pytest tests/test_rpt_downstream_geomorphic*.py
 ```
 
 If no downstream-specific tests exist yet, create the minimum required tests and run:

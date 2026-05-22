@@ -11,7 +11,6 @@ import argparse
 import shutil
 from pathlib import Path
 
-import geopandas as gpd
 import pandas as pd
 from rsxml import Logger
 
@@ -19,6 +18,7 @@ from reports.rpt_downstream_geomorphic import __version__ as report_version
 from reports.rpt_downstream_geomorphic.dataprep import (
     prepare_profile_data,
     prepare_summary_data_top_n,
+    prepare_summary_for_report,
     query_rme_data,
 )
 from reports.rpt_downstream_geomorphic.figures import build_profile_figures
@@ -34,6 +34,7 @@ from util.report_entrypoint import (
 )
 
 REPORT_SLUG = "rpt-downstream-geomorphic"
+RPT_RME_LAYER_ID = "rpt_rme"
 
 
 def define_fields(unit_system: str = "SI") -> None:
@@ -42,13 +43,19 @@ def define_fields(unit_system: str = "SI") -> None:
     Copilot-generated function.
     """
     fm = RSFieldMeta()
-    fm.field_meta = get_field_metadata(
+    registry_field_meta = get_field_metadata(
         authority="data-exchange-scripts",
         tool_schema_name="*",
         layer_id="raw_rme,rpt_rme",
     )
+
+    # Consolidate RME rows under one layer id so metadata lookups are never ambiguous.
+    registry_field_meta.loc[registry_field_meta["layer_id"].isin(["raw_rme", "rpt_rme"]), "layer_id"] = RPT_RME_LAYER_ID
+    registry_field_meta = registry_field_meta.drop_duplicates(subset=["layer_id", "name"], keep="first")
+
+    fm.field_meta = registry_field_meta
     fm.unit_system = unit_system
-    fm.set_display_unit("centerline_length", "kilometer")
+    fm.set_display_unit("centerline_length", "kilometer", RPT_RME_LAYER_ID)
 
 
 def make_report(
@@ -83,7 +90,11 @@ def make_report(
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
-    context = {'selection_mode': mode}
+    total_centerline_length_header = str(lp_summary_df.attrs.get("total_centerline_length_header", "Total Centerline Length"))
+    context = {
+        'selection_mode': mode,
+        'total_centerline_length_header': total_centerline_length_header,
+    }
     lp_summary = lp_summary_df.reset_index().to_dict(orient="records")
 
     report.add_html_elements('context', context)
@@ -92,7 +103,7 @@ def make_report(
     log.info(f"HTML report written to {report_dir}")
 
     if include_pdf:
-        make_pdf_from_html(report_dir)
+        make_pdf_from_html(str(report_dir))
 
 
 def orchestrate(
@@ -121,8 +132,14 @@ def orchestrate(
         staging_path.mkdir(parents=True, exist_ok=True)
         rme_df = query_rme_data(mode, dgoid, staging_path)
 
+    # Use one report-wide layer context for all presentation-oriented metadata lookups.
+    rme_df.attrs["layer_id"] = RPT_RME_LAYER_ID
+
     summary_df = prepare_summary_data_top_n(rme_df, 9)
+    summary_df = prepare_summary_for_report(summary_df)
     profile_df = prepare_profile_data(rme_df)
+    profile_df, _applied_units = RSFieldMeta().apply_units(profile_df)
+    profile_df.attrs["layer_id"] = RPT_RME_LAYER_ID
 
     make_report(profile_df, summary_df, mode, output_path, report_name, include_pdf=include_pdf)
 
