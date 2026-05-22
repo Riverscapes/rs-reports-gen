@@ -13,6 +13,10 @@ Code to maintain the web UI that allows users to trigger report generation with 
 - Metadata and units architecture (legacy + target patterns, with code examples): [docs/metadata-architecture.md](docs/metadata-architecture.md)
 - Style-guide workflow (how to iterate on templates/CSS without touching data): [src/util/html/demo/README.md](src/util/html/demo/README.md)
 
+## Architecture Notes
+
+- Metadata and units architecture (legacy + target patterns, with code examples): [docs/metadata-architecture.md](docs/metadata-architecture.md)
+
 ## Setting up & running your own instance
 
 Use `uv sync`. If you're going to make any changes, there are additional libraries used for development. Run `uv sync --extra dev` instead.
