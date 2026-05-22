@@ -15,7 +15,11 @@ import pandas as pd
 from rsxml import Logger
 
 from reports.rpt_downstream_geomorphic import __version__ as report_version
-from reports.rpt_downstream_geomorphic.dataprep import prepare_profile_data, query_rme_data
+from reports.rpt_downstream_geomorphic.dataprep import (
+    prepare_profile_data,
+    prepare_summary_data,
+    query_rme_data,
+)
 from reports.rpt_downstream_geomorphic.figures import build_profile_figures
 from util.athena import get_field_metadata
 from util.html import RSReport
@@ -47,6 +51,8 @@ def define_fields(unit_system: str = "SI") -> None:
 
 def make_report(
     profile_df: pd.DataFrame,
+    lp_summary_df: pd.DataFrame,
+    mode: str,
     report_dir: Path,
     report_name: str,
     *,
@@ -74,6 +80,10 @@ def make_report(
     )
     for name, fig in figures.items():
         report.add_figure(name, fig)
+
+    context = {'selection_mode': mode}
+    report.add_html_elements('context', context)
+    report.add_html_elements('lp_summary', lp_summary_df.to_dict())
     report.render(fig_mode="interactive")
     log.info(f"HTML report written to {report_dir}")
 
@@ -94,13 +104,17 @@ def orchestrate(unit_system: str, dgoid: str, report_name: str, include_pdf: boo
     # else:
 
     # MODE - level_path
+    mode = 'Whole Level Path'
 
     rme_df = query_rme_data(dgoid, staging_path)
 
+    summary_df = prepare_summary_data(rme_df)
     profile_df = prepare_profile_data(rme_df)
 
     make_report(
         profile_df,
+        summary_df,
+        mode,
         output_path,
         report_name,
         include_pdf=include_pdf,

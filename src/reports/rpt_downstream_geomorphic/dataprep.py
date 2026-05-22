@@ -56,14 +56,14 @@ def _query_whole_level_path(level_path: str):
         rme.huc2 = rme_seg.huc2 AND
         rme_seg.node_id = CONCAT(CAST (lat_key AS VARCHAR),'_', CAST (lon_key AS VARCHAR))
     )
-    select {PROFILE_FIELDS}, final_seg_dist
+    select {PROFILE_FIELDS}, final_seg_dist, is_interhuc_lp, repair_status
     from rme
     WHERE level_path = '{{level_path}}'
     """
     return query_str.format(level_path=level_path)
 
 
-def query_rme_data(level_path: str, staging_path: Path) -> pd.DataFrame:
+def query_rme_data(mode: str, level_path: str, staging_path: Path) -> pd.DataFrame:
     """Query RME intersection data from Athena and save as local Parquet.
 
 
@@ -92,16 +92,23 @@ def query_rme_data(level_path: str, staging_path: Path) -> pd.DataFrame:
     return df
 
 
+def prepare_summary_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Dataframe with one row per level path and summary statistics
+    """
+    print(df)
+    newdf = df.groupby(['level_path']).count()
+    return newdf
+
+
 def prepare_profile_data(df: pd.DataFrame) -> pd.DataFrame:
     """Sort and enrich the raw RME data for profile charting.
 
     Groups by level_path, sorts by seg_distance within each group,
     and adds any derived columns needed for the charts.
 
-    Copilot-generated function.
-
     Args:
-        df: Raw RME DataFrame.
+        df: RME DataFrame.
 
     Returns:
         Cleaned and sorted DataFrame ready for profile figures.
