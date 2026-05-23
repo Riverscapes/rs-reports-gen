@@ -10,7 +10,7 @@ import sys
 import traceback
 from pathlib import Path
 
-import inquirer
+import questionary
 from rsxml import Logger, dotenv
 from termcolor import colored
 
@@ -42,30 +42,21 @@ def upload_outputs(
 
     if not report_id:
         log.info("No report ID supplied")
-        questions = [
-            inquirer.Confirm('create_new', message="Create a new report?", default=True),
-        ]
-        answers = inquirer.prompt(questions)
-        if not answers.get('create_new', True):
-            questions = [
-                inquirer.Text('report_id', message="Enter the report ID"),
-            ]
-            answers = inquirer.prompt(questions)
-            report_id = answers.get('report_id')
+        create_new = questionary.confirm(message='Create a new report?', default=True).ask()
+        if not create_new:
+            report_id = questionary.text(message="Enter the report ID").ask()
             if not report_id:
                 log.error('You need to supply a report ID or create a new report')
                 raise RuntimeError("No report ID supplied")
 
     # If the user didn't provide these via args or env, prompt for them
     if not outputs_dir:
-        questions = [
-            inquirer.Text('outputs_dir', message="Path to the directory containing output files"),
-        ]
-        answers = inquirer.prompt(questions)
-        outputs_dir = Path(answers['outputs_dir'].strip('"'))
-        if not outputs_dir.is_dir():
+        q_outputs_dir = questionary.path(message="Path to the directory containing output files").ask()
+        q_outputs_dir = Path(q_outputs_dir.strip('"'))
+        if not q_outputs_dir.is_dir():
             log.error('You need to supply a valid path to the directory containing output files')
             raise RuntimeError("No valid outputs directory supplied")
+        outputs_dir = q_outputs_dir
 
     # If there's no report ID then we are creating a new one
     if not report_id:
@@ -82,18 +73,20 @@ def upload_outputs(
                 )
             )
 
-            questions = [
-                inquirer.Text('index_json', message="Path to index JSON file"),
-            ]
-            answers = inquirer.prompt(questions)
-            index_json = answers['index_json'].strip('"')
+            q_index_json = questionary.path(message="Path to index JSON file").ask()
+            q_index_json = q_index_json.strip('"')
+            index_json = q_index_json
 
-        index_json = Path(index_json)
-        if not index_json.is_file() or index_json.suffix != '.json':
+        if index_json is None:
             log.info('You need to supply a valid path to a JSON file with the index parameters')
             raise RuntimeError("No valid index JSON file supplied")
+        else:
+            index_json_path = Path(index_json)
+            if not index_json_path.is_file() or index_json_path.suffix != '.json':
+                log.info('You need to supply a valid path to a JSON file with the index parameters')
+                raise RuntimeError("No valid index JSON file supplied")
 
-        index_data = json.loads(index_json.read_text(encoding='utf-8'))
+        index_data = json.loads(index_json_path.read_text(encoding='utf-8'))
         if not isinstance(index_data, dict):
             raise RuntimeError("Index JSON file does not contain a valid JSON object")
         name = index_data.get("name")
