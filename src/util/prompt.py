@@ -12,7 +12,7 @@ QuestionSequence = Sequence[Any]
 
 
 def is_truthy(value: str | None) -> bool:
-    """Returns Ture if the string represents a truthy value.
+    """Returns True if the string represents a truthy value.
     Accepts "1", "true", "yes" (case-insensitive, ignores whitespace)
     Any other value, including None, returns False
     """
