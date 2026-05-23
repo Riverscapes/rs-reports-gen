@@ -1,19 +1,18 @@
-import os
-from typing import Dict
-import webbrowser
+import base64
+import hashlib
 import json
+import logging
+import os
+import threading
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlencode, urlparse, urlunparse
-import threading
-import hashlib
-import base64
-import logging
 
-# We want to make inquirer optional so that we can use this module in other contexts
+# We want to make questionary optional so that we can use this module in other contexts
 try:
-    import inquirer
+    import questionary
 except ImportError:
-    inquirer = None
+    questionary = None
 
 import requests
 from rsxml import Logger
@@ -27,10 +26,7 @@ LOCAL_PORT = 4721
 ALT_PORT = 4723
 LOGIN_SCOPE = 'openid'
 
-AUTH_DETAILS = {
-    "domain": "auth.riverscapes.net",
-    "clientId": "Vhse6GZoU6vlJ9fcbrdmAAK6b4J9sjtT"
-}
+AUTH_DETAILS = {"domain": "auth.riverscapes.net", "clientId": "Vhse6GZoU6vlJ9fcbrdmAAK6b4J9sjtT"}
 
 
 class RSReportsAPIException(Exception):
@@ -54,7 +50,7 @@ class RSReportsAPI:
     authentication workflow which is appropriate for end-users.
     """
 
-    def __init__(self, stage: str = None, api_token: str = None, dev_headers: Dict[str, str] = None):
+    def __init__(self, stage: str | None = None, api_token: str | None = None, dev_headers: dict[str, str] | None = None):
         self.log = Logger('API')
         self.stage = stage.upper() if stage else self._get_stage_interactive()
 
@@ -85,24 +81,19 @@ class RSReportsAPI:
         Returns:
             _type_: _description_
         """
-        if not inquirer:
-            raise RSReportsAPIException("Inquirer is not installed so interactive stage choosing is not possible. Either install inquirer or specify the stage in the constructor.")
+        if not questionary:
+            raise RSReportsAPIException("Questionary is not installed so interactive stage choosing is not possible. Either install questionary or specify the stage in the constructor.")
 
-        questions = [
-            inquirer.List('stage', message="Which Data Exchange stage?", choices=['production', 'staging'], default='production'),
-        ]
-        answers = inquirer.prompt(questions)
-        return answers['stage'].upper()
+        stage = questionary.select(message="Which Data Exchange stage?", choices=['production', 'staging'], default='production').ask()
+        return stage.upper()
 
     def __enter__(self) -> 'RSReportsAPI':
-        """ Allows us to use this class as a context manager
-        """
+        """Allows us to use this class as a context manager"""
         self.refresh_token()
         return self
 
     def __exit__(self, _type, _value, _traceback):
-        """Behaviour on close when using the "with RSReportsAPI():" Syntax
-        """
+        """Behaviour on close when using the "with RSReportsAPI():" Syntax"""
         # Make sure to shut down the token poll event so the process can exit normally
         self.shutdown()
 
@@ -119,7 +110,7 @@ class RSReportsAPI:
         return result
 
     def _base64_url(self, string: bytes) -> str:
-        """ Convert a string to a base64url string
+        """Convert a string to a base64url string
 
         Args:
             string (bytes): this is the string to convert
@@ -130,7 +121,7 @@ class RSReportsAPI:
         return base64.urlsafe_b64encode(string).decode('utf-8').replace('=', '').replace('+', '-').replace('/', '_')
 
     def _generate_random(self, size: int) -> str:
-        """ Generate a random string of a given size
+        """Generate a random string of a given size
 
         Args:
             size (int): the size of the string to generate
@@ -146,8 +137,7 @@ class RSReportsAPI:
         return ''.join(state)
 
     def shutdown(self):
-        """_summary_
-        """
+        """_summary_"""
         self.log.debug("Shutting down Riverscapes API")
         if self.token_timeout:
             self.token_timeout.cancel()
@@ -213,14 +203,13 @@ class RSReportsAPI:
             response = requests.post(authentication_url, headers={"content-type": "application/x-www-form-urlencoded"}, data=data, timeout=30)
             response.raise_for_status()
             res = response.json()
-            self.token_timeout = threading.Timer(
-                res["expires_in"] - 20, self.refresh_token)
+            self.token_timeout = threading.Timer(res["expires_in"] - 20, self.refresh_token)
             self.token_timeout.start()
             self.access_token = res["access_token"]
             self.log.info("SUCCESSFUL Browser Authentication")
 
     def _wait_for_auth_code(self):
-        """ Wait for the auth code to come back from the server using a simple HTTP server
+        """Wait for the auth code to come back from the server using a simple HTTP server
 
         Raises:
             Exception: _description_
@@ -228,6 +217,7 @@ class RSReportsAPI:
         Returns:
             _type_: _description_
         """
+
         class AuthHandler(BaseHTTPRequestHandler):
             """_summary_
 
@@ -236,13 +226,11 @@ class RSReportsAPI:
             """
 
             def stop(self):
-                """Stop the server
-                """
+                """Stop the server"""
                 self.server.shutdown()
 
             def do_GET(self):
-                """ Do all the server stuff here
-                """
+                """Do all the server stuff here"""
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
@@ -269,8 +257,7 @@ class RSReportsAPI:
 
                 query = urlparse(self.path).query
                 if "=" in query and "code" in query:
-                    self.server.auth_code = dict(x.split("=")
-                                                 for x in query.split("&"))["code"]
+                    self.server.auth_code = dict(x.split("=") for x in query.split("&"))["code"]
                     # Now shut down the server and return
                     self.stop()
 
@@ -288,7 +275,7 @@ class RSReportsAPI:
         return auth_code
 
     def load_query(self, query_name: str) -> str:
-        """ Load a query file from the file system.
+        """Load a query file from the file system.
 
         Args:
             queryName (str): _description_
@@ -296,12 +283,12 @@ class RSReportsAPI:
         Returns:
             str: _description_
         """
-        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__),  '..', 'graphql', 'queries', f'{query_name}.gql'))
+        qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'graphql', 'queries', f'{query_name}.gql'))
         with open(qry_path, 'r', encoding='utf-8') as queryFile:
             return queryFile.read()
 
     def load_mutation(self, mutation_name: str) -> str:
-        """ Load a mutation file from the file system.
+        """Load a mutation file from the file system.
 
         Args:
             mutationName (str): _description_
@@ -314,7 +301,7 @@ class RSReportsAPI:
             return queryFile.read()
 
     def run_query(self, query, variables):
-        """ A simple function to use requests.post to make the API call. Note the json= section.
+        """A simple function to use requests.post to make the API call. Note the json= section.
 
         Args:
             query (_type_): _description_
@@ -327,10 +314,7 @@ class RSReportsAPI:
             _type_: _description_
         """
         headers = {"authorization": "Bearer " + self.access_token} if self.access_token else {"x-api-key": self.api_token}
-        request = requests.post(self.uri, json={
-            'query': query,
-            'variables': variables
-        }, headers=headers, timeout=30)
+        request = requests.post(self.uri, json={'query': query, 'variables': variables}, headers=headers, timeout=30)
 
         if request.status_code == 200:
             resp_json = request.json()
@@ -350,19 +334,3 @@ class RSReportsAPI:
                 return resp_json
         else:
             raise RSReportsAPIException(f"Query failed to run by returning code of {request.status_code}. {query} {json.dumps(variables)}")
-
-
-if __name__ == '__main__':
-    log = Logger('API')
-    gql = RSReportsAPI(os.environ.get('RS_API_URL'))
-    gql.refresh_token()
-    log.debug(gql.access_token)
-    gql.shutdown()  # remember to shutdown so the threaded timer doesn't keep the process alive
-
-    gql2 = RSReportsAPI(os.environ.get('RS_API_URL'), {
-        'clientId': os.environ['RS_CLIENT_ID'],
-        'secretId': os.environ['RS_CLIENT_SECRET']
-    })
-    gql2.refresh_token()
-    log.debug(gql2.access_token)
-    gql2.shutdown()  # remember to shutdown so the threaded timer doesn't keep the process alive

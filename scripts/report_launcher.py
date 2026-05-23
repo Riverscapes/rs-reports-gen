@@ -19,10 +19,8 @@ from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
 
-import inquirer
+import questionary
 from termcolor import colored
-
-from util.prompt import prompt_for
 
 BASE_PACKAGE = "reports"
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
@@ -64,7 +62,7 @@ def iter_reports(directory: Path) -> Iterable[ReportEntry]:
         yield ReportEntry(name=child.name, module_path=module_path, display_name=display, launch_path=launch_path)
 
 
-def choose_report() -> ReportEntry:
+def choose_report() -> ReportEntry | None:
     """Prompt the user to pick a report, falling back to manual input."""
     reports = list(iter_reports(REPORTS_DIR))
 
@@ -72,19 +70,11 @@ def choose_report() -> ReportEntry:
         print("No launchable reports were found.")
         return None
 
-    # Track the canonical package name so inquirer can return a stable value.
-    question_choices: list[tuple[str, ReportEntry]] = [("📋 " + entry.display_name, entry) for entry in reports]
-
-    report = prompt_for(
-        [
-            inquirer.List(
-                "report",
-                message="Select a report to launch",
-                choices=question_choices,
-            ),
-        ],
-        'report',
-    )
+    question_choices_q = [questionary.Choice(title="📋 " + entry.display_name, value=entry) for entry in reports]
+    report = questionary.select(
+        "Select a report to launch",
+        choices=question_choices_q,
+    ).ask()
 
     return report
 
