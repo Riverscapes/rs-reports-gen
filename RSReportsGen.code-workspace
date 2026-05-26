@@ -53,12 +53,10 @@
         "recommendations": [
           "ms-python.python",
           "ms-python.vscode-pylance",
-          "njpwerner.autodocstring",
           "mhutchie.git-graph",
           "graphql.vscode-graphql-syntax",
           "graphql.vscode-graphql",
-          "ms-python.autopep8",
-          "ms-python.pylint"
+          "charliermarsh.ruff",
         ],
       },
 }
