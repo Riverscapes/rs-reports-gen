@@ -89,9 +89,10 @@ def main() -> list[str] | None:
     if keep_parquet_env is not None:
         keep_parquet = is_truthy(keep_parquet_env)
     else:
-        keep_answer = questionary.confirm(message='Keep downloaded Parquet files after processing?', default=False).ask()
-
-        keep_parquet = is_truthy(keep_answer)
+        keep_parquet = questionary.confirm(message='Keep downloaded Parquet files after processing?', default=False).ask()
+        if keep_parquet is None:
+            print("\nCancelled. Exiting.\n")
+            return None
 
     # The final argument array we pass back
     args = [
