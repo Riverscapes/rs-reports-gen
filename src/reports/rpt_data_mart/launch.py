@@ -5,7 +5,7 @@ an argv-style list that satisfies ``rpt_data_mart.main.main()``.
 
 Environment variables can bypass every prompt — see the docstring on ``main()``.
 
-Copilot-generated module.
+Copilot-written, Lorin edited module May 2026.
 """
 
 import os
@@ -53,9 +53,10 @@ def main() -> list[str] | None:
     if aoi_env:
         geojson_file = Path(aoi_env)
         if not geojson_file.exists():
-            raise RuntimeError(colored(f"\nDM_AOI_GEOJSON is set to '{aoi_env}' but that file does not exist.\n", "red"))
+            raise RuntimeError(colored(f"\nDM_AOI_GEOJSON environment variable is set to '{aoi_env}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
-        choices = sorted(p.name for p in EXAMPLE_DIR.glob("*.geojson")) if EXAMPLE_DIR.exists() else []
+        # If not set we need to ask for it. We choose from a list of preset shapes in the example folder
+        choices = sorted(p.name for p in EXAMPLE_DIR.glob("*.geojson")) if EXAMPLE_DIR.exists() and EXAMPLE_DIR.is_dir() else []
         if not choices:
             raise RuntimeError(colored(f"\nNo example geojson files found in {EXAMPLE_DIR}. Set DM_AOI_GEOJSON instead.\n", "red"))
         selected = questionary.select("Select a geojson file to use as the AOI:", choices=choices).ask()
@@ -84,7 +85,7 @@ def main() -> list[str] | None:
     # ── Optional Parquet override ─────────────────────────────────────
     parquet_path = os.environ.get("DM_PARQUET_PATH")
     if parquet_path and not Path(parquet_path).exists():
-        raise RuntimeError(colored(f"\nDM_PARQUET_PATH is set to '{parquet_path}' but that path does not exist.\n", "red"))
+        raise RuntimeError(colored(f"\nDM_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable for interactive prompt.\n", "red"))
     if not parquet_path:
         parquet_path = questionary.text(
             "Optional: path to Parquet folder/file (leave blank to query Athena):",
