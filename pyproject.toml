@@ -91,3 +91,4 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "preserve"
+indent-style = "space"
