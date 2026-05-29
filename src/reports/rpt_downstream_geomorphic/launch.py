@@ -16,7 +16,7 @@ from pathlib import Path
 import questionary
 from termcolor import colored
 
-from util.prompt import is_truthy
+from util.prompt import is_truthy, get_include_pdf, get_unit_system
 
 EXAMPLE_DIR = Path(__file__).resolve().parent / "example"
 
@@ -25,12 +25,12 @@ def main() -> list[str] | None:
     """Gather CLI arguments interactively (or from env vars) for ``rpt_downstream_geomorphic``.
 
     Environment variables that skip prompts:
-        DATA_ROOT              – root output folder (required)
-        DG_REPORT_NAME         – human-readable report name (optional)
-        UNIT_SYSTEM            – "SI" or "imperial" (optional, default "SI")
-        INCLUDE_PDF            – "1"/"true" to include a PDF version (optional)
-        DG_PARQUET_PATH        – reuse an existing Parquet folder/file (optional)
-        DG_KEEP_PARQUET        – "1"/"true" to keep staging Parquet (optional)
+        DATA_ROOT              - root output folder (required)
+        DG_REPORT_NAME         - human-readable report name (optional)
+        UNIT_SYSTEM            - "SI" or "imperial" (optional, default "SI")
+        INCLUDE_PDF            - "1"/"true" to include a PDF version (optional)
+        DG_PARQUET_PATH        - reuse an existing Parquet folder/file (optional)
+        DG_KEEP_PARQUET        - "1"/"true" to keep staging Parquet (optional)
 
     Returns:
         List of string arguments, or ``None`` if the user cancels.
@@ -49,16 +49,9 @@ def main() -> list[str] | None:
         )
 
     # ── Unit system ───────────────────────────────────────────────────
-    unit_env = os.environ.get("UNIT_SYSTEM")
-    if unit_env:
-        if unit_env not in ("SI", "imperial"):
-            raise RuntimeError(colored(f"\nUNIT_SYSTEM must be 'SI' or 'imperial', got '{unit_env}'.\n", "red"))
-        unit_system = unit_env
-    else:
-        unit_system = questionary.select("Select a unit system:", choices=["SI", "imperial"], default="SI").ask()
-        if unit_system is None:
-            print("\nNo unit system selected. Exiting.\n")
-            return None
+    unit_system = get_unit_system()
+    if unit_system is None:
+        return None
 
     # -- Mode TODO
     mode = 'whole-lp'
@@ -88,14 +81,9 @@ def main() -> list[str] | None:
         parquet_path = parquet_path.strip().strip('"').strip("'")
 
     # ── Include PDF ───────────────────────────────────────────────────
-    include_pdf_env = os.environ.get("INCLUDE_PDF")
-    if include_pdf_env is not None:
-        include_pdf = is_truthy(include_pdf_env)
-    else:
-        include_pdf = questionary.confirm("Include a PDF version of the report?", default=False).ask()
-        if include_pdf is None:
-            print("\nCancelled. Exiting.\n")
-            return None
+    include_pdf = get_include_pdf()
+    if include_pdf is None:
+        return None
 
     # ── Keep parquet ──────────────────────────────────────────────────
     keep_parquet_env = os.environ.get("DG_KEEP_PARQUET")

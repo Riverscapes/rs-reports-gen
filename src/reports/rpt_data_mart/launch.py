@@ -14,7 +14,7 @@ from pathlib import Path
 import questionary
 from termcolor import colored
 
-from util.prompt import is_truthy
+from util.prompt import get_unit_system, is_truthy
 
 EXAMPLE_DIR = Path(__file__).resolve().parent / "example"
 
@@ -66,16 +66,9 @@ def main() -> list[str] | None:
         geojson_file = (EXAMPLE_DIR / selected).resolve()
 
     # ── Unit system ───────────────────────────────────────────────────
-    unit_env = os.environ.get("UNIT_SYSTEM")
-    if unit_env:
-        if unit_env not in ("SI", "imperial"):
-            raise RuntimeError(colored(f"\nUNIT_SYSTEM must be 'SI' or 'imperial', got '{unit_env}'.\n", "red"))
-        unit_system = unit_env
-    else:
-        unit_system = questionary.select("Select a unit system:", choices=["SI", "imperial"], default="SI").ask()
-        if unit_system is None:
-            print("\nNo unit system selected. Exiting.\n")
-            return None
+    unit_system = get_unit_system()
+    if unit_system is None:
+        return None
 
     # ── Report name ───────────────────────────────────────────────────
     report_name = os.environ.get("DM_REPORT_NAME")

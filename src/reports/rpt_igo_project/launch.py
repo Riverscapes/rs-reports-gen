@@ -75,7 +75,7 @@ def main() -> list[str] | None:
         raise RuntimeError(colored(f"\nIGO_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable for interactive prompt.\n", "red"))
     if not parquet_path:
         parquet_prompt = questionary.text(
-            message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
+            message='Optional: path to notthe Parquet folder or file to use for results (leave blank to query Athena)',
             default="",
         ).ask()
         if parquet_prompt is None:

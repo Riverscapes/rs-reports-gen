@@ -1,10 +1,13 @@
 import os
 from pathlib import Path
-import inquirer
+
+import questionary
 from termcolor import colored
 
+from util.prompt import get_include_pdf, get_unit_system, is_truthy
 
-def main():
+
+def main() -> list[str] | None:
     """The purpose of this function is to return an array of arguments that will satisfy the
     main() function in the report
 
@@ -33,94 +36,72 @@ def main():
     if rsi_aoi_geojson:
         geojson_file = Path(rsi_aoi_geojson)
         if not geojson_file.exists():
-            raise RuntimeError(
-                colored(f"\nThe RDYN_AOI_GEOJSON environment variable is set to '{os.environ.get('RDYN_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+            raise RuntimeError(colored(f"\nThe RDYN_AOI_GEOJSON environment variable is set to '{os.environ.get('RDYN_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the code example folder
         base_dir = Path(__file__).parent
-        geojson_question = inquirer.prompt([
-            inquirer.List(
-                'geojson',
-                message="Select a geojson file to use as the AOI",
-                choices=[
-                    f for f in os.listdir(os.path.join(base_dir, "example")) if f.endswith('.geojson')
-                ],
-            ),
-        ])
-        if not geojson_question or 'geojson' not in geojson_question:
+        example_dir = base_dir / "example"
+        choices = sorted(p.name for p in example_dir.glob("*.geojson")) if example_dir.exists() and example_dir.is_dir() else []
+        if not choices:
+            raise RuntimeError(colored(f"\nNo example geojson files found in {EXAMPLE_DIR}. Set DM_AOI_GEOJSON instead.\n", "red"))
+        selected = questionary.select(
+            message="Select a geojson file to use as the AOI",
+            choices=choices,
+        ).ask()
+        if selected is None:
             print("\nNo geojson file selected. Exiting.\n")
-            return
-        geojson_filename = geojson_question['geojson']
-        geojson_file = Path(base_dir / "example" / geojson_filename).absolute()
+            return None
+        geojson_file = (example_dir / selected).resolve()
 
-    if os.environ.get("UNIT_SYSTEM"):
-        unit_system = os.environ.get("UNIT_SYSTEM")
-        if unit_system not in ["SI", "imperial"]:
-            raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        unit_system_question = inquirer.prompt([
-            inquirer.List(
-                'unit_system',
-                message="Select a unit system to use",
-                choices=[
-                    "SI",
-                    "imperial"
-                ],
-                default="SI"
-            ),
-        ])
-        if not unit_system_question or 'unit_system' not in unit_system_question:
-            print("\nNo unit system selected. Exiting.\n")
-            return
-        unit_system = unit_system_question['unit_system']
+    # ── Unit system ───────────────────────────────────────────────────
+    unit_system = get_unit_system()
+    if unit_system is None:
+        return None
 
-    if os.environ.get("RDYN_REPORT_NAME"):
-        report_name = os.environ.get("RDYN_REPORT_NAME")
-    else:
+    report_name = os.environ.get("RDYN_REPORT_NAME")
+    if not report_name:
         report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Dynamics"
 
     # Ask for whether or not to include PDF. Default to NO
-    if os.environ.get("INCLUDE_PDF") is not None:
-        include_pdf_env = os.environ.get("INCLUDE_PDF")
-        include_pdf = include_pdf_env.lower() in {"1", "true", "yes"}
-    else:
-        include_pdf_question = inquirer.prompt([
-            inquirer.Confirm(
-                'include_pdf',
-                message="Include a PDF version of the report? (Default is No)",
-                default=False
-            ),
-        ])
-        if not include_pdf_question or 'include_pdf' not in include_pdf_question:
-            print("\nNo PDF option selected. Exiting.\n")
-            return None
-        include_pdf = include_pdf_question['include_pdf']
+    include_pdf = get_include_pdf()
+    if include_pdf is None:
+        return None
 
     parquet_path = os.environ.get("RDYN_PARQUET_PATH")
-    if parquet_path and not os.path.exists(parquet_path):
-        raise RuntimeError(
-            f"\nRDYN_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n"
-        )
+    if parquet_path and not Path(parquet_path).exists():
+        raise RuntimeError(f"\nRDYN_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable.\n")
 
+    if not parquet_path:
+        parquet_prompt = questionary.text(
+            message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
+            default="",
+        ).ask()
+        if parquet_prompt is None:
+            return None
+        parquet_path = parquet_prompt.strip().strip('"').strip("'")
+
+    keep_parquet_env = os.environ.get("RDYN_KEEP_PARQUET")
+    if keep_parquet_env is not None:
+        keep_parquet = is_truthy(keep_parquet_env)
+    elif parquet_path:
+        # if we were supplied Parquet let's assume we want to keep it
+        keep_parquet = True
     else:
-        parquet_prompt = inquirer.prompt([
-            inquirer.Text(
-                'parquet_path',
-                message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
-                default="",
-            )
-        ])
-        if not parquet_prompt or 'parquet_path' not in parquet_prompt:
-            print("\nNo Parquet path selected. Exiting.\n")
-            return
-        parquet_path = parquet_prompt.get('parquet_path')
-        parquet_path = parquet_path.strip().strip('"').strip("'")
+        keep_parquet = questionary.confirm(
+            message='Keep downloaded Parquet files after processing?',
+            default=False,
+        )
+        if keep_parquet is None:
+            return None
 
+    # ── Build args ────────────────────────────────────────────────────
+    output_dir = Path(data_root) / "rpt-riverscapes-dynamics" / report_name.replace(" ", "_")
     args = [
-        os.path.join(data_root, "rpt-riverscapes-dynamics", report_name.replace(" ", "_")),
+        output_dir,
         geojson_file,
         report_name,
-        "--unit_system", unit_system,
+        "--unit_system",
+        unit_system,
     ]
     if include_pdf:
         args.append("--include_pdf")
@@ -128,26 +109,6 @@ def main():
     if parquet_path:
         args.append("--use-parquet")
         args.append(parquet_path)
-
-    keep_parquet_env = os.environ.get("RDYN_KEEP_PARQUET")
-    if keep_parquet_env is not None:
-        keep_parquet = keep_parquet_env.lower() in {"1", "true", "yes"}
-    else:
-        # if we were supplied Parquet let's assume we want to keep it
-        if parquet_path:
-            keep_parquet = True
-        else:
-            keep_answer = inquirer.prompt([
-                inquirer.Confirm(
-                    'keep_parquet',
-                    message='Keep downloaded Parquet files after processing?',
-                    default=False,
-                )
-            ])
-            if not keep_answer or 'keep_parquet' not in keep_answer:
-                print("\nNo keep_parquet option selected. Exiting.\n")
-                return
-            keep_parquet = bool(keep_answer.get('keep_parquet'))
 
     if keep_parquet:
         args.append("--keep-parquet")
