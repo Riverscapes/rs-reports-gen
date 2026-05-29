@@ -1,7 +1,11 @@
 import os
 from pathlib import Path
+
 import inquirer
+import questionary
 from termcolor import colored
+
+from util.prompt import get_unit_system, get_include_pdf
 
 
 def main():
@@ -17,7 +21,7 @@ def main():
             INCLUDE_PDF - whether to include a PDF version of the report (optional, default is True)
 
         Report-specific variables:
-            WS_HUCS - HUC or HUCs (comma separated) to process 
+            WS_HUCS - HUC or HUCs (comma separated) to process
             WS_REPORT_NAME - name for the report (optional)
 
     """
@@ -28,38 +32,22 @@ def main():
 
     # IF we have everything we need from environment variables then we can skip the prompts
 
-    if os.environ.get("UNIT_SYSTEM"):
-        unit_system = os.environ.get("UNIT_SYSTEM")
-        if unit_system not in ["SI", "imperial"]:
-            raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        unit_system_question = inquirer.prompt([
-            inquirer.List(
-                'unit_system',
-                message="Select a unit system to use",
-                choices=[
-                    "SI",
-                    "imperial"
-                ],
-                default="SI"
-            ),
-        ])
-        if not unit_system_question or 'unit_system' not in unit_system_question:
-            print("\nNo unit system selected. Exiting.\n")
-            return
-        unit_system = unit_system_question['unit_system']
+    # ── Unit system ───────────────────────────────────────────────────
+    unit_system = get_unit_system()
+    if unit_system is None:
+        return None
 
     # Ask for whether or not to include PDF. Default to NO
+    include_pdf = get_include_pdf()
+
     if os.environ.get("INCLUDE_PDF"):
         include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
     else:
-        include_pdf_question = inquirer.prompt([
-            inquirer.Confirm(
-                'include_pdf',
-                message="Include a PDF version of the report? (Default is No)",
-                default=False
-            ),
-        ])
+        include_pdf_question = inquirer.prompt(
+            [
+                inquirer.Confirm('include_pdf', message="Include a PDF version of the report? (Default is No)", default=False),
+            ]
+        )
         if not include_pdf_question or 'include_pdf' not in include_pdf_question:
             print("\nNo PDF option selected. Exiting.\n")
             return None
@@ -68,13 +56,7 @@ def main():
     if os.environ.get("WS_HUCS"):
         hucs = os.environ.get("WS_HUCS")
     else:
-
-        huc_list_question = inquirer.prompt([
-            inquirer.Text('hucs',
-                          message="HUC or comma separated list of HUCs to report on (HUC10 or bigger)",
-                          default=""
-                          )
-        ])
+        huc_list_question = inquirer.prompt([inquirer.Text('hucs', message="HUC or comma separated list of HUCs to report on (HUC10 or bigger)", default="")])
         if not huc_list_question or 'hucs' not in huc_list_question or len(huc_list_question.get('hucs')) == 0:
             print("\nNo HUC provided. Exiting.\n")
             return None
@@ -96,7 +78,8 @@ def main():
         Path(data_root) / "rpt-watershed-summary" / report_folder_name,
         hucs,
         report_name,
-        "--unit_system", unit_system,
+        "--unit_system",
+        unit_system,
     ]
     if include_pdf:
         args.append("--include_pdf")
