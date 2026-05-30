@@ -41,12 +41,7 @@ def main() -> list[str] | None:
     # ── DATA_ROOT (required) ──────────────────────────────────────────
     data_root = os.environ.get("DATA_ROOT")
     if not data_root:
-        raise RuntimeError(
-            colored(
-                "\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n",
-                "red",
-            )
-        )
+        raise RuntimeError(colored("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n", "red"))
 
     # ── Unit system ───────────────────────────────────────────────────
     unit_system = get_unit_system()

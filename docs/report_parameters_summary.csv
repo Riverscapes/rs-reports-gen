@@ -4,6 +4,6 @@ Downstream Geomorphic,Required ENV:DATA_ROOT only,N/A,ENV:UNIT_SYSTEM or Q,ENV:D
 Igo Project,Required ENV:DATA_ROOT only,ENV:IGO_AOI_GEOJSON or Q,N/A,ENV:IGO_REPORT_NAME or generated,N/A,ENV:IGO_PARQUET_PATH or Q,ENV:IGO_KEEP_PARQUET or Q,Required ENV:SPATIALITE_PATH only
 Rivers Need Space,Required ENV:DATA_ROOT only,ENV:RNS_AOI_GEOJSON or Q,ENV:UNIT_SYSTEM or Q,ENV:RNS_REPORT_NAME or generated,ENV:INCLUDE_PDF or Q,ENV:RNS_PARQUET_PATH or Q,ENV:RSI_KEEP_PARQUET or Q,
 Riverscapes Dynamics,Required ENV:DATA_ROOT only,ENV:RDYN_AOI_GEOJSON or ,get_unit_system(),ENV:RDYN_REPORT_NAME or generated,get_include_pdf(),,ENV:RDYN_KEEP_PARQUET,
-Riverscapes Inventory
-Stream Names
-Watershed Summary
+Riverscapes Inventory,Required ENV:DATA_ROOT only,ENV:RSI_AOI_GEOJSON or,get_unit_system,RSI_REPORT_NAME or generated,
+Stream Names,,ENV:RSN_AOI_GEOJSON,N/A,
+Watershed Summary,,,,RWS_REPORT_NAME or generated,,,,ENV:WS_HUCS

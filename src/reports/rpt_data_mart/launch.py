@@ -90,16 +90,10 @@ def main() -> list[str] | None:
         parquet_path = parquet_path.strip().strip('"').strip("'")
 
     # ── Keep parquet ──────────────────────────────────────────────────
-    keep_env = os.environ.get("DM_KEEP_PARQUET")
-    if keep_env is not None:
-        keep_parquet = is_truthy(keep_env)
-    elif parquet_path:
-        keep_parquet = True
-    else:
-        keep_parquet = questionary.confirm("Keep downloaded Parquet files after processing?", default=False).ask()
-        if keep_parquet is None:
-            print("\nCancelled. Exiting.\n")
-            return None
+    keep_parquet_default = bool(parquet_path)
+    keep_parquet = get_env_or_confirm(env_var="RSI_KEEP_PARQUET", message='Keep downloaded Parquet files after processing?', default=keep_parquet_default)
+    if keep_parquet is None:
+        return None
 
     # ── Generate Power BI ─────────────────────────────────────────────
     gen_pbi_env = os.environ.get("DM_GENERATE_PBI")
