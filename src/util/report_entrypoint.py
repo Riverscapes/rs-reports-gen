@@ -20,7 +20,7 @@ Usage in a report ``launch.py``::
 
     from util.report_entrypoint import (
         require_data_root, prompt_geojson, prompt_unit_system,
-        prompt_include_pdf, prompt_parquet, prompt_keep_parquet,
+        prompt_parquet, prompt_keep_parquet,
         derive_report_name, build_output_path,
     )
 """
@@ -160,7 +160,7 @@ def report_main_wrapper(log: Logger, run: Callable[[], Any], *, debug: bool = Fa
 # ---------------------------------------------------------------------------
 
 # Re-export for convenience so launchers only need one import line.
-from util.prompt import is_truthy, prompt_for  # noqa: E402
+from util.prompt import is_truthy  # noqa: E402
 
 
 def require_data_root() -> str:
@@ -186,7 +186,7 @@ def prompt_geojson(env_var: str = "RSI_AOI_GEOJSON") -> Path:
 
     Copilot-generated function.
     """
-    import inquirer
+    import questionary
     from termcolor import colored
 
     env_val = os.environ.get(env_var)
@@ -207,48 +207,8 @@ def prompt_geojson(env_var: str = "RSI_AOI_GEOJSON") -> Path:
     if not choices:
         raise RuntimeError(colored(f"\nNo example geojson files found in {example_dir}.\n", "red"))
 
-    selected = prompt_for(
-        [inquirer.List("geojson", message="Select a geojson file to use as the AOI", choices=choices)],
-        "geojson",
-    )
+    selected = questionary.select(message="Select a geojson file to use as the AOI", choices=choices).ask()
     return (example_dir / selected).resolve()
-
-
-def prompt_unit_system(env_var: str = "UNIT_SYSTEM") -> str:
-    """Return unit system from env or prompt.
-
-    Copilot-generated function.
-    """
-    import inquirer
-    from termcolor import colored
-
-    env_val = os.environ.get(env_var)
-    if env_val:
-        if env_val not in ("SI", "imperial"):
-            raise RuntimeError(colored(f"\n{env_var} must be 'SI' or 'imperial', got '{env_val}'.\n", "red"))
-        return env_val
-
-    return prompt_for(
-        [inquirer.List("unit_system", message="Select a unit system to use", choices=["SI", "imperial"], default="SI")],
-        "unit_system",
-    )
-
-
-def prompt_include_pdf(env_var: str = "INCLUDE_PDF") -> bool:
-    """Return include-PDF flag from env or prompt.
-
-    Copilot-generated function.
-    """
-    import inquirer
-
-    env_val = os.environ.get(env_var)
-    if env_val is not None:
-        return is_truthy(env_val)
-
-    return prompt_for(
-        [inquirer.Confirm("include_pdf", message="Include a PDF version of the report? (Default is No)", default=False)],
-        "include_pdf",
-    )
 
 
 def prompt_parquet(env_var: str = "RSI_PARQUET_PATH") -> str:
@@ -258,7 +218,7 @@ def prompt_parquet(env_var: str = "RSI_PARQUET_PATH") -> str:
 
     Copilot-generated function.
     """
-    import inquirer
+    import questionary
     from termcolor import colored
 
     env_val = os.environ.get(env_var)
@@ -267,40 +227,11 @@ def prompt_parquet(env_var: str = "RSI_PARQUET_PATH") -> str:
             raise RuntimeError(colored(f"\n{env_var} is set to '{env_val}' but that path does not exist.\n", "red"))
         return env_val
 
-    raw = prompt_for(
-        [
-            inquirer.Text(
-                "parquet_path",
-                message="Optional: path to Parquet folder/file (leave blank to query Athena)",
-                default="",
-            )
-        ],
-        "parquet_path",
-    )
+    raw = questionary.text(
+        message="Optional: path to Parquet folder/file (leave blank to query Athena)",
+        default="",
+    ).ask()
     return raw.strip().strip('"').strip("'") if raw else ""
-
-
-def prompt_keep_parquet(env_var: str = "RSI_KEEP_PARQUET", *, has_parquet: bool = False) -> bool:
-    """Return keep-parquet flag from env or prompt.
-
-    When *has_parquet* is True (i.e. the user already supplied Parquet) the
-    default flips to True so we don't delete data the user pointed us at.
-
-    Copilot-generated function.
-    """
-    import inquirer
-
-    env_val = os.environ.get(env_var)
-    if env_val is not None:
-        return is_truthy(env_val)
-
-    if has_parquet:
-        return True
-
-    return prompt_for(
-        [inquirer.Confirm("keep_parquet", message="Keep downloaded Parquet files after processing?", default=False)],
-        "keep_parquet",
-    )
 
 
 def derive_report_name(

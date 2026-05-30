@@ -1,12 +1,13 @@
 import os
+from pathlib import Path
 
-import inquirer
+import questionary
 from termcolor import colored
 
-from util.prompt import is_truthy, prompt_for
+from util.prompt import get_include_pdf
 
 
-def main():
+def main() -> list[str] | None:
     """The purpose of this function is to return an array of arguments that will satisfy the
     main() function in the report
 
@@ -19,105 +20,73 @@ def main():
             INCLUDE_PDF - whether to include a PDF version of the report (optional, default is True)
 
         Report-specific variables:
-            RSI_AOI_GEOJSON - path to the input geojson file for rpt-rivers-need-space (optional)
+            RSN_AOI_GEOJSON - path to the input geojson file for rpt-rivers-need-space (optional)
             RSI_REPORT_NAME - name for the report (optional)
             RSI_CSV - optional path to a CSV file to use instead of querying Athena (optional)
 
 
     """
 
-    if not os.environ.get("DATA_ROOT"):
-        raise RuntimeError(colored("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n", "red"))
     data_root = os.environ.get("DATA_ROOT")
+    if not data_root:
+        raise RuntimeError(colored("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n", "red"))
 
     # IF we have everything we need from environment variables then we can skip the prompts
-    if os.environ.get("RSI_AOI_GEOJSON"):
-        if not os.path.exists(os.path.join(os.environ.get("RSI_AOI_GEOJSON"))):
-            raise RuntimeError(colored(f"\nThe RSI_AOI_GEOJSON environment variable is set to '{os.environ.get('RSI_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-        geojson_file = os.environ.get("RSI_AOI_GEOJSON")
+    env_aoi_geojson = os.environ.get("RSN_AOI_GEOJSON")
+    if env_aoi_geojson:
+        geojson_file = Path(env_aoi_geojson)
+        if not geojson_file.exists():
+            raise RuntimeError(colored(f"\nThe RSN_AOI_GEOJSON environment variable is set to '{env_aoi_geojson}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the example folder
         base_dir = os.path.dirname(__file__)
+        example_dir = base_dir / "example"
+        choices = sorted(p.name for p in example_dir.glob("*.geojson")) if example_dir.exists() and example_dir.is_dir() else []
+        if not choices:
+            raise RuntimeError(colored(f"\nNo example geojson files found in {example_dir}. Check this folder or set RDYN_AOI_GEOJSON instead.\n", "red"))
+        selected = questionary.select(
+            message="Select a geojson file to use as the AOI",
+            choices=choices,
+        ).ask()
+        if selected is None:
+            print("\nNo geojson file selected. Exiting.\n")
+            return None
+        geojson_file = (example_dir / selected).resolve()
 
-        # Use inquirer to choose a geojson file in the  "{env:DATA_ROOT}/rpt-rivers-need-space/example" directory
-        geojson_filename = prompt_for(
-            [
-                inquirer.List(
-                    'geojson',
-                    message="Select a geojson file to use as the AOI",
-                    choices=[f for f in os.listdir(os.path.join(base_dir, "example")) if f.endswith('.geojson')],
-                ),
-            ],
-            'geojson',
-        )
-        geojson_file = os.path.abspath(os.path.join(base_dir, "example", geojson_filename))
-
-    if os.environ.get("RSI_CSV"):
-        if not os.path.exists(os.path.join(os.environ.get("RSI_CSV"))):
-            raise RuntimeError(colored(f"\nThe RSI_CSV environment variable is set to '{os.environ.get('RSI_CSV')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-        csv_file = os.environ.get("RSI_CSV")
+    env_csv_file = os.environ.get("RSI_CSV")
+    if env_csv_file:
+        csv_file = Path(env_csv_file)
+        if not csv_file.exists():
+            raise RuntimeError(colored(f"\nThe RSI_CSV environment variable is set to '{env_csv_file}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # No CSV file provided. Ask for an optional csv path
-        csv_file = prompt_for(
-            [
-                inquirer.Text(
-                    'csv',
-                    message="Optional: Enter a path to a CSV file to use for results (leave blank to query Athena)",
-                    default="",
-                ),
-            ],
-            'csv',
-        )
+        csv_file = questionary.text(
+            message="Optional: Enter a path to a CSV file to use for results (leave blank to query Athena)",
+            default="",
+        ).ask()
         # Strip leading/trailing quotes if present
-        if csv_file:
+        if csv_file is not None:
             csv_file = csv_file.strip().strip('"').strip("'")
 
-    # if os.environ.get("UNIT_SYSTEM"):
-    #     unit_system = os.environ.get("UNIT_SYSTEM")
-    #     if unit_system not in ["SI", "imperial"]:
-    #         raise RuntimeError(colored(f"\nThe UNIT_SYSTEM environment variable is set to '{unit_system}' but it must be either 'SI' or 'imperial'. Please fix or unset the variable to choose manually.\n", "red"))
-    # else:
-    #     # Ask for unit system
-    #     unit_system = prompt_for(
-    #         [
-    #             inquirer.List(
-    #                 'unit_system',
-    #                 message="Select a unit system to use",
-    #                 choices=["SI", "imperial"],
-    #                 default="SI",
-    #             ),
-    #         ],
-    #         'unit_system',
-    #     )
-
-    if os.environ.get("RSI_REPORT_NAME"):
-        report_name = os.environ.get("RSI_REPORT_NAME")
-    else:
-        report_name = geojson_file.split(os.path.sep)[-1].replace('.geojson', '').replace(' ', '_') + " - Riverscapes Stream Names"
+    report_name = os.environ.get("RSI_REPORT_NAME")
+    if not report_name:
+        report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Stream Names"
 
     # Ask for whether or not to include PDF. Default to NO
-    include_pdf_env = os.environ.get("INCLUDE_PDF", None)
-    if include_pdf_env is not None:
-        include_pdf = is_truthy(include_pdf_env)
-    else:
-        include_pdf = prompt_for(
-            [
-                inquirer.Confirm('include_pdf', message="Include a PDF version of the report? (Default is No)", default=False),
-            ],
-            'include_pdf',
-        )
+    include_pdf = get_include_pdf()
+    if include_pdf is None:
+        return None
 
+    output_dir = Path(data_root) / "rpt-riverscapes-stream-names", report_name.replace(" ", "_"))
     args = [
-        os.path.join(data_root, "rpt-riverscapes-stream-names", report_name.replace(" ", "_")),
+        output_dir,
         geojson_file,
         report_name,
-        # "--unit_system",
-        # unit_system,
     ]
     if include_pdf:
         args.append("--include_pdf")
-    if csv_file.strip():
+    if csv_file:
         args.append("--csv")
-        args.append(csv_file.strip())
+        args.append(csv_file)
 
     return args

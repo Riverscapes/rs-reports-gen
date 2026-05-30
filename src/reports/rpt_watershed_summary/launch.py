@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
 
-import inquirer
 import questionary
 from termcolor import colored
 
-from util.prompt import get_unit_system, get_include_pdf
+from util.prompt import get_include_pdf, get_unit_system
 
 
 def main():
@@ -26,9 +25,9 @@ def main():
 
     """
 
-    if not os.environ.get("DATA_ROOT"):
+    data_root = os.environ.get("DATA_ROOT")
+    if not data_root:
         raise RuntimeError(colored("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n", "red"))
-    data_root = os.environ.get("DATA_ROOT", ".")
 
     # IF we have everything we need from environment variables then we can skip the prompts
 
@@ -40,31 +39,16 @@ def main():
     # Ask for whether or not to include PDF. Default to NO
     include_pdf = get_include_pdf()
 
-    if os.environ.get("INCLUDE_PDF"):
-        include_pdf = os.environ.get("INCLUDE_PDF", None) is not None
-    else:
-        include_pdf_question = inquirer.prompt(
-            [
-                inquirer.Confirm('include_pdf', message="Include a PDF version of the report? (Default is No)", default=False),
-            ]
-        )
-        if not include_pdf_question or 'include_pdf' not in include_pdf_question:
-            print("\nNo PDF option selected. Exiting.\n")
-            return None
-        include_pdf = include_pdf_question['include_pdf']
-
-    if os.environ.get("WS_HUCS"):
-        hucs = os.environ.get("WS_HUCS")
-    else:
-        huc_list_question = inquirer.prompt([inquirer.Text('hucs', message="HUC or comma separated list of HUCs to report on (HUC10 or bigger)", default="")])
-        if not huc_list_question or 'hucs' not in huc_list_question or len(huc_list_question.get('hucs')) == 0:
+    hucs = os.environ.get("WS_HUCS")
+    if not hucs:
+        hucs = questionary.text(message="HUC or comma separated list of HUCs to report on (HUC10 or bigger)", default="").ask()
+        if hucs is None or len(hucs) == 0:
             print("\nNo HUC provided. Exiting.\n")
             return None
-        hucs = huc_list_question.get('hucs')
 
-    if os.environ.get("RSI_REPORT_NAME"):
-        report_name = os.environ.get("RSI_REPORT_NAME")
-    else:
+    # ── Report name ───────────────────────────────────────────────────
+    report_name = os.environ.get("RWS_REPORT_NAME")
+    if not report_name:
         # build a report name from the HUCs provided
         huc_list2 = hucs.split(",", 2)
         report_name = 'HUC ' + huc_list2[0][:10]
