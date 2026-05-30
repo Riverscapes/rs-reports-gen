@@ -32,9 +32,9 @@ def main() -> list[str] | None:
     data_root = os.environ.get("DATA_ROOT")
 
     # IF we have everything we need from environment variables then we can skip the prompts
-    rsi_aoi_geojson = os.environ.get("RDYN_AOI_GEOJSON")
-    if rsi_aoi_geojson:
-        geojson_file = Path(rsi_aoi_geojson)
+    env_aoi_geojson = os.environ.get("RDYN_AOI_GEOJSON")
+    if env_aoi_geojson:
+        geojson_file = Path(env_aoi_geojson)
         if not geojson_file.exists():
             raise RuntimeError(colored(f"\nThe RDYN_AOI_GEOJSON environment variable is set to '{os.environ.get('RDYN_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
@@ -43,7 +43,7 @@ def main() -> list[str] | None:
         example_dir = base_dir / "example"
         choices = sorted(p.name for p in example_dir.glob("*.geojson")) if example_dir.exists() and example_dir.is_dir() else []
         if not choices:
-            raise RuntimeError(colored(f"\nNo example geojson files found in {EXAMPLE_DIR}. Set DM_AOI_GEOJSON instead.\n", "red"))
+            raise RuntimeError(colored(f"\nNo example geojson files found in {example_dir}. Check this folder or set RDYN_AOI_GEOJSON instead.\n", "red"))
         selected = questionary.select(
             message="Select a geojson file to use as the AOI",
             choices=choices,
