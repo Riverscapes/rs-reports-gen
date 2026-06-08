@@ -182,3 +182,21 @@ def load_gdf_from_pq(
         gdf = gpd.GeoDataFrame(df, geometry=geometry_col, crs=crs)
         return gdf
     return df
+
+
+def save_meta_to_file(df_meta: pd.DataFrame, filepath: Path) -> None:
+    """Save the field metadata from Athena to a local parquet file for caching purposes, e.g. multiple report runs on development
+    Args:
+        df_meta: DataFrame from Athena.get_field_metadata
+        filepath: where to save the file
+    It is up to caller to log the details of what was saved
+    """
+    df_meta.to_parquet(filepath)
+
+
+def load_meta_from_file(filepath: Path) -> pd.DataFrame:
+    """Load field metadata from parquet instead of Athena.
+    Intended to replace Athena get_field_metadata
+    It is up to caller to ensure this has what they need.
+    """
+    return pq.ParquetFile(filepath).read().to_pandas()

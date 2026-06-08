@@ -95,7 +95,7 @@ def add_parquet_cli_args(
         dest="parquet_path",
         type=Path,
         default=None,
-        help="Use an existing Parquet file or directory instead of running the Athena query",
+        help="Use an existing Parquet file or staging directory instead of running the Athena query",
     )
     parser.add_argument("--keep-parquet", dest="keep_parquet", action="store_true", help="Keep downloaded staging Parquet files")
 
