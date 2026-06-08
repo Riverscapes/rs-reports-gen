@@ -2,12 +2,14 @@
 needs to be fixed since have changed the athena.py considerably
 """
 
+import logging
 import os
 import time
-import logging
-import pandas as pd
+
 import geopandas as gpd
+import pandas as pd
 from rsxml import Logger
+
 from util.athena import run_aoi_athena_query
 from util.athena.athena import get_s3_file
 

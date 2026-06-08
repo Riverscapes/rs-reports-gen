@@ -1,15 +1,17 @@
 # Instantiate the custom DataFrame accessor
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
+import pint
+import plotly.express as px
 from jinja2 import Template
 from rsxml import Logger
 from shapely import wkt
-import plotly.express as px
-import pint
+
 from util.pandas.RSFieldMeta import RSFieldMeta
 from util.pandas.RSGeoDataFrame import RSGeoDataFrame
+
 ureg = pint.get_application_registry()
 
 

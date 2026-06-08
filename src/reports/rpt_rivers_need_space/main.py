@@ -2,47 +2,46 @@
 import argparse
 import logging
 import os
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
-import sys
 import shutil
+import sys
 import traceback
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 # 3rd party imports
 import geopandas as gpd
-
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from util import prepare_gdf_for_athena
-from util.athena import get_field_metadata, aoi_query_to_local_parquet
-from util.html import RSReport
-from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
-from util.pdf import make_pdf_from_html
-from util.figures import (
-    table_total_x_by_y,
-    bar_group_x_by_y,
-    bar_total_x_by_ybins,
-    make_map_with_aoi,
-    make_rs_area_by_featcode,
-    prop_ag_dev,
-    dens_road_rail,
-    project_id_list,
-    metric_cards,
-)
 from reports.rpt_rivers_need_space import __version__ as report_version
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_rivers_need_space.figures import statistics
+from util import prepare_gdf_for_athena
+from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.figures import (
+    bar_group_x_by_y,
+    bar_total_x_by_ybins,
+    dens_road_rail,
+    make_map_with_aoi,
+    make_rs_area_by_featcode,
+    metric_cards,
+    project_id_list,
+    prop_ag_dev,
+    table_total_x_by_y,
+)
+from util.html import RSReport
+from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
+from util.pdf import make_pdf_from_html
 
 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
-    _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='*', layer_id="raw_rme,rpt_rme")  # Set the field metadata for the report
-    _FIELD_META.unit_system = unit_system  # Set the unit system for the report
+    meta = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
+    meta.field_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='*', layer_id="raw_rme,rpt_rme")  # Set the field metadata for the report
+    meta.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
-    _FIELD_META.set_display_unit('centerline_length', 'kilometer')
+    meta.set_display_unit('centerline_length', 'kilometer')
 
     return
 

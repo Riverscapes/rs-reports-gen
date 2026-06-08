@@ -12,17 +12,23 @@
           "sideBar.background": "#21322e",
           "editor.background": "#111a19"
         },
+        //Ruff first: disable overlapping linter
+        "pylint.enabled": false,
         "[python]": {
+            "editor.codeActionsOnSave": {
+              "source.fixAll.ruff": "explicit",
+              "source.organizeImports.ruff": "explicit"
+            },
+            "editor.defaultFormatter": "charliermarsh.ruff",
             "editor.tabSize": 4,
             "editor.formatOnSave": true,
         },
-        "autopep8.args": [
-            "--max-line-length=240",
-        ],
-        "pylint.args": [
-            "--disable=C0301,C0114,C0103,W0719,W0718",
-            "--max-line-length=240"
-        ],
+        //pylance stays for type/intellisense 
+        // (for now, keep an eye on the astral `ty` project)
+        // silence duplicate import check
+        "python.analysis.diagnosticSeverityOverrides": {
+          "reportUnusedImport": "none"
+        },
         "python.testing.pytestEnabled": true,
         // Testing setup
         "python.testing.pytestArgs": [

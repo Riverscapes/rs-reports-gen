@@ -1,6 +1,5 @@
 """functions to generate figures specifically for rpt_riverscapes_dynamics reports"""
 
-
 from collections.abc import Sequence
 from typing import Literal
 
@@ -8,21 +7,16 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pint
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.graph_objects as go
 
-from util.pandas import RSFieldMeta
-from util.figures import bar_group_x_by_y
 from reports.rpt_riverscapes_dynamics.epoch_utils import get_epoch_lookup
+from util.figures import bar_group_x_by_y
+from util.pandas import RSFieldMeta
 
 
 # --- Helper functions for longitudinal profile ---
-def _subset_trunk(
-    gdf_dgo: pd.DataFrame,
-    trunk_suffix: str = "0001",
-    level_path_col: str = "level_path",
-    centerline_col: str = "centerline_length"
-) -> pd.DataFrame:
+def _subset_trunk(gdf_dgo: pd.DataFrame, trunk_suffix: str = "0001", level_path_col: str = "level_path", centerline_col: str = "centerline_length") -> pd.DataFrame:
     """
     Subset spatial layer to trunk (level_path endswith trunk_suffix).
 
@@ -105,25 +99,20 @@ def _select_trunk_slice(trunk: pd.DataFrame, dgo_start=None, dgo_end=None, reset
         try:
             dgo_start = int(dgo_start) if dgo_start is not None else None
             dgo_end = int(dgo_end) if dgo_end is not None else None
-        except Exception:
-            raise ValueError("dgo_start and dgo_end must be convertible to int")
+        except (TypeError, ValueError):
+            raise ValueError("dgo_start and dgo_end must be convertible to int") from None
         if (dgo_start not in trunk_ids) or (dgo_end not in trunk_ids):
             raise ValueError("One or both DGOs are not on the selected main trunk.")
         pos_start = int(trunk.index[trunk["dgo_id"] == dgo_start][0])
         pos_end = int(trunk.index[trunk["dgo_id"] == dgo_end][0])
         i0, i1 = sorted([pos_start, pos_end])
-        gdf_sel = trunk.iloc[i0:i1+1].copy()
+        gdf_sel = trunk.iloc[i0 : i1 + 1].copy()
         if reset_distance_zero:
             gdf_sel["dist_mid"] = gdf_sel["dist_mid"] - float(gdf_sel["dist_mid"].min())
     return gdf_sel
 
 
-def _prepare_metric_pivot(
-    df_metrics: pd.DataFrame,
-    gdf_sel: pd.DataFrame,
-    metric_col: str,
-    epochs_sorted: list[str]
-) -> tuple[pd.DataFrame, np.ndarray]:
+def _prepare_metric_pivot(df_metrics: pd.DataFrame, gdf_sel: pd.DataFrame, metric_col: str, epochs_sorted: list[str]) -> tuple[pd.DataFrame, np.ndarray]:
     """
     Prepare a pivoted metric table for plotting longitudinal profiles.
 
@@ -151,10 +140,7 @@ def _prepare_metric_pivot(
     dfm_p = dfm_p.dropna(subset=["dgo_id"])
     dfm_p["dgo_id"] = dfm_p["dgo_id"].astype(int)
     dfm_p[metric_col] = pd.to_numeric(dfm_p[metric_col], errors="coerce")
-    pivot = (
-        dfm_p.pivot_table(index="dgo_id", columns="epoch_name", values=metric_col, aggfunc="mean")
-        .sort_index()
-    )
+    pivot = dfm_p.pivot_table(index="dgo_id", columns="epoch_name", values=metric_col, aggfunc="mean").sort_index()
     dist_map = gdf_sel.set_index("dgo_id")["dist_mid"]
     # Order pivot by dist_mid, not dgo_id
     pivot = pivot.loc[pivot.index.intersection(dist_map.index)].copy()
@@ -271,11 +257,7 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
     headers_dict = RSFieldMeta().get_headers_dict(gdf_sel, layer_id='rsdynamics')
 
     # Filter metrics
-    dfm_p = dynmetrics[
-        (dynmetrics["landcover"] == landcover) &
-        (dynmetrics["epoch_length"].astype(str) == str(epoch_length)) &
-        (dynmetrics["confidence"].astype(str) == str(confidence))
-    ].copy()
+    dfm_p = dynmetrics[(dynmetrics["landcover"] == landcover) & (dynmetrics["epoch_length"].astype(str) == str(epoch_length)) & (dynmetrics["confidence"].astype(str) == str(confidence))].copy()
 
     required_epoch_cols = {"epoch_start", "epoch_end", "epoch_label"}
     missing_epoch_cols = required_epoch_cols - set(dfm_p.columns)
@@ -300,22 +282,24 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
     fig = go.Figure()
     band_x = np.concatenate([x_band, x_band[::-1]])
     band_y = np.concatenate([ymax_band, ymin_band[::-1]])
-    fig.add_trace(go.Scatter(
-        x=band_x,
-        y=band_y,
-        fill="toself",
-        fillcolor="rgba(120,120,120,0.20)",
-        line=dict(width=0),
-        name="Range across epochs",
-        hoverinfo="skip",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=band_x,
+            y=band_y,
+            fill="toself",
+            fillcolor="rgba(120,120,120,0.20)",
+            line=dict(width=0),
+            name="Range across epochs",
+            hoverinfo="skip",
+        )
+    )
     nE = len(epochs_sorted)
     for i, (ep_name, ep_label) in enumerate(zip(epochs_sorted, epoch_labels)):
         y = pivot[ep_name].to_numpy(dtype=float)
         ok = np.isfinite(x) & np.isfinite(y)
         if not ok.any():
             continue
-        is_latest = (i == nE - 1)
+        is_latest = i == nE - 1
         if is_latest or nE <= 1:
             line_color = "rgba(255,140,0,0.95)"
             lw = 3
@@ -328,14 +312,7 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
             lw = 2
             ms = 4
             name_disp = ep_label
-        fig.add_trace(go.Scatter(
-            x=x[ok],
-            y=y[ok],
-            mode="lines+markers",
-            name=name_disp,
-            line=dict(width=lw, color=line_color),
-            marker=dict(size=ms, color=line_color)
-        ))
+        fig.add_trace(go.Scatter(x=x[ok], y=y[ok], mode="lines+markers", name=name_disp, line=dict(width=lw, color=line_color), marker=dict(size=ms, color=line_color)))
     x_label = headers_dict.get('dist_mid', "Longitudinal distance from downstream")
     fig.update_layout(
         title=f"Longitudinal {landcover} {metric_col} by epoch (epoch_length={epoch_length}, conf={confidence})",
@@ -343,7 +320,7 @@ def longitudinal_profile(gdf_dgo: gpd.GeoDataFrame, dynmetrics: pd.DataFrame, fi
         yaxis_title=f"{landcover} {metric_col}",
         template="plotly_white",
         margin=dict(l=0, r=0, t=90, b=40),
-        xaxis2=dict(title_standoff=10)
+        xaxis2=dict(title_standoff=10),
     )
     # DGO id axis removed: dgo_id is not meaningful for display
     return fig
@@ -407,11 +384,7 @@ def line_change_vs_baseline(
     spatial["dgo_id"] = spatial["dgo_id"].astype(int)
     mm["dgo_id"] = mm["dgo_id"].astype(int)
 
-    mm = mm.merge(
-        spatial.rename(columns={"centerline_length": "centerline_length_spatial"}),
-        on=["rd_project_id", "dgo_id"],
-        how="left"
-    )
+    mm = mm.merge(spatial.rename(columns={"centerline_length": "centerline_length_spatial"}), on=["rd_project_id", "dgo_id"], how="left")
     centerline_col = "centerline_length_spatial"
     if centerline_col not in mm.columns:
         raise KeyError("Centerline length column missing after merge.")
@@ -422,10 +395,7 @@ def line_change_vs_baseline(
         raise ValueError("No epochs remain after removing rows with invalid epoch metadata.")
 
     group_cols = ["epoch_name", "epoch_end", "epoch_label", "landcover", "confidence"]
-    agg_series = (
-        mm.groupby(group_cols, dropna=False, observed=False)
-        .apply(lambda grp: _aggregate_metric_catchment(grp, metric_colnm, centerline_col))
-    )
+    agg_series = mm.groupby(group_cols, dropna=False, observed=False).apply(lambda grp: _aggregate_metric_catchment(grp, metric_colnm, centerline_col))
     agg = agg_series.reset_index(name="metric_value")
 
     if agg["metric_value"].isna().all():
@@ -436,7 +406,7 @@ def line_change_vs_baseline(
 
     agg["change"] = np.nan
     agg["baseline"] = np.nan
-    for (landcover, confidence), idx in agg.groupby(["landcover", "confidence"], observed=False).groups.items():
+    for (_landcover, _confidence), idx in agg.groupby(["landcover", "confidence"], observed=False).groups.items():
         sub = agg.loc[idx].sort_values("epoch_end")
         if sub.empty:
             continue
@@ -468,10 +438,7 @@ def line_change_vs_baseline(
     fig = go.Figure()
     for landcover in landcover_order:
         for confidence in confidence_order:
-            series = plot_df[
-                (plot_df["landcover"] == landcover) &
-                (plot_df["confidence"] == confidence)
-            ].copy()
+            series = plot_df[(plot_df["landcover"] == landcover) & (plot_df["confidence"] == confidence)].copy()
             if series.empty:
                 continue
             series = series.sort_values("epoch_i")
@@ -479,28 +446,23 @@ def line_change_vs_baseline(
             y_vals = series["change_value"].to_numpy(dtype=float)
             if not np.isfinite(y_vals).any():
                 continue
-            fig.add_trace(go.Scatter(
-                x=x_vals,
-                y=y_vals,
-                mode="lines+markers",
-                name=f"{landcover} ({confidence})",
-                line=dict(
-                    color=lc_color.get(landcover, "rgba(80,80,80,0.9)"),
-                    dash=conf_dash.get(confidence, "solid"),
-                    width=3 if confidence == "95" else 2,
-                ),
-                marker=dict(size=7),
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    mode="lines+markers",
+                    name=f"{landcover} ({confidence})",
+                    line=dict(
+                        color=lc_color.get(landcover, "rgba(80,80,80,0.9)"),
+                        dash=conf_dash.get(confidence, "solid"),
+                        width=3 if confidence == "95" else 2,
+                    ),
+                    marker=dict(size=7),
+                )
+            )
 
     if tickvals:
-        fig.add_shape(
-            type="line",
-            x0=min(tickvals),
-            x1=max(tickvals),
-            y0=0,
-            y1=0,
-            line=dict(width=2, color="rgba(0,0,0,0.6)")
-        )
+        fig.add_shape(type="line", x0=min(tickvals), x1=max(tickvals), y0=0, y1=0, line=dict(width=2, color="rgba(0,0,0,0.6)"))
 
     title = f"{metric_colnm} change vs baseline (epoch_length={epoch_length})"
     yaxis_title = "Change vs baseline (%)" if change_mode == "pct" else f"Change vs baseline of {metric_header}"
@@ -556,10 +518,7 @@ def linechart(df_metrics: pd.DataFrame, metric_colnm: str) -> go.Figure:
 
     title = f'{metric_colnm.capitalize()} by Landcover over Time (Epoch Length 5)'
     # Create line chart
-    fig = px.line(baked_chart_data, x='epoch_name', y=metric_colnm, color='landcover', line_dash='confidence',
-                  title=title,
-                  labels=baked_header_lookup,
-                  line_dash_map={'95': 'solid', '68': 'dash'})
+    fig = px.line(baked_chart_data, x='epoch_name', y=metric_colnm, color='landcover', line_dash='confidence', title=title, labels=baked_header_lookup, line_dash_map={'95': 'solid', '68': 'dash'})
     return fig
 
 
@@ -567,10 +526,7 @@ def area_histogram(df_metrics: pd.DataFrame) -> go.Figure:
     """
     Generate a histogram of area for the 30-year epoch (1989_2024, confidence 95).
     """
-    df_30yr_area = df_metrics[
-        (df_metrics['epoch_name'] == '1989_2024') &
-        (df_metrics['confidence'] == '95')
-    ].copy()
+    df_30yr_area = df_metrics[(df_metrics['epoch_name'] == '1989_2024') & (df_metrics['confidence'] == '95')].copy()
 
     if df_30yr_area.empty:
         raise ValueError("No data for 30-year epoch found")
@@ -605,10 +561,5 @@ def statistics(df: pd.DataFrame) -> dict[str, pint.Quantity]:
     # Calculate integrated valley bottom width as ratio of totals
     integrated_valley_bottom_width = total_segment_area / total_centerline_length if total_centerline_length != 0 else float('nan') * total_segment_area.units / total_centerline_length.units
 
-    stats = {
-        'count_dgos': count_dgos,
-        'total_segment_area': total_segment_area,
-        'total_centerline_length': total_centerline_length,
-        'integrated_valley_bottom_width': integrated_valley_bottom_width
-    }
+    stats = {'count_dgos': count_dgos, 'total_segment_area': total_segment_area, 'total_centerline_length': total_centerline_length, 'integrated_valley_bottom_width': integrated_valley_bottom_width}
     return stats
