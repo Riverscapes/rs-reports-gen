@@ -77,7 +77,7 @@ def main() -> list[str] | None:
     if include_pdf is None:
         return None
 
-    output_dir = Path(data_root) / "rpt-riverscapes-stream-names", report_name.replace(" ", "_"))
+    output_dir = Path(data_root) / "rpt-riverscapes-stream-names" / report_name.replace(" ", "_")
     args = [
         output_dir,
         geojson_file,

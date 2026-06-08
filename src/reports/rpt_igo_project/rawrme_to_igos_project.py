@@ -359,9 +359,12 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
     rs_project = Project(
         project_name,
         project_type='igos',
-        description="""This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data Exchange produced as part of the 2025 CONUS run of Riverscapes tools. See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative.
-        At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps.
-        """,
+        description=(
+            "This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data "
+            "Exchange produced as part of the 2025 CONUS run of Riverscapes tools. "
+            "See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative.\n"
+            "At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps."
+        ),
         meta_data=MetaData(
             values=[
                 Meta('Report Type', 'IGO Scraper'),

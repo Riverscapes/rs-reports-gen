@@ -4,18 +4,18 @@ import pandas as pd
 import pint
 import pint_pandas
 from rsxml import Logger
-from util.pandas import RSGeoDataFrame, RSFieldMeta
 
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 
 # 1. Define a mapping of "Row Label" -> (Area Column, Count Column)
 # should all be in the same units!
 waterbody_col_map = {
-    "Lake":        ("sum_waterbodyLakesPondsAreaSqKm", "sum_waterbodyLakesPondsFeatureCount"),
-    "Reservoir":   ("sum_waterbodyReservoirAreaSqKm",  "sum_waterbodyReservoirFeatureCount"),
-    "Estuaries":   ("sum_waterbodyEstuariesAreaSqKm",  "sum_waterbodyEstuariesFeatureCount"),
-    "Playa":       ("sum_waterbodyPlayaAreaSqKm",      "sum_waterbodyPlayaFeatureCount"),
+    "Lake": ("sum_waterbodyLakesPondsAreaSqKm", "sum_waterbodyLakesPondsFeatureCount"),
+    "Reservoir": ("sum_waterbodyReservoirAreaSqKm", "sum_waterbodyReservoirFeatureCount"),
+    "Estuaries": ("sum_waterbodyEstuariesAreaSqKm", "sum_waterbodyEstuariesFeatureCount"),
+    "Playa": ("sum_waterbodyPlayaAreaSqKm", "sum_waterbodyPlayaFeatureCount"),
     "Swamp Marsh": ("sum_waterbodySwampMarshAreaSqKm", "sum_waterbodySwampMarshFeatureCount"),
-    "Ice/Snow":    ("sum_waterbodyIceSnowAreaSqKm",    "sum_waterbodyIceSnowFeatureCount"),
+    "Ice/Snow": ("sum_waterbodyIceSnowAreaSqKm", "sum_waterbodyIceSnowFeatureCount"),
 }
 
 
@@ -45,11 +45,13 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd
     # 2. Extract data into a list of dicts (Pivoting)
     summary_rows = []
     for label, (area_col, count_col) in waterbody_col_map.items():
-        summary_rows.append({
-            "Waterbodies": label,
-            "Area": row_data[area_col.lower()],
-            "Count": row_data[count_col.lower()]
-        })
+        summary_rows.append(
+            {
+                "Waterbodies": label,
+                "Area": row_data[area_col.lower()],
+                "Count": row_data[count_col.lower()],
+            }
+        )
 
     # Create the new DataFrame
     report_df = RSGeoDataFrame(pd.DataFrame(summary_rows))
@@ -81,14 +83,18 @@ def create_waterbody_summary_table(df: RSGeoDataFrame) -> tuple[pd.DataFrame, pd
     meta.add_field_meta(name="% Count", layer_id=layer_id, data_unit='percent')
 
     # 5. Formatting (Optional: Create the "Total" row)
-    total_row = pd.DataFrame([{
-        "Waterbodies": "Total Waterbodies",
-        "Area": total_area,
-        "Count": total_count,
-        "% Area": 100.0,
-        "% Count": 100.0,
-        "Avg. Area": (total_area / total_count) if total_count > 0 else 0,
-    }])
+    total_row = pd.DataFrame(
+        [
+            {
+                "Waterbodies": "Total Waterbodies",
+                "Area": total_area,
+                "Count": total_count,
+                "% Area": 100.0,
+                "% Count": 100.0,
+                "Avg. Area": (total_area / total_count) if total_count > 0 else 0,
+            }
+        ]
+    )
     # Also convert the total row percentages to pint quantities
     total_row['% Area'] = total_row['% Area'].astype('pint[percent]')
     total_row['% Count'] = total_row['% Count'].astype('pint[percent]')
@@ -101,7 +107,7 @@ hydrography_col_map = {
     'Intermittent': ('sum_flowlineLengthIntermittentKm'),
     'Ephemeral': ('sum_flowlineLengthEphemeralKm'),
     'Canals': ('sum_flowlineLengthCanalsKm'),
-    'Total': ('sum_flowlineLengthAllKm')
+    'Total': ('sum_flowlineLengthAllKm'),
 }
 
 
@@ -122,62 +128,41 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     # remember the dataframe comes from athena, and all columns are lowercase
     aggregate_data_stats = aggregate_data_df.iloc[0].to_dict()
     # some don't have units, so error if try to create a card for it. So just pick ones we want
-    colnames_of_stats_we_want = ['sum_flowlinelengthperennialkm',
-                                 'sum_flowlinelengthintermittentkm',
-                                 'sum_flowlinelengthephemeralkm',
-                                 'sum_flowlinelengthallkm',
-                                 'sum_flowlinefeaturecount',
-                                 'sum_hucareasqkm',
-                                 'sum_precipcount',
-                                 'sum_precipsum',
-                                 'min_precipminimum',
-                                 'max_precipmaximum',
-                                 'sum_catchmentlength',
-                                 'sum_slopecount',
-                                 'sum_slopesum',
-                                 'max_slopemaximum',
-                                 'min_slopeminimum',
-                                 'sum_demcount',
-                                 'sum_demsum',
-                                 'min_demminimum',
-                                 'max_demmaximum',
-                                 'countdistinct_huc',
-                                 'min_circularityratio',
-                                 'min_elongationratio',
-                                 'min_formfactor',
-                                 ]
-    rpt_stats = {
-        colname: aggregate_data_stats[colname] for colname in colnames_of_stats_we_want}
+    colnames_of_stats_we_want = [
+        'sum_flowlinelengthperennialkm',
+        'sum_flowlinelengthintermittentkm',
+        'sum_flowlinelengthephemeralkm',
+        'sum_flowlinelengthallkm',
+        'sum_flowlinefeaturecount',
+        'sum_hucareasqkm',
+        'sum_precipcount',
+        'sum_precipsum',
+        'min_precipminimum',
+        'max_precipmaximum',
+        'sum_catchmentlength',
+        'sum_slopecount',
+        'sum_slopesum',
+        'max_slopemaximum',
+        'min_slopeminimum',
+        'sum_demcount',
+        'sum_demsum',
+        'min_demminimum',
+        'max_demmaximum',
+        'countdistinct_huc',
+        'min_circularityratio',
+        'min_elongationratio',
+        'min_formfactor',
+    ]
+    rpt_stats = {colname: aggregate_data_stats[colname] for colname in colnames_of_stats_we_want}
     # average segment length
-    avg_segment_length = rpt_stats['sum_flowlinelengthallkm']/rpt_stats['sum_flowlinefeaturecount']
-    meta.add_field_meta(
-        name='avg_segment_length',
-        friendly_name='Average Segment Length',
-        layer_id=layer_id,
-        data_unit=avg_segment_length.units,
-        preferred_format="{:.3g}"
-    )
+    avg_segment_length = rpt_stats['sum_flowlinelengthallkm'] / rpt_stats['sum_flowlinefeaturecount']
+    meta.add_field_meta(name='avg_segment_length', friendly_name='Average Segment Length', layer_id=layer_id, data_unit=avg_segment_length.units, preferred_format="{:.3g}")
     mean_precip_cell_value = rpt_stats['sum_precipsum'] / rpt_stats['sum_precipcount']
-    meta.add_field_meta(
-        name='mean_precip_cell_value',
-        friendly_name='Mean Average Precipitation',
-        description='Mean of the 30-year Average Annual Precipitation across the selected area',
-        layer_id=layer_id
-    )
+    meta.add_field_meta(name='mean_precip_cell_value', friendly_name='Mean Average Precipitation', description='Mean of the 30-year Average Annual Precipitation across the selected area', layer_id=layer_id)
     mean_elevation = rpt_stats['sum_demsum'] / rpt_stats['sum_demcount']
-    meta.add_field_meta(
-        name='mean_elevation',
-        friendly_name='Mean Elevation',
-        description='Mean elevation across the selected area',
-        layer_id=layer_id
-    )
+    meta.add_field_meta(name='mean_elevation', friendly_name='Mean Elevation', description='Mean elevation across the selected area', layer_id=layer_id)
     mean_slope = rpt_stats['sum_slopesum'] / rpt_stats['sum_slopecount']
-    meta.add_field_meta(
-        name='mean_slope',
-        friendly_name='Mean Slope',
-        description='Mean slope across the selected area',
-        layer_id=layer_id
-    )
+    meta.add_field_meta(name='mean_slope', friendly_name='Mean Slope', description='Mean slope across the selected area', layer_id=layer_id)
     total_relief = rpt_stats['max_demmaximum'] - rpt_stats['min_demminimum']
     source_meta = meta.get_field_meta('max_demmaximum')
     meta.add_field_meta(
@@ -186,7 +171,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         description='Difference between highest and lowest elevation.',
         data_unit=rpt_stats['max_demmaximum'].units,
         layer_id=layer_id,
-        preferred_format=source_meta.preferred_format if source_meta else None
+        preferred_format=source_meta.preferred_format if source_meta else None,
     )
     relief_ratio = total_relief.to("km") / rpt_stats['sum_catchmentlength'].to("km")
     meta.set_preferred_format('reliefratio', '{:.2f}', layer_id='rs_context_huc10')
@@ -197,33 +182,13 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     drainage_density_non_perennial = (rpt_stats['sum_flowlinelengthintermittentkm'] + rpt_stats['sum_flowlinelengthephemeralkm']) / rpt_stats['sum_hucareasqkm']
     drainage_density_all = rpt_stats['sum_flowlinelengthallkm'] / rpt_stats['sum_hucareasqkm']
     meta.add_field_meta(
-        name='drainage_density_non_perennial',
-        friendly_name='Drainage Density - Non Perrenial',
-        description='Total length of Intermittent and Ephemeral Streams, divided by Catchment Area',
-        layer_id=layer_id,
-        preferred_format='{:.2f}'
+        name='drainage_density_non_perennial', friendly_name='Drainage Density - Non Perrenial', description='Total length of Intermittent and Ephemeral Streams, divided by Catchment Area', layer_id=layer_id, preferred_format='{:.2f}'
     )
-    meta.add_field_meta(
-        name='drainage_density_perennial',
-        friendly_name='Drainage Density - Perrenial',
-        description='Total length of Perennial Streams, divided by Catchment Area',
-        layer_id=layer_id,
-        preferred_format='{:.2f}'
-    )
-    meta.add_field_meta(
-        name='drainage_density_all',
-        friendly_name='Drainage Density - Entire Network',
-        description='Total length of All Streams, divided by Catchment Area',
-        layer_id=layer_id,
-        preferred_format='{:.2f}'
-    )
+    meta.add_field_meta(name='drainage_density_perennial', friendly_name='Drainage Density - Perrenial', description='Total length of Perennial Streams, divided by Catchment Area', layer_id=layer_id, preferred_format='{:.2f}')
+    meta.add_field_meta(name='drainage_density_all', friendly_name='Drainage Density - Entire Network', description='Total length of All Streams, divided by Catchment Area', layer_id=layer_id, preferred_format='{:.2f}')
 
     if rpt_stats['countdistinct_huc'] == 1:
-        singlehucstats = {
-            "circularityratio": rpt_stats['min_circularityratio'],
-            "elongationratio": rpt_stats['min_elongationratio'],
-            "formfactor": rpt_stats['min_formfactor']
-        }
+        singlehucstats = {"circularityratio": rpt_stats['min_circularityratio'], "elongationratio": rpt_stats['min_elongationratio'], "formfactor": rpt_stats['min_formfactor']}
         # define them as 2 decimal floats - TODO this should be in the layerdef.json
         meta.set_preferred_format('circularityratio', '{:.2f}', layer_id='rs_context_huc10')
         meta.set_preferred_format('elongationratio', '{:.2f}', layer_id='rs_context_huc10')
@@ -262,10 +227,7 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
 
     non_perennial = length_values['Intermittent'] + length_values['Ephemeral']
     total_stream_length = length_values['Total']
-    total_itemized_stream_length = (length_values['Perennial'] +
-                                    length_values['Intermittent'] +
-                                    length_values['Ephemeral'] +
-                                    length_values['Canals'])
+    total_itemized_stream_length = length_values['Perennial'] + length_values['Intermittent'] + length_values['Ephemeral'] + length_values['Canals']
     # these should both be Pint Quantities
     length_delta = abs(total_stream_length - total_itemized_stream_length)
     if isinstance(length_delta, pint.Quantity):
@@ -276,8 +238,7 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
     if exceeds_tolerance:
         log.debug(f"Totals off, likely due to presence of other FCodes not itemized. Total: {total_stream_length}. Itemized total: {total_itemized_stream_length}. Adding footnote.")
         readable_delta = f"{length_delta:.2f~P}" if isinstance(length_delta, pint.Quantity) else f"{length_delta:.2f}"
-        footnote = ("* Itemized categories under-count the total network (difference "
-                    f"{readable_delta}). Additional stream types (FCodes) contribute to the total.")
+        footnote = f"* Itemized categories under-count the total network (difference {readable_delta}). Additional stream types (FCodes) contribute to the total."
     total_without_canals = total_stream_length - length_values['Canals']
 
     summary_rows = [
@@ -292,49 +253,29 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
 
     meta = RSFieldMeta()
     length_unit = meta.get_field_unit(hydrography_col_map['Perennial'].lower())
-    meta.add_field_meta(name='stream_network_distance',
-                        friendly_name='Stream Network Distance',
-                        layer_id=layer_id,
-                        data_unit=length_unit)
-    meta.add_field_meta(name='flowline_length_category',
-                        friendly_name='Stream Type',
-                        layer_id=layer_id,
-                        data_unit="NA")
+    meta.add_field_meta(name='stream_network_distance', friendly_name='Stream Network Distance', layer_id=layer_id, data_unit=length_unit)
+    meta.add_field_meta(name='flowline_length_category', friendly_name='Stream Type', layer_id=layer_id, data_unit="NA")
 
-    report_df['stream_network_distance'] = ensure_pint_column(report_df,
-                                                              'stream_network_distance',
-                                                              length_unit)
+    report_df['stream_network_distance'] = ensure_pint_column(report_df, 'stream_network_distance', length_unit)
 
-    total_row_value = report_df.loc[
-        report_df['flowline_length_category'] == 'Total Stream Length', 'stream_network_distance'
-    ].iloc[0]
+    total_row_value = report_df.loc[report_df['flowline_length_category'] == 'Total Stream Length', 'stream_network_distance'].iloc[0]
 
     if getattr(total_row_value, 'magnitude', total_row_value) == 0:
         percent_series = pd.Series([0] * len(report_df), index=report_df.index).astype('pint[percent]')
     else:
-        percent_series = (
-            report_df['stream_network_distance'] /
-            pd.Series([total_row_value] * len(report_df), index=report_df.index)
-        ).fillna(0).astype('pint[percent]')
+        percent_series = (report_df['stream_network_distance'] / pd.Series([total_row_value] * len(report_df), index=report_df.index)).fillna(0).astype('pint[percent]')
 
     report_df['% of Total Stream Length'] = percent_series
-    meta.add_field_meta(name='% of Total Stream Length',
-                        friendly_name='% of Total Stream Length',
-                        layer_id=layer_id,
-                        data_unit='percent')
+    meta.add_field_meta(name='% of Total Stream Length', friendly_name='% of Total Stream Length', layer_id=layer_id, data_unit='percent')
 
-    footer_mask = report_df['flowline_length_category'].isin({
-        'Total Stream Length', 'Total Stream Length (w.o. Canals)'
-    })
+    footer_mask = report_df['flowline_length_category'].isin({'Total Stream Length', 'Total Stream Length (w.o. Canals)'})
     footer_df = report_df.loc[footer_mask].copy()
     body_df = report_df.loc[~footer_mask].copy()
 
     if footer_df.empty:
         footer_df = None
 
-    return body_df.reset_index(drop=True), (
-        None if footer_df is None else footer_df.reset_index(drop=True)
-    ), footnote
+    return body_df.reset_index(drop=True), (None if footer_df is None else footer_df.reset_index(drop=True)), footnote
 
 
 def hydrography_table(df: pd.DataFrame) -> str:
