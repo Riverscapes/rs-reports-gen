@@ -24,7 +24,7 @@ from reports.rpt_downstream_geomorphic.dataprep import (
 from reports.rpt_downstream_geomorphic.figures import build_profile_figures
 from util.athena import get_field_metadata
 from util.html import RSReport
-from util.pandas import RSFieldMeta, load_gdf_from_pq
+from util.pandas import RSFieldMeta, load_gdf_from_pq, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (
     add_parquet_cli_args,
@@ -37,17 +37,28 @@ REPORT_SLUG = "rpt-downstream-geomorphic"
 RPT_RME_LAYER_ID = "rpt_rme"
 
 
-def define_fields(unit_system: str = "SI") -> None:
+def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, metadata_cachefile_path: Path | None = None) -> None:
     """Set up field metadata and unit system for this report.
 
-    Copilot-generated function.
+    Two optinal modes:
+    * load_from_parquet - if True, file_path must be supplied - will load results to the staging path
+    * if false and file_path is supplied, will write results for future use
     """
+    log = Logger("Define Fields")
     fm = RSFieldMeta()
-    registry_field_meta = get_field_metadata(
-        authority="data-exchange-scripts",
-        tool_schema_name="*",
-        layer_id="raw_rme,rpt_rme",
-    )
+
+    if load_from_parquet and metadata_cachefile_path:
+        log.info(f"Loading from {metadata_cachefile_path} instead of Athena")
+        registry_field_meta = load_meta_from_file(metadata_cachefile_path)
+    else:
+        registry_field_meta = get_field_metadata(
+            authority="data-exchange-scripts",
+            tool_schema_name="*",
+            layer_id="raw_rme,rpt_rme",
+        )
+        if metadata_cachefile_path:
+            log.info(f"Saving meta from Athena to {metadata_cachefile_path}")
+            save_meta_to_file(registry_field_meta, metadata_cachefile_path)
 
     # Consolidate RME rows under one layer id so metadata lookups are never ambiguous.
     registry_field_meta.loc[registry_field_meta["layer_id"].isin(["raw_rme", "rpt_rme"]), "layer_id"] = RPT_RME_LAYER_ID
@@ -115,21 +126,35 @@ def orchestrate(
     parquet_path: Path | None = None,
     keep_parquet: bool = False,
 ) -> None:
-    """Main orchestration: query → prepare → chart → render."""
-    define_fields(unit_system)
+    """Main orchestration: query → prepare → chart → render.
+    Args:
+        parquet_path - if supplied, should be a folder with the data & metadata
+    """
+
     log = Logger('Orchestrate')
     staging_path = output_path / "staging"
+
+    if parquet_path:
+        if not parquet_path.exists():
+            raise FileNotFoundError(f"Parquet path '{parquet_path}' does not exist")
+        # if staging path supplied, we'll load fields from it as well (this assumes we have a path to a folder, not a specific file)
+        load_meta_from_parquet = True
+        meta_parquet_file_path = parquet_path / 'registry_field_meta.parquet'
+    else:
+        staging_path.mkdir(parents=True, exist_ok=True)
+    if keep_parquet:
+        # if keep parquet, save meta to the folder also.
+        meta_parquet_file_path = staging_path / 'registry_field_meta.parquet'
+        load_meta_from_parquet = False
+    define_fields(unit_system, load_from_parquet=load_meta_from_parquet, metadata_cachefile_path=meta_parquet_file_path)
 
     # MODE - level_path
     mode = 'Whole Level Path'
 
     if parquet_path:
-        if not parquet_path.exists():
-            raise FileNotFoundError(f"Parquet path '{parquet_path}' does not exist")
         log.info(f"Using supplied Parquet data files at {parquet_path}")
         rme_df = load_gdf_from_pq(parquet_path)
     else:
-        staging_path.mkdir(parents=True, exist_ok=True)
         rme_df = query_rme_data(mode, dgoid, staging_path)
 
     # Use one report-wide layer context for all presentation-oriented metadata lookups.
