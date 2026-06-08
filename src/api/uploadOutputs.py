@@ -7,14 +7,12 @@ import logging
 import os
 import sys
 import traceback
-from typing import List
 
 from rsxml import Logger, dotenv
 
-from api.lib.RSReportsAPI import RSReportsAPI
 from api.lib.file_utils import collect_output_files
+from api.lib.RSReportsAPI import RSReportsAPI
 from api.lib.upload import upload_files
-
 
 DEFAULT_UPLOAD_TIMEOUT = 900
 
@@ -26,7 +24,7 @@ def upload_outputs(
     report_id: str,
     stage: str,
     log_only: bool = False,
-) -> List[str]:
+) -> list[str]:
     """Upload all files in ``outputs_dir`` as ``file_type`` for ``report_id``."""
 
     log = Logger("Upload Outputs")

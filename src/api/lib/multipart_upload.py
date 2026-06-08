@@ -5,11 +5,10 @@ from __future__ import annotations
 import mimetypes
 import os
 import uuid
-from typing import Dict, Iterator
+from collections.abc import Iterator
 
 import requests
 from rsxml import ProgressBar
-
 
 CRLF = "\r\n"
 DEFAULT_CHUNK_SIZE = 1024 * 1024
@@ -21,7 +20,7 @@ class MultipartStream:
     def __init__(
         self,
         file_path: str,
-        fields: Dict[str, str | bytes],
+        fields: dict[str, str | bytes],
         boundary: str,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
     ) -> None:
@@ -37,7 +36,7 @@ class MultipartStream:
 
         self._field_parts = [self._encode_field(name, value) for name, value in fields.items()]
         self._file_header = self._encode_file_header()
-        self._file_footer = (f"{CRLF}--{boundary}--{CRLF}").encode("utf-8")
+        self._file_footer = (f"{CRLF}--{boundary}--{CRLF}").encode()
         self._length = sum(len(part) for part in self._field_parts) + len(self._file_header) + self._file_size + len(self._file_footer)
 
     def __len__(self) -> int:  # pragma: no cover - exercised via requests
@@ -74,7 +73,7 @@ class MultipartStream:
         header = (
             f"--{self._boundary}{CRLF}"
             f'Content-Disposition: form-data; name="{name}"{CRLF}{CRLF}'
-        ).encode("utf-8")
+        ).encode()
         return b"".join([header, payload, CRLF.encode("utf-8")])
 
     def _encode_file_header(self) -> bytes:
@@ -88,7 +87,7 @@ class MultipartStream:
 
 def stream_post_file(
     url: str,
-    fields: Dict[str, str | bytes],
+    fields: dict[str, str | bytes],
     file_path: str,
     timeout: int | float | None = None,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
