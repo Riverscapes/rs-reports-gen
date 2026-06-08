@@ -2,39 +2,39 @@
 import argparse
 import logging
 import os
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
-import sys
 import shutil
+import sys
 import traceback
-import psutil  # for checking locally
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import geopandas as gpd
 
 # 3rd party imports
 import pandas as pd
-import geopandas as gpd
+import psutil  # for checking locally
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
+from reports.rpt_riverscapes_dynamics import __version__ as report_version
+from reports.rpt_riverscapes_dynamics.epoch_utils import prepare_epoch_metadata
+from reports.rpt_riverscapes_dynamics.figures import (
+    area_histogram,
+    line_change_vs_baseline,
+    linechart,
+    longitudinal_profile,
+    statistics,
+)
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
-from util.html import RSReport
-from util.pandas import load_gdf_from_pq, pprint_df_meta
-from util.pandas import RSFieldMeta
-from util.pdf import make_pdf_from_html
 from util.figures import (
     make_aoi_outline_map,
-    project_id_list,
     metric_cards,
+    project_id_list,
 )
-from reports.rpt_riverscapes_dynamics import __version__ as report_version
-from reports.rpt_riverscapes_dynamics.figures import (
-    linechart,
-    statistics,
-    area_histogram,
-    longitudinal_profile,
-    line_change_vs_baseline,
-)
-from reports.rpt_riverscapes_dynamics.epoch_utils import prepare_epoch_metadata
+from util.html import RSReport
+from util.pandas import RSFieldMeta, load_gdf_from_pq, pprint_df_meta
+from util.pdf import make_pdf_from_html
 
 _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
 

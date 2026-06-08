@@ -160,7 +160,7 @@ def report_main_wrapper(log: Logger, run: Callable[[], Any], *, debug: bool = Fa
 # ---------------------------------------------------------------------------
 
 # Re-export for convenience so launchers only need one import line.
-from util.prompt import is_truthy  # noqa: E402
+from util.prompt import is_truthy  # noqa: E402, F401
 
 
 def require_data_root() -> str:

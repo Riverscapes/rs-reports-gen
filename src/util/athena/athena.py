@@ -645,7 +645,7 @@ def _parse_csv_from_s3(s3_uri: str) -> list[dict]:
     log = Logger('Parse CSV from S3')
     with tempfile.NamedTemporaryFile(delete=True, suffix='.csv') as tmp:
         download_file_from_s3(s3_uri, tmp.name)
-        with open(tmp.name, mode="r", encoding="utf-8") as f:
+        with open(tmp.name, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
             log.debug(f"Parsed {len(rows)} rows from {s3_uri}")

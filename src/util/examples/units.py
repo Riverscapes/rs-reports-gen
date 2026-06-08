@@ -1,7 +1,6 @@
 import pint
 from rsxml import Logger
 
-
 # Initialize a UnitRegistry
 # DO THIS ONLY ONCE
 UREG = pint.UnitRegistry()

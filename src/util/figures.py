@@ -30,7 +30,7 @@ from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor
 def get_bins_info(key: str):
     """extract data from bins.json"""
     bins_path = os.path.join(os.path.dirname(__file__), "bins.json")
-    with open(bins_path, "r", encoding="utf-8") as f:
+    with open(bins_path, encoding="utf-8") as f:
         bins_dict = json.load(f)
     info = bins_dict[key]
     edges = info["edges"]

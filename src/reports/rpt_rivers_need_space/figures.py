@@ -1,11 +1,12 @@
 from __future__ import annotations
-from typing import List
+
 import json
 import os
+
 import geopandas as gpd
-import pint
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pint
 
 from util.figures import common_statistics
 
@@ -17,7 +18,7 @@ from util.figures import common_statistics
 
 
 def get_bins_legend(key: str) -> list:
-    """ Get 
+    """Get
 
     Args:
         key (str): _description_
@@ -26,18 +27,18 @@ def get_bins_legend(key: str) -> list:
         list: _description_
     """
     bins_path = os.path.join(os.path.dirname(__file__), "bins.json")
-    with open(bins_path, "r", encoding="utf-8") as f:
+    with open(bins_path, encoding="utf-8") as f:
         bins_dict = json.load(f)
     return bins_dict[key]
 
 
-def format_hover(df: pd.DataFrame, nice_headers: List[str]) -> str:
+def format_hover(df: pd.DataFrame, nice_headers: list[str]) -> str:
     """
     Generate a Plotly hovertemplate based on column dtypes.
     Returns a string suitable for `update_traces(hovertemplate=...)`.
     """
     lines = []
-    for i, (col, dtype) in enumerate(df.dtypes.items()):
+    for i, (_col, dtype) in enumerate(df.dtypes.items()):
         col_name = nice_headers[i]
         if np.issubdtype(dtype, np.number):
             lines.append(f"{col_name}: %{{customdata[{i}]:,.2f}}")
@@ -51,7 +52,7 @@ def format_hover(df: pd.DataFrame, nice_headers: List[str]) -> str:
 
 
 def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
-    """ Calculate and return key statistics as a dictionary
+    """Calculate and return key statistics as a dictionary
     Args:
         gdf (GeoDataFrame): data_gdf input WITH UNITS APPLIED
 

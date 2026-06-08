@@ -1,14 +1,15 @@
 import os
 
+
 def est_rows_for_csv_file(csv_path: str) -> int:
     """Estimate number of rows in a CSV file. If file is small (<10MB), count rows. If large, estimate using average size of first 3 data rows."""
     file_size = os.path.getsize(csv_path)
     if file_size < (3 * 1024 * 1024): # 3 MB
         # Accurate count for small files
-        with open(csv_path, mode='r', newline='', encoding='utf-8') as f:
+        with open(csv_path, newline='', encoding='utf-8') as f:
             return sum(1 for _ in f) - 1  # subtract 1 for header
     # For large files, estimate using line lengths
-    with open(csv_path, mode='r', newline='', encoding='utf-8') as f:
+    with open(csv_path, newline='', encoding='utf-8') as f:
         header_line = f.readline()
         sample_lines = []
         sample_bytes = 0
