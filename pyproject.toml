@@ -83,6 +83,7 @@ target-version = "py312"
 # I (Isort): Sorts your imports automatically. Very helpful.
 # (Bugbear): Detects likely bugs and design problems (e.g., mutable default arguments).
 # N (PEP8 Naming): Enforces naming conventions (snake_case for functions, CapWords for classes). If your codebase is older, this might flag a lot of things.
+# W Pycodestyle warnings - should we add this??
 
 select = ["E", "F", "I", "N", "UP", "B"]
 ignore = [
