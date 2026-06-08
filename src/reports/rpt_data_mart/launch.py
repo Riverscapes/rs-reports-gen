@@ -14,7 +14,7 @@ from pathlib import Path
 import questionary
 from termcolor import colored
 
-from util.prompt import get_unit_system, is_truthy
+from util.prompt import get_env_or_confirm, get_unit_system, is_truthy
 
 EXAMPLE_DIR = Path(__file__).resolve().parent / "example"
 
