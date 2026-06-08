@@ -142,10 +142,12 @@ def orchestrate(
         meta_parquet_file_path = parquet_path / 'registry_field_meta.parquet'
     else:
         staging_path.mkdir(parents=True, exist_ok=True)
-    if keep_parquet:
-        # if keep parquet, save meta to the folder also.
-        meta_parquet_file_path = staging_path / 'registry_field_meta.parquet'
         load_meta_from_parquet = False
+        if keep_parquet:
+            # if keep parquet, save meta to the folder also.
+            meta_parquet_file_path = staging_path / 'registry_field_meta.parquet'
+        else:
+            meta_parquet_file_path = None
     define_fields(unit_system, load_from_parquet=load_meta_from_parquet, metadata_cachefile_path=meta_parquet_file_path)
 
     # MODE - level_path
