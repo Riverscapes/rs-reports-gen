@@ -1,14 +1,14 @@
 import os
-from typing import Optional
+
 import weasyprint
 
 
 def make_pdf_from_html(
     html_path: str,
-    pdf_path: Optional[str] = None,
+    pdf_path: str | None = None,
     page_margin: str = "0.1in",
     zoom: float = 1.0,
-    extra_styles: Optional[list[weasyprint.CSS]] = None,
+    extra_styles: list[weasyprint.CSS] | None = None,
 ) -> str:
     """Generate a PDF from an HTML file using WeasyPrint with layout controls.
 

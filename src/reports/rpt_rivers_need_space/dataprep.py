@@ -1,8 +1,9 @@
 """data preparation for Rivers Need Space"""
 
 import pandas as pd
-from util.pandas import RSFieldMeta
+
 from util.figures import get_bins_info  # future enhancement: move the fn since it is a data function not a figure function
+from util.pandas import RSFieldMeta
 
 
 def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:

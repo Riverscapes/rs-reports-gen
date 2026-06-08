@@ -1,12 +1,11 @@
-import os
-from pathlib import Path
 # import psutil  # for debugging
 import multiprocessing as mp
+import os
+from pathlib import Path
 
 import plotly.graph_objects as go
 import plotly.io as pio
 from kaleido._kaleido_tab import KaleidoError
-
 from rsxml import Logger
 
 

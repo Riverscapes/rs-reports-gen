@@ -1,10 +1,12 @@
 from collections.abc import Callable
 from pathlib import Path
-import pint  # noqa: F401  # pylint: disable=unused-import
-import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !?
-from rsxml import Logger
-import pandas as pd
+
 import geopandas as gpd
+import pandas as pd
+import pint  # noqa: F401  # pylint: disable=unused-import
+import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed !
+from rsxml import Logger
+
 # Custom DataFrame accessor for metadata - to be moved to util
 from util.pandas.RSFieldMeta import RSFieldMeta
 
@@ -13,7 +15,7 @@ EXCEL_ROW_LIMIT = 65_000  # although modern Excel can handle 1048576, for perfor
 
 
 class RSGeoDataFrame(gpd.GeoDataFrame):
-    """ A module to extend pandas DataFrames with remote sensing specific functionality.
+    """A module to extend pandas DataFrames with remote sensing specific functionality.
 
     This is a subclass of GeoDataFrame so it should work just like a normal GeoDataFrame.
 
@@ -26,9 +28,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
     So we can accept DataFrame or GeoDataFrames, and convert either to a RSGeoDataFrame objects
     """
 
-    def __init__(self, df: gpd.GeoDataFrame | pd.DataFrame, *args,
-                 footer: pd.DataFrame | None = None,
-                 **kwargs):
+    def __init__(self, df: gpd.GeoDataFrame | pd.DataFrame, *args, footer: pd.DataFrame | None = None, **kwargs):
         super().__init__(df, *args, **kwargs)
         self.log = Logger('RSDataFrame')
 
@@ -41,8 +41,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
 
     @property
     def _constructor(self):
-        """ This will ensure that every time we do an operation that returns a DataFrame,
-        """
+        """This will ensure that every time we do an operation that returns a DataFrame,"""
         return RSGeoDataFrame
 
     @property
@@ -50,7 +49,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         return pd.Series  # or a custom subclass if you have one
 
     def set_footer(self, footer: pd.DataFrame):
-        """ Set a footer DataFrame that will be appended to the main DataFrame when rendering.
+        """Set a footer DataFrame that will be appended to the main DataFrame when rendering.
 
         Args:
             footer (pd.DataFrame): The footer DataFrame to append. Columns should match the
@@ -61,15 +60,14 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         self._footer = footer.copy()
 
     def copy(self, deep: bool = True):
-        """ Override the copy method to ensure the metadata is preserved.
-        """
+        """Override the copy method to ensure the metadata is preserved."""
         df_copy = super().copy(deep=deep)
         footer = self._footer.copy(deep=deep)
         # Make sure the footer comes along for the ride
         return RSGeoDataFrame(df_copy, footer=footer)
 
     def export_excel(self, output_path: str | Path):
-        """ Export the GeoDataFrame to an Excel file with metadata, omitting geometry columns.
+        """Export the GeoDataFrame to an Excel file with metadata, omitting geometry columns.
 
         Args:
             output_path (str): The path to save the Excel file.
@@ -122,14 +120,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             self._meta_df.field_meta.to_excel(writer, sheet_name="metadata")
         self.log.info(f"Excel export complete. See it here: {output_path}")
 
-    def to_html(self, *args,
-                include_units=True,
-                use_friendly=True,
-                unit_fmt=" ({unit})",
-                include_columns: list[str] | None = None,
-                exclude_columns: list[str] | None = None,
-                layer_id: str | None = None,
-                **kwargs):
+    def to_html(self, *args, include_units=True, use_friendly=True, unit_fmt=" ({unit})", include_columns: list[str] | None = None, exclude_columns: list[str] | None = None, layer_id: str | None = None, **kwargs):
         """Render the DataFrame as HTML with friendly column headings.
 
         Args:
@@ -256,9 +247,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
                 # defaulting to 0 decimals for integers and 2 for floats/decimals
                 # This respects 'preferred_format' in metadata if present
                 def _get_scalar_formatter(col_name, decimals):
-                    return lambda x: self._meta_df.format_scalar(
-                        col_name, x, layer_id=layer_id, include_units=False, decimals=decimals
-                    )
+                    return lambda x: self._meta_df.format_scalar(col_name, x, layer_id=layer_id, include_units=False, decimals=decimals)
 
                 if is_integer_type:
                     class_tokens.append('integer')

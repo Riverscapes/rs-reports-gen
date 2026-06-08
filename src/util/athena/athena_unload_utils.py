@@ -1,6 +1,7 @@
 import csv
 from pathlib import Path
 from urllib.parse import urlparse
+
 from rsxml import Logger
 
 
