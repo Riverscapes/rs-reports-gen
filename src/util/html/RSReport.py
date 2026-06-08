@@ -1,6 +1,6 @@
 # System imports
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from shutil import copytree
 from typing import Any
@@ -131,11 +131,11 @@ class RSReport:
 
         for css_path in self.css_paths:
             if os.path.exists(css_path):
-                css += "\n" + open(css_path, "r", encoding="utf-8").read()
+                css += "\n" + open(css_path, encoding="utf-8").read()
             else:
                 log.warning(f"CSS path {css_path} does not exist and will be skipped.")
         style_tag = f"<style>{css}</style>"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # This is what is passed to each template
         report_context = {

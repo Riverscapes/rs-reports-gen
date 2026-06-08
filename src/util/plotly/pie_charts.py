@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import re
+
 import geopandas as gpd
 import plotly.express as px
 import plotly.graph_objects as go
-from typing import Optional, Dict
 
 # Regex to validate hex color codes
 HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}){1,2}$")
@@ -14,7 +14,7 @@ def make_rs_area_by_owner_pie(
     title: str = "Total Riverscape Area (units) by Ownership",
     hole: float = 0.3,
     show_percent: bool = True,
-    color_map: Optional[Dict[str, str]] = None,
+    color_map: dict[str, str] | None = None,
     width: int = 640,
     height: int = 420,
 ) -> go.Figure:
