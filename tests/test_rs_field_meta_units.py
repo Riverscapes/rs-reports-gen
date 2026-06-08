@@ -1,6 +1,6 @@
 import pandas as pd
-import pytest
 import pint  # noqa: F401  # pylint: disable=unused-import
+import pytest
 
 from util.pandas.RSFieldMeta import RSFieldMeta, ureg
 
