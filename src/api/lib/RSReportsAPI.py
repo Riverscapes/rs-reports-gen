@@ -284,8 +284,8 @@ class RSReportsAPI:
             str: _description_
         """
         qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'graphql', 'queries', f'{query_name}.gql'))
-        with open(qry_path, 'r', encoding='utf-8') as queryFile:
-            return queryFile.read()
+        with open(qry_path, encoding='utf-8') as query_file:
+            return query_file.read()
 
     def load_mutation(self, mutation_name: str) -> str:
         """Load a mutation file from the file system.
@@ -297,8 +297,8 @@ class RSReportsAPI:
             str: _description_
         """
         qry_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'graphql', 'mutations', f'{mutation_name}.gql'))
-        with open(qry_path, 'r', encoding='utf-8') as queryFile:
-            return queryFile.read()
+        with open(qry_path, encoding='utf-8') as query_file:
+            return query_file.read()
 
     def run_query(self, query, variables):
         """A simple function to use requests.post to make the API call. Note the json= section.

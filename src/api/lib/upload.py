@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
 import requests
 from rsxml import Logger
 
-from api.lib.RSReportsAPI import RSReportsAPI
 from api.lib.multipart_upload import stream_post_file
+from api.lib.RSReportsAPI import RSReportsAPI
 
 
-def upload_files(api_client: RSReportsAPI, user_id: str, report_id: str, files_to_upload: List[Tuple[str, str]], timeout: int = 900):
+def upload_files(api_client: RSReportsAPI, user_id: str, report_id: str, files_to_upload: list[tuple[str, str]], timeout: int = 900):
     """Upload files to the Riverscapes API.
 
     Args:
@@ -42,8 +40,8 @@ def upload_files(api_client: RSReportsAPI, user_id: str, report_id: str, files_t
         raise RuntimeError("API did not return any upload URLs.")
 
     # Map entries by the object key when supplied in the fields payload.
-    entries_by_key: Dict[str, Dict] = {}
-    sequential_entries: List[Dict] = []
+    entries_by_key: dict[str, dict] = {}
+    sequential_entries: list[dict] = []
     for entry in upload_entries:
         fields = entry.get("fields") if isinstance(entry, dict) else None
         if isinstance(fields, dict):
@@ -52,7 +50,7 @@ def upload_files(api_client: RSReportsAPI, user_id: str, report_id: str, files_t
                 entries_by_key[key] = entry
         sequential_entries.append(entry)
 
-    uploaded: List[str] = []
+    uploaded: list[str] = []
     for index, (local_path, remote_path) in enumerate(files_to_upload):
         entry = entries_by_key.get(remote_path)
         if entry is None and index < len(sequential_entries):
