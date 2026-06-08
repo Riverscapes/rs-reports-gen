@@ -1,12 +1,13 @@
 """Main entry point"""
 
 # Standard library imports
-import os
 import argparse
 import logging
+import os
 import sys
 import traceback
 from urllib.parse import urlparse
+
 # Third party imports
 import requests
 from rsxml import Logger, dotenv
