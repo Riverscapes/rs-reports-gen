@@ -61,7 +61,7 @@ def unnest_dem_bins(huc_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     def _scalar(d: dict | None, key: str):
         return d.get(key) if isinstance(d, dict) else None
 
-    SCALAR_KEYS = ["min", "max", "bin_size", "value_count", "nodata", "hist_type"]
+    SCALAR_KEYS = ["min", "max", "bin_size", "value_count", "nodata", "hist_type"]  # noqa N806
     for key in SCALAR_KEYS:
         huc_df[f"dem_bins_{key}"] = huc_df["dem_bins"].apply(lambda x, k=key: _scalar(x, k))
 
