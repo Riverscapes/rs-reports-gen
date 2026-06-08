@@ -1,5 +1,5 @@
 import pint
-import pytest
+
 from util.figures import format_value
 
 ureg = pint.UnitRegistry()

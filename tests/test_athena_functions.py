@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
+
 import geopandas as gpd
 from rsxml import Logger
+
 from util import prepare_gdf_for_athena
 from util.athena import athena_unload_to_dict, run_aoi_athena_query, query_to_dataframe
 

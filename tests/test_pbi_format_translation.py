@@ -7,7 +7,6 @@ import pytest
 
 from util.pbi_format import python_format_to_pbi
 
-
 # ── Mapped formats ──────────────────────────────────────────────────────
 
 
