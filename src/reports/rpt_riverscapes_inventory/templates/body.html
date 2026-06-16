@@ -5,18 +5,23 @@
 {% from 'macros.html' import render_metric_grid %}
 <section>
   <div class="section-context">
-    <p>The riverscapes inventory report provides insight into the current state and health of riverine ecosystems. It
-      pulls together data from a variety of public sources and combines them with the results from several models
-      covering a range of topics from valley bottom identification, beaver restoration and riparian condition. The goal
-      is to provide a broad overview of the riverscape and the landscape context in which it resides.</p>
+    <p>The Riverscapes Inventory Report provides an overview of the extent of riverscapes within 
+      the selected area of interest. The report also presents descriptive information about the riverscapes 
+      (e.g. ownership and flow type), as well as some information on the physiographic setting and 
+      physical characteristics of riverscapes that are important for informing expected form and function 
+      of streams within the area of interest. An overview of the existing resources is an important 
+      first step in assessing opportunities and planning riverscape management and restoration actions.</p>
   </div>
 </section>
 <section id='toc'>
   <h2>Table of Contents</h2>
   <ol class="toc-list">
-    <li><a href="#key-indicators">Key Indicators</a></li>
+    <li><a href="#key-indicators">Key Information</a></li>
     <li><a href="#map-of-polygons">Report Area of Interest</a></li>
-    <li><a href="#hypsometry">Hypsometry</a></li>
+    <li><a href="#descriptive-information">Descriptive Information of Riverscapes</a></li>
+    <li><a href="#physiographic-setting">Physiographic Setting</a></li>
+    <li><a href="#riverscape-controls">Physical Riverscape Setting</a></li>
+
     <li><a href="#ownership-and-flowtypes">Ownership and Flow Types</a></li>
     <li><a href="#flow-types">Flow Types</a></li>
     <li><a href="#stream-names">Stream Names and Lengths</a></li>
@@ -42,12 +47,15 @@
     <li><a href="#appendices">Appendices</a></li>
   </ol>
 </section>
+
 <section id="key-indicators">
-  <h2>Key Indicators</h2>
+  <h2>Key Information</h2>
   {{ render_metric_grid(cards, ['total_segment_area', 'total_centerline_length', 'total_stream_length',
   'integrated_valley_bottom_width']) }}
 </section>
+
 <div class="page-break-before"></div>
+
 <section id="map-of-polygons">
   <h2>Report Area of Interest</h2>
   <div class="section-context">
@@ -58,24 +66,34 @@
     {{ figures['map']|safe }}
   </figure>
 </section>
-<section id="hypsometry">
-  <h2>Hypsometry</h2>
+
+<section id="descriptive-information">
+  <h2>Descriptive Information</h2>
   <div class="section-context">
-    <p>This section provides an overview of the elevation distribution within the entire HUC10 watersheds that contain
-      the selected riverscapes. The hypsometry chart
-      illustrates the relationship between elevation and area, offering insights into the topographical characteristics
-      of the region. The list of watersheds used corresponds to the projects listed in <a href="#Appendix1">Appendix
-        1</a>.</p>
+    <p>This section provides some important descriptive information about the riverscapes within the area of interest, including a 
+      breakdown of ownership of riverscapes, their flow types (e.g., perennial, intermittent), and their names and lengths.
+    </p>
+  </div>
+  <h3>Table of Stream Names and lengths</h3>
+  <div class="section-context">
+    <p>The following table summarizes the riverscapes within the report area by their names and lengths.</p>
   </div>
   <figure class="report-figure">
-    {{ figures['hypsometry']|safe}}
+    {{ tables['river_names']|safe}}
+    <figcaption>{{ messages['river_names-caption']|safe}}</figcaption>
   </figure>
-</section>
-<section id="ownership-and-flowtypes">
-  <h2>Ownership</h2>
+  <h3>Riverscapes by State and County</h3>
   <div class="section-context">
-    <p>This section provides an overview of the ownership of the riverscapes within the area of interest. The dominant
-      ownership category is determined for each riverscape and then summed across the area of interest.</p>
+    <p>The following table summarizes the riverscapes within the report area by their state and county.
+    JUST A PLACEHOLDER FOR NOW.</p>
+  </div>
+  <h3>Ownership</h3>
+  <div class="section-context">
+    <p>This section provides an overview of the ownership of the riverscapes within the area of interest. 
+      Each riverscape segment (DGO) is assigned an ownership category based on which category makes up the largest
+      proportion of the area within the riverscape (i.e., there may be more than one land ownership type present in a 
+      given DGO, but it only gets assigned the category that covers the largest proportion of its area). The total area is
+      then summed up for each distinct onwer type.</p>
   </div>
   <figure class="report-figure">
     {{ figures['owner_bar']|safe }}
@@ -83,12 +101,13 @@
   <figure class="report-figure">
     {{ tables['owners']|safe}}
   </figure>
-</section>
-<section id="flow-types">
-  <h2>Flow Types</h2>
+  <h3>Flow Types</h3>
   <div class="section-context">
-    <p>This section categorizes the river segments based on their flow types, providing insights into the hydrological
-      characteristics of the study area.</p>
+    <p>This section summarizes the areas and lengths of riverscapes within the area that have different flow types. This 
+      provides insight into the proportion of the riverscapes that flow year round (perennial), those that flow seasonally 
+      (intermittent), and those that only flow in response to precipitation events (ephemeral). 'Artifical paths' are a National
+      Hydrography Dataset (NHD) classification for flow lines that cross digitized polygons. These are typically larger rivers, and
+      consequently artificial paths typically represent perennial streams.</p>
   </div>
   <figure class="report-figure">
     {{ figures['pie']|safe }}
@@ -96,14 +115,79 @@
   <figure class="report-figure">
     {{ tables['table_of_fcodes']|safe}}
   </figure>
-</section>
-<section id="stream-names">
-  <h2>Table of Stream Names and lengths</h2>
-  <div class="section-context">The following table summarizes the riverscapes by their names and lengths.</div>
+  <h3>National Inventory of Dams</h3>
+  <div class="section-context">
+    <p>Dams can have a profound effect on the functioning of riverscapes, so information regarding the location and characteristics
+      of dams found on riverscapes in the area of interest is crucial. This report queried the
+      the USACE <a href="https://nid.sec.usace.army.mil/nid/#/">National Inventory of Dams</a> for the Area
+      of Interest, which provided the following information.</p>
+  </div>
+  {{ render_metric_grid(cards, ["total_dams","total_storage"]) }}
+  
   <figure class="report-figure">
-    {{ tables['river_names']|safe}}
-    <figcaption>{{ messages['river_names-caption']|safe}}</figcaption>
+    {% if tables['nid_dams'] %}
+      {{ tables['nid_dams'] |safe}}
+    {% endif %}
+    {% if messages['nid_dams-caption'] %}
+    <figcaption>{{ messages['nid_dams-caption']|safe }}</figcaption>
+    {% endif %}
   </figure>
+  {% if messages['nid_dams_error'] %}
+    <div class="error-message">
+    <p>{{ messages['nid_dams_error'] }}</p>
+  </div>
+  {% endif %}
+  </section>
+
+<section id="physiographic-setting">
+  <h2>Physiographic Setting of Riverscapes</h2>
+  <div class="section-context">
+    <p>This section provides an overview of the physiographic setting of the riverscapes within the area of interest.</p>
+  </div>
+  <h3>Hypsometry</h3>
+  <div class="section-context">
+    <p>Hypsometric curves show the elevation distribution within an area, providing a visual profile of an areas topography.
+      Elevation is an important control on local climate and therefore affects various ecological and hydrological processes. 
+      So, this curve implicitly provides information on the climate for the area, and consequently the hydrology and 
+      vegetation communities that may be present. This curve represents the elevation within the entirety of the HUC10 watersheds 
+      that contain the selected riverscapes (i.e., may extend beyond the area of interest). The list of watersheds 
+      used corresponds to the projects listed in <a href="#Appendix1">Appendix
+        1</a>.</p>
+  </div>
+  <figure class="report-figure">
+    {{ figures['hypsometry']|safe}}
+  </figure>
+  <h3>Geology</h3>
+  <div class="section-context">
+    <p>This section provides an overview of the geological setting of the riverscapes within the area of interest.</p>
+  </div>
+  <h3>Climate</h3>
+  <div class="section-context">
+    <p>This section provides an overview of the climatic setting of the riverscapes within the area of interest.</p>
+  </div>
+  <h4>Precipitation</h4>
+  <h4>Temperature</h4>
+  <img src="https://docs.riverscapes.net/img/logos/logo_climateengine_org.small.min.png" alt="Climate Engine Logo">
+  <h4>Climate Engine Data</h4>
+  <p><a href="https://climateengine.org">Climate Engine</a> provides access to a vast collection of climate and remote 
+    sensing data via an app, three different prepared reports, and an API. The following figures were prepared by querying 
+    the API for the supplied Area of Interest.</p>
+  {% if figures['ce_vegetation_cover_timeseries'] %}
+  <figure class="report-figure">
+    {{ figures['ce_vegetation_cover_timeseries'] | safe }}
+    <figcaption>This information derived from the 30 m annual [RAP cover dataset](https://support.climateengine.org/article/81-rap) for the entire Area of Interest.</figcaption>
+  </figure>
+  {% elif messages['ce_veg_df_error'] %}
+  <div class="error-message">
+    <p>{{ messages['ce_veg_df_error'] }}</p>
+  </div>
+  {% endif %}
+
+  <h3>Ecoregions</h3>
+  <div class="section-context">
+    <p>The variation of climate across landscapes leads to the formation of distinct ecoregions, each characterized by 
+      unique vegetation, soil types, and hydrological patterns.</p>
+  </div>
 </section>
 
 <!-- Condition -->
@@ -181,46 +265,6 @@
     </figure>
 
   </div>
-</section>
-
-
-<section id="nid">
-  <h2>National Inventory of Dams</h2>
-  <div class="section-context">
-    <p>The USACE <a href="https://nid.sec.usace.army.mil/nid/#/">National Inventory of Dams</a> was queried for the Area
-      of Interest with the following results.</p>
-  </div>
-  {{ render_metric_grid(cards, ["total_dams","total_storage"]) }}
-  
-  <figure class="report-figure">
-    {% if tables['nid_dams'] %}
-      {{ tables['nid_dams'] |safe}}
-    {% endif %}
-    {% if messages['nid_dams-caption'] %}
-    <figcaption>{{ messages['nid_dams-caption']|safe }}</figcaption>
-    {% endif %}
-  </figure>
-  {% if messages['nid_dams_error'] %}
-    <div class="error-message">
-    <p>{{ messages['nid_dams_error'] }}</p>
-  </div>
-  {% endif %}
-</section>
-
-<section id="climateengine">
-  <img src="https://docs.riverscapes.net/img/logos/logo_climateengine_org.small.min.png" alt="Climate Engine Logo">
-  <h2>Climate Engine Data</h2>
-  <p><a href="https://climateengine.org">Climate Engine</a> provides access to a vast collection of climate and remote sensing data via an app, three different prepared reports, and an API. The following figures were prepared by querying the API for the supplied Area of Interest.</p>
-  {% if figures['ce_vegetation_cover_timeseries'] %}
-  <figure class="report-figure">
-    {{ figures['ce_vegetation_cover_timeseries'] | safe }}
-    <figcaption>This information derived from the 30 m annual [RAP cover dataset](https://support.climateengine.org/article/81-rap) for the entire Area of Interest.</figcaption>
-  </figure>
-  {% elif messages['ce_veg_df_error'] %}
-  <div class="error-message">
-    <p>{{ messages['ce_veg_df_error'] }}</p>
-  </div>
-  {% endif %}
 </section>
 
 <section id="appendices" class="appendix">
