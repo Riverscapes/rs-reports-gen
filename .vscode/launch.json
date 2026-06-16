@@ -2,6 +2,12 @@
   "version": "0.2.0",
   "inputs": [
     {
+      "id": "reportDir",
+      "type": "promptString",
+      "description": "Path to the report output directory to serve",
+      "default": "${workspaceFolder}/build/outputs"
+    },
+    {
       "id": "environment",
       "type": "pickString",
       "description": "Choose the environment file you want to use",
@@ -21,6 +27,17 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "args": "${command:pickArgs}"
+    },
+    {
+      "name": "🌐 Serve Report Locally",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/serve_report.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "${input:reportDir}"
+      ]
     },
     {
       "name": "📋 Report Launcher",

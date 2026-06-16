@@ -21,6 +21,26 @@ def _write_image_worker(fig_json: str, img_path: Path, q):
         q.put(("err", repr(e)))
 
 
+def _strip_external_map_styles(fig: go.Figure) -> go.Figure:
+    """Replace any external URL map styles with a Kaleido-compatible built-in.
+
+    Kaleido's headless browser cannot load external MapLibre style URLs
+    (e.g. https://tiles.riverscapes.net/mapStyles/topo.json), which causes
+    a 'Map error.' at export time.  Swapping to 'carto-positron' gives a
+    clean, self-contained basemap that Kaleido can render without network
+    access.
+    """
+    fig_dict = fig.to_dict()
+    layout = fig_dict.get("layout", {})
+    # Plotly >=5.18 uses layout.map; older versions use layout.mapbox
+    for key in ("map", "mapbox"):
+        if key in layout:
+            style = layout[key].get("style", "")
+            if isinstance(style, str) and style.startswith("http"):
+                layout[key]["style"] = "carto-positron"
+    return go.Figure(fig_dict)
+
+
 def write_image_with_timeout(fig: go.Figure, img_path: Path, timeout_s: int = 120):
     """
     Write a Plotly image with a hard timeout.
@@ -81,8 +101,11 @@ def export_figure(fig: go.Figure, out_dir: str | Path, name: str, mode: str,
             # mem_mb = process.memory_info().rss / 1024 / 1024
             # log.debug(f"Memory usage before image export: {mem_mb:.2f} MB")
             log.debug(f"Exporting figure to {img_path}")
+            # Strip external map style URLs before handing to Kaleido — it
+            # cannot fetch remote MapLibre styles from its headless browser.
+            export_fig = _strip_external_map_styles(fig)
             # ---- the only behavioral change: enforce timeout cross-platform ----
-            write_image_with_timeout(fig, img_path, timeout_s=120)
+            write_image_with_timeout(export_fig, img_path, timeout_s=120)
             # mem_mb_after = process.memory_info().rss / 1024 / 1024
             # log.debug(f"Memory usage after image export: {mem_mb_after:.2f} MB")
             log.debug(" ...done")
