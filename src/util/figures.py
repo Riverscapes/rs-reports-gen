@@ -632,8 +632,8 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # It's confusing to have units in metadata and in the dataframe that diverge. A diagram of the flow would be helpful.
     RSFieldMeta().add_field_meta(name='total_segment_area', friendly_name='Total Riverscape Area', data_unit='kilometer ** 2', dtype='REAL', description='Sum of the riverscape area for all DGOs captured in the report.')
     RSFieldMeta().add_field_meta(name='total_centerline_length', friendly_name='Total Riverscape Length', data_unit='kilometer', dtype='REAL', description='Sum of the riverscape centerline lengths for all DGOs captured in the report.')
-    RSFieldMeta().add_field_meta(name='total_stream_length', friendly_name='Total Stream Length', data_unit='kilometer', dtype='REAL', description='Total length of all channel flow lines for all DGOs captured in the report.')
-    RSFieldMeta().add_field_meta(name='integrated_valley_bottom_width', friendly_name='Integrated Valley Bottom Width', data_unit='m', dtype='REAL', description='Total riverscape area divided by total riverscape length.')
+    RSFieldMeta().add_field_meta(name='total_stream_length', friendly_name='Total Stream Length', data_unit='kilometer', dtype='REAL', description='Total length of all channel flow lines within all DGOs captured in the report.')
+    RSFieldMeta().add_field_meta(name='integrated_valley_bottom_width', friendly_name='Average Valley Bottom Width', data_unit='m', dtype='REAL', description='Total riverscape area divided by total riverscape length.')
 
     # Compose result dictionary
     # TODO: check. surely we don't want km and yards mixed? what's going on here.
