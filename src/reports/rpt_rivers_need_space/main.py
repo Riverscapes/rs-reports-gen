@@ -30,6 +30,8 @@ from util.figures import (
     metric_cards,
 )
 from reports.rpt_rivers_need_space import __version__ as report_version
+
+_MILES_PER_KM = 0.621371
 from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_rivers_need_space.figures import statistics
 
@@ -61,6 +63,53 @@ def log_unit_status(df, label: str):
         log.info(f"[{label}] Sample value from {pint_cols[0]}: {df[pint_cols[0]].iloc[0]}")
 
 
+def _build_map_legend(gdf: gpd.GeoDataFrame) -> list[tuple[str, str]]:
+    """Build the floating map legend statistics.
+
+    'Rivers that need space' are defined as river segments where floodplain
+    access (fldpln_access) is less than 1.0 — i.e., the river does not have
+    full unimpeded access to its valley bottom.
+
+    Returns a list of (label, formatted_value) pairs for display on the map.
+    """
+    if "stream_length" not in gdf.columns or "fldpln_access" not in gdf.columns:
+        return []
+
+    def _magnitude_km(series):
+        """Return the series values in km, stripping pint if needed."""
+        if hasattr(series, "pint"):
+            # Convert to km regardless of current pint unit
+            return series.pint.to("kilometer").pint.magnitude
+        # Assume raw metres if no pint unit
+        return series / 1000.0
+
+    def _magnitude(series):
+        if hasattr(series, "pint"):
+            return series.pint.magnitude
+        return series
+
+    stream_len_km = _magnitude_km(gdf["stream_length"])
+    fldpln = _magnitude(gdf["fldpln_access"])
+
+    total_km = float(stream_len_km.sum())
+    needs_space_km = float(stream_len_km[fldpln < 1.0].sum())
+    pct = (needs_space_km / total_km * 100) if total_km > 0 else 0.0
+
+    unit_sys = RSFieldMeta().unit_system
+    if unit_sys == "imperial":
+        total_val = f"{total_km * _MILES_PER_KM:,.1f} mi"
+        needs_space_val = f"{needs_space_km * _MILES_PER_KM:,.1f} mi"
+    else:
+        total_val = f"{total_km:,.1f} km"
+        needs_space_val = f"{needs_space_km:,.1f} km"
+
+    return [
+        ("Total river length", total_val),
+        ("Rivers needing space", needs_space_val),
+        ("Needing space", f"{pct:.1f}%"),
+    ]
+
+
 def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame,
                 report_dir: Path, report_name: str,
                 include_static: bool = True,
@@ -79,7 +128,12 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame,
     log = Logger('make report')
 
     figures = {
-        "map": make_map_with_aoi(gdf, aoi_df),
+        "map": make_map_with_aoi(
+            gdf, aoi_df,
+            title=report_name,
+            map_overlay_legend=_build_map_legend(gdf),
+            show_scale_bar=True,
+        ),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),

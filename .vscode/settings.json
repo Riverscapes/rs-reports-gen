@@ -1,4 +1,5 @@
 {
+    "python.terminal.activateEnvironment": false,
     "python.testing.pytestArgs": [
         "tests"
     ],

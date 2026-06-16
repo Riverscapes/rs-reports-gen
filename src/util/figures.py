@@ -26,6 +26,10 @@ from shapely.geometry import MultiPolygon, Polygon
 from util.color import DEFAULT_FCODE_COLOR_MAP
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 
+_RIVERSCAPES_STYLE_URL = "https://tiles.riverscapes.net/mapStyles/topo.json"
+
+_MILES_PER_KM = 0.621371
+
 
 def get_bins_info(key: str):
     """extract data from bins.json"""
@@ -391,6 +395,50 @@ def check_for_pdna(df: pd.DataFrame, label: str):
 # =========================
 
 
+def _build_riverscapes_map_style() -> str:
+    """Return the Riverscapes topo MapLibre GL style URL."""
+    return _RIVERSCAPES_STYLE_URL
+
+
+def _apply_map_overlays(
+    fig: go.Figure,
+    title: str | None,
+    map_overlay_legend: list[tuple[str, str]] | None,
+) -> None:
+    """Apply title and statistics legend annotations to a Plotly map figure in-place."""
+    if title:
+        fig.add_annotation(
+            text=f"<b>{title}</b>",
+            xref="paper", yref="paper",
+            x=0.01, y=0.99,
+            xanchor="left", yanchor="top",
+            showarrow=False,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="rgba(0,0,0,0.3)",
+            borderwidth=1,
+            borderpad=6,
+            font=dict(size=14),
+        )
+    if map_overlay_legend:
+        legend_lines = ["<b>Statistics</b>"]
+        for label, value in map_overlay_legend:
+            legend_lines.append(f"{label}: <b>{value}</b>")
+        legend_text = "<br>".join(legend_lines)
+        fig.add_annotation(
+            text=legend_text,
+            xref="paper", yref="paper",
+            x=0.99, y=0.01,
+            xanchor="right", yanchor="bottom",
+            showarrow=False,
+            bgcolor="rgba(255,255,255,0.85)",
+            bordercolor="rgba(0,0,0,0.3)",
+            borderwidth=1,
+            borderpad=8,
+            font=dict(size=11),
+            align="left",
+        )
+
+
 def get_aoi_outline_trace(aoi_gdf, color='red', width=3, name='AOI'):
     """Return a Plotly Scattermap trace for AOI outline."""
     lons, lats = [], []
@@ -408,13 +456,24 @@ def get_aoi_outline_trace(aoi_gdf, color='red', width=3, name='AOI'):
     return go.Scattermap(lon=lons, lat=lats, mode='lines', line={'color': color, 'width': width}, name=name, showlegend=True)
 
 
-def make_aoi_outline_map(aoi_gdf):
+def make_aoi_outline_map(
+    aoi_gdf,
+    title: str | None = None,
+    map_overlay_legend: list[tuple[str, str]] | None = None,
+    show_scale_bar: bool = True,
+):
     """Create a map with only the AOI outline."""
     trace = get_aoi_outline_trace(aoi_gdf)
     zoom, center = get_zoom_and_center(aoi_gdf, "geometry")
     fig = go.Figure(trace)
-    fig.update_maps(style="open-street-map", center=center, zoom=zoom)
+    fig.update_maps(style=_build_riverscapes_map_style(), center=center, zoom=zoom)
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
+
+    if show_scale_bar:
+        _add_scale_bar(fig, aoi_gdf, unit_system=RSFieldMeta().unit_system)
+
+    _apply_map_overlays(fig, title, map_overlay_legend)
+
     return fig
 
 
@@ -422,6 +481,9 @@ def make_map_with_aoi(
     gdf: gpd.GeoDataFrame,
     aoi_gdf: gpd.GeoDataFrame,
     color_discrete_map: dict[str, str] | None = None,
+    title: str | None = None,
+    map_overlay_legend: list[tuple[str, str]] | None = None,
+    show_scale_bar: bool = True,
 ):
     """make a map with the data and the AOI outlined
 
@@ -460,7 +522,7 @@ def make_map_with_aoi(
     num_polygons = len(plot_gdf)
     if num_polygons > MAX_POLYGONS:
         log.warning(f"Too many polygons ({num_polygons} exceeds {MAX_POLYGONS}); falling back to AOI outline map.")
-        return make_aoi_outline_map(aoi_gdf)
+        return make_aoi_outline_map(aoi_gdf, title=title, map_overlay_legend=map_overlay_legend, show_scale_bar=show_scale_bar)
     # Check GeoJSON size
 
     geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
@@ -468,7 +530,7 @@ def make_map_with_aoi(
 
     if geojson_bytes > MAX_GEOJSON_SIZE:
         log.warning(f"GeoJSON too large ({geojson_bytes} bytes exceeds {MAX_GEOJSON_SIZE}); falling back to AOI outline map.")
-        return make_aoi_outline_map(aoi_gdf)
+        return make_aoi_outline_map(aoi_gdf, title=title, map_overlay_legend=map_overlay_legend, show_scale_bar=show_scale_bar)
 
     # Calculate zoom and center
     # Use AOI for context if available, as it likely bounds the data
@@ -517,15 +579,107 @@ def make_map_with_aoi(
             lats.extend(list(y) + [None])
     fig.add_trace(go.Scattermap(lon=lons, lat=lats, mode='lines', line={'color': 'red', 'width': 3}, name='AOI', showlegend=True))
 
-    fig.update_maps(style="open-street-map")
+    fig.update_maps(style=_build_riverscapes_map_style())
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
+
+    if show_scale_bar:
+        _add_scale_bar(fig, aoi_gdf, unit_system=RSFieldMeta().unit_system)
 
     fig.update_layout(
         legend=dict(
             y=0.95,
         )
     )
+
+    _apply_map_overlays(fig, title, map_overlay_legend)
+
     return fig
+
+
+def _nice_scale_bar_km(span_km: float) -> float:
+    """Return a 'nice' round scale bar length given the map span in km."""
+    targets = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
+    target = span_km / 5  # aim for ~20% of the map width
+    return min(targets, key=lambda t: abs(t - target))
+
+
+def _add_scale_bar(fig: go.Figure, aoi_gdf: gpd.GeoDataFrame, unit_system: str = "SI") -> None:
+    """Add a simple scale bar trace to a Plotly Scattermap/Choroplethmap figure.
+    The bar is placed ~5% from the bottom-left of the AOI extent.
+
+    Args:
+        fig: Plotly figure to modify in-place.
+        aoi_gdf: AOI GeoDataFrame (used to determine map extent and position).
+        unit_system: "SI" (km) or "imperial" (miles).
+    """
+    if aoi_gdf.empty:
+        return
+
+    # Ensure geographic (WGS84) coordinates for degree-based distance math
+    if aoi_gdf.crs is not None and not aoi_gdf.crs.is_geographic:
+        aoi_gdf = aoi_gdf.to_crs("EPSG:4326")
+
+    bounds = aoi_gdf.geometry.total_bounds  # [minx, miny, maxx, maxy]
+    minx, miny, maxx, maxy = bounds
+    lat_center = (miny + maxy) / 2
+
+    # Approximate metres per degree of longitude at this latitude
+    lat_rad = math.radians(lat_center)
+    m_per_deg_lon = 111_320 * math.cos(lat_rad)
+
+    lon_span_km = (maxx - minx) * m_per_deg_lon / 1000
+
+    bar_km = _nice_scale_bar_km(lon_span_km)
+
+    if unit_system == "imperial":
+        bar_miles = bar_km * _MILES_PER_KM
+        # Round to a nice imperial value
+        nice_miles = [0.1, 0.25, 0.5, 1, 2, 5, 10, 25, 50, 100, 250, 500]
+        bar_miles = min(nice_miles, key=lambda m: abs(m - bar_miles))
+        bar_km = bar_miles / _MILES_PER_KM
+        bar_label = f"{bar_miles:g} mi"
+    else:
+        bar_label = f"{bar_km:g} km"
+
+    bar_deg_lon = bar_km * 1000 / m_per_deg_lon
+
+    # Position: 3% from bottom-left corner
+    padding_x = (maxx - minx) * 0.03
+    padding_y = (maxy - miny) * 0.05
+    bar_lon_start = minx + padding_x
+    bar_lat = miny + padding_y
+    bar_lon_end = bar_lon_start + bar_deg_lon
+
+    # Tick height in degrees
+    tick_h = (maxy - miny) * 0.012
+
+    # Build the scale bar as a path: left tick, bottom line, right tick
+    lons = [bar_lon_start, bar_lon_start, bar_lon_end, bar_lon_end]
+    lats = [bar_lat + tick_h, bar_lat, bar_lat, bar_lat + tick_h]
+
+    fig.add_trace(go.Scattermap(
+        lon=lons,
+        lat=lats,
+        mode="lines",
+        line=dict(color="black", width=3),
+        name="Scale Bar",
+        showlegend=False,
+        hoverinfo="skip",
+    ))
+
+    # Label above the midpoint of the bar
+    mid_lon = (bar_lon_start + bar_lon_end) / 2
+    label_lat = bar_lat + tick_h * 2.5
+    fig.add_trace(go.Scattermap(
+        lon=[mid_lon],
+        lat=[label_lat],
+        mode="text",
+        text=[bar_label],
+        textfont=dict(size=11, color="black"),
+        name="Scale Label",
+        showlegend=False,
+        hoverinfo="skip",
+    ))
 
 
 def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[float, dict[str, float]]:
