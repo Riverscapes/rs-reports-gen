@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from jinja2 import Environment, FileSystemLoader
 from rsxml import Logger
 
+from util.maplibre.map_figure import MapLibreMap
 from util.plotly.export_figure import export_figure
 
 
@@ -59,12 +60,12 @@ class RSReport:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         self.figure_dir.mkdir(parents=True, exist_ok=True)
 
-    def add_figure(self, name: str, fig: go.Figure) -> None:
+    def add_figure(self, name: str, fig: go.Figure | MapLibreMap) -> None:
         """Add a Plotly figure to the report.
 
         Args:
             name (str): _description_
-            fig (go.Figure): _description_
+            fig (go.Figure | MapLibreMap): _description_
         """
         self.figures[name] = fig
 
@@ -112,7 +113,7 @@ class RSReport:
             )
             # If the fig_mode is svg we also write a .png file since that's more useful for
             # people making powerpoints etc (but we are still rendering the svg in the PDF and the static HTML page)
-            if fig_mode == 'svg':
+            if fig_mode == 'svg' and not isinstance(fig, MapLibreMap):
                 export_figure(
                     fig,
                     self.figure_dir,
@@ -137,7 +138,10 @@ class RSReport:
                 css += "\n" + open(css_path, "r", encoding="utf-8").read()
             else:
                 log.warning(f"CSS path {css_path} does not exist and will be skipped.")
-        style_tag = f"<style>{css}</style>"
+        maplibre_head = ""
+        if fig_mode == "interactive" and any(isinstance(f, MapLibreMap) for f in self.figures.values()):
+            maplibre_head = MapLibreMap.head_html()
+        style_tag = f"<style>{css}</style>{maplibre_head}"
         now = datetime.now()
 
         # This is what is passed to each template

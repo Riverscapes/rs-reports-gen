@@ -887,18 +887,30 @@ article.report-meta {
   .report-figure {
     width: 100%;
     text-align: center;
-    /* center figure + caption */
+    margin: 0 0 1.5rem;
   }
 
-  .report-figure,
+  /* All figure content fills the full content-column width */
   .report-figure img,
   .report-figure svg {
-    width: 75% !important;
-    max-width: 75% !important;
-    /* limit to 75% of page width */
-    margin: 0 auto;
-    /* center */
+    width: 100% !important;
+    max-width: 100% !important;
     height: auto;
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* Maps get negative margins to bleed to the report-inner edge */
+  .report-figure.map {
+    margin-left: -0.35in;
+    margin-right: -0.35in;
+    width: calc(100% + 0.7in) !important;
+  }
+
+  .report-figure.map img,
+  .report-figure.map svg {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .report-figure figcaption {
