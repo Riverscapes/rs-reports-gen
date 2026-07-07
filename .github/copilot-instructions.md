@@ -8,7 +8,6 @@
 - The codebase is structured for modularity: shared utilities are in `src/util/`, API helpers in `src/api/`, and report-specific code in subfolders of `src/reports/`.
 - The production environment is AWS Fargate (Linux), but developers use both Windows and Mac. Ensure cross-platform compatibility.
 - The web UI for launching reports is maintained in a separate repository: [`rs-reports-monorepo`](https://github.com/Riverscapes/rs-reports-monorepo).
-- New: I want to work towards improving this repo for dual use: not only building static reports (like it is now) but also for exploration with notebooks. So it's important that we build well-documented and reusable logic such as data processing in shared python files.  
 
 ## Key Workflows
 - **Build/Install:** Use Python 3.12. **Always use `uv` for dependency management and installation** (`uv pip install .[dev]`). See `pyproject.toml` for details. Avoid using `pip` directly unless necessary.
@@ -17,7 +16,7 @@
 - **Testing:** Tests are in `tests/` and use `pytest`. Run with `pytest` from the repo root. See more detail below. 
 
 ## Project Conventions
-- always include function and module typestrings. If the function or module is 100% copilot written, say so
+- always include function and module docstrings. For new modules add date created. For new functions and modules that are 100% copilot written add "Created by copilot".
 - **Typing:** Use Python 3.12+ type hints (prefer `str`, `list`, etc. over `typing.List`).
 - Prefer using `Path` from `pathlib` over `os.path` 
 - **Watershed IDs:** HUC codes are left-padded with zeros and indicate nested watershed hierarchy (see `.github/prompts/prompt.md`).
@@ -31,8 +30,10 @@
 - **API/Upload:** Use `src/api/` for S3 and API interactions.
 - **Report Generation:** Each report's `main.py` is the entry point; `launch.py` may provide additional orchestration.
 - **HTML Reports:** Reports are rendered using Jinja2 templates, with figures and tables injected as context variables.
-- **Metadata & Units:** Always propagate metadata and units through all processing steps. Use Pint for all calculations involving units.
+- **Metadata & Units:** Always propagate metadata and units through all processing steps. New and refactored reports should use DataFrame-local metadata payloads (attrs) containing both field metadata and applied units. The philosophy is systems that produce or shape data should also define it. Use Pint for all calculations involving units. see metadata architecture.md
 - **External Services:** AWS Athena, S3, and Fargate are key integration points. Credentials/configuration are expected via environment variables or config files.
+- **Separate concerns**. Getting the data & metadata is one concern. We typically allow this to be cached locally and use cached copy for development & testing but in production it is always live. Additional manipulation of the data is another concern. Preparation of figures is a separate concern. And assembling the report (set of figures) is another. Some reports such as datamart are designed to form basis for exploration with notebooks- those ones should be able to find well-documented functions they can reuse from our `util` library.  
+
 
 ## Examples
 - To generate an IGOs project report:
