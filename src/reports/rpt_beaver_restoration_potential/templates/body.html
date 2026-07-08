@@ -1,0 +1,52 @@
+<!-- Beaver Restoration Potential report body template.
+     Created 2026-07-07.
+     Created by copilot.
+-->
+
+<section>
+  <div class="section-context">
+    <p>
+      This is a scaffold report for Beaver Restoration Potential. It is designed
+      to validate AOI Athena queries, cache-first parquet workflows, and baseline
+      summary outputs while the full report design is still in development.
+    </p>
+  </div>
+</section>
+
+<section id="overview">
+  <h2>Run Context</h2>
+  <dl>
+    <dt>Report Name</dt><dd>{{ context.report_name }}</dd>
+    <dt>AOI Input</dt><dd>{{ context.aoi_input }}</dd>
+    <dt>Rows Retrieved</dt><dd>{{ context.row_count }}</dd>
+    <dt>Distinct Level Paths</dt><dd>{{ context.level_path_count }}</dd>
+    <dt>Distinct HUC10s</dt><dd>{{ context.huc10_count }}</dd>
+    <dt>Report Version</dt><dd>{{ context.report_version }}</dd>
+  </dl>
+</section>
+
+<section id="summary-tables">
+  <h2>Summary Tables</h2>
+  <p>CSV exports of each summary table are available in the data folder.</p>
+
+  <h3>Current BRAT Capacity</h3>
+  {{ summary_tables.capacity|safe }}
+
+  <h3>BRAT Opportunity</h3>
+  {{ summary_tables.opportunity|safe }}
+
+  <h3>BRAT Limitation</h3>
+  {{ summary_tables.limitation|safe }}
+
+  <h3>BRAT Risk</h3>
+  {{ summary_tables.risk|safe }}
+</section>
+
+<section id="figures">
+  <h2>Figures</h2>
+  {% for key, fig_html in figures.items() %}
+  <figure class="report-figure">
+    {{ fig_html|safe }}
+  </figure>
+  {% endfor %}
+</section>
