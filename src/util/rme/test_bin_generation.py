@@ -36,8 +36,7 @@ def main():
     # return
 
     # use real data
-    from util.rme.field_metadata import get_field_metadata
-
+    from util.athena import get_field_metadata
     from util.pandas import load_gdf_from_csv
 
     csv_data_path = r"C:\nardata\pydataroot\rpt-riverscapes-inventory\project_bounds_-_Riverscapes_Inventory\data\data.csv"
@@ -49,7 +48,7 @@ def main():
     run_and_print_bins_continuous_equal_width(sub_gdf, 'riparian_veg_departure', 10, 0)
     df = add_common_rme_cols(sub_gdf, ['riparian_veg_departure_as_departure', 'riparian_veg_departure_bins'])
     printdf(df, "after adding common rme col riparian_veg_departure")
-    print(df['riparian_veg_departure_bin'].value_counts(sort=False))
+    print(df['riparian_veg_departure_bins'].value_counts(sort=False))
 
 
 if __name__ == "__main__":
