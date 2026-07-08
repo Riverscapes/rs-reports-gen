@@ -79,6 +79,13 @@ REPORTS = [
         "expected_files": ["report.html"],
         "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), '30000700002914', "rpt_downstream_geomorphic_test"],
     },
+    {
+        "name": "Beaver Restoration Potential",
+        "module": "reports.rpt_beaver_restoration_potential.main",
+        "example_dir": "src/reports/rpt_beaver_restoration_potential/example",
+        "expected_files": ["report.html", "data/capacity_summary.csv"],
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_beaver_restoration_potential_test"],
+    },
     # Add more reports or configurations as needed
 ]
 
