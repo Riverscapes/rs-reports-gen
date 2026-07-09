@@ -28,7 +28,7 @@ from reports.rpt_beaver_restoration_potential.figures import build_beaver_figure
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata_lakehouse_ref
 from util.html import RSReport
-from util.pandas import RSFieldMeta, load_meta_from_file, save_meta_to_file
+from util.pandas import RSFieldMeta, RSGeoDataFrame, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (
     add_parquet_cli_args,
@@ -76,19 +76,19 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
     field_meta.field_meta = registry_field_meta
     field_meta.unit_system = unit_system
     field_meta.set_display_unit("centerline_length", "kilometer", RPT_RME_LAYER_ID)
+    field_meta.set_display_unit("segment_area", "kilometer ** 2", RPT_RME_LAYER_ID)
 
 
 def _build_report_context(df: pd.DataFrame, report_name: str, path_to_shape: Path) -> dict[str, str | int]:
     """Build template context values for top-level report metadata."""
-    level_path_count = int(df["level_path"].nunique()) if "level_path" in df.columns else 0
-    huc10_count = int(df["huc12"].astype(str).str[:10].nunique()) if "huc12" in df.columns else 0
+    level_path_count = int(df["level_path"].nunique())
+    huc10_count = int(df["huc10"].nunique())
     return {
         "report_name": report_name,
         "aoi_input": str(path_to_shape),
         "row_count": len(df),
         "level_path_count": level_path_count,
         "huc10_count": huc10_count,
-        "report_version": report_version,
     }
 
 
@@ -96,7 +96,16 @@ def _summary_table_to_html(summary_df: pd.DataFrame) -> str:
     """Convert a summary dataframe into an HTML table for Jinja rendering."""
     if summary_df.empty:
         return "<p>No rows were available for this summary.</p>"
-    return summary_df.to_html(index=False, classes="table table-striped", border=0)
+    rs_df = RSGeoDataFrame(summary_df.copy())
+    layer_id = summary_df.attrs.get("layer_id") if hasattr(summary_df, "attrs") else None
+    return rs_df.to_html(
+        index=False,
+        classes="table table-striped",
+        border=0,
+        include_units=True,
+        use_friendly=True,
+        layer_id=layer_id,
+    )
 
 
 def make_report(

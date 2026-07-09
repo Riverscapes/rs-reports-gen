@@ -16,7 +16,8 @@ from util.figures import get_bins_info
 from util.pandas import load_gdf_from_pq
 
 RPT_RME_LAYER_ID = "rpt_beaver_restoration_potential"
-SUMMARY_LAYER_ID = "rpt_beaver_restoration_potential_summary"
+SUMMARY_TOTAL_FIELD = "segment_area"
+SUMMARY_COUNT_FIELD = "segment_count"
 
 BEAVER_FIELDS = (
     "level_path, seg_distance, centerline_length, segment_area, stream_name, stream_order, "
@@ -50,44 +51,53 @@ def load_cached_beaver_data(parquet_path: Path) -> pd.DataFrame:
     return df
 
 
-def _sum_centerline_by_group(df: pd.DataFrame, group_field: str) -> pd.DataFrame:
-    """Aggregate centerline totals and segment count by a categorical group."""
-    if group_field not in df.columns or "centerline_length" not in df.columns:
-        return pd.DataFrame(columns=["group", "total_centerline_length", "segment_count"])
+def _sum_metric_by_group(df: pd.DataFrame, group_field: str, metric_field: str = SUMMARY_TOTAL_FIELD) -> pd.DataFrame:
+    """Aggregate metric totals and segment count by a categorical group."""
+    if group_field not in df.columns or metric_field not in df.columns:
+        return pd.DataFrame(columns=["group", metric_field, SUMMARY_COUNT_FIELD])
 
-    summary_df = df[[group_field, "centerline_length"]].copy()
+    summary_df = df[[group_field, metric_field]].copy()
     summary_df[group_field] = summary_df[group_field].fillna("Unknown").astype(str)
-    if isinstance(summary_df["centerline_length"].dtype, pint_pandas.PintType):
-        summary_df["centerline_length"] = summary_df["centerline_length"].pint.magnitude
-    summary_df["centerline_length"] = pd.to_numeric(summary_df["centerline_length"], errors="coerce").fillna(0)
+    if isinstance(summary_df[metric_field].dtype, pint_pandas.PintType):
+        summary_df[metric_field] = summary_df[metric_field].pint.magnitude
+    summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
 
     summary_df = (
         summary_df.groupby(group_field, as_index=False)
         .agg(
-            total_centerline_length=("centerline_length", "sum"),
-            segment_count=("centerline_length", "size"),
+            **{
+                metric_field: (metric_field, "sum"),
+                SUMMARY_COUNT_FIELD: (metric_field, "size"),
+            }
         )
         .rename(columns={group_field: "group"})
-        .sort_values("total_centerline_length", ascending=False)
+        .sort_values(metric_field, ascending=False)
     )
-    summary_df.attrs["layer_id"] = SUMMARY_LAYER_ID
+    summary_df.attrs["layer_id"] = RPT_RME_LAYER_ID
+    summary_df.attrs["group_field"] = group_field
+    summary_df.attrs["total_field"] = metric_field
     return summary_df
 
 
-def _sum_centerline_by_binned_numeric(df: pd.DataFrame, value_field: str, bin_lookup: str) -> pd.DataFrame:
-    """Aggregate centerline totals by bins.json categories for a numeric field."""
-    if value_field not in df.columns or "centerline_length" not in df.columns:
-        return pd.DataFrame(columns=["group", "total_centerline_length", "segment_count"])
+def _sum_metric_by_binned_numeric(
+    df: pd.DataFrame,
+    value_field: str,
+    bin_lookup: str,
+    metric_field: str = SUMMARY_TOTAL_FIELD,
+) -> pd.DataFrame:
+    """Aggregate metric totals by bins.json categories for a numeric field."""
+    if value_field not in df.columns or metric_field not in df.columns:
+        return pd.DataFrame(columns=["group", metric_field, SUMMARY_COUNT_FIELD])
 
-    summary_df = df[[value_field, "centerline_length"]].copy()
+    summary_df = df[[value_field, metric_field]].copy()
 
     if isinstance(summary_df[value_field].dtype, pint_pandas.PintType):
         summary_df[value_field] = summary_df[value_field].pint.magnitude
-    if isinstance(summary_df["centerline_length"].dtype, pint_pandas.PintType):
-        summary_df["centerline_length"] = summary_df["centerline_length"].pint.magnitude
+    if isinstance(summary_df[metric_field].dtype, pint_pandas.PintType):
+        summary_df[metric_field] = summary_df[metric_field].pint.magnitude
 
     summary_df[value_field] = pd.to_numeric(summary_df[value_field], errors="coerce")
-    summary_df["centerline_length"] = pd.to_numeric(summary_df["centerline_length"], errors="coerce").fillna(0)
+    summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
 
     edges, labels, _colours = get_bins_info(bin_lookup)
     bins = pd.cut(summary_df[value_field], bins=edges, labels=labels, include_lowest=True)
@@ -96,19 +106,25 @@ def _sum_centerline_by_binned_numeric(df: pd.DataFrame, value_field: str, bin_lo
     summary_df = (
         summary_df.groupby("group", as_index=False)
         .agg(
-            total_centerline_length=("centerline_length", "sum"),
-            segment_count=("centerline_length", "size"),
+            **{
+                metric_field: (metric_field, "sum"),
+                SUMMARY_COUNT_FIELD: (metric_field, "size"),
+            }
         )
-        .sort_values("total_centerline_length", ascending=False)
+        .sort_values(metric_field, ascending=False)
     )
-    summary_df.attrs["layer_id"] = SUMMARY_LAYER_ID
+    summary_df.attrs["layer_id"] = RPT_RME_LAYER_ID
+    summary_df.attrs["group_field"] = value_field
+    summary_df.attrs["total_field"] = metric_field
     return summary_df
 
 
 def summarize_beaver_potential(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Create simple summary tables used by the Beaver Restoration Potential stub report."""
     if df.empty:
-        empty = pd.DataFrame(columns=["group", "total_centerline_length", "segment_count"])
+        empty = pd.DataFrame(columns=["group", SUMMARY_TOTAL_FIELD, SUMMARY_COUNT_FIELD])
+        empty.attrs["layer_id"] = RPT_RME_LAYER_ID
+        empty.attrs["total_field"] = SUMMARY_TOTAL_FIELD
         return {
             "capacity": empty.copy(),
             "opportunity": empty.copy(),
@@ -117,8 +133,8 @@ def summarize_beaver_potential(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         }
 
     return {
-        "capacity": _sum_centerline_by_binned_numeric(df, "brat_capacity", "brat_capacity"),
-        "opportunity": _sum_centerline_by_group(df, "brat_opportunity"),
-        "limitation": _sum_centerline_by_group(df, "brat_limitation"),
-        "risk": _sum_centerline_by_group(df, "brat_risk"),
+        "capacity": _sum_metric_by_binned_numeric(df, "brat_capacity", "brat_capacity"),
+        "opportunity": _sum_metric_by_group(df, "brat_opportunity"),
+        "limitation": _sum_metric_by_group(df, "brat_limitation"),
+        "risk": _sum_metric_by_group(df, "brat_risk"),
     }
