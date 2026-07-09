@@ -58,9 +58,11 @@ def _sum_metric_by_group(df: pd.DataFrame, group_field: str, metric_field: str =
 
     summary_df = df[[group_field, metric_field]].copy()
     summary_df[group_field] = summary_df[group_field].fillna("Unknown").astype(str)
-    if isinstance(summary_df[metric_field].dtype, pint_pandas.PintType):
-        summary_df[metric_field] = summary_df[metric_field].pint.magnitude
-    summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
+    metric_is_pint = isinstance(summary_df[metric_field].dtype, pint_pandas.PintType)
+    if metric_is_pint:
+        summary_df = summary_df[summary_df[metric_field].notna()]
+    else:
+        summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
 
     summary_df = (
         summary_df.groupby(group_field, as_index=False)
@@ -93,11 +95,13 @@ def _sum_metric_by_binned_numeric(
 
     if isinstance(summary_df[value_field].dtype, pint_pandas.PintType):
         summary_df[value_field] = summary_df[value_field].pint.magnitude
-    if isinstance(summary_df[metric_field].dtype, pint_pandas.PintType):
-        summary_df[metric_field] = summary_df[metric_field].pint.magnitude
 
     summary_df[value_field] = pd.to_numeric(summary_df[value_field], errors="coerce")
-    summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
+    metric_is_pint = isinstance(summary_df[metric_field].dtype, pint_pandas.PintType)
+    if metric_is_pint:
+        summary_df = summary_df[summary_df[metric_field].notna()]
+    else:
+        summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
 
     edges, labels, _colours = get_bins_info(bin_lookup)
     bins = pd.cut(summary_df[value_field], bins=edges, labels=labels, include_lowest=True)
