@@ -11,7 +11,6 @@ FUTURE ENHANCEMENTs:
 
 import json
 import math
-import os
 from collections.abc import Sequence
 
 import geopandas as gpd
@@ -23,21 +22,18 @@ import plotly.graph_objects as go
 from rsxml import Logger
 from shapely.geometry import MultiPolygon, Polygon
 
+from util.binning import get_bins_info as _get_bins_info
 from util.color import DEFAULT_FCODE_COLOR_MAP
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 
 
 def get_bins_info(key: str):
-    """extract data from bins.json"""
-    bins_path = os.path.join(os.path.dirname(__file__), "bins.json")
-    with open(bins_path, encoding="utf-8") as f:
-        bins_dict = json.load(f)
-    info = bins_dict[key]
-    edges = info["edges"]
-    legend = info["legend"]
-    labels = [item[1] for item in legend]
-    colours = [item[0] for item in legend]
-    return edges, labels, colours
+    """Backward-compatible wrapper for shared bin lookup.
+
+    New code should import get_bins_info from util.binning directly so data
+    prep modules do not depend on figure utilities.
+    """
+    return _get_bins_info(key)
 
 
 def format_value(value, decimals: int = 0) -> str:
@@ -91,6 +87,8 @@ def bar_total_x_by_ybins(
     * separate the dataframe generation from plotting - we might want a table as well
     * there's also lots of repetition with regular bar chart - mainly the colors are diff
     """
+    # Legacy chart helper retained for compatibility across existing reports.
+    # New report code should prefer: summary helper(s) -> bar_from_summary().
     fields: list = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     edges, labels, colours = get_bins_info(group_by_cols[0])
@@ -175,6 +173,8 @@ def horizontal_bar_chart(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     * separate the dataframe generation from plotting - we might want a table as well
     * there's also lots of repetition with regular bar chart - mainly the colors are diff
     """
+    # Legacy chart helper retained for compatibility across existing reports.
+    # New report code should prefer: summary helper(s) -> bar_from_summary().
     fields: list[str] = group_by_cols + [total_col]
     chart_subset_df = df[fields].copy()
     edges, labels, colours = get_bins_info(group_by_cols[0])
@@ -368,6 +368,87 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     bar_fig.update_xaxes(tickformat=",")
     return bar_fig
+
+
+def bar_from_summary(
+    summary_df: pd.DataFrame,
+    *,
+    total_col: str | None = None,
+    group_col: str = "group",
+    count_col: str | None = "segment_count",
+    fallback_group_field: str | None = None,
+    title: str | None = None,
+    show_legend: bool = False,
+    height: int = 420,
+) -> go.Figure:
+    """Build a bar chart from an already-aggregated summary table.
+
+    Created 2026-07-09.
+    Created by copilot.
+    """
+    meta = RSFieldMeta()
+
+    layer_id = summary_df.attrs.get("layer_id") if hasattr(summary_df, "attrs") else None
+    resolved_total_col = total_col or (summary_df.attrs.get("total_field") if hasattr(summary_df, "attrs") else None)
+    resolved_total_col = resolved_total_col or "segment_area"
+
+    resolved_group_field = fallback_group_field
+    if hasattr(summary_df, "attrs"):
+        resolved_group_field = summary_df.attrs.get("group_field", resolved_group_field)
+    resolved_group_field = resolved_group_field or group_col
+
+    total_label = meta.get_headers_dict(pd.DataFrame(columns=[resolved_total_col]), layer_id=layer_id).get(
+        resolved_total_col,
+        meta.get_friendly_name(resolved_total_col, layer_id=layer_id),
+    )
+    group_label = meta.get_friendly_name(resolved_group_field, layer_id=layer_id)
+    resolved_title = title or f"Total {total_label} by {group_label}"
+
+    if summary_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            text="No rows available for this chart.",
+            showarrow=False,
+        )
+        fig.update_layout(
+            title=resolved_title,
+            height=max(360, height - 40),
+            xaxis_visible=False,
+            yaxis_visible=False,
+        )
+        return fig
+
+    baked_summary_df, _ = meta.bake_units(summary_df.copy())
+    label_lookup = meta.get_headers_dict(summary_df, layer_id=layer_id)
+
+    fig = px.bar(
+        baked_summary_df,
+        x=group_col,
+        y=resolved_total_col,
+        color=group_col,
+        hover_data=[count_col] if count_col and count_col in baked_summary_df.columns else None,
+        labels=label_lookup,
+    )
+
+    group_order = None
+    if hasattr(summary_df, "attrs"):
+        group_order = summary_df.attrs.get("group_order")
+    if group_order is None:
+        group_order = baked_summary_df[group_col].dropna().astype(str).unique().tolist()
+
+    fig.update_layout(
+        title=resolved_title,
+        height=height,
+        showlegend=show_legend,
+        xaxis_title=group_label,
+        yaxis_title=total_label,
+    )
+    fig.update_xaxes(categoryorder="array", categoryarray=list(group_order))
+    return fig
 
 
 def check_for_pdna(df: pd.DataFrame, label: str):
