@@ -123,3 +123,43 @@ def test_bbox_values_cover_polygon():
     assert "-105" in result
     assert "31" in result
     assert "33" in result
+
+
+def test_prefilter_uses_flat_bbox_columns():
+    """When geom_bbox_columns are provided, prefilter should use flat column names."""
+    query = "SELECT * FROM input_geom, t WHERE {prefilter_condition} AND {intersects_condition}"
+    result = prepare_aoi_query(
+        query,
+        "geom",
+        None,
+        _simple_gdf(),
+        geom_bbox_columns=("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax"),
+    )
+
+    assert "bbox_xmax" in result
+    assert "bbox_xmin" in result
+    assert "bbox_ymax" in result
+    assert "bbox_ymin" in result
+
+
+def test_prefilter_defaults_to_canonical_flat_bbox_columns_when_inputs_missing():
+    """When bbox inputs are omitted, canonical Iceberg bbox columns are assumed."""
+    query = "SELECT * FROM input_geom, t WHERE {prefilter_condition} AND {intersects_condition}"
+    result = prepare_aoi_query(query, "geom", None, _simple_gdf())
+
+    assert "bbox_xmax" in result
+    assert "bbox_xmin" in result
+    assert "bbox_ymax" in result
+    assert "bbox_ymin" in result
+
+
+def test_prefilter_raises_when_bbox_columns_wrong_length():
+    """Flat bbox tuple must contain exactly four column names."""
+    query = "SELECT * FROM input_geom, t WHERE {prefilter_condition} AND {intersects_condition}"
+
+    try:
+        prepare_aoi_query(query, "geom", None, _simple_gdf(), geom_bbox_columns=("xmin", "xmax", "ymin"))
+    except ValueError as err:
+        assert "geom_bbox_columns must contain exactly four items" in str(err)
+    else:
+        assert False, "Expected ValueError for invalid geom_bbox_columns length"
