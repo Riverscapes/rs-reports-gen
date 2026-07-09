@@ -124,6 +124,7 @@ BUFFER_CENTROID_TO_BB_DD = 0.47  # DEPRECATED - USE BOUNDING BOX STRUCT instead
 S3_ATHENA_BUCKET = "riverscapes-athena-output"
 ATHENA_WORKGROUP = "primary"
 AWS_REGION = "us-west-2"
+DEFAULT_FLAT_BBOX_COLUMNS = ("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax")
 
 # ===== Local Helpers =====
 
@@ -155,7 +156,14 @@ def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) ->
     return f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))"
 
 
-def prepare_aoi_query(querystr: str, geom_field_expression: str, geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> str:
+def prepare_aoi_query(
+    querystr: str,
+    geom_field_expression: str,
+    geom_bbox_field: str | None,
+    aoi_gdf: gpd.GeoDataFrame,
+    *,
+    geom_bbox_columns: tuple[str, str, str, str] | None = None,
+) -> str:
     """Build a complete, ready-to-execute Athena SQL string from a spatial query template.
 
     Prepends a CTE that defines the AOI geometry once::
@@ -198,9 +206,12 @@ def prepare_aoi_query(querystr: str, geom_field_expression: str, geom_bbox_field
             first argument to ``ST_Intersects``.
         geom_bbox_field: Name of the Athena struct field holding the row's
             bounding box (with ``.xmin``, ``.xmax``, ``.ymin``, ``.ymax`` sub-fields),
-            e.g. ``'dgo_geom_bbox'``.
+            e.g. ``'dgo_geom_bbox'``. Can be ``None`` when ``geom_bbox_columns`` is provided.
         aoi_gdf: GeoDataFrame representing the Area of Interest.  All geometries
             are unioned and converted to WKB hex.
+        geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
+            order ``(xmin, ymin, xmax, ymax)``. Use this for Iceberg-style schemas
+            with separate numeric columns.
 
     Returns:
         str: Complete SQL string ready to pass to ``query_to_dataframe`` or
@@ -211,7 +222,7 @@ def prepare_aoi_query(querystr: str, geom_field_expression: str, geom_bbox_field
             applied) would push the query over Athena's 262,144-byte limit.
     """
     log = Logger("Prepare AOI Query")
-    prefilter_condition = generate_sql_bbox_where_condition_for_bounds(aoi_gdf, geom_bbox_field)
+    prefilter_condition = _resolve_bbox_condition(aoi_gdf, geom_bbox_field, geom_bbox_columns)
 
     # Size budget: the AOI hex appears exactly once (in the CTE).
     cte_wrapper = "WITH input_geom AS (SELECT  AS geom) "  # 46 chars of overhead
@@ -254,6 +265,34 @@ def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
 
 
 # ===== New Public API (uses awswrangler) =====
+
+
+def get_field_metadata_lakehouse_ref(lakehouse_ref: str | Sequence[str]) -> pd.DataFrame:
+    """Fetch field metadata records from new (July 2026) source keyed on lakehouse reference (ie database.table/view name)
+
+    lakehouse_ref: single value or sequence of values to filter on
+
+    Returns metadata rows satisfying the provided filter.
+    """
+    log = Logger('Get lakehouse metadata')
+    log.info("Getting metadata from Athena")
+    lakehouse_ref_clause = _normalize_to_sql_list(lakehouse_ref)
+
+    if lakehouse_ref_clause:
+        where_lakehouse = f'lakehouse_ref in ({lakehouse_ref_clause})'
+    else:
+        log.warning("Wildcard query for metadata permitted but not recommended.")
+        where_lakehouse = "1=1"
+
+    query = f"""
+SELECT lakehouse_ref, layer_id, layer_name, column_name as name, friendly_name, data_unit, description, theme, dtype, preferred_format
+FROM default.lakehouse_resolved_column_catalog
+WHERE {where_lakehouse}
+"""
+    df = query_to_dataframe(query, "layer_definitions")
+    if df.empty:
+        raise RuntimeError("Failed to retrieve metadata from Athena.")
+    return df
 
 
 def get_field_metadata(authority: str | Sequence[str] = 'data-exchange-scripts', tool_schema_name: str | Sequence[str] = 'rscontext_to_athena', layer_id: str | Sequence[str] = '*', column_names: str | Sequence[str] = '*') -> pd.DataFrame:
@@ -397,7 +436,14 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
         return pd.DataFrame()  # Return empty DataFrame for downstream code
 
 
-def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str, geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
+def aoi_query_to_dataframe(
+    querystr: str,
+    geometry_field_expression: str,
+    geom_bbox_field: str | None,
+    aoi_gdf: gpd.GeoDataFrame,
+    *,
+    geom_bbox_columns: tuple[str, str, str, str] | None = None,
+) -> pd.DataFrame:
     """Execute a spatial AOI query against Athena and return the results as a DataFrame.
 
     Delegates spatial condition injection to ``prepare_aoi_query`` (see that function's
@@ -424,14 +470,23 @@ def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str, geom_b
         geometry_field_expression: SQL expression evaluating to a geometry for each data
             row, e.g. ``'ST_GeomFromBinary(dgo_geom)'``.
         geom_bbox_field: Name of the bounding-box struct field used for the pre-filter,
-            e.g. ``'dgo_geom_bbox'``.
+            e.g. ``'dgo_geom_bbox'``. Can be ``None`` when ``geom_bbox_columns`` is
+            provided.
         aoi_gdf: GeoDataFrame representing the Area of Interest.
+        geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
+            order ``(xmin, ymin, xmax, ymax)``. If not provided, defaults bbox_xmin etc are assumed.
 
     Returns:
         pandas.DataFrame: Query results.  Returns an empty DataFrame if the query
         fails or returns no rows.
     """
-    prepared_query = prepare_aoi_query(querystr, geometry_field_expression, geom_bbox_field, aoi_gdf)
+    prepared_query = prepare_aoi_query(
+        querystr,
+        geometry_field_expression,
+        geom_bbox_field,
+        aoi_gdf,
+        geom_bbox_columns=geom_bbox_columns,
+    )
     df = query_to_dataframe(prepared_query, 'aoi_query')
     return df
 
@@ -439,9 +494,11 @@ def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str, geom_b
 def aoi_query_to_local_parquet(
     querystr: str,
     geometry_field_expression: str,
-    geom_bbox_field: str,
+    geom_bbox_field: str | None,
     aoi_gdf: gpd.GeoDataFrame,
     local_path: Path,
+    *,
+    geom_bbox_columns: tuple[str, str, str, str] | None = None,
 ) -> None:
     """Execute a spatial AOI query against Athena and save the results as Parquet files locally.
 
@@ -484,15 +541,24 @@ def aoi_query_to_local_parquet(
             e.g. ``'ST_GeomFromBinary(dgo_geom)'``.
         geom_bbox_field: Name of the Athena struct field holding the row's bounding box
             (sub-fields: ``.xmin``, ``.xmax``, ``.ymin``, ``.ymax``),
-            e.g. ``'dgo_geom_bbox'``.
+            e.g. ``'dgo_geom_bbox'``. Can be ``None`` when ``geom_bbox_columns`` is
+            provided.
         aoi_gdf: GeoDataFrame representing the Area of Interest.  All geometries are
             unioned before being embedded in the CTE.
         local_path: Directory where the resulting Parquet file(s) will be saved.
             Created automatically if it does not exist.
+        geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
+            order ``(xmin, ymin, xmax, ymax)``.
     """
     log = Logger("AOI Query to Local PQ")
 
-    fullquerystr = prepare_aoi_query(querystr, geometry_field_expression, geom_bbox_field, aoi_gdf)
+    fullquerystr = prepare_aoi_query(
+        querystr,
+        geometry_field_expression,
+        geom_bbox_field,
+        aoi_gdf,
+        geom_bbox_columns=geom_bbox_columns,
+    )
 
     # 4. Execute the unload to local Parquet files
     query_to_local_parquet(fullquerystr, local_path)
@@ -838,6 +904,50 @@ def generate_sql_bbox_where_condition_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox
     maxy = round_up(float(maxy), 6)
     bounds_expression = f"{bbox_fld_nm}.xmax >= {minx} AND {bbox_fld_nm}.xmin <= {maxx} AND {bbox_fld_nm}.ymax >= {miny} AND {bbox_fld_nm}.ymin <= {maxy}"
     return bounds_expression
+
+
+def generate_sql_bbox_where_condition_for_bounds_columns(
+    aoi_gdf: gpd.GeoDataFrame,
+    xmin_col: str,
+    ymin_col: str,
+    xmax_col: str,
+    ymax_col: str,
+) -> str:
+    """Return SQL expression for AOI overlap against flat bbox columns.
+
+    Created by copilot.
+    """
+    minx, miny, maxx, maxy = aoi_gdf.total_bounds
+    minx = round_down(float(minx), 6)
+    miny = round_down(float(miny), 6)
+    maxx = round_up(float(maxx), 6)
+    maxy = round_up(float(maxy), 6)
+    bounds_expression = f"{xmax_col} >= {minx} AND {xmin_col} <= {maxx} AND {ymax_col} >= {miny} AND {ymin_col} <= {maxy}"
+    return bounds_expression
+
+
+def _resolve_bbox_condition(
+    aoi_gdf: gpd.GeoDataFrame,
+    geom_bbox_field: str | None,
+    geom_bbox_columns: tuple[str, str, str, str] | None,
+) -> str:
+    """Resolve the AOI bbox prefilter expression for struct or flat-column schemas.
+
+    Created by copilot.
+    """
+    if geom_bbox_columns is not None:
+        if len(geom_bbox_columns) != 4:
+            raise ValueError("geom_bbox_columns must contain exactly four items: (xmin, ymin, xmax, ymax)")
+        xmin_col, ymin_col, xmax_col, ymax_col = geom_bbox_columns
+        if not all([xmin_col, xmax_col, ymin_col, ymax_col]):
+            raise ValueError("geom_bbox_columns entries must be non-empty strings")
+        return generate_sql_bbox_where_condition_for_bounds_columns(aoi_gdf, xmin_col, ymin_col, xmax_col, ymax_col)
+
+    if not geom_bbox_field:
+        xmin_col, ymin_col, xmax_col, ymax_col = DEFAULT_FLAT_BBOX_COLUMNS
+        return generate_sql_bbox_where_condition_for_bounds_columns(aoi_gdf, xmin_col, ymin_col, xmax_col, ymax_col)
+
+    return generate_sql_bbox_where_condition_for_bounds(aoi_gdf, geom_bbox_field)
 
 
 def run_aoi_athena_query(
