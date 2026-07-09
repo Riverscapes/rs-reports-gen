@@ -1,35 +1,42 @@
 """Watershed Summary Report main entry point"""
+
 import argparse
 import logging
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+
 # 3rd party imports
 import pandas as pd
 import plotly.graph_objects as go
+
 # rsxml imports
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
+
 # Repo imports
 from util.athena import query_to_dataframe, get_field_metadata
 from util.figures import metric_cards
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
+
 # Report type imports
 from reports.rpt_watershed_summary import __version__ as report_version
 from reports.rpt_watershed_summary.figures import (
     waterbody_summary_table,
     ownership_summary_table,
     hydrography_table,
-    statistics
+    statistics,
 )
 
 
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     _FIELD_META = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    _FIELD_META.field_meta = get_field_metadata(tool_schema_name=['rscontext_to_athena', 'rpt_rme'],
-                                                layer_id=['rs_context_huc10', 'rpt_rme'])  # Set the field metadata for the report
+    _FIELD_META.field_meta = get_field_metadata(
+        tool_schema_name=["rscontext_to_athena", "rpt_rme"],
+        layer_id=["rs_context_huc10", "rpt_rme"],
+    )  # Set the field metadata for the report
     _FIELD_META.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
@@ -39,11 +46,16 @@ def define_fields(unit_system: str = "SI"):
     return
 
 
-def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, states_df: pd.DataFrame,
-                report_dir: Path, report_name: str,
-                include_static: bool = True,
-                include_pdf: bool = True,
-                error_message: str | None = None):
+def make_report(
+    aggregate_data_df: pd.DataFrame,
+    ownership_df: pd.DataFrame,
+    states_df: pd.DataFrame,
+    report_dir: Path,
+    report_name: str,
+    include_static: bool = True,
+    include_pdf: bool = True,
+    error_message: str | None = None,
+):
     """
     Generates HTML report(s) in report_dir.
     Args:
@@ -54,7 +66,7 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
         error_message: display to user *instead* of any figures
     """
-    log = Logger('make report')
+    log = Logger("make report")
 
     figures: dict[str, go.Figure] = {}
     tables: dict[str, str] = {}
@@ -70,22 +82,22 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
         report_name=report_name,
         report_type="Watershed Summary",
         report_dir=report_dir,
-        figure_dir=report_dir / 'figures',
+        figure_dir=report_dir / "figures",
         report_version=report_version,
-        body_template_path=Path(__file__).parent / 'templates' / 'body.html',
-        css_paths=[Path(__file__).parent / 'templates' / 'report.css']
+        body_template_path=Path(__file__).parent / "templates" / "body.html",
+        css_paths=[Path(__file__).parent / "templates" / "report.css"],
     )
-    for (name, fig) in figures.items():
+    for name, fig in figures.items():
         report.add_figure(name, fig)
 
     if error_message:
-        report.add_html_elements('error_message', {'text': error_message})
+        report.add_html_elements("error_message", {"text": error_message})
 
     else:
-        report.add_html_elements('tables', tables)
-        report.add_html_elements('states', states_df['state_name'].tolist())
+        report.add_html_elements("tables", tables)
+        report.add_html_elements("states", states_df["state_name"].tolist())
         cards = metric_cards(statistics(aggregate_data_df))
-        report.add_html_elements('cards', cards)
+        report.add_html_elements("cards", cards)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -94,14 +106,14 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
         static_path = report.render(fig_mode="svg", suffix="_static")
         if include_pdf:
             pdf_path = make_pdf_from_html(static_path)
-            log.info(f'PDF report built from static at {pdf_path}')
+            log.info(f"PDF report built from static at {pdf_path}")
 
-    log.title('Report Generation Complete')
-    log.info(f'Interactive: {interactive_path}')
+    log.title("Report Generation Complete")
+    log.info(f"Interactive: {interactive_path}")
     if static_path:
-        log.info(f'Static: {static_path}')
+        log.info(f"Static: {static_path}")
     if pdf_path:
-        log.info(f'PDF: {pdf_path}')
+        log.info(f"PDF: {pdf_path}")
 
 
 def get_ownership_data(huc_condition: str) -> pd.DataFrame:
@@ -119,10 +131,12 @@ ORDER BY lu_blm_o.edomvd
     df = query_to_dataframe(query_str, "ownership")
     # TODO - Units for data in athena should be defined in athena, not here
     meta = RSFieldMeta()
-    meta.add_field_meta(name='sum_ownership_area',
-                        friendly_name='Total Area',
-                        data_unit='m**2',
-                        display_unit='kilometer ** 2')
+    meta.add_field_meta(
+        name="sum_ownership_area",
+        friendly_name="Total Area",
+        data_unit="m**2",
+        display_unit="kilometer ** 2",
+    )
     return df
 
 
@@ -156,7 +170,7 @@ def add_agg_field_meta(fields, agg_type: str):
             "min": "Minimum",
             "max": "Maximum",
             "count": "Count",
-            "countdistinct": "Count distinct"
+            "countdistinct": "Count distinct",
         }.get(agg_type, agg_type.title())
 
         if orig_meta:
@@ -166,76 +180,78 @@ def add_agg_field_meta(fields, agg_type: str):
         else:
             friendly_name = f"{friendly_prefix} {orig_fld_nm.replace('_', ' ').title()}"
             data_unit = None
-            dtype = 'REAL'  # could be int or something else but seems like a safe guess
+            dtype = "REAL"  # could be int or something else but seems like a safe guess
         # Special case: count fields should always have unit 'count' & data type int
-        if agg_type in ('count', 'countdistinct'):
+        if agg_type in ("count", "countdistinct"):
             data_unit = "count"
-            dtype = 'INT'
+            dtype = "INT"
 
         meta.add_field_meta(
             name=agg_col,
-            layer_id='rs_context_huc10',
+            layer_id="rs_context_huc10",
             data_unit=data_unit,
             dtype=dtype,
-            friendly_name=friendly_name
+            friendly_name=friendly_name,
         )
 
 
 def get_aggregated_data(huc_condition: str) -> pd.DataFrame:
-    """get all summary data: flowline, waterbody, dem, slope, etc """
+    """get all summary data: flowline, waterbody, dem, slope, etc"""
     log = Logger("Get aggregated data")
     sum_fields = [
-        'hucareasqkm',
-        'flowlineLengthPerennialKm',
-        'flowlineLengthIntermittentKm',
-        'flowlineLengthEphemeralKm',
-        'flowlineLengthCanalsKm',
-        'flowlineLengthAllKm',
-        'flowlineFeatureCount',
-        'waterbodyAreaSqKm',
-        'waterbodyFeatureCount',
-        'waterbodyLakesPondsAreaSqKm',
-        'waterbodyLakesPondsFeatureCount',
-        'waterbodyReservoirAreaSqKm',
-        'waterbodyReservoirFeatureCount',
-        'waterbodyEstuariesAreaSqKm',
-        'waterbodyEstuariesFeatureCount',
-        'waterbodyPlayaAreaSqKm',
-        'waterbodyPlayaFeatureCount',
-        'waterbodySwampMarshAreaSqKm',
-        'waterbodySwampMarshFeatureCount',
-        'waterbodyIceSnowAreaSqKm',
-        'waterbodyIceSnowFeatureCount',
-        'demsum',
-        'demcount',
-        'slopesum',
-        'slopecount',
-        'precipsum',
-        'precipcount',
-        'catchmentlength',
-        'catchmentarea',
+        "hucareasqkm",
+        "flowlineLengthPerennialKm",
+        "flowlineLengthIntermittentKm",
+        "flowlineLengthEphemeralKm",
+        "flowlineLengthCanalsKm",
+        "flowlineLengthAllKm",
+        "flowlineFeatureCount",
+        "waterbodyAreaSqKm",
+        "waterbodyFeatureCount",
+        "waterbodyLakesPondsAreaSqKm",
+        "waterbodyLakesPondsFeatureCount",
+        "waterbodyReservoirAreaSqKm",
+        "waterbodyReservoirFeatureCount",
+        "waterbodyEstuariesAreaSqKm",
+        "waterbodyEstuariesFeatureCount",
+        "waterbodyPlayaAreaSqKm",
+        "waterbodyPlayaFeatureCount",
+        "waterbodySwampMarshAreaSqKm",
+        "waterbodySwampMarshFeatureCount",
+        "waterbodyIceSnowAreaSqKm",
+        "waterbodyIceSnowFeatureCount",
+        "demsum",
+        "demcount",
+        "slopesum",
+        "slopecount",
+        "precipsum",
+        "precipcount",
+        "catchmentlength",
+        "catchmentarea",
     ]
     min_fields = [
-        'demminimum',
-        'slopeminimum',
-        'precipminimum',
-        'circularityRatio',
-        'elongationRatio',
-        'formFactor',
+        "demminimum",
+        "slopeminimum",
+        "precipminimum",
+        "circularityRatio",
+        "elongationRatio",
+        "formFactor",
     ]
     max_fields = [
-        'demmaximum',
-        'slopemaximum',
-        'precipmaximum',
+        "demmaximum",
+        "slopemaximum",
+        "precipmaximum",
     ]
     countdistinct_fields = [
-        'huc',
+        "huc",
     ]
     # NAMING CONVENTION
-    sum_expression = ','.join([f"SUM({f}) AS sum_{f}" for f in sum_fields])
-    min_expression = ','.join([f"MIN({f}) AS min_{f}" for f in min_fields])
-    max_expression = ','.join([f"MAX({f}) AS max_{f}" for f in max_fields])
-    countdistinct_expression = ','.join([f"COUNT(DISTINCT {f}) AS countdistinct_{f}" for f in countdistinct_fields])
+    sum_expression = ",".join([f"SUM({f}) AS sum_{f}" for f in sum_fields])
+    min_expression = ",".join([f"MIN({f}) AS min_{f}" for f in min_fields])
+    max_expression = ",".join([f"MAX({f}) AS max_{f}" for f in max_fields])
+    countdistinct_expression = ",".join(
+        [f"COUNT(DISTINCT {f}) AS countdistinct_{f}" for f in countdistinct_fields]
+    )
     query_str = f"""
 SELECT {sum_expression}, {min_expression}, {max_expression}, {countdistinct_expression}
 FROM rs_context_huc10
@@ -243,8 +259,10 @@ WHERE {huc_condition}
 """
     df = query_to_dataframe(query_str, "aggregates")
 
-    if df.dropna(how="all").empty or df['countdistinct_huc'].iloc[0] == 0:
-        log.error(f"No results returned for the query (ie nothing matching {huc_condition})")
+    if df.dropna(how="all").empty or df["countdistinct_huc"].iloc[0] == 0:
+        log.error(
+            f"No results returned for the query (ie nothing matching {huc_condition})"
+        )
         # short-circuit report generation
         return pd.DataFrame()  # an empty DataFrame
 
@@ -257,17 +275,22 @@ WHERE {huc_condition}
     return df
 
 
-def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
-                             include_pdf: bool = True, unit_system: str = "SI"):
+def make_report_orchestrator(
+    report_name: str,
+    report_dir: Path,
+    hucs: str,
+    include_pdf: bool = True,
+    unit_system: str = "SI",
+):
     """Orcestratest the report generation process:
     * get the data
     * make the report
 
     """
-    log = Logger('Make report orchestrator')
+    log = Logger("Make report orchestrator")
     log.info("Report orchestration begun")
     meta = RSFieldMeta()
-    huc_condition = parse_hucs(hucs, 'huc', 10)
+    huc_condition = parse_hucs(hucs, "huc", 10)
     log.debug(f"huc condition: {huc_condition}")
 
     define_fields(unit_system)
@@ -275,9 +298,16 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
 
     if df_aggregatedata.empty:
         # we send 3 empty dataframes and error_message
-        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name,
-                    include_pdf, include_pdf,
-                    error_message="No results found for selection.")
+        make_report(
+            df_aggregatedata,
+            df_aggregatedata,
+            df_aggregatedata,
+            report_dir,
+            report_name,
+            include_pdf,
+            include_pdf,
+            error_message="No results found for selection.",
+        )
     else:
         # although it doesn't make much difference with these quick queries, parallelizing is good practice
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -289,14 +319,21 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str,
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
         df_owners, _ = meta.apply_units(df_owners)
 
-        make_report(df_aggregatedata, df_owners, df_states, report_dir, report_name,
-                    include_pdf, include_pdf)
-        safe_makedirs(str(report_dir / 'data'))
+        make_report(
+            df_aggregatedata,
+            df_owners,
+            df_states,
+            report_dir,
+            report_name,
+            include_pdf,
+            include_pdf,
+        )
+        safe_makedirs(str(report_dir / "data"))
         # Export the data to Excel
-        RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')
+        RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / "data" / "data.xlsx")
 
 
-def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> str:
+def parse_hucs(hucs: str, field_identifier="huc10", field_length: int = 10) -> str:
     """
     Build a SQL condition for a list of HUC codes (2/4/6/8/10/12 digits).
     Handles both huc10 and huc12 fields.
@@ -314,7 +351,7 @@ def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> s
     See test_parse_hucs for more examples.
     This is similar to `get_huc_sql_filter` in cybercastor_scripts scripts/add_batch_athena.py
     """
-    huc_list = [h.strip() for h in hucs.split(',') if h.strip()]
+    huc_list = [h.strip() for h in hucs.split(",") if h.strip()]
     if not huc_list:
         raise ValueError("No HUCs provided.")
 
@@ -327,7 +364,9 @@ def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> s
         raise ValueError("All HUCs must be numeric.")
 
     if huc_len > field_length:
-        raise ValueError(f"HUC length must be <= {field_length} for field {field_identifier}.")
+        raise ValueError(
+            f"HUC length must be <= {field_length} for field {field_identifier}."
+        )
 
     if huc_len == field_length:
         condition = f"{field_identifier} IN ({','.join(repr(huc) for huc in huc_list)})"
@@ -337,14 +376,30 @@ def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> s
 
 
 def main():
-    """ Main function to parse arguments and generate the report
-    """
+    """Main function to parse arguments and generate the report"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
-    parser.add_argument('huc_list', help='comma separated list of huc codes', type=str)
-    parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
-    parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
-    parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
+    parser.add_argument(
+        "output_path",
+        help="Nonexistent folder to store the outputs (will be created)",
+        type=Path,
+    )
+    parser.add_argument("huc_list", help="comma separated list of huc codes", type=str)
+    parser.add_argument(
+        "report_name",
+        help="name for the report (usually description of the area selected)",
+    )
+    parser.add_argument(
+        "--include_pdf",
+        help="Include a pdf version of the report",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--unit_system",
+        help="Unit system to use: SI or imperial",
+        type=str,
+        default="SI",
+    )
 
     args = dotenv.parse_args_env(parser)
     # Set up some reasonable folders to store things
@@ -352,16 +407,18 @@ def main():
     # new version of safe_makedirs will take a Path but for now all Paths are converted to string for this function
     safe_makedirs(str(output_path))
 
-    log = Logger('Setup')
-    log_path = output_path / 'report.log'
+    log = Logger("Setup")
+    log_path = output_path / "report.log"
     log.setup(log_path=log_path, log_level=logging.DEBUG)
-    log.title('rs-rpt-watershed-summary')
+    log.title("rs-rpt-watershed-summary")
 
-    make_report_orchestrator(args.report_name,
-                             output_path,
-                             args.huc_list,
-                             args.include_pdf,
-                             args.unit_system)
+    make_report_orchestrator(
+        args.report_name,
+        output_path,
+        args.huc_list,
+        args.include_pdf,
+        args.unit_system,
+    )
 
 
 if __name__ == "__main__":
