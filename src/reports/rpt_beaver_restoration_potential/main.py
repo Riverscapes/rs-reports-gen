@@ -15,6 +15,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+import pint_pandas
 from rsxml import Logger
 
 from reports.rpt_beaver_restoration_potential import __version__ as report_version
@@ -83,12 +84,23 @@ def _build_report_context(df: pd.DataFrame, report_name: str, path_to_shape: Pat
     """Build template context values for top-level report metadata."""
     level_path_count = int(df["level_path"].nunique())
     huc10_count = int(df["huc10"].nunique())
+    total_riverscape_area = "N/A"
+    if "segment_area" in df.columns and not df.empty:
+        total_area_value = df["segment_area"].sum()
+        total_riverscape_area = RSFieldMeta().format_scalar(
+            "segment_area",
+            total_area_value,
+            layer_id=RPT_RME_LAYER_ID,
+            decimals=2,
+        )
+
     return {
         "report_name": report_name,
         "aoi_input": str(path_to_shape),
         "row_count": len(df),
         "level_path_count": level_path_count,
         "huc10_count": huc10_count,
+        "total_riverscape_area": total_riverscape_area,
     }
 
 
@@ -125,7 +137,15 @@ def make_report(
     figure_dir.mkdir(parents=True, exist_ok=True)
 
     # Export raw and summary tables for downstream inspection.
-    data_df.to_csv(data_dir / "beaver_restoration_potential_raw.csv", index=False)
+    raw_export_df = data_df.copy()
+    for col in raw_export_df.columns:
+        if isinstance(raw_export_df[col].dtype, pint_pandas.PintType):
+            raw_export_df[col] = raw_export_df[col].pint.magnitude
+
+    # Parquet is significantly faster and smaller than CSV for large raw exports.
+    raw_export_df.to_parquet(data_dir / "beaver_restoration_potential_raw.parquet", index=False)
+    # for compatibility with older systems we could also, or based on a CLI flag export CSV
+    # raw_export_df.to_csv(data_dir / "beaver_restoration_potential_raw.csv", index=False)
     for key, summary_df in summary_tables.items():
         summary_df.to_csv(data_dir / f"{key}_summary.csv", index=False)
 
