@@ -26,7 +26,7 @@ from reports.rpt_beaver_restoration_potential.dataprep import (
 )
 from reports.rpt_beaver_restoration_potential.figures import build_beaver_figures
 from util import prepare_gdf_for_athena
-from util.athena import get_field_metadata
+from util.athena import get_field_metadata_lakehouse_ref
 from util.html import RSReport
 from util.pandas import RSFieldMeta, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
@@ -65,17 +65,12 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
         registry_field_meta = load_meta_from_file(metadata_cachefile_path)
 
     if registry_field_meta is None:
-        registry_field_meta = get_field_metadata(
-            authority="data-exchange-scripts",
-            tool_schema_name="*",
-            layer_id="raw_rme,rpt_rme",
-        )
+        registry_field_meta = get_field_metadata_lakehouse_ref(lakehouse_ref="rs_rpt.nasa_ba_rme_join")
         if metadata_cachefile_path:
             log.info(f"Saving metadata cache to {metadata_cachefile_path}")
             save_meta_to_file(registry_field_meta, metadata_cachefile_path)
 
-    registry_field_meta.loc[registry_field_meta["layer_id"].isin(["raw_rme", "rpt_rme"]), "layer_id"] = RPT_RME_LAYER_ID
-    registry_field_meta = registry_field_meta.drop_duplicates(subset=["layer_id", "name"], keep="first")
+    registry_field_meta["layer_id"] = RPT_RME_LAYER_ID
 
     field_meta = RSFieldMeta()
     field_meta.field_meta = registry_field_meta
