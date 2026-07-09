@@ -7,7 +7,7 @@ import pandas as pd
 from rsxml import Logger
 
 from util import round_down, round_up
-from util.figures import get_bins_info  # future enhancement: move the fn since it is a data function not a figure function
+from util.binning import get_bins_info
 from util.pandas import RSFieldMeta
 
 # dictionary of functions is at the bottom
