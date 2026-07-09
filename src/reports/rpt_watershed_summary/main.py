@@ -146,7 +146,7 @@ def get_states(huc_condition: str) -> pd.DataFrame:
 SELECT DISTINCT state_name
 FROM rs_context_huc10
 CROSS JOIN UNNEST(split(hucstates, ',')) AS t (state)
-JOIN us_states on t.state = us_states.alphacode
+JOIN ext_rpt.us_states on t.state = us_states.alphacode
 where {huc_condition}
 ORDER BY state_name
 """

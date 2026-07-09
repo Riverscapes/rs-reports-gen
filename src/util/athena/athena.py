@@ -1,4 +1,4 @@
-""" Utility functions to get data from AWS Athena and return it in useful formats
+"""Utility functions to get data from AWS Athena and return it in useful formats
 a version/copy of these functions can be found in multiple Riverscapes repositories
 * data-exchange-scripts
 * rs-reports-gen (this one)
@@ -8,15 +8,15 @@ a version/copy of these functions can be found in multiple Riverscapes repositor
 Consider porting any improvements to these other repositories.
 
 ---
-REFACTOR proposal 2025-11-25 
+REFACTOR proposal 2025-11-25
 We don't need to name them 'athena' -- they are in the athena module so that is assumed
 
-locals: 
-get_aoi_geom_sql_expression 
+locals:
+get_aoi_geom_sql_expression
 prepare_aoi_query : returns full SQL string after injecting {prefilter_condition} and {intersects_condition}
 
-public: 
-query_to_dataframe 
+public:
+query_to_dataframe
 query_to_local_parquet
 aoi_query_to_dataframe
 aoi_query_to_local_parquet
@@ -24,8 +24,8 @@ aoi_query_to_local_parquet
 legacy:
 query_to_dict (it is more lightweight)
 
-do we need both awswrangler and boto3 versions - perhaps not, but we can keep as legacy 
-they do not require pandas/pyarrow and can do csv/json parsing 
+do we need both awswrangler and boto3 versions - perhaps not, but we can keep as legacy
+they do not require pandas/pyarrow and can do csv/json parsing
 
 ## Older 'public' functions
 
@@ -37,6 +37,7 @@ they do not require pandas/pyarrow and can do csv/json parsing
 | athena_unload_to_dataframe     | UNLOAD     | DataFrame     | Large/complex/nested data       |
 
 """
+
 import time
 import re
 import gzip
@@ -65,7 +66,9 @@ AWS_REGION = "us-west-2"
 # ===== Local Helpers =====
 
 
-def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) -> str | None:
+def get_aoi_geom_sql_expression(
+    gdf: gpd.GeoDataFrame, max_size_bytes=261000
+) -> str | None:
     """check the geometry, union and return expression for a geometry object to be used in SQL
 
     maximum size of athena query is 256 kb or 262144 bytes
@@ -76,44 +79,61 @@ def get_aoi_geom_sql_expression(gdf: gpd.GeoDataFrame, max_size_bytes=261000) ->
      (extremely simple geometries sometimes are bigger but in those cases we don't care)
      see compare_wkb_wkt function
     """
-    log = Logger('build aoi geom expression')
+    log = Logger("build aoi geom expression")
     # Get the union of all geometries in the GeoDataFrame
     aoi_geom = gdf.union_all()
 
     # WKB representation (as hex string)
     aoi_wkb = aoi_geom.wkb.hex()
-    wkb_length = len(aoi_wkb) + 31  # this is to account for the text ST_GeomFromBinary(from_hex(''))
+    wkb_length = (
+        len(aoi_wkb) + 31
+    )  # this is to account for the text ST_GeomFromBinary(from_hex(''))
 
     log.debug(f"WKB hex length: {wkb_length} bytes")
     if wkb_length > max_size_bytes:
-        log.error(f"aoi geometry results in too big a query (greater than {max_size_bytes} bytes) - simplify it and try again")
+        log.error(
+            f"aoi geometry results in too big a query (greater than {max_size_bytes} bytes) - simplify it and try again"
+        )
         return None
 
     return f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))"
 
 
-def prepare_aoi_query(querystr: str, geom_field_expression: str,
-                      geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> str:
+def prepare_aoi_query(
+    querystr: str,
+    geom_field_expression: str,
+    geom_bbox_field: str,
+    aoi_gdf: gpd.GeoDataFrame,
+) -> str:
     """prepares a full SQL string to run after injecting {prefilter_condition} and {intersects_condition}
 
-        querystr (str): templated query with `{prefilter_condition}` and `{intersects_condition}`
-        geom_field_expression (str): must be a string that evaluates to a geometry, not WKT or WKB e.g. 'ST_GeomFromBinary(dgo_geom)'
-        geom_bbox_field (str): the name of the bounding box field to use for the prefilter
+    querystr (str): templated query with `{prefilter_condition}` and `{intersects_condition}`
+    geom_field_expression (str): must be a string that evaluates to a geometry, not WKT or WKB e.g. 'ST_GeomFromBinary(dgo_geom)'
+    geom_bbox_field (str): the name of the bounding box field to use for the prefilter
 
     """
     log = Logger("Prepare AOI Query")
-    prefilter_condition = generate_sql_bbox_where_condition_for_bounds(aoi_gdf, geom_bbox_field)
+    prefilter_condition = generate_sql_bbox_where_condition_for_bounds(
+        aoi_gdf, geom_bbox_field
+    )
     # this is not precise but I think it's a little conservative so we should be ok
-    length_of_query_less_aoi = len(querystr) + len(geom_field_expression) + len(prefilter_condition)
+    length_of_query_less_aoi = (
+        len(querystr) + len(geom_field_expression) + len(prefilter_condition)
+    )
     max_size_bytes = 262144 - length_of_query_less_aoi
     aoi_geom_str = get_aoi_geom_sql_expression(aoi_gdf, max_size_bytes)
 
     if not aoi_geom_str:
-        raise ValueError("AOI geometry exceeds Athena size limit. Simplify and try again.")
+        raise ValueError(
+            "AOI geometry exceeds Athena size limit. Simplify and try again."
+        )
 
     intersects_condition = f"ST_Intersects({geom_field_expression}, {aoi_geom_str})"
 
-    prepared_query = querystr.format(prefilter_condition=prefilter_condition, intersects_condition=intersects_condition)
+    prepared_query = querystr.format(
+        prefilter_condition=prefilter_condition,
+        intersects_condition=intersects_condition,
+    )
     log.info(f"Query is \n{prepared_query}")
     return prepared_query
 
@@ -124,10 +144,10 @@ def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
     Accepts either a comma-delimited string ("a,b,c"), an explicit list/tuple (['a','b']), or
     the sentinel '*' to indicate no filtering. Returned string is safe for IN (...) clauses.
     """
-    if arg == '*':
+    if arg == "*":
         return None
     if isinstance(arg, str):
-        values = [part.strip() for part in arg.split(',') if part.strip()]
+        values = [part.strip() for part in arg.split(",") if part.strip()]
     else:
         values = [str(part).strip() for part in arg if str(part).strip()]
     if not values:
@@ -135,14 +155,15 @@ def _normalize_to_sql_list(arg: str | Sequence[str]) -> str | None:
     escaped = [val.replace("'", "''") for val in values]
     return ", ".join(f"'{val}'" for val in escaped)
 
+
 # ===== New Public API (uses awswrangler) =====
 
 
 def get_field_metadata(
-    authority: str = 'data-exchange-scripts',
-    tool_schema_name: str | Sequence[str] = 'rscontext_to_athena',
-    layer_id: str | Sequence[str] = '*',
-    column_names: str | Sequence[str] = '*'
+    authority: str = "data-exchange-scripts",
+    tool_schema_name: str | Sequence[str] = "rscontext_to_athena",
+    layer_id: str | Sequence[str] = "*",
+    column_names: str | Sequence[str] = "*",
 ) -> pd.DataFrame:
     """Fetch field metadata records filtered by authority/layer/column info.
 
@@ -162,7 +183,7 @@ def get_field_metadata(
     pandas.DataFrame
         Metadata rows satisfying the provided filters.
     """
-    log = Logger('Get metadata')
+    log = Logger("Get metadata")
     log.info("Getting metadata from Athena")
 
     tool_schema_name_clause = _normalize_to_sql_list(tool_schema_name)
@@ -201,15 +222,12 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
     to a local directory.
     """
     log = Logger("Athena UNLOAD to Local Parquet")
-    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+    s3_output = f"s3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/"
 
     log.info(f"Executing UNLOAD to {s3_output}...")
     # This runs the query and saves the output to a new "folder" in S3
     wr.athena.unload(
-        sql=query,
-        path=s3_output,
-        file_format="parquet",
-        database="default"
+        sql=query, path=s3_output, file_format="parquet", database="default"
     )
 
     log.info(f"Downloading Parquet files from {s3_output} to {local_path}...")
@@ -232,7 +250,7 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
 
 def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     """uses awswrangler to return a dataframe for a given query
-    args: 
+    args:
         query : the query to execute
         querylabel : optional label for log messages, handy when queries are running in parallel
 
@@ -241,7 +259,7 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     see docs for details https://aws-sdk-pandas.readthedocs.io/en/3.14.0/stubs/awswrangler.athena.read_sql_query.html
 
     PROS:
-    *   Faster for mid and big result sizes 
+    *   Faster for mid and big result sizes
     *   Can handle some level of nested types.
     *   Does not modify Glue Data Catalog
 
@@ -253,9 +271,9 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     *   data has to fit into RAM memory. do not use for results with millions of rows
     """
     log = Logger("Athena unload query to DF")
-    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+    s3_output = f"s3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/"
 
-    query_bytes = len(query.encode('utf-8'))
+    query_bytes = len(query.encode("utf-8"))
     if query_bytes > 262144:
         raise ValueError(f"Query exceeds Athena's 256 KB limit ({query_bytes} bytes).")
 
@@ -263,7 +281,7 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     try:
         df = wr.athena.read_sql_query(
             query,
-            database='default',
+            database="default",
             ctas_approach=False,
             unload_approach=True,  # only PARQUET format is supported with this option
             s3_output=s3_output,
@@ -271,32 +289,46 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
         log.debug(f"Query {querylabel} to dataframe completed.")
         return df
     except Exception as e:
-        log.warning(f"Query {querylabel} failed or returned no results: {e}")
+        error_text = str(e)
+        # Keep warning-level logging for the known no-results/untyped dataframe case.
+        if "Query would return untyped, empty dataframe" in error_text:
+            log.warning(f"Query {querylabel} returned no results: {e}")
+        # Missing table should always be elevated to error.
+        elif "TABLE_NOT_FOUND" in error_text:
+            log.error(f"Query {querylabel} failed (TABLE_NOT_FOUND): {e}")
+        else:
+            log.error(f"Query {querylabel} failed: {e}")
         return pd.DataFrame()  # Return empty DataFrame for downstream code
 
 
-def aoi_query_to_dataframe(querystr: str, geometry_field_expression: str,
-                           geom_bbox_field: str, aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
+def aoi_query_to_dataframe(
+    querystr: str,
+    geometry_field_expression: str,
+    geom_bbox_field: str,
+    aoi_gdf: gpd.GeoDataFrame,
+) -> pd.DataFrame:
     """run any query against athena for an area of interest, building the required aoi conditions from the supplied aoi_gdf
-        and return dataframe
-        querystr (str): templated query with `{prefilter_condition}` and `{intersects_condition}`
-        geom_field_expression (str): expression that evaluates to a geometry, not WKT or WKB 
-                                e.g. 'ST_GeomFromBinary(dgo_geom)'
-        geom_bbox_field (str): the name of the bounding box field to use for the prefilter
+    and return dataframe
+    querystr (str): templated query with `{prefilter_condition}` and `{intersects_condition}`
+    geom_field_expression (str): expression that evaluates to a geometry, not WKT or WKB
+                            e.g. 'ST_GeomFromBinary(dgo_geom)'
+    geom_bbox_field (str): the name of the bounding box field to use for the prefilter
 
-        Returns: geodataframe. 
+    Returns: geodataframe.
     """
-    prepared_query = prepare_aoi_query(querystr, geometry_field_expression, geom_bbox_field, aoi_gdf)
-    df = query_to_dataframe(prepared_query, 'aoi_query')
+    prepared_query = prepare_aoi_query(
+        querystr, geometry_field_expression, geom_bbox_field, aoi_gdf
+    )
+    df = query_to_dataframe(prepared_query, "aoi_query")
     return df
 
 
 def aoi_query_to_local_parquet(
-        querystr: str,
-        geometry_field_expression: str,
-        geom_bbox_field: str,
-        aoi_gdf: gpd.GeoDataFrame,
-        local_path: Path,
+    querystr: str,
+    geometry_field_expression: str,
+    geom_bbox_field: str,
+    aoi_gdf: gpd.GeoDataFrame,
+    local_path: Path,
 ) -> None:
     """
     Runs a spatial query against an Athena table based on an AOI, and unloads the
@@ -314,7 +346,9 @@ def aoi_query_to_local_parquet(
     """
     log = Logger("AOI Query to Local PQ")
 
-    fullquerystr = prepare_aoi_query(querystr, geometry_field_expression, geom_bbox_field, aoi_gdf)
+    fullquerystr = prepare_aoi_query(
+        querystr, geometry_field_expression, geom_bbox_field, aoi_gdf
+    )
 
     # 4. Execute the unload to local Parquet files
     query_to_local_parquet(fullquerystr, local_path)
@@ -325,9 +359,7 @@ def aoi_query_to_local_parquet(
 
 
 def _run_athena_query(
-    s3_output_path: str,
-    query: str,
-    max_wait: int = 600
+    s3_output_path: str, query: str, max_wait: int = 600
 ) -> tuple[str, str] | None:
     """
     Run an Athena query and wait for completion.
@@ -345,15 +377,15 @@ def _run_athena_query(
     log = Logger("Athena query")
 
     # Debugging output
-    query_length = len(query.encode('utf-8'))
+    query_length = len(query.encode("utf-8"))
     if query_length < 2000:
-        log.debug(f'Query:\n{query}')
+        log.debug(f"Query:\n{query}")
     else:
-        log.debug(f'Query is {query_length} bytes')
+        log.debug(f"Query is {query_length} bytes")
         log.debug(f"Query starts with: {query[:1900]}")
         log.debug(f"Query ends with: {repr(query[-100:])}")
 
-    athena = boto3.client('athena', region_name=AWS_REGION)
+    athena = boto3.client("athena", region_name=AWS_REGION)
 
     # s3_output should be a full s3://bucket/prefix or s3://bucket/file.csv
     # and this has to be empty for unload queries
@@ -362,40 +394,49 @@ def _run_athena_query(
     response = athena.start_query_execution(
         QueryString=query,
         WorkGroup=ATHENA_WORKGROUP,
-        QueryExecutionContext={
-            'Database': 'default',
-            'Catalog': 'AwsDataCatalog'
-        },
-        ResultConfiguration={
-            'OutputLocation': s3_output_path
-        }
+        QueryExecutionContext={"Database": "default", "Catalog": "AwsDataCatalog"},
+        ResultConfiguration={"OutputLocation": s3_output_path},
     )
-    query_execution_id = response['QueryExecutionId']
+    query_execution_id = response["QueryExecutionId"]
     start_time = time.time()
-    log.debug(f"Query started at: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
+    log.debug(
+        f"Query started at: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}"
+    )
 
     # Poll for completion
     while True:
         status = athena.get_query_execution(QueryExecutionId=query_execution_id)
-        state = status['QueryExecution']['Status']['State']
-        if state in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
+        state = status["QueryExecution"]["Status"]["State"]
+        if state in ["SUCCEEDED", "FAILED", "CANCELLED"]:
             break
         if time.time() - start_time > max_wait:
-            log.error(f"Timed out waiting for Athena query to complete. Waited {max_wait} seconds.")
-            log.error(f"Check the Athena console for QueryExecutionId {query_execution_id} for more details.")
-            log.error(f"Query string (truncated): {query[:500]}{'...' if len(query) > 500 else ''}")
-            output_path = status['QueryExecution']['ResultConfiguration'].get('OutputLocation', '')
+            log.error(
+                f"Timed out waiting for Athena query to complete. Waited {max_wait} seconds."
+            )
+            log.error(
+                f"Check the Athena console for QueryExecutionId {query_execution_id} for more details."
+            )
+            log.error(
+                f"Query string (truncated): {query[:500]}{'...' if len(query) > 500 else ''}"
+            )
+            output_path = status["QueryExecution"]["ResultConfiguration"].get(
+                "OutputLocation", ""
+            )
             log.error(f"S3 OutputLocation (may be empty): {output_path}")
             return None
         time.sleep(2)
 
-    if state != 'SUCCEEDED':
-        reason = status['QueryExecution']['Status'].get('StateChangeReason', '')
+    if state != "SUCCEEDED":
+        reason = status["QueryExecution"]["Status"].get("StateChangeReason", "")
         log.error(f"Athena query failed or was cancelled: {state}. Reason: {reason}")
         return None
 
-    log.debug(f'Query completed at: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))}')
-    output_path = status['QueryExecution']['ResultConfiguration'].get('OutputLocation', '')
+    log.debug(
+        f"Query completed at: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}"
+    )
+    output_path = status["QueryExecution"]["ResultConfiguration"].get(
+        "OutputLocation", ""
+    )
     return output_path, query_execution_id
 
 
@@ -408,13 +449,12 @@ def fix_s3_uri(argstr: str) -> str:
     # Replace all backslashes with slashes
     uri = argstr.replace("\\", "/")
     # Ensure exactly two slashes after 's3:'
-    uri = re.sub(r'^s3:/+', 's3://', uri)
+    uri = re.sub(r"^s3:/+", "s3://", uri)
     return uri
 
 
 def get_s3_file(s3path: str, localpath: str):
-    """Download a file from S3 to local path, fixing S3 URI if needed.
-    """
+    """Download a file from S3 to local path, fixing S3 URI if needed."""
     s3_uri = fix_s3_uri(s3path)
     download_file_from_s3(s3_uri, localpath)
 
@@ -434,19 +474,21 @@ def download_file_from_s3(s3_uri: str, local_path: str) -> None:
     Example:
         download_file_from_s3('s3://riverscapes-athena/adhoc/yct_sample4.csv', '/tmp/yct_sample4.csv')
     """
-    log = Logger('Download File')
+    log = Logger("Download File")
     # Validate and parse S3 URI
-    if not isinstance(s3_uri, str) or not s3_uri.startswith('s3://'):
+    if not isinstance(s3_uri, str) or not s3_uri.startswith("s3://"):
         raise ValueError(f"Invalid S3 URI: {s3_uri}. Must start with 's3://'")
-    parts = s3_uri[5:].split('/', 1)
+    parts = s3_uri[5:].split("/", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Invalid S3 URI: {s3_uri}. Must be in format 's3://bucket/key'")
+        raise ValueError(
+            f"Invalid S3 URI: {s3_uri}. Must be in format 's3://bucket/key'"
+        )
     s3_bucket, s3_key = parts
 
     log.info(f"Downloading {s3_key} from bucket {s3_bucket} to {local_path}")
-    s3 = boto3.client('s3')
+    s3 = boto3.client("s3")
     response = s3.head_object(Bucket=s3_bucket, Key=s3_key)
-    size_bytes = response['ContentLength']
+    size_bytes = response["ContentLength"]
     log.info(f"ContentType: {response['ContentType']}\t File size: {size_bytes} bytes")
     # NOTE Could be very large might want progress bar
     s3.download_file(s3_bucket, s3_key, local_path)
@@ -464,18 +506,18 @@ def parse_athena_results(rows):
     """
     if not rows or len(rows) < 2:
         return []
-    headers = [col['VarCharValue'] for col in rows[0]['Data']]
+    headers = [col["VarCharValue"] for col in rows[0]["Data"]]
     data = []
     for row in rows[1:]:
-        values = [col.get('VarCharValue', None) for col in row['Data']]
+        values = [col.get("VarCharValue", None) for col in row["Data"]]
         data.append(dict(zip(headers, values)))
     return data
 
 
 def _parse_csv_from_s3(s3_uri: str) -> list[dict]:
     """Download and parse a CSV file from S3 into a list of dicts."""
-    log = Logger('Parse CSV from S3')
-    with tempfile.NamedTemporaryFile(delete=True, suffix='.csv') as tmp:
+    log = Logger("Parse CSV from S3")
+    with tempfile.NamedTemporaryFile(delete=True, suffix=".csv") as tmp:
         download_file_from_s3(s3_uri, tmp.name)
         with open(tmp.name, mode="r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
@@ -489,11 +531,11 @@ def _parse_json_from_s3_prefix(s3_prefix: str) -> list[dict]:
     Handles both .json and .json.gz files, and paginates for large result sets.
     """
 
-    log = Logger('Parse JSON from S3 prefix')
-    s3 = boto3.client('s3')
+    log = Logger("Parse JSON from S3 prefix")
+    s3 = boto3.client("s3")
     parsed = urlparse(s3_prefix)
     bucket = parsed.netloc
-    prefix = parsed.path.lstrip('/')
+    prefix = parsed.path.lstrip("/")
 
     # Use paginator for scalability
 
@@ -528,10 +570,12 @@ def _parse_json_from_s3_prefix(s3_prefix: str) -> list[dict]:
 
 
 # === LEGACY Public API (does not use awswrangler) ===
-def athena_select_to_dict(query: str, s3_output: str | None = None, max_wait: int = 600) -> list[dict]:
+def athena_select_to_dict(
+    query: str, s3_output: str | None = None, max_wait: int = 600
+) -> list[dict]:
     """Run a SELECT query and return results as a list of dicts."""
     if s3_output is None:
-        s3_output = f's3://{S3_ATHENA_BUCKET}/athena_query_results'
+        s3_output = f"s3://{S3_ATHENA_BUCKET}/athena_query_results"
     result = _run_athena_query(s3_output, query, max_wait)
     if result is None:
         raise RuntimeError("Did not get a valid result from the query. check logs")
@@ -539,18 +583,22 @@ def athena_select_to_dict(query: str, s3_output: str | None = None, max_wait: in
     return _parse_csv_from_s3(output_path)
 
 
-def athena_select_to_dataframe(query: str, s3_output: str | None = None, max_wait: int = 600) -> pd.DataFrame:
+def athena_select_to_dataframe(
+    query: str, s3_output: str | None = None, max_wait: int = 600
+) -> pd.DataFrame:
     """Run a SELECT query and return results as a pandas DataFrame."""
     rows = athena_select_to_dict(query, s3_output, max_wait)
     return pd.DataFrame(rows)
 
 
-def athena_unload_to_dict(query: str, s3_output: str | None = None, max_wait: int = 600) -> list[dict]:
+def athena_unload_to_dict(
+    query: str, s3_output: str | None = None, max_wait: int = 600
+) -> list[dict]:
     """Run an UNLOAD query and return results as a list of dicts."""
     if s3_output is None:
-        s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+        s3_output = f"s3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/"
     # Compose UNLOAD SQL
-    cleaned_query = query.strip().rstrip(';')
+    cleaned_query = query.strip().rstrip(";")
     unload_sql = f"UNLOAD ({cleaned_query}) TO '{s3_output}' WITH (format='JSON', compression='GZIP')"
     _run_athena_query(s3_output, unload_sql, max_wait)
     # Now we need to list and fetch the results. We CAN use the manifest file but it's easier for now to just
@@ -558,7 +606,9 @@ def athena_unload_to_dict(query: str, s3_output: str | None = None, max_wait: in
     return _parse_json_from_s3_prefix(s3_output)
 
 
-def athena_unload_to_dataframe(query: str, s3_output: str | None = None, max_wait: int = 600) -> pd.DataFrame:
+def athena_unload_to_dataframe(
+    query: str, s3_output: str | None = None, max_wait: int = 600
+) -> pd.DataFrame:
     """Run an UNLOAD query and return results as a pandas DataFrame."""
     rows = athena_unload_to_dict(query, s3_output, max_wait)
     return pd.DataFrame(rows)
@@ -568,17 +618,21 @@ def compare_wkb_wkt(gdf: gpd.GeoDataFrame):
     """check the geometry(union all)
     to see if a wkb or wkt would be smaller
     """
-    log = Logger('check geometry size')
+    log = Logger("check geometry size")
     # Get the union of all geometries in the GeoDataFrame
     aoi_geom = gdf.union_all()
 
     # Convert to WKT
     aoi_wkt = aoi_geom.wkt
-    wkt_length = len(aoi_wkt.encode('utf-8')) + 23  # this is to account for the text ST_GeometryFromText('')
+    wkt_length = (
+        len(aoi_wkt.encode("utf-8")) + 23
+    )  # this is to account for the text ST_GeometryFromText('')
 
     # WKB representation (as hex string)
     aoi_wkb = aoi_geom.wkb.hex()
-    wkb_length = len(aoi_wkb) + 31  # this is to account for the text ST_GeomFromBinary(from_hex(''))
+    wkb_length = (
+        len(aoi_wkb) + 31
+    )  # this is to account for the text ST_GeomFromBinary(from_hex(''))
 
     log.info(f"WKT length: {wkt_length} bytes")
     log.info(f"WKB hex length: {wkb_length} bytes")
@@ -587,6 +641,7 @@ def compare_wkb_wkt(gdf: gpd.GeoDataFrame):
     log.info(f"ST_GeometryFromText('{aoi_wkt}')")
     log.info("WKB version:")
     log.info(f"ST_GeomFromBinary(from_hex('{aoi_wkb}'))")
+
 
 # =============================================================
 # === LEGACY SPECIALIZED QUERIES FOR SPATIAL INTERSECTION =====
@@ -599,12 +654,14 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
     side effect: populate output_path (local path) with the data csv file
     TO DO -  fix we're not using s3_bucket because it's better to let the downstream function decide where to put it
     """
-    log = Logger('Run AOI query on Athena')
+    log = Logger("Run AOI query on Athena")
     # TODO improve from this temporary approach --
     #  should use report-type specific CTAS (or view if it's just a select without calcs) and report-specific UNLOAD statement
     #  parameterize the fields it's bad practice to load everything
     fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
-    s3_csv_path = run_aoi_athena_query(gdf, None, fields_str=fields_str, source_table="rpt_rme_pq")
+    s3_csv_path = run_aoi_athena_query(
+        gdf, None, fields_str=fields_str, source_table="rpt_rme_pq"
+    )
     if s3_csv_path is None:
         log.error("Didn't get a result from Athena")
         raise NotImplementedError
@@ -614,7 +671,7 @@ def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: 
 
 def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     """
-    DEPRECATED - 
+    DEPRECATED -
     Get the total bounds (minx, miny, maxx, maxy)
     'buffer' by BUFFER_CENTROID_TO_BB_DD and
     return SQL where clause for latitude and longitude within this expanded box
@@ -645,11 +702,13 @@ def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     bufmaxx = round(float(maxx) + BUFFER_CENTROID_TO_BB_DD, 6)
     bufmaxy = round(float(maxy) + BUFFER_CENTROID_TO_BB_DD, 6)
 
-    bounds_where_clause = f'WHERE (latitude between {bufminy} AND {bufmaxy}) AND (longitude between {bufminx} AND {bufmaxx})'
+    bounds_where_clause = f"WHERE (latitude between {bufminy} AND {bufmaxy}) AND (longitude between {bufminx} AND {bufmaxx})"
     return bounds_where_clause
 
 
-def generate_sql_bbox_where_condition_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox_fld_nm: str) -> str:
+def generate_sql_bbox_where_condition_for_bounds(
+    aoi_gdf: gpd.GeoDataFrame, bbox_fld_nm: str
+) -> str:
     """Return SQL expression to find records whose bounding boxes overlap the AOI bounds.
 
     Assumes both are in the same spatial reference system (probably degrees), and rounds to 6 decimal places.
@@ -674,8 +733,14 @@ def generate_sql_bbox_where_condition_for_bounds(aoi_gdf: gpd.GeoDataFrame, bbox
     return bounds_expression
 
 
-def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None, fields_str: str = "", source_table: str = "raw_rme_pq",
-                         geometry_field_clause: str | None = 'ST_GeomFromBinary(dgo_geom)', bbox_field: str | None = None) -> str | None:
+def run_aoi_athena_query(
+    aoi_gdf: gpd.GeoDataFrame,
+    s3_bucket: str | None = None,
+    fields_str: str = "",
+    source_table: str = "raw_rme_pq",
+    geometry_field_clause: str | None = "ST_GeomFromBinary(dgo_geom)",
+    bbox_field: str | None = None,
+) -> str | None:
     """Run Athena query `select (field_str) from (source_table)` on supplied AOI geodataframe
     also includes the dgo geometry (polygon)
     the source table must have fields:
@@ -686,15 +751,17 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
     Callers should simplify the AOI (for example via util.prepare_gdf_for_athena)
     before invoking this function.
     """
-    log = Logger('Run AOI Query on Athena')
-    log.warning('This function is deprecated.')
+    log = Logger("Run AOI Query on Athena")
+    log.warning("This function is deprecated.")
     if s3_bucket is None:
-        s3_output_path = f's3://{S3_ATHENA_BUCKET}/aoi_query_results/{uuid.uuid4()}/'
+        s3_output_path = f"s3://{S3_ATHENA_BUCKET}/aoi_query_results/{uuid.uuid4()}/"
     else:
-        s3_output_path = f's3://{s3_bucket}/aoi_query_results/{uuid.uuid4()}/'
+        s3_output_path = f"s3://{s3_bucket}/aoi_query_results/{uuid.uuid4()}/"
 
     if bbox_field:
-        bbox_condition = generate_sql_bbox_where_condition_for_bounds(aoi_gdf, bbox_field)
+        bbox_condition = generate_sql_bbox_where_condition_for_bounds(
+            aoi_gdf, bbox_field
+        )
         prefilter_where_clause = f"WHERE {bbox_condition}"
     else:
         # we are going to filter the centroids, but clip to polygon
@@ -714,7 +781,7 @@ def run_aoi_athena_query(aoi_gdf: gpd.GeoDataFrame, s3_bucket: str | None = None
             "Simplify the AOI with util.prepare_gdf_for_athena before calling run_aoi_athena_query."
         )
 
-    log.info(f'Built AOI geometry string for query. Length {len(aoi_geom_str):,} bytes')
+    log.info(f"Built AOI geometry string for query. Length {len(aoi_geom_str):,} bytes")
 
     # For a query to pull just the lat/lon of DGOs that intersect, use this instead
     # fields_str = "longitude, latitude"
