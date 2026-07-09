@@ -53,7 +53,9 @@ def _build_summary_bar(summary_df: pd.DataFrame, *, title: str, x_axis_title: st
 
 
 def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, go.Figure]:
-    """Build the baseline figures for the Beaver Restoration Potential stub report."""
+    """Build the baseline figures for the Beaver Restoration Potential stub report.
+    TODO: titles should come from metadata
+    """
     log = Logger("BeaverFigures")
     figures = {
         "capacity_by_length": _build_summary_bar(
