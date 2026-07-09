@@ -271,7 +271,15 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
         log.debug(f"Query {querylabel} to dataframe completed.")
         return df
     except Exception as e:
-        log.warning(f"Query {querylabel} failed or returned no results: {e}")
+        error_text = str(e)
+        # Keep warning-level logging for the known no-results/untyped dataframe case.
+        if "Query would return untyped, empty dataframe" in error_text:
+            log.warning(f"Query {querylabel} returned no results: {e}")
+        # Missing table should always be elevated to error.
+        elif "TABLE_NOT_FOUND" in error_text:
+            log.error(f"Query {querylabel} failed (TABLE_NOT_FOUND): {e}")
+        else:
+            log.error(f"Query {querylabel} failed: {e}")
         return pd.DataFrame()  # Return empty DataFrame for downstream code
 
 

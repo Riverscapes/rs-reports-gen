@@ -3,9 +3,29 @@ from pathlib import Path
 import geopandas as gpd
 from rsxml import Logger
 from util import prepare_gdf_for_athena
-from util.athena import athena_unload_to_dict, run_aoi_athena_query
+from util.athena import athena_unload_to_dict, run_aoi_athena_query, query_to_dataframe
 
 # ===== TESTING FUNCTIONS ============
+
+
+def test_query_to_dataframe_errors():
+    """verify error handling"""
+    # success
+    qry = "SELECT state_name FROM ext_rpt.us_states WHERE alphacode = 'TX'"
+    df = query_to_dataframe(qry, "expect success")
+    print(df)
+    # NO RESULTS
+    qry = "SELECT state_name FROM ext_rpt.us_states WHERE alphacode = '99'"
+    df = query_to_dataframe(qry, "expect NO RESULTS")
+    print(df)
+    # TABLE_NOT_FOUND
+    qry = "SELECT state_name FROM ext_rpt.nothing"
+    df = query_to_dataframe(qry, "expect TABLE_NOT_FOUND")
+    print(df)
+    # other error
+    qry = "SELECT state_name, FROM ext_rpt.us_states"
+    df = query_to_dataframe(qry, "expect error")
+    print(df)
 
 
 def test_unload_query():
@@ -32,42 +52,48 @@ def test_run_aoi_athena_query():
 def test_prepare_example_geojsons(
     example_root_path: Path | None = None,
     size_bytes: int = 261_000,
-    max_attempts: int = 5
+    max_attempts: int = 5,
 ) -> list[dict]:
     """Prepare example AOIs for Athena
     parameters:
         example_root: any path that contains folder(s) named `example` which in turn have .geojson files (e.g. our report source is default)
     Returns metadata for each GeoJSON processed so callers can review any simplification.
     """
-    log = Logger('Prepare example AOIs')
+    log = Logger("Prepare example AOIs")
     if example_root_path is None:
-        example_root_path = Path(__file__).resolve().parents[3] / 'src' / 'reports'
+        example_root_path = Path(__file__).resolve().parents[3] / "src" / "reports"
 
     test_results: list[dict] = []
-    for geojson_path in sorted(example_root_path.rglob('example/*.geojson')):
-        log.info(f'Processing example AOI: {geojson_path}')
+    for geojson_path in sorted(example_root_path.rglob("example/*.geojson")):
+        log.info(f"Processing example AOI: {geojson_path}")
         gdf = gpd.read_file(geojson_path)
-        prepared_gdf, meta = prepare_gdf_for_athena(gdf, size_bytes=size_bytes, max_attempts=max_attempts)
+        prepared_gdf, meta = prepare_gdf_for_athena(
+            gdf, size_bytes=size_bytes, max_attempts=max_attempts
+        )
         record = {
-            'path': str(geojson_path),
+            "path": str(geojson_path),
             **vars(meta),
         }
 
         if meta.simplified:
-            simplified_path = geojson_path.with_name(f"{geojson_path.stem}_simplified.geojson")
+            simplified_path = geojson_path.with_name(
+                f"{geojson_path.stem}_simplified.geojson"
+            )
             prepared_gdf.to_file(simplified_path, driver="GeoJSON")
-            record['prepared_path'] = str(simplified_path)
-            log.info(f'Wrote simplified AOI to {simplified_path}')
+            record["prepared_path"] = str(simplified_path)
+            log.info(f"Wrote simplified AOI to {simplified_path}")
 
         test_results.append(record)
 
-    log.info(f'Processed {len(test_results)} example AOIs from {example_root_path}')
+    log.info(f"Processed {len(test_results)} example AOIs from {example_root_path}")
     return test_results
 
 
 # do not normally run as a module, but if we want to run certain functions, this is a way to do it
-if __name__ == '__main__':
-    main_results = test_prepare_example_geojsons()
-    import pprint
-    pprint.pprint(main_results)
+if __name__ == "__main__":
+    test_query_to_dataframe_errors()
+    # main_results = test_prepare_example_geojsons()
+    # import pprint
+
+    # pprint.pprint(main_results)
     # test_unload_query()
