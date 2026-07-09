@@ -8,12 +8,11 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import pint_pandas
 from rsxml import Logger
 
 from util.athena import aoi_query_to_local_parquet
-from util.figures import get_bins_info
 from util.pandas import load_gdf_from_pq
+from util.summary import summarize_metric_by_binned_numeric, summarize_metric_by_group
 
 RPT_RME_LAYER_ID = "rpt_beaver_restoration_potential"
 SUMMARY_TOTAL_FIELD = "segment_area"
@@ -51,78 +50,6 @@ def load_cached_beaver_data(parquet_path: Path) -> pd.DataFrame:
     return df
 
 
-def _sum_metric_by_group(df: pd.DataFrame, group_field: str, metric_field: str = SUMMARY_TOTAL_FIELD) -> pd.DataFrame:
-    """Aggregate metric totals and segment count by a categorical group."""
-    if group_field not in df.columns or metric_field not in df.columns:
-        return pd.DataFrame(columns=["group", metric_field, SUMMARY_COUNT_FIELD])
-
-    summary_df = df[[group_field, metric_field]].copy()
-    summary_df[group_field] = summary_df[group_field].fillna("Unknown").astype(str)
-    metric_is_pint = isinstance(summary_df[metric_field].dtype, pint_pandas.PintType)
-    if metric_is_pint:
-        summary_df = summary_df[summary_df[metric_field].notna()]
-    else:
-        summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
-
-    summary_df = (
-        summary_df.groupby(group_field, as_index=False)
-        .agg(
-            **{
-                metric_field: (metric_field, "sum"),
-                SUMMARY_COUNT_FIELD: (metric_field, "size"),
-            }
-        )
-        .rename(columns={group_field: "group"})
-        .sort_values(metric_field, ascending=False)
-    )
-    summary_df.attrs["layer_id"] = RPT_RME_LAYER_ID
-    summary_df.attrs["group_field"] = group_field
-    summary_df.attrs["total_field"] = metric_field
-    return summary_df
-
-
-def _sum_metric_by_binned_numeric(
-    df: pd.DataFrame,
-    value_field: str,
-    bin_lookup: str,
-    metric_field: str = SUMMARY_TOTAL_FIELD,
-) -> pd.DataFrame:
-    """Aggregate metric totals by bins.json categories for a numeric field."""
-    if value_field not in df.columns or metric_field not in df.columns:
-        return pd.DataFrame(columns=["group", metric_field, SUMMARY_COUNT_FIELD])
-
-    summary_df = df[[value_field, metric_field]].copy()
-
-    if isinstance(summary_df[value_field].dtype, pint_pandas.PintType):
-        summary_df[value_field] = summary_df[value_field].pint.magnitude
-
-    summary_df[value_field] = pd.to_numeric(summary_df[value_field], errors="coerce")
-    metric_is_pint = isinstance(summary_df[metric_field].dtype, pint_pandas.PintType)
-    if metric_is_pint:
-        summary_df = summary_df[summary_df[metric_field].notna()]
-    else:
-        summary_df[metric_field] = pd.to_numeric(summary_df[metric_field], errors="coerce").fillna(0)
-
-    edges, labels, _colours = get_bins_info(bin_lookup)
-    bins = pd.cut(summary_df[value_field], bins=edges, labels=labels, include_lowest=True)
-    summary_df["group"] = bins.astype(object).where(bins.notna(), "Out of Range / Unknown").astype(str)
-
-    summary_df = (
-        summary_df.groupby("group", as_index=False)
-        .agg(
-            **{
-                metric_field: (metric_field, "sum"),
-                SUMMARY_COUNT_FIELD: (metric_field, "size"),
-            }
-        )
-        .sort_values(metric_field, ascending=False)
-    )
-    summary_df.attrs["layer_id"] = RPT_RME_LAYER_ID
-    summary_df.attrs["group_field"] = value_field
-    summary_df.attrs["total_field"] = metric_field
-    return summary_df
-
-
 def summarize_beaver_potential(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Create simple summary tables used by the Beaver Restoration Potential stub report."""
     if df.empty:
@@ -137,8 +64,33 @@ def summarize_beaver_potential(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         }
 
     return {
-        "capacity": _sum_metric_by_binned_numeric(df, "brat_capacity", "brat_capacity"),
-        "opportunity": _sum_metric_by_group(df, "brat_opportunity"),
-        "limitation": _sum_metric_by_group(df, "brat_limitation"),
-        "risk": _sum_metric_by_group(df, "brat_risk"),
+        "capacity": summarize_metric_by_binned_numeric(
+            df,
+            value_field="brat_capacity",
+            bin_lookup="brat_capacity",
+            metric_field=SUMMARY_TOTAL_FIELD,
+            count_field=SUMMARY_COUNT_FIELD,
+            layer_id=RPT_RME_LAYER_ID,
+        ),
+        "opportunity": summarize_metric_by_group(
+            df,
+            group_field="brat_opportunity",
+            metric_field=SUMMARY_TOTAL_FIELD,
+            count_field=SUMMARY_COUNT_FIELD,
+            layer_id=RPT_RME_LAYER_ID,
+        ),
+        "limitation": summarize_metric_by_group(
+            df,
+            group_field="brat_limitation",
+            metric_field=SUMMARY_TOTAL_FIELD,
+            count_field=SUMMARY_COUNT_FIELD,
+            layer_id=RPT_RME_LAYER_ID,
+        ),
+        "risk": summarize_metric_by_group(
+            df,
+            group_field="brat_risk",
+            metric_field=SUMMARY_TOTAL_FIELD,
+            count_field=SUMMARY_COUNT_FIELD,
+            layer_id=RPT_RME_LAYER_ID,
+        ),
     }

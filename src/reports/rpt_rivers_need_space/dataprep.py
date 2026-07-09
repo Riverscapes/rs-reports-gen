@@ -2,13 +2,13 @@
 
 import pandas as pd
 
-from util.figures import get_bins_info  # future enhancement: move the fn since it is a data function not a figure function
+from util.binning import get_bins_info
 from util.pandas import RSFieldMeta
 
 
 def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
-    """ Add any calculated columns to the dataframe
-    These could be bins. 
+    """Add any calculated columns to the dataframe
+    These could be bins.
     When adding columns to this function, add metadata at the same time
     Args:
         df (pd.DataFrame): Input dataframe
@@ -28,7 +28,7 @@ def add_calculated_cols(df: pd.DataFrame) -> pd.DataFrame:
     # bin
 
     unbinnedfldnm = 'riparian_veg_departure'
-    binnedflnm = unbinnedfldnm+'_bins'  # default
+    binnedflnm = unbinnedfldnm + '_bins'  # default
     binned_friendly_nm = 'Riparian Vegetation Departure'  # non-default
     binlookupnm = unbinnedfldnm  # default
     edges, labels, colours = get_bins_info(binlookupnm)
