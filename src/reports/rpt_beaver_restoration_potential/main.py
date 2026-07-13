@@ -25,14 +25,11 @@ from reports.rpt_beaver_restoration_potential.dataprep import (
     query_beaver_data_for_aoi,
     summarize_beaver_potential,
 )
-from reports.rpt_beaver_restoration_potential.figures import build_beaver_figures
+from reports.rpt_beaver_restoration_potential.figures import build_beaver_figures, high_rp_statistics, main_statistics
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata_lakehouse_ref
+from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
-from util.figures import (
-    make_aoi_outline_map,
-    metric_cards
-)
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (
@@ -126,6 +123,7 @@ def _summary_table_to_html(summary_df: pd.DataFrame) -> str:
 
 def make_report(
     data_df: pd.DataFrame,
+    aoi_df: gpd.GeoDataFrame,
     summary_tables: dict[str, pd.DataFrame],
     context: dict[str, str | int],
     report_dir: Path,
@@ -153,7 +151,10 @@ def make_report(
     for key, summary_df in summary_tables.items():
         summary_df.to_csv(data_dir / f"{key}_summary.csv", index=False)
 
-    figures = build_beaver_figures(summary_tables)
+    figures = {
+        "map": make_aoi_outline_map(aoi_df),
+        **build_beaver_figures(summary_tables),
+    }
     summary_tables_html = {name: _summary_table_to_html(df) for name, df in summary_tables.items()}
 
     report = RSReport(
@@ -167,8 +168,15 @@ def make_report(
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
+    summary_stats = main_statistics(data_df)
+    high_rp_stats = high_rp_statistics(data_df)
+    metrics_for_summary_cards = ["total_dam_capacity", "total_dams", "realized_capacity"]
+    metric_data_for_cards = {key: summary_stats[key] for key in metrics_for_summary_cards}
+    metric_data_for_cards.update(high_rp_stats)
+
     report.add_html_elements("summary_tables", summary_tables_html)
     report.add_html_elements("context", context)
+    report.add_html_elements("cards", metric_cards(metric_data_for_cards))
     report.render(fig_mode="interactive")
     log.info(f"HTML report written to {report_dir}")
 
@@ -224,6 +232,7 @@ def orchestrate(
     context = _build_report_context(data_df, report_name, path_to_shape)
     make_report(
         data_df,
+        aoi_gdf,
         summary_tables,
         context,
         output_path,

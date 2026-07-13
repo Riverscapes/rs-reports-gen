@@ -2,13 +2,15 @@
      Created 2026-07-07.
      Created by copilot.
 -->
-
+{% from 'macros.html' import render_metric_grid %}
 <section>
   <div class="section-context">
     <p>
-      This is a scaffold report for Beaver Restoration Potential. It is designed
-      to validate AOI Athena queries, cache-first parquet workflows, and baseline
-      summary outputs while the full report design is still in development.
+      The Beaver Restoration Potential report combines information regarding the capacity of riverscapes to support beaver dam
+      building as modeled by BRAT with information on existing beaver dam building activity. If data on beaver dam locations 
+      has been collected and made available, this report can be used to estimate the realized beaver dam building capacity within 
+      the report area. This information can be used to identify areas where beaver dam building activity is occurring and where 
+      it is not occurring, which can inform restoration efforts and management decisions.
     </p>
   </div>
 </section>
@@ -16,7 +18,54 @@
 <section id='toc'>
   <h2>Table of Contents</h2>
   <ol class="toc-list">
-    <li><a href="">Some item</a></li>
+    <li><a href="#map-of-polygons">Report Area</a></li>
+    <li><a href="#key-indicators">Key Indicators</a></li>
+  </ol>
+</section>
+
+<section id="map-of-polygons">
+  <h2>Report Area</h2>
+  <div class="section-context">
+    <p>
+      The following map shows the area of interest chosen for the analysis. The charts and tables that follow provide
+        further insights into this area.
+    </p>
+  </div>
+  <figure class="report-figure map">
+    {{ figures['map']|safe }}
+  </figure>
+</section>
+
+<section id="key-indicators">
+  <h2>Realized Beaver Dam Building Capacity</h2>
+  <p>
+    The following metrics summarize the state of beaver dam building
+    capacity within the report area. The <b>Total Dam Capacity</b> is the number of dams that the
+    perennial riverscapes in the report area could support based on BRAT capacity estimates.
+    The <b>Total Dams</b> is the number of dams present in the report area according to
+    imagery-based dam identification (see associated projects, Appendix _). The <b>Realized Capacity</b>
+    is the percentage of the total dam building capacity that currently exists in the report area 
+    based on this data. 
+  </p>
+  {{ render_metric_grid(cards, ['total_dam_capacity', 'total_dams', 'realized_capacity']) }}
+</section>
+
+<section id="high-rp-indicators">
+  <h2>Beaver Dams in Highest Restoration Potential Riverscapes</h2>
+  <p>
+    The following metrics summarize the state of beaver dam building
+    capacity within the riverscapes with the highest restoration potential according to BRAT. These are streams
+    where there is high capacity to support dam building AND low risk to infrastructure. These riverscapes
+    correspond to the 'Conservation/Approporiate for Translocation' and 'Encourage Beaver Expansion/Colonization'
+    output categories in the BRAT conservation/restoration opportunities output. The <b>Total Dam Capacity</b> is 
+    the number of dams that the perennial riverscapes with the highest restoration potential in the report area could 
+    support based on BRAT capacity estimates. The <b>Total Dams</b> is the number of dams present in the riverscapes 
+    with the highest restoration potential according to imagery-based dam identification 
+    (see associated projects, Appendix _). The <b>Realized Capacity</b>
+    is the percentage of the total dam building capacity that currently exists in the riverscapes with the highest restoration 
+    potential in the report area based on this data. 
+  </p>
+  {{ render_metric_grid(cards, ['total_dam_capacity_(high_restoration_potential)', 'total_dams_(high_restoration_potential)', 'realized_capacity_(high_restoration_potential)']) }}
 </section>
 
 <section id="overview">
