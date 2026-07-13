@@ -1,0 +1,44 @@
+<!-- PBR Explorer report body template.
+     Created 2026-07-13 Lorin Gaertner
+-->
+{% from 'macros.html' import render_metric_grid %}
+<section>
+  <div class="section-context">
+    <p>
+      This is a proof-of-concept report of PBR Explorer data. It is designed
+      to validate API calls, JSON payload handling, and baseline
+      summary outputs while the full report design is still in development.
+    </p>
+  </div>
+</section>
+
+<section id="overview">
+  <h2>Summary</h2>
+  {{ render_metric_grid(context) }}
+</section>
+
+<section id="summary-tables">
+  <h2>Summary Tables</h2>
+  <p>CSV exports of each summary table are available in the data folder.</p>
+
+  <h3>Current BRAT Capacity</h3>
+  {{ summary_tables.capacity|safe }}
+
+  <h3>BRAT Opportunity</h3>
+  {{ summary_tables.opportunity|safe }}
+
+  <h3>BRAT Limitation</h3>
+  {{ summary_tables.limitation|safe }}
+
+  <h3>BRAT Risk</h3>
+  {{ summary_tables.risk|safe }}
+</section>
+
+<section id="figures">
+  <h2>Figures</h2>
+  {% for key, fig_html in figures.items() %}
+  <figure class="report-figure">
+    {{ fig_html|safe }}
+  </figure>
+  {% endfor %}
+</section>
