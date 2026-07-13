@@ -234,6 +234,36 @@ def prompt_parquet(env_var: str = "RSI_PARQUET_PATH") -> str:
     return raw.strip().strip('"').strip("'") if raw else ""
 
 
+def prompt_raw_cache_dir(
+    env_var: str = "RPT_RAW_CACHE_PATH",
+    prompt_message: str = "Optional: path to cached raw data cache directory (leave blank to query live database or API)",
+) -> str:
+    """Return an optional raw-cache directory path from env or prompt.
+
+    Refactor/Improvement opportunities:
+    - replace prompt_parquet usage with this function - it's more generic.
+    - Migrate those launchers to this helper when those reports are touched.
+    - Several reports use report-local prompt helpers with similar behavior.
+    - validation for folder vs file could be good. Generally we're moving towards a folder of raw data not a single file.
+
+    Copilot-generated function.
+    """
+    import questionary
+    from termcolor import colored
+
+    env_val = os.environ.get(env_var)
+    if env_val:
+        if not Path(env_val).exists():
+            raise RuntimeError(colored(f"\n{env_var} is set to '{env_val}' but that path does not exist.\n", "red"))
+        return env_val
+
+    raw = questionary.text(
+        message=prompt_message,
+        default="",
+    ).ask()
+    return raw.strip().strip('"').strip("'") if raw else ""
+
+
 def derive_report_name(
     geojson_file: Path | str,
     suffix: str,

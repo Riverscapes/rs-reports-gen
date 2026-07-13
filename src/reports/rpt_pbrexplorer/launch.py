@@ -9,7 +9,7 @@ from util.report_entrypoint import (
     build_common_launch_args,
     derive_report_name,
     prompt_geojson,
-    prompt_parquet,
+    prompt_raw_cache_dir,
     require_data_root,
 )
 
@@ -28,13 +28,16 @@ def main() -> list[str] | None:
     if include_pdf is None:
         return None
 
-    parquet_path = prompt_parquet(env_var="PBR_PARQUET_PATH")
-    keep_parquet = get_env_or_confirm(
+    raw_cache_path = prompt_raw_cache_dir(
+        env_var="PBR_RAW_CACHE_PATH",
+        prompt_message="Optional: path to cached page JSON directory (leave blank to query PBR API)",
+    )
+    keep_raw = get_env_or_confirm(
         env_var="PBR_KEEP_RAW",
         message="Keep downloaded raw files after processing?",
-        default=bool(parquet_path),
+        default=bool(raw_cache_path),
     )
-    if keep_parquet is None:
+    if keep_raw is None:
         return None
 
     report_name = derive_report_name(
@@ -43,13 +46,18 @@ def main() -> list[str] | None:
         env_var="PBR_REPORT_NAME",
     )
 
-    return build_common_launch_args(
+    args = build_common_launch_args(
         data_root=data_root,
         report_slug="rpt-pbrexplorer",
         report_name=report_name,
         geojson_file=geojson_file,
         unit_system=unit_system,
         include_pdf=include_pdf,
-        parquet_path=parquet_path,
-        keep_parquet=keep_parquet,
+        parquet_path="",
+        keep_parquet=False,
     )
+    if raw_cache_path:
+        args += ["--use-raw-cache", raw_cache_path]
+    if keep_raw:
+        args.append("--keep-raw")
+    return args
