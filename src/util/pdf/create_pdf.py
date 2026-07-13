@@ -1,6 +1,17 @@
 import os
 
-import weasyprint
+
+def _load_weasyprint():
+    try:
+        import weasyprint
+    except (ImportError, OSError) as exc:
+        raise RuntimeError(
+            "WeasyPrint could not load its native rendering libraries. "
+            "Install the system dependencies described in README.md, including "
+            "libpango-1.0-0, libpangoft2-1.0-0, libcairo2, and libgdk-pixbuf-2.0-0."
+        ) from exc
+
+    return weasyprint
 
 
 def make_pdf_from_html(
@@ -8,7 +19,7 @@ def make_pdf_from_html(
     pdf_path: str | None = None,
     page_margin: str = "0.1in",
     zoom: float = 1.0,
-    extra_styles: list[weasyprint.CSS] | None = None,
+    extra_styles: list[object] | None = None,
 ) -> str:
     """Generate a PDF from an HTML file using WeasyPrint with layout controls.
 
@@ -20,6 +31,7 @@ def make_pdf_from_html(
     Returns:
         Path to the generated PDF file.
     """
+    weasyprint = _load_weasyprint()
     pdf_path_final = pdf_path if pdf_path else os.path.splitext(html_path)[0] + ".pdf"
     margin_css = weasyprint.CSS(
         string=(
