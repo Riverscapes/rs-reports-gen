@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import shutil
 from pathlib import Path
+from typing import TypedDict
 
 import geopandas as gpd
 import pandas as pd
@@ -22,6 +23,7 @@ from rsxml import Logger
 from reports.rpt_pbrexplorer import __version__ as report_version
 from reports.rpt_pbrexplorer.dataprep import (
     PBR_PROJECTS_LAYER_ID,
+    define_fields,
     load_cached_pbr_data,
     load_live_pbr_data,
 )
@@ -30,7 +32,6 @@ from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (
-    add_parquet_cli_args,
     init_report_logging,
     parse_report_args,
     report_main_wrapper,
@@ -39,19 +40,10 @@ from util.report_entrypoint import (
 REPORT_SLUG = "rpt-pbr-explorer"
 
 
-def _resolve_metadata_cachefile_path(parquet_path: Path | None, staging_path: Path, keep_parquet: bool) -> tuple[bool, Path | None]:
-    """Determine metadata cache mode and cache file location for this run."""
-    if parquet_path:
-        candidate = parquet_path / "registry_field_meta.parquet"
-        if candidate.exists():
-            return True, candidate
-        Logger("Define Fields").warning(f"No metadata cache found at {candidate}. Falling back to Athena metadata.")
-        return False, None
-
-    if keep_parquet:
-        return False, staging_path / "registry_field_meta.parquet"
-
-    return False, None
+class MetricCard(TypedDict):
+    title: str
+    value: str
+    details: str | None
 
 
 def _summary_table_to_html(summary_df: pd.DataFrame) -> str:
@@ -73,7 +65,7 @@ def _summary_table_to_html(summary_df: pd.DataFrame) -> str:
 def make_report(
     data_df: pd.DataFrame,
     # summary_tables: dict[str, pd.DataFrame],
-    context: dict[str, str | int],
+    cards: MetricCard,
     report_dir: Path,
     report_name: str,
     *,
@@ -93,7 +85,7 @@ def make_report(
             raw_export_df[col] = raw_export_df[col].pint.magnitude
 
     # Parquet is significantly faster and smaller than CSV for large raw exports.
-    raw_export_df.to_parquet(data_dir / "beaver_restoration_potential_raw.parquet", index=False)
+    # raw_export_df.to_parquet(data_dir / "beaver_restoration_potential_raw.parquet", index=False)
     # for compatibility with older systems we could also, or based on a CLI flag export CSV
     # raw_export_df.to_csv(data_dir / "beaver_restoration_potential_raw.csv", index=False)
     # for key, summary_df in summary_tables.items():
@@ -114,7 +106,7 @@ def make_report(
     #     report.add_figure(name, fig)
 
     # report.add_html_elements("summary_tables", summary_tables_html)
-    report.add_html_elements("context", context)
+    report.add_html_elements("cards", cards)
     report.render(fig_mode="interactive")
     log.info(f"HTML report written to {report_dir}")
 
@@ -122,9 +114,16 @@ def make_report(
         make_pdf_from_html(str(report_dir))
 
 
-def summary_stats(data_df: pd.DataFrame) -> dict[str, str]:
+def summary_stats(data_df: pd.DataFrame) -> MetricCard:
     """Prepare formatted summary data for report - a combination of dataprep and figure"""
-    return {"Number of Projects": str(data_df.size)}
+    project_count = len(data_df)
+    return {
+        "number_of_projects": {
+            "title": "Number of Projects",
+            "value": f"{project_count:,}",
+            "details": "Projects returned by PBR Explorer for this run.",
+        },
+    }
 
 
 def orchestrate(
@@ -142,6 +141,8 @@ def orchestrate(
 
     if raw_data_path and not raw_data_path.exists():
         raise FileNotFoundError(f"Path '{raw_data_path}' does not exist")
+    if raw_data_path and not raw_data_path.is_dir():
+        raise NotADirectoryError(f"Expected a directory of paged JSON cache files, got '{raw_data_path}'")
 
     aoi_gdf = gpd.read_file(path_to_shape)
     # CHECK: we aren't querying Athena, but we may still want to simplify inputs
@@ -154,7 +155,7 @@ def orchestrate(
     if not raw_data_path:
         staging_path.mkdir(parents=True, exist_ok=True)
 
-    load_meta_from_parquet, metadata_cachefile_path = _resolve_metadata_cachefile_path(raw_data_path, staging_path, keep_raw_data)
+    # load_meta_from_parquet, metadata_cachefile_path = _resolve_metadata_cachefile_path(raw_data_path, staging_path, keep_raw_data)
     # define_fields(unit_system, load_from_parquet=load_meta_from_parquet, metadata_cachefile_path=metadata_cachefile_path)
 
     if raw_data_path:
@@ -166,17 +167,18 @@ def orchestrate(
     if data_df.empty:
         log.warning("No AOI rows were returned. Rendering a stub report with no-data placeholders.")
     else:
+        define_fields(unit_system)
         data_df.attrs["layer_id"] = PBR_PROJECTS_LAYER_ID
         try:
             data_df, _applied_units = RSFieldMeta().apply_units(data_df, layer_id=PBR_PROJECTS_LAYER_ID)
         except Exception as exc:
             log.warning(f"Unable to apply units for all fields: {exc}")
 
-    context = summary_stats(data_df)
+    cards = summary_stats(data_df)
     make_report(
         data_df,
         # summary_tables,
-        context,
+        cards,
         output_path,
         report_name,
         include_pdf=include_pdf,
@@ -184,7 +186,7 @@ def orchestrate(
 
     if not raw_data_path and not keep_raw_data and staging_path.exists():
         shutil.rmtree(staging_path)
-        log.info("Staging parquet removed")
+        log.info("Staging cache removed")
 
     log.info(f"Report Path: {output_path}")
 
@@ -197,7 +199,14 @@ def main() -> None:
     parser.add_argument("report_name", help="Human-readable report name")
     parser.add_argument("--include_pdf", help="Include a PDF version of the report", action="store_true", default=False)
     parser.add_argument("--unit_system", help="Unit system: SI or imperial", type=str, default="SI")
-    add_parquet_cli_args(parser)
+    parser.add_argument(
+        "--use-raw-cache",
+        dest="raw_cache_path",
+        type=Path,
+        default=None,
+        help="Use an existing directory of pbr_projects_page_*.json files instead of querying the PBR API",
+    )
+    parser.add_argument("--keep-raw", dest="keep_raw", action="store_true", help="Keep downloaded staged page JSON files")
 
     args, output_path = parse_report_args(parser)
     log = init_report_logging(output_path, REPORT_SLUG)
@@ -213,8 +222,8 @@ def main() -> None:
             report_name=args.report_name,
             unit_system=args.unit_system,
             include_pdf=args.include_pdf,
-            raw_data_path=args.parquet_path,
-            keep_raw_data=args.keep_parquet,
+            raw_data_path=args.raw_cache_path,
+            keep_raw_data=args.keep_raw,
         ),
         debug=True,
     )
