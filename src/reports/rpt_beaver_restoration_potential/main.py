@@ -29,6 +29,10 @@ from reports.rpt_beaver_restoration_potential.figures import build_beaver_figure
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata_lakehouse_ref
 from util.html import RSReport
+from util.figures import (
+    make_aoi_outline_map,
+    metric_cards
+)
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (

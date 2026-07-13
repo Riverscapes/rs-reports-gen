@@ -5,6 +5,7 @@ Created by copilot.
 """
 
 import pandas as pd
+import pint
 import plotly.graph_objects as go
 from rsxml import Logger
 
@@ -58,3 +59,12 @@ def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, g
     }
     log.info(f"Built {len(figures)} figures for Beaver Restoration Potential")
     return figures
+
+def statistics(df: pd.DataFrame) -> dict[str, pint.Quantity]:
+    """Calculate and return key statistics as a dictionary
+    Args:
+        df (DataFrame): data_df input WITH UNITS APPLIED
+
+    Returns:
+        dict[str, pint.Quantity]: new summary statistics applicable to the whole dataframe
+    """
