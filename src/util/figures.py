@@ -12,6 +12,7 @@ FUTURE ENHANCEMENTs:
 import json
 import math
 from collections.abc import Sequence
+from typing import TypedDict
 
 import geopandas as gpd
 import numpy as np
@@ -828,12 +829,23 @@ def project_id_list(df: pd.DataFrame, id_col: str = 'rme_project_id', name_col: 
 # =========================
 
 
-def metric_cards(metrics: dict[str, pint.Quantity]) -> dict[str, dict[str, str]]:
+class MetricCard(TypedDict):
+    """Template-facing metric card payload for render_metric_grid."""
+
+    title: str
+    value: str
+    details: str | None
+
+
+MetricCards = dict[str, MetricCard]
+
+
+def metric_cards(metrics: dict[str, object], layer_id: str | None = None) -> MetricCards:
     """transform a statistics dictionary into dictionary of elements for display
 
     Args:
-        metrics (dict): metric_id, Quantity
-        **uses Friendly name and description if they have been added to the RSFieldMeta**
+        metrics (dict): metric_id mapped to a Pint Quantity or numeric scalar
+        **uses Friendly name, description and preferred_format if they have been added to the RSFieldMeta**
 
     Returns:
         dictionary of cards. Each card is a dictionary each having:
@@ -842,15 +854,14 @@ def metric_cards(metrics: dict[str, pint.Quantity]) -> dict[str, dict[str, str]]
             * details: additional description (optional)
 
     Uses the order of the dictionary (guaranteed to be insertion order from Python 3.7 and later)
-    FUTURE ENHANCEMENT - Should be modified to handle different number of decimal places depending on the metric
     """
-    cards = {}
+    cards: MetricCards = {}
     meta = RSFieldMeta()
     log = Logger('metric_cards')
     for key, value in metrics.items():
-        friendly = meta.get_friendly_name(key)
-        desc = meta.get_description(key)
+        friendly = meta.get_friendly_name(key, layer_id)
+        desc = meta.get_description(key, layer_id)
         log.debug(f"metric: {key}, friendly: {friendly}, desc: {desc}")
-        formatted = meta.format_scalar(key, value)
+        formatted = meta.format_scalar(key, value, layer_id=layer_id)
         cards[key] = {"title": friendly, "value": formatted, "details": desc}
     return cards
