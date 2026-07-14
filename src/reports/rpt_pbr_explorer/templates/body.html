@@ -30,3 +30,9 @@
 </section>
 {% endif %}
 
+{% if actions_cards %}
+<section id="actions-summary">
+  <h2>Actions Summary</h2>
+  {{ render_metric_grid(actions_cards) }}
+</section>
+{% endif %}

@@ -23,10 +23,14 @@ from reports.rpt_pbr_explorer import __version__ as report_version
 from reports.rpt_pbr_explorer.dataprep import (
     PBR_PROJECTS_LAYER_ID,
     SUMMARY_METRICS_LAYER_ID,
+    _ensure_actions_metric_metadata,
+    build_actions_metrics,
     build_summary_metrics,
+    count_projects_with_actions,
     define_fields,
     load_cached_pbr_data,
     load_live_pbr_data,
+    parse_actions_to_columns,
 )
 from reports.rpt_pbr_explorer.figures import build_pbr_figures
 from util import prepare_gdf_for_athena
@@ -49,8 +53,8 @@ REPORT_SLUG = "rpt-pbr-explorer"
 def make_report(
     data_df: pd.DataFrame,
     aoi_df: gpd.GeoDataFrame,
-    # summary_tables: dict[str, pd.DataFrame],
     cards: MetricCards,
+    actions_cards: MetricCards | None,
     report_dir: Path,
     report_name: str,
     *,
@@ -93,6 +97,7 @@ def make_report(
 
     # report.add_html_elements("summary_tables", summary_tables_html)
     report.add_html_elements("cards", cards)
+    report.add_html_elements("actions_cards", actions_cards)
     report.add_html_elements("no_data_message", no_data_message)
     report.render(fig_mode="interactive")
     log.info(f"HTML report written to {report_dir}")
@@ -159,6 +164,7 @@ def orchestrate(
             data_df,
             aoi_gdf,
             {},
+            {},
             output_path,
             report_name,
             include_pdf=include_pdf,
@@ -166,17 +172,29 @@ def orchestrate(
         )
     else:
         data_df.attrs["layer_id"] = PBR_PROJECTS_LAYER_ID
+        # Parse nested actions before applying units so metadata resolves correctly.
+        data_df = parse_actions_to_columns(data_df)
         try:
             data_df, _applied_units = RSFieldMeta().apply_units(data_df, layer_id=PBR_PROJECTS_LAYER_ID)
         except Exception as exc:
             log.warning(f"Unable to apply units for all fields: {exc}")
 
         cards = summary_stats(data_df)
+
+        # Build actions metric cards and enrich with project counts.
+        _ensure_actions_metric_metadata()
+        actions_sums = build_actions_metrics(data_df)
+        actions_counts = count_projects_with_actions(data_df)
+        actions_cards = metric_cards(actions_sums, layer_id=SUMMARY_METRICS_LAYER_ID)
+        for action_key, count in actions_counts.items():
+            if action_key in actions_cards:
+                actions_cards[action_key]["details"] = f"{count} project{'s' if count != 1 else ''}"
+
         make_report(
             data_df,
             aoi_gdf,
-            # summary_tables,
             cards,
+            actions_cards,
             output_path,
             report_name,
             include_pdf=include_pdf,
