@@ -7,7 +7,18 @@ from rsxml import Logger
 from shapely import wkb, wkt
 
 from util.athena.athena_unload_utils import list_athena_unload_payload_files
-from util.pandas import RSFieldMeta
+from util.pandas.RSFieldMeta import RSFieldMeta
+
+
+def _safe_nunique(series: pd.Series) -> int | None:
+    """Return nunique count or None for unsupported/unhashable object values."""
+    non_na = series.dropna()
+    if non_na.empty:
+        return 0
+    try:
+        return int(non_na.nunique())
+    except TypeError:
+        return None
 
 
 def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = None):
@@ -33,7 +44,8 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = N
 
         # Statistics
         na_count = df[col].isna().sum()
-        distinct_count = df[col].nunique()
+        distinct_count = _safe_nunique(df[col])
+        distinct_display = "<NA>" if distinct_count is None else str(distinct_count)
 
         # Sampling
         # Use dropna().iloc[0] to avoid issues with MultiIndex/Duplicate Index and PerformanceWarnings
@@ -76,7 +88,7 @@ def pprint_df_meta(df: pd.DataFrame | gpd.GeoDataFrame, layer_id: str | None = N
                 'unit': d_unit,
                 'fmt': p_fmt,
                 'na': str(na_count),
-                'distinct': str(distinct_count),
+                'distinct': distinct_display,
                 'raw': raw_sample_str,
                 'formatted': formatted_sample,
             }
