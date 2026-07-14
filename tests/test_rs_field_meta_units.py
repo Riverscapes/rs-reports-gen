@@ -54,3 +54,20 @@ def test_apply_units_custom_units(fresh_meta):
     assert applied_units["length_sum"] == ureg.Unit("kilometer")
 
     fresh_meta.unit_system = "SI"
+
+
+def test_get_friendly_name_falls_back_when_metadata_name_is_null(fresh_meta):
+    """Null friendly names should fall back to a title-cased column name."""
+    set_basic_meta(
+        fresh_meta,
+        [
+            {
+                "layer_id": "tbl",
+                "name": "dam_ct",
+                "friendly_name": None,
+                "dtype": "INTEGER",
+            }
+        ],
+    )
+
+    assert fresh_meta.get_friendly_name("dam_ct", layer_id="tbl") == "Dam Ct"

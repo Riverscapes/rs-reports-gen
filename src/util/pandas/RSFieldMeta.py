@@ -540,18 +540,23 @@ class RSFieldMeta:
         if unique_id is None:
             return None
 
+        def _clean_text_meta(value) -> str:
+            if value is None or pd.isna(value):
+                return ""
+            return str(value)
+
         meta_row = self._field_meta.loc[unique_id]
         meta_values = FieldMetaValues()
-        meta_values.name = str(meta_row.get('name', ''))
-        meta_values.friendly_name = str(meta_row.get("friendly_name", ''))
-        meta_values.layer_id = str(meta_row.get("layer_id", ''))
+        meta_values.name = _clean_text_meta(meta_row.get('name', ''))
+        meta_values.friendly_name = _clean_text_meta(meta_row.get("friendly_name", ''))
+        meta_values.layer_id = _clean_text_meta(meta_row.get("layer_id", ''))
         meta_values.data_unit = meta_row.get("data_unit")
         meta_values.display_unit = meta_row.get("display_unit")
-        meta_values.dtype = str(meta_row.get("dtype", ''))
+        meta_values.dtype = _clean_text_meta(meta_row.get("dtype", ''))
         meta_values.no_convert = bool(meta_row.get("no_convert", False))
-        meta_values.description = str(meta_row.get("description", ''))
-        meta_values.preferred_format = str(meta_row.get("preferred_format", '') or '')
-        meta_values.theme = str(meta_row.get('theme', '') or '')
+        meta_values.description = _clean_text_meta(meta_row.get("description", ''))
+        meta_values.preferred_format = _clean_text_meta(meta_row.get("preferred_format", ''))
+        meta_values.theme = _clean_text_meta(meta_row.get('theme', ''))
         return meta_values
 
     def get_friendly_name(self, column_name: str, layer_id: str | None = None) -> str:
