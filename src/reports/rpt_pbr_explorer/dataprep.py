@@ -70,6 +70,21 @@ query SearchProjects($limit: Int!, $offset: Int!, $searchTerms: SearchTermsInput
 PBR_PROJECTS_LAYER_ID = 'pbr_projects'
 SUMMARY_METRICS_LAYER_ID = "pbr_summary_metrics"
 
+PBR_ACTION_ENUMS: list[str] = [
+    "AREA_PLANTED_HECTARES",
+    "AREA_FLOODPLAIN_TREATMENT_HECTARES",
+    "LEVEES_BANK_PROTECTIONS_REMOVED_KM",
+    "STRUCTURES_BUILT",
+    "STRUCTURES_REMOVED",
+    "WOOD_ADDED",
+    "TREES_FELLED",
+    "IMPOUNDMENTS_REMOVED",
+    "BEAVERS_TRANSLOCATED_INTRODUCED",
+    "BEAVER_TRAPPING_CLOSURE",
+    "STRUCTURES_MAINTAINED",
+    "EXCLOSURE_FENCING",
+]
+
 
 def _page_cache_file(staging_path: Path, page_index: int) -> Path:
     """Return the page-cache filename for a paginated API response. Created by copilot."""
@@ -379,3 +394,108 @@ def build_summary_metrics(data_df: pd.DataFrame) -> dict[str, object]:
         "total_budget_usd": total_budget_usd,
         "total_treatment_length": total_treatment_length,
     }
+
+
+# =======================================
+# ACTION COLUMN PARSING & METRICS
+# =======================================
+
+
+def parse_actions_to_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Expand the nested ``actions`` list-of-dicts column into one column per action enum.
+
+    Each row may have zero or more ``{action, value}`` entries.  This function creates
+    a new column for each known action enum (default ``pd.NA``), populates matching
+    rows with the corresponding numeric value, and drops the original ``actions`` column.
+
+    Created by copilot.
+    """
+    if df.empty:
+        return df
+    if "actions" not in df.columns:
+        return df
+
+    for action_enum in PBR_ACTION_ENUMS:
+        if action_enum not in df.columns:
+            df[action_enum] = pd.NA
+
+    for idx, actions_list in df["actions"].items():
+        if not isinstance(actions_list, list):
+            continue
+        for entry in actions_list:
+            if not isinstance(entry, dict):
+                continue
+            action_name = entry.get("action")
+            value = entry.get("value")
+            if action_name and action_name in PBR_ACTION_ENUMS and value is not None:
+                df.at[idx, action_name] = value
+
+    df = df.drop(columns=["actions"])
+    return df
+
+
+def _ensure_actions_metric_metadata() -> None:
+    """Register metadata for each action enum under the summary-metrics layer.
+
+    This allows ``metric_cards()`` to resolve friendly names, units, and format
+    strings for action aggregates without requiring a separate DataFrame.
+
+    Created by copilot.
+    """
+    meta = RSFieldMeta()
+    for action_enum in PBR_ACTION_ENUMS:
+        field_meta = meta.get_field_meta(action_enum, layer_id=PBR_PROJECTS_LAYER_ID)
+        if field_meta is None:
+            continue
+        if meta.get_field_meta(action_enum, layer_id=SUMMARY_METRICS_LAYER_ID) is None:
+            meta.add_field_meta(
+                name=action_enum,
+                layer_id=SUMMARY_METRICS_LAYER_ID,
+                friendly_name=field_meta.friendly_name,
+                data_unit=field_meta.data_unit,
+                dtype=field_meta.dtype,
+                description=field_meta.description,
+                preferred_format=field_meta.preferred_format,
+            )
+
+
+def build_actions_metrics(data_df: pd.DataFrame) -> dict[str, object]:
+    """Sum each action column into a dict suitable for ``metric_cards()``.
+
+    Returns:
+        ``{action_enum: pint.Quantity | float}`` for every action with a non-zero
+        sum.  Empty actions and actions not present in the DataFrame are omitted.
+
+    Created by copilot.
+    """
+    results: dict[str, object] = {}
+    for action_enum in PBR_ACTION_ENUMS:
+        if action_enum not in data_df.columns:
+            continue
+        series = data_df[action_enum].dropna()
+        if len(series) == 0:
+            continue
+        total = series.sum()
+        # skip actions whose total is effectively zero
+        if isinstance(total, pint.Quantity):
+            if total.magnitude == 0:
+                continue
+        elif total == 0:
+            continue
+        results[action_enum] = total
+    return results
+
+
+def count_projects_with_actions(data_df: pd.DataFrame) -> dict[str, int]:
+    """Count how many projects have a non-null value for each action enum.
+
+    Created by copilot.
+    """
+    counts: dict[str, int] = {}
+    for action_enum in PBR_ACTION_ENUMS:
+        if action_enum not in data_df.columns:
+            continue
+        count = int(data_df[action_enum].dropna().shape[0])
+        if count > 0:
+            counts[action_enum] = count
+    return counts
