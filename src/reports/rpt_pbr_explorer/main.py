@@ -137,19 +137,26 @@ def orchestrate(
         log.info(f"Using supplied raw data at {raw_data_path}")
         data_df = load_cached_pbr_data(raw_data_path)
     else:
-        data_df = load_live_pbr_data(staging_path)
+        data_df = load_live_pbr_data(staging_path, query_gdf)
 
     define_fields(unit_system)
 
     if data_df.empty:
-        log.warning("No AOI rows were returned. Rendering a short no-data report.")
+        fetch_status = data_df.attrs.get("fetch_status")
+        if fetch_status == "error":
+            no_data_message = "No data returned because the PBR API request failed. See logs for details."
+            log.warning("No rows available due to a PBR API fetch error. Rendering a short no-data report.")
+        else:
+            no_data_message = "No data returned for this request."
+            log.warning("No AOI rows were returned. Rendering a short no-data report.")
+
         make_report(
             data_df,
             {},
             output_path,
             report_name,
             include_pdf=include_pdf,
-            no_data_message="No data returned for this request.",
+            no_data_message=no_data_message,
         )
     else:
         data_df.attrs["layer_id"] = PBR_PROJECTS_LAYER_ID

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import geopandas as gpd
 import pandas as pd
 import pint
 import pint_pandas
@@ -17,8 +18,8 @@ PBR_PROJECTS_PAGE_SIZE = 400
 PBR_PROJECTS_PAGE_FILENAME = "pbr_projects_page_{page_index:03d}.json"
 
 SEARCH_PROJECTS_QUERY = """
-query SearchProjects($limit: Int!, $offset: Int!) {
-    searchProjects(limit: $limit, offset: $offset, searchTerms: { textSearch: "" }) {
+query SearchProjects($limit: Int!, $offset: Int!, $searchTerms: SearchTermsInput!) {
+    searchProjects(limit: $limit, offset: $offset, searchTerms: $searchTerms) {
         limit
         offset
         total
@@ -46,7 +47,6 @@ query SearchProjects($limit: Int!, $offset: Int!) {
                 date
                 name
             }
-            draft
             extent
             geoCoding {
                 continent
@@ -121,12 +121,17 @@ def define_fields(unit_system: str = "SI") -> None:
 
 def fetch_pbr_projects(
     output_path: Path | None = None,
+    search_terms: dict[str, Any] | None = None,
     page_size: int = PBR_PROJECTS_PAGE_SIZE,
 ) -> list[dict[str, Any]] | None:
     """Fetch projects from the PBR GraphQL API and optionally write staged page JSON files.
 
     Args:
         output_path: Staging directory where page JSON files should be written.
+        search_terms: Search terms payload mapped to the GraphQL ``SearchTermsInput``.
+            Typical keys include ``bbox``, ``continent``, ``country``, ``geohash``,
+            ``orgAffiliateId``, ``provState``, and ``textSearch``.
+
     """
     log = Logger("Fetch PBR projects")
     headers = {"Content-Type": "application/json"}
@@ -135,14 +140,23 @@ def fetch_pbr_projects(
     page_index = 1
     total_results: int | None = None
 
+    # Avoid mutating caller-provided dicts and drop null values.
+    resolved_search_terms = dict(search_terms) if search_terms else {}
+    resolved_search_terms = {k: v for k, v in resolved_search_terms.items() if v is not None}
+
     if output_path is not None:
         output_path.mkdir(parents=True, exist_ok=True)
         _clear_page_cache_files(output_path)
 
     while True:
+        variables = {
+            "limit": page_size,
+            "offset": offset,
+            "searchTerms": resolved_search_terms,
+        }
         payload = {
             "query": SEARCH_PROJECTS_QUERY,
-            "variables": {"limit": page_size, "offset": offset},
+            "variables": variables,
         }
         log.info(f"Querying PBR GraphQL API at {PBR_GRAPHQL_ENDPOINT} (offset={offset}, limit={page_size}) ...")
         response = requests.post(PBR_GRAPHQL_ENDPOINT, headers=headers, json=payload, timeout=30)
@@ -184,6 +198,7 @@ def fetch_pbr_projects(
             break
 
     log.info(f"Fetched {len(projects)} projects total.")
+    log.info(f"Saved paged project cache to {output_path}")
     return projects
 
 
@@ -197,24 +212,73 @@ def parse_project_data(projects_json: list[dict[str, Any]]) -> pd.DataFrame:
 
 
 def load_cached_pbr_data(local_path: Path) -> pd.DataFrame:
-    """Load data from local instead of fetching from API"""
+    """Load staged page JSON files from disk instead of querying the API.
+
+    The returned DataFrame includes a ``fetch_status`` attribute:
+    - ``ok``: one or more cached project rows were loaded.
+    - ``no_results``: cache files were valid but contained zero project rows.
+    """
     projects = _load_cached_project_pages(local_path)
     projects_df = parse_project_data(projects)
+    projects_df.attrs["fetch_status"] = "ok" if len(projects) > 0 else "no_results"
     return projects_df
 
 
-def load_live_pbr_data(output_path: Path) -> pd.DataFrame:
-    """TODO: how to handle failurs - is empty DF really what we want?"""
-    log = Logger("Load PBR Projects")
-    projects = fetch_pbr_projects(output_path=output_path)
-    if not projects:
+def get_gdf_bbox(gdf: gpd.GeoDataFrame) -> dict[str, float]:
+    """Build a GraphQL ``BboxInput`` dictionary from a GeoDataFrame extent.
+    Ref https://github.com/Riverscapes/pbr-explorer-monorepo/blob/dev/schemas/gql/Queries.gql
+    """
+    if gdf.empty:
+        raise ValueError("Cannot compute bounding box from an empty GeoDataFrame.")
+    if gdf.geometry is None:
+        raise ValueError("GeoDataFrame has no active geometry column.")
+    if gdf.crs is None:
+        raise ValueError("GeoDataFrame CRS is undefined; cannot convert extent to WGS84.")
+
+    # API expects longitude/latitude values; normalize to WGS84 when needed.
+    gdf_wgs84 = gdf if gdf.crs and gdf.crs.to_epsg() == 4326 else gdf.to_crs(epsg=4326)
+    min_lng, min_lat, max_lng, max_lat = gdf_wgs84.total_bounds
+
+    return {
+        "minLng": float(min_lng),
+        "minLat": float(min_lat),
+        "maxLng": float(max_lng),
+        "maxLat": float(max_lat),
+    }
+
+
+def geofilter_projects(projects, aoi: gpd.GeoDataFrame):
+    """Filter projects to only those where the extent OR location.latitude/longitude overlaps with the input AOI
+    Extent can be NULL.
+    """
+    raise NotImplementedError
+
+
+def load_live_pbr_data(output_path: Path, query_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
+    """Query the PBR API for projects within the query_gdf polygon and return parsed project rows as a DataFrame.
+
+    The returned DataFrame includes a ``fetch_status`` attribute to distinguish
+    successful and unsuccessful empty results:
+    - ``ok``: one or more project rows were returned.
+    - ``no_results``: API request succeeded but matched zero projects.
+    - ``error``: API request failed (for example, GraphQL errors).
+    """
+    # log = Logger("Load PBR Projects")
+    bbox = get_gdf_bbox(query_gdf)
+    search_terms = {"bbox": bbox}
+    projects = fetch_pbr_projects(output_path=output_path, search_terms=search_terms)
+    if projects is None:
         projects_df = pd.DataFrame()  # empty data frame
+        projects_df.attrs["fetch_status"] = "error"
+    elif len(projects) == 0:
+        projects_df = pd.DataFrame()  # empty data frame
+        projects_df.attrs["fetch_status"] = "no_results"
     else:
-        if output_path is not None:
-            projects = _load_cached_project_pages(output_path)
-            log.info(f"Saved paged project cache to {output_path}")
-        # TODO when do we load metadata?
+        # TODO: further filter results on the actual polygon, not just the bounding box
+
+        projects = _load_cached_project_pages(output_path)
         projects_df = parse_project_data(projects)
+        projects_df.attrs["fetch_status"] = "ok"
     return projects_df
 
 
