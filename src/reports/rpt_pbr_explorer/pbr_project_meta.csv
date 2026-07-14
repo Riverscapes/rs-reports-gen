@@ -2,3 +2,15 @@ layer_id,layer_name,name,friendly_name,data_unit,description,theme,dtype,preferr
 pbr_projects,,streamName,Stream Name,NA,"Provided to help understand which channel or tributary the project was performed on. This name is unofficial, and not used for any GNIS lookup or processing.",,STRING,
 pbr_projects,,lengthKm,Treatment Length,km,"The treatment length represents the length of riverscape that was treated as part of the project. This is approximate, and should represent the valley distance from the most upstream structure to the most downstream.",,STRING,0.0
 pbr_projects,,budget.usDollarVal,Project Budget,NA,Approximate budget of the PBR project in US dollars,Budget,FLOAT,$0.00
+pbr_projects,,AREA_PLANTED_HECTARES,Area Planted,hectare,"Total area planted as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"
+pbr_projects,,AREA_FLOODPLAIN_TREATMENT_HECTARES,Area of Floodplain Treatment,hectare,"Total floodplain area treated as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"
+pbr_projects,,LEVEES_BANK_PROTECTIONS_REMOVED_KM,Levees or Bank Protections Removed,kilometer,"Total length of levees or bank protections removed as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"
+pbr_projects,,STRUCTURES_BUILT,Structures Built,count,Number of structures built as part of the restoration project.,Actions,FLOAT,"{value:,.0f}"
+pbr_projects,,STRUCTURES_REMOVED,Structures Removed,count,Number of structures removed as part of the restoration project.,Actions,FLOAT,"{value:,.0f}"
+pbr_projects,,WOOD_ADDED,Wood Added,count,Amount of wood added as part of the restoration project.,Actions,FLOAT,"{value:,.0f}"
+pbr_projects,,TREES_FELLED,Trees Felled,count,Number of trees felled as part of the restoration project.,Actions,FLOAT,"{value:,.0f}"
+pbr_projects,,IMPOUNDMENTS_REMOVED,Impoundments Removed,count,Number of impoundments removed as part of the restoration project.,Actions,FLOAT,"{value:,.0f}"
+pbr_projects,,BEAVERS_TRANSLOCATED_INTRODUCED,Beavers Translocated/Introduced,count,Number of beavers translocated or introduced as part of the restoration project.,Actions,FLOAT,"{value:,.0f}"
+pbr_projects,,BEAVER_TRAPPING_CLOSURE,Beaver Trapping Closure,kilometer,"Length of stream where beaver trapping was closed as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"
+pbr_projects,,STRUCTURES_MAINTAINED,Structures Maintained,count,Number of structures maintained as part of the restoration project.,Actions,INTEGER,"{value:,.0f}"
+pbr_projects,,EXCLOSURE_FENCING,Exclosure Fencing,kilometer,"Total length of exclosure fencing installed as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"
