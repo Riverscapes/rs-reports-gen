@@ -28,8 +28,12 @@ from reports.rpt_pbr_explorer.dataprep import (
     load_cached_pbr_data,
     load_live_pbr_data,
 )
+from reports.rpt_pbr_explorer.figures import build_pbr_figures
 from util import prepare_gdf_for_athena
-from util.figures import MetricCards, metric_cards
+from util.figures import (
+    MetricCards,
+    metric_cards,
+)
 from util.html import RSReport
 from util.pandas import RSFieldMeta
 from util.pdf import make_pdf_from_html
@@ -44,6 +48,7 @@ REPORT_SLUG = "rpt-pbr-explorer"
 
 def make_report(
     data_df: pd.DataFrame,
+    aoi_df: gpd.GeoDataFrame,
     # summary_tables: dict[str, pd.DataFrame],
     cards: MetricCards,
     report_dir: Path,
@@ -72,7 +77,7 @@ def make_report(
     # for key, summary_df in summary_tables.items():
     #     summary_df.to_csv(data_dir / f"{key}_summary.csv", index=False)
 
-    # figures = build_beaver_figures(summary_tables)
+    figures = build_pbr_figures(data_df, aoi_df)
     # summary_tables_html = {name: _summary_table_to_html(df) for name, df in summary_tables.items()}
 
     report = RSReport(
@@ -83,8 +88,8 @@ def make_report(
         report_version=report_version,
     )
 
-    # for name, fig in figures.items():
-    #     report.add_figure(name, fig)
+    for name, fig in figures.items():
+        report.add_figure(name, fig)
 
     # report.add_html_elements("summary_tables", summary_tables_html)
     report.add_html_elements("cards", cards)
@@ -152,6 +157,7 @@ def orchestrate(
 
         make_report(
             data_df,
+            aoi_gdf,
             {},
             output_path,
             report_name,
@@ -168,6 +174,7 @@ def orchestrate(
         cards = summary_stats(data_df)
         make_report(
             data_df,
+            aoi_gdf,
             # summary_tables,
             cards,
             output_path,
