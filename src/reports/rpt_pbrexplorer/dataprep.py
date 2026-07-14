@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pint
+import pint_pandas
 import requests
 from rsxml import Logger
 
@@ -65,6 +67,7 @@ query SearchProjects($limit: Int!, $offset: Int!) {
 """
 
 PBR_PROJECTS_LAYER_ID = 'pbr_projects'
+SUMMARY_METRICS_LAYER_ID = "pbr_summary_metrics"
 
 
 def _page_cache_file(staging_path: Path, page_index: int) -> Path:
@@ -213,3 +216,81 @@ def load_live_pbr_data(output_path: Path) -> pd.DataFrame:
         # TODO when do we load metadata?
         projects_df = parse_project_data(projects)
     return projects_df
+
+
+# =======================================
+# POST-FETCH DATA PREPARATION FUNCTIONS
+# =======================================
+
+
+def _ensure_summary_metric_metadata() -> None:
+    """Add metadata for computed summary metrics when missing."""
+    meta = RSFieldMeta()
+    length_field_meta = meta.get_field_meta("lengthKm", layer_id=PBR_PROJECTS_LAYER_ID)
+    length_data_unit = length_field_meta.data_unit if length_field_meta and length_field_meta.data_unit else "kilometer"
+
+    if meta.get_field_meta("number_of_projects", layer_id=SUMMARY_METRICS_LAYER_ID) is None:
+        meta.add_field_meta(
+            name="number_of_projects",
+            layer_id=SUMMARY_METRICS_LAYER_ID,
+            friendly_name="Number of Projects",
+            dtype="INT",
+            data_unit="count",
+            description="Projects returned by PBR Explorer for this run.",
+            preferred_format="{value:,.0f}",
+        )
+
+    if meta.get_field_meta("total_budget_usd", layer_id=SUMMARY_METRICS_LAYER_ID) is None:
+        meta.add_field_meta(
+            name="total_budget_usd",
+            layer_id=SUMMARY_METRICS_LAYER_ID,
+            friendly_name="Total Budget",
+            dtype="FLOAT",
+            description="Sum of reported PBR project budgets (USD).",
+            preferred_format="$ {value:,.2f}",
+        )
+
+    if meta.get_field_meta("total_treatment_length", layer_id=SUMMARY_METRICS_LAYER_ID) is None:
+        meta.add_field_meta(
+            name="total_treatment_length",
+            layer_id=SUMMARY_METRICS_LAYER_ID,
+            friendly_name="Total Treatment Length",
+            dtype="FLOAT",
+            data_unit=length_data_unit,
+            description="Sum of all treatment lengths reported by projects.",
+            preferred_format="{value:,.2f}",
+        )
+
+
+def build_summary_metrics(data_df: pd.DataFrame) -> dict[str, object]:
+    """Build summary metrics that can be rendered by util.figures.metric_cards."""
+    _ensure_summary_metric_metadata()
+    if data_df.empty:
+        raise ValueError("No data returned from PBR API; summary metrics are not available.")
+
+    meta = RSFieldMeta()
+    length_field_meta = meta.get_field_meta("lengthKm", layer_id=PBR_PROJECTS_LAYER_ID)
+    length_data_unit = length_field_meta.data_unit if length_field_meta and length_field_meta.data_unit else "kilometer"
+
+    project_count = len(data_df)
+
+    budget_series = pd.to_numeric(data_df["budget.usDollarVal"], errors="coerce")
+    total_budget_usd = float(budget_series.sum())
+
+    length_series = data_df["lengthKm"]
+    if isinstance(length_series.dtype, pint_pandas.PintType):
+        total_treatment_length = length_series.sum()
+        try:
+            total_treatment_length = total_treatment_length.to(length_data_unit)
+        except Exception:
+            pass
+    else:
+        numeric_length_series = pd.to_numeric(length_series, errors="coerce")
+        total_length = float(numeric_length_series.sum())
+        total_treatment_length = pint.Quantity(total_length, length_data_unit)
+
+    return {
+        "number_of_projects": project_count,
+        "total_budget_usd": total_budget_usd,
+        "total_treatment_length": total_treatment_length,
+    }

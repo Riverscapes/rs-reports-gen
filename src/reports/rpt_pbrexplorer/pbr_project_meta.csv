@@ -1,4 +1,4 @@
 layer_id,layer_name,name,friendly_name,data_unit,description,theme,dtype,preferred_format
-pbr_projects,,streamName,Stream Name,"","Provided to help understand which channel or tributary the project was performed on. This name is unofficial, and not used for any GNIS lookup or processing.","",STRING,
+pbr_projects,,streamName,Stream Name,NA,"Provided to help understand which channel or tributary the project was performed on. This name is unofficial, and not used for any GNIS lookup or processing.","",STRING,
 pbr_projects,,lengthKm,Treatment Length,km,"The treatment length represents the length of riverscape that was treated as part of the project. This is approximate, and should represent the valley distance from the most upstream structure to the most downstream.","",STRING,0.0
-pbr_projects,,budget_usDollarVal,Project Budget,$,"Approximate budget of the PBR project in US dollars",Budget,FLOAT,$0.00
+pbr_projects,,budget_usDollarVal,Project Budget,NA,"Approximate budget of the PBR project in US dollars",Budget,FLOAT,$0.00

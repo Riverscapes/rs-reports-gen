@@ -5,7 +5,7 @@
 <section>
   <div class="section-context">
     <p>
-      This is a proof-of-concept report of PBR Explorer data. It is designed
+      This is a proof-of-concept report of <a href="https://pbr.riverscapes.net">PBR Explorer</a> data. It is designed
       to validate API calls, JSON payload handling, and baseline
       summary outputs while the full report design is still in development.
     </p>
@@ -14,6 +14,10 @@
 
 <section id="overview">
   <h2>Summary</h2>
+  {% if no_data_message %}
+  <p>{{ no_data_message }}</p>
+  {% else %}
   {{ render_metric_grid(cards) }}
+  {% endif %}
 </section>
 

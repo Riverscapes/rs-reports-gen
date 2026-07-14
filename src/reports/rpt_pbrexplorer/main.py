@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import shutil
 from pathlib import Path
-from typing import TypedDict
 
 import geopandas as gpd
 import pandas as pd
@@ -23,13 +22,16 @@ from rsxml import Logger
 from reports.rpt_pbrexplorer import __version__ as report_version
 from reports.rpt_pbrexplorer.dataprep import (
     PBR_PROJECTS_LAYER_ID,
+    SUMMARY_METRICS_LAYER_ID,
+    build_summary_metrics,
     define_fields,
     load_cached_pbr_data,
     load_live_pbr_data,
 )
 from util import prepare_gdf_for_athena
+from util.figures import MetricCards, metric_cards
 from util.html import RSReport
-from util.pandas import RSFieldMeta, RSGeoDataFrame
+from util.pandas import RSFieldMeta
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (
     init_report_logging,
@@ -40,36 +42,15 @@ from util.report_entrypoint import (
 REPORT_SLUG = "rpt-pbr-explorer"
 
 
-class MetricCard(TypedDict):
-    title: str
-    value: str
-    details: str | None
-
-
-def _summary_table_to_html(summary_df: pd.DataFrame) -> str:
-    """Convert a summary dataframe into an HTML table for Jinja rendering."""
-    if summary_df.empty:
-        return "<p>No rows were available for this summary.</p>"
-    rs_df = RSGeoDataFrame(summary_df.copy())
-    layer_id = summary_df.attrs.get("layer_id") if hasattr(summary_df, "attrs") else None
-    return rs_df.to_html(
-        index=False,
-        classes="table table-striped",
-        border=0,
-        include_units=True,
-        use_friendly=True,
-        layer_id=layer_id,
-    )
-
-
 def make_report(
     data_df: pd.DataFrame,
     # summary_tables: dict[str, pd.DataFrame],
-    cards: MetricCard,
+    cards: MetricCards,
     report_dir: Path,
     report_name: str,
     *,
     include_pdf: bool = False,
+    no_data_message: str | None = None,
 ) -> None:
     """Render the HTML report and optional PDF."""
     log = Logger("Make Report")
@@ -107,6 +88,7 @@ def make_report(
 
     # report.add_html_elements("summary_tables", summary_tables_html)
     report.add_html_elements("cards", cards)
+    report.add_html_elements("no_data_message", no_data_message)
     report.render(fig_mode="interactive")
     log.info(f"HTML report written to {report_dir}")
 
@@ -114,16 +96,9 @@ def make_report(
         make_pdf_from_html(str(report_dir))
 
 
-def summary_stats(data_df: pd.DataFrame) -> MetricCard:
-    """Prepare formatted summary data for report - a combination of dataprep and figure"""
-    project_count = len(data_df)
-    return {
-        "number_of_projects": {
-            "title": "Number of Projects",
-            "value": f"{project_count:,}",
-            "details": "Projects returned by PBR Explorer for this run.",
-        },
-    }
+def summary_stats(data_df: pd.DataFrame) -> MetricCards:
+    """Build and render summary metrics for the report cards."""
+    return metric_cards(build_summary_metrics(data_df), layer_id=SUMMARY_METRICS_LAYER_ID)
 
 
 def orchestrate(
@@ -164,25 +139,34 @@ def orchestrate(
     else:
         data_df = load_live_pbr_data(staging_path)
 
+    define_fields(unit_system)
+
     if data_df.empty:
-        log.warning("No AOI rows were returned. Rendering a stub report with no-data placeholders.")
+        log.warning("No AOI rows were returned. Rendering a short no-data report.")
+        make_report(
+            data_df,
+            {},
+            output_path,
+            report_name,
+            include_pdf=include_pdf,
+            no_data_message="No data returned for this request.",
+        )
     else:
-        define_fields(unit_system)
         data_df.attrs["layer_id"] = PBR_PROJECTS_LAYER_ID
         try:
             data_df, _applied_units = RSFieldMeta().apply_units(data_df, layer_id=PBR_PROJECTS_LAYER_ID)
         except Exception as exc:
             log.warning(f"Unable to apply units for all fields: {exc}")
 
-    cards = summary_stats(data_df)
-    make_report(
-        data_df,
-        # summary_tables,
-        cards,
-        output_path,
-        report_name,
-        include_pdf=include_pdf,
-    )
+        cards = summary_stats(data_df)
+        make_report(
+            data_df,
+            # summary_tables,
+            cards,
+            output_path,
+            report_name,
+            include_pdf=include_pdf,
+        )
 
     if not raw_data_path and not keep_raw_data and staging_path.exists():
         shutil.rmtree(staging_path)
