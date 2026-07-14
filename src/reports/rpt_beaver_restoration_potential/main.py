@@ -77,6 +77,7 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
     field_meta = RSFieldMeta()
     field_meta.field_meta = registry_field_meta
     field_meta.unit_system = unit_system
+    field_meta.set_friendly_name("dam_ct", "Dam Count", RPT_RME_LAYER_ID)
     field_meta.set_display_unit("centerline_length", "kilometer", RPT_RME_LAYER_ID)
     field_meta.set_display_unit("segment_area", "kilometer ** 2", RPT_RME_LAYER_ID)
 

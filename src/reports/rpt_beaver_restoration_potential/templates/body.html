@@ -51,7 +51,7 @@
 </section>
 
 <section id="high-rp-indicators">
-  <h2>Beaver Dams in Highest Restoration Potential Riverscapes</h2>
+  <h2>Realized Dam Building Capacity in Highest Restoration Potential Riverscapes</h2>
   <p>
     The following metrics summarize the state of beaver dam building
     capacity within the riverscapes with the highest restoration potential according to BRAT. These are streams
@@ -67,6 +67,31 @@
   </p>
   {{ render_metric_grid(cards, ['total_dam_capacity_(high_restoration_potential)', 'total_dams_(high_restoration_potential)', 'realized_capacity_(high_restoration_potential)']) }}
 </section>
+
+<section>
+  <h2>Restoration Potential within the Report Area (by watershed)</h2>
+  <p>
+    The following table contains information on the quantity of beaver dams observed and the BRAT-modeled 
+    beaver dam capacity summarized by HUC10 watershed within the report area. This information can be used 
+    to identify watersheds where there is high restoration potential (i.e. high capacity but low 
+    observed beaver dam building activity) and to compare the state of beaver dam building across watersheds 
+    within the report area.
+  </p>
+  {{ summary_tables.hucs|safe }}
+</section>
+
+<section>
+  <h2>Restoration Potential within the Report Area (by stream)</h2>
+  <p>
+    The following table contains information on the quantity of beaver dams observed and the BRAT-modeled 
+    beaver dam capacity summarized by stream within the report area. This information can be used 
+    to identify streams where there is high restoration potential (i.e. high capacity but low 
+    observed beaver dam building activity) and to compare the state of beaver dam building across streams 
+    within the report area.
+  </p>
+  {{ summary_tables.level_paths|safe }}
+</section>
+
 
 <section id="overview">
   <h2>Run Context</h2>
