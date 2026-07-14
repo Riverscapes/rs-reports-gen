@@ -19,8 +19,8 @@ import pandas as pd
 import pint_pandas
 from rsxml import Logger
 
-from reports.rpt_pbrexplorer import __version__ as report_version
-from reports.rpt_pbrexplorer.dataprep import (
+from reports.rpt_pbr_explorer import __version__ as report_version
+from reports.rpt_pbr_explorer.dataprep import (
     PBR_PROJECTS_LAYER_ID,
     SUMMARY_METRICS_LAYER_ID,
     build_summary_metrics,
