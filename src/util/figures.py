@@ -610,6 +610,113 @@ def make_map_with_aoi(
     return fig
 
 
+def point_df_to_gdf(point_df: pd.DataFrame, lat_col: str, lon_col: str) -> gpd.GeoDataFrame:
+    """Convert a dataframe with latitude/longitude columns into a WGS84 GeoDataFrame.
+
+    Created 2026-07-14.
+    Created by copilot.
+    """
+    log = Logger("Point DF to GDF")
+    missing_cols = [col for col in [lat_col, lon_col] if col not in point_df.columns]
+    if missing_cols:
+        raise KeyError(f"Missing required coordinate columns: {missing_cols}")
+
+    clean_df = point_df.copy()
+    total_rows = len(clean_df)
+    clean_df[lat_col] = pd.to_numeric(clean_df[lat_col], errors="coerce")
+    clean_df[lon_col] = pd.to_numeric(clean_df[lon_col], errors="coerce")
+
+    valid_mask = clean_df[lat_col].notna() & clean_df[lon_col].notna() & clean_df[lat_col].between(-90, 90) & clean_df[lon_col].between(-180, 180)
+    clean_df = clean_df.loc[valid_mask].copy()
+
+    dropped_rows = total_rows - len(clean_df)
+    if dropped_rows > 0:
+        log.warning(f"Dropped {dropped_rows} invalid point rows out of {total_rows} while building point GeoDataFrame from '{lat_col}' and '{lon_col}'.")
+
+    point_gdf = gpd.GeoDataFrame(
+        clean_df,
+        geometry=gpd.points_from_xy(clean_df[lon_col], clean_df[lat_col]),
+        crs="EPSG:4326",
+    )
+    point_gdf.attrs.update(point_df.attrs)
+    return point_gdf
+
+
+def make_point_map_with_aoi(
+    point_gdf: gpd.GeoDataFrame,
+    aoi_gdf: gpd.GeoDataFrame,
+    *,
+    hover_cols: list[str] | None = None,
+    point_name: str = "Points",
+    point_color: str = "#1f77b4",
+    point_size: int = 8,
+    opacity: float = 0.8,
+) -> go.Figure:
+    """Create a map with AOI outline and point markers from lat/lon columns.
+    Inputs:
+    point_gdf - geodataframe with point geometry
+    """
+    log = Logger("Make point map with AOI")
+
+    if point_gdf.empty:
+        log.warning("No point rows available; falling back to AOI outline map.")
+        return make_aoi_outline_map(aoi_gdf)
+
+    if point_gdf.geometry is None or point_gdf.geometry.name not in point_gdf.columns:
+        raise ValueError("point_gdf must include an active geometry column.")
+
+    points_wgs84 = point_gdf if point_gdf.crs and point_gdf.crs.to_epsg() == 4326 else point_gdf.to_crs(epsg=4326)
+    if points_wgs84.empty:
+        log.warning("No valid point geometries available after CRS handling; falling back to AOI outline map.")
+        return make_aoi_outline_map(aoi_gdf)
+
+    if aoi_gdf.crs is None:
+        aoi_wgs84 = aoi_gdf.set_crs(epsg=4326)
+    else:
+        aoi_wgs84 = aoi_gdf if aoi_gdf.crs.to_epsg() == 4326 else aoi_gdf.to_crs(epsg=4326)
+
+    if not aoi_wgs84.empty:
+        zoom, center = get_zoom_and_center(aoi_wgs84, "geometry")
+    else:
+        point_geom_name = str(points_wgs84.geometry.name or "geometry")
+        zoom, center = get_zoom_and_center(points_wgs84, point_geom_name)
+
+    valid_hover_cols = []
+    if hover_cols:
+        valid_hover_cols = [col for col in hover_cols if col in points_wgs84.columns]
+
+    customdata = None
+    hovertemplate = "Lat: %{lat:.5f}<br>Lon: %{lon:.5f}<extra></extra>"
+    if valid_hover_cols:
+        customdata = points_wgs84[valid_hover_cols].astype(str).to_numpy()
+        hovertemplate = "<br>".join([f"{col}: %{{customdata[{i}]}}" for i, col in enumerate(valid_hover_cols)]) + "<extra></extra>"
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scattermap(
+            lon=points_wgs84.geometry.x,
+            lat=points_wgs84.geometry.y,
+            mode="markers",
+            name=point_name,
+            customdata=customdata,
+            hovertemplate=hovertemplate,
+            marker={"size": point_size, "color": point_color, "opacity": opacity},
+            showlegend=True,
+        )
+    )
+
+    if not aoi_wgs84.empty:
+        fig.add_trace(get_aoi_outline_trace(aoi_wgs84))
+
+    fig.update_maps(style="open-street-map", center=center, zoom=zoom)
+    fig.update_layout(
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        height=500,
+        legend={"y": 0.95},
+    )
+    return fig
+
+
 def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[float, dict[str, float]]:
     """return the calculated zoom level and lat, lon of the center"""
     # Compute extent and center

@@ -11,6 +11,7 @@ import pint_pandas
 import requests
 from rsxml import Logger
 
+from util.figures import point_df_to_gdf
 from util.pandas import RSFieldMeta
 
 PBR_GRAPHQL_ENDPOINT = "https://api.pbr.riverscapes.net/"
@@ -247,11 +248,31 @@ def get_gdf_bbox(gdf: gpd.GeoDataFrame) -> dict[str, float]:
     }
 
 
-def geofilter_projects(projects, aoi: gpd.GeoDataFrame):
-    """Filter projects to only those where the extent OR location.latitude/longitude overlaps with the input AOI
-    Extent can be NULL.
-    """
-    raise NotImplementedError
+def geofilter_projects(projects: list[dict[str, Any]], aoi: gpd.GeoDataFrame) -> list[dict[str, Any]]:
+    """Filter projects by required point location intersecting AOI. Created by copilot."""
+    if not projects:
+        return []
+    if aoi.empty:
+        return []
+    if aoi.geometry is None:
+        raise ValueError("AOI GeoDataFrame has no active geometry column.")
+
+    if aoi.crs is None:
+        raise ValueError("AOI GeoDataFrame CRS is undefined; expected a geographic CRS.")
+
+    aoi_wgs84 = aoi if aoi.crs.to_epsg() == 4326 else aoi.to_crs(epsg=4326)
+    aoi_geom = aoi_wgs84.union_all()
+    if aoi_geom is None or aoi_geom.is_empty:
+        return []
+
+    projects_df = pd.json_normalize(projects)
+    points_gdf = point_df_to_gdf(projects_df, "location.latitude", "location.longitude")
+    if points_gdf.empty:
+        return []
+
+    intersection_mask = points_gdf.geometry.intersects(aoi_geom)
+    matching_indexes = points_gdf.index[intersection_mask]
+    return [projects[int(idx)] for idx in matching_indexes]
 
 
 def load_live_pbr_data(output_path: Path, query_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
@@ -263,7 +284,7 @@ def load_live_pbr_data(output_path: Path, query_gdf: gpd.GeoDataFrame) -> pd.Dat
     - ``no_results``: API request succeeded but matched zero projects.
     - ``error``: API request failed (for example, GraphQL errors).
     """
-    # log = Logger("Load PBR Projects")
+    log = Logger("Load PBR Projects")
     bbox = get_gdf_bbox(query_gdf)
     search_terms = {"bbox": bbox}
     projects = fetch_pbr_projects(output_path=output_path, search_terms=search_terms)
@@ -274,10 +295,10 @@ def load_live_pbr_data(output_path: Path, query_gdf: gpd.GeoDataFrame) -> pd.Dat
         projects_df = pd.DataFrame()  # empty data frame
         projects_df.attrs["fetch_status"] = "no_results"
     else:
-        # TODO: further filter results on the actual polygon, not just the bounding box
-
         projects = _load_cached_project_pages(output_path)
-        projects_df = parse_project_data(projects)
+        filtered_projects = geofilter_projects(projects, query_gdf)
+        projects_df = parse_project_data(filtered_projects)
+        log.debug(f"After geo-filtering and parsing, main dataframe has shape {projects_df.shape}.")
         projects_df.attrs["fetch_status"] = "ok"
     return projects_df
 
