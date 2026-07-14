@@ -15,7 +15,7 @@ from util.report_entrypoint import (
 
 
 def main() -> list[str] | None:
-    """Collect launch arguments for reports.rpt_pbrexplorer.main."""
+    """Collect launch arguments for reports.rpt_pbr_explorer.main."""
     data_root = require_data_root()
 
     geojson_file = prompt_geojson(env_var="PBR_AOI_GEOJSON")
@@ -48,7 +48,7 @@ def main() -> list[str] | None:
 
     args = build_common_launch_args(
         data_root=data_root,
-        report_slug="rpt-pbrexplorer",
+        report_slug="rpt-pbr-explorer",
         report_name=report_name,
         geojson_file=geojson_file,
         unit_system=unit_system,
