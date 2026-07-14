@@ -86,6 +86,13 @@ REPORTS = [
         "expected_files": ["report.html", "data/capacity_summary.csv"],
         "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_beaver_restoration_potential_test"],
     },
+    {
+        "name": "PBR Explorer",
+        "module": "reports.rpt_pbr_explorer.main",
+        "example_dir": "src/reports/rpt_pbr_explorer/example",
+        "expected_files": ["report.html"],
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_pbr_explorer_test", "--unit_system", "imperial"],
+    },
     # Add more reports or configurations as needed
 ]
 
