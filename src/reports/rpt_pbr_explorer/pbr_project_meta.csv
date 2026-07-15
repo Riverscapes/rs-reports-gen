@@ -2,6 +2,13 @@ layer_id,layer_name,name,friendly_name,data_unit,description,theme,dtype,preferr
 pbr_projects,,streamName,Stream Name,NA,"Provided to help understand which channel or tributary the project was performed on. This name is unofficial, and not used for any GNIS lookup or processing.",,STRING,
 pbr_projects,,lengthKm,Treatment Length,km,"The treatment length represents the length of riverscape that was treated as part of the project. This is approximate, and should represent the valley distance from the most upstream structure to the most downstream.",,STRING,0.0
 pbr_projects,,budget.usDollarVal,Project Budget,NA,Approximate budget of the PBR project in US dollars,Budget,FLOAT,$0.00
+pbr_projects,,date_PROPOSED,Date Proposed,NA,Date when the project was proposed,Dates,DATETIME,
+pbr_projects,,date_FUNDED,Date Funded,NA,Date when project funding was secured,Dates,DATETIME,
+pbr_projects,,date_DESIGNED,Date Designed,NA,Date when the project design milestone was reached,Dates,DATETIME,
+pbr_projects,,date_PERMITTED,Date Permitted,NA,Date when project permits were completed,Dates,DATETIME,
+pbr_projects,,date_SHOVEL_READY,Date Shovel Ready,NA,Date when the project became shovel-ready,Dates,DATETIME,
+pbr_projects,,date_ANTICIPATED_IMPLEMENTATION,Date Anticipated Implementation,NA,Date anticipated for implementation,Dates,DATETIME,
+pbr_projects,,date_IMPLEMENTED,Date Implemented,NA,Date when project implementation was completed,Dates,DATETIME,
 pbr_projects,,AREA_PLANTED_HECTARES,Area Planted,hectare,"Total area planted as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"
 pbr_projects,,AREA_FLOODPLAIN_TREATMENT_HECTARES,Area of Floodplain Treatment,hectare,"Total floodplain area treated as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"
 pbr_projects,,LEVEES_BANK_PROTECTIONS_REMOVED_KM,Levees or Bank Protections Removed,kilometer,"Total length of levees or bank protections removed as part of the restoration project.",Actions,FLOAT,"{value:,.2f}"

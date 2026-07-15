@@ -10,6 +10,8 @@ import pint
 import pint_pandas
 import requests
 from rsxml import Logger
+from shapely.geometry import shape
+from shapely.ops import unary_union
 
 from util.figures import point_df_to_gdf
 from util.pandas import RSFieldMeta
@@ -62,6 +64,19 @@ query SearchProjects($limit: Int!, $offset: Int!, $searchTerms: SearchTermsInput
                 latitude
                 longitude
             }
+            orgAffiliates {
+                id
+                roles
+                organization {
+                    id
+                    name
+                }
+            }
+            pbrAffiliates {
+                name
+                url
+                roles
+            }
         }
     }
 }
@@ -83,6 +98,16 @@ PBR_ACTION_ENUMS: list[str] = [
     "BEAVER_TRAPPING_CLOSURE",
     "STRUCTURES_MAINTAINED",
     "EXCLOSURE_FENCING",
+]
+
+PBR_DATE_ENUMS: list[str] = [
+    "PROPOSED",
+    "FUNDED",
+    "DESIGNED",
+    "PERMITTED",
+    "SHOVEL_READY",
+    "ANTICIPATED_IMPLEMENTATION",
+    "IMPLEMENTED",
 ]
 
 
@@ -432,6 +457,184 @@ def parse_actions_to_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.drop(columns=["actions"])
     return df
+
+
+def _parse_iso_datetime(value: Any) -> pd.Timestamp | None:
+    """Parse values from PBR date payloads into timestamps.
+
+    Created by copilot.
+    """
+    if value is None:
+        return None
+    parsed = pd.to_datetime(value, errors="coerce", utc=True)
+    if pd.isna(parsed):
+        return None
+    return parsed
+
+
+def parse_dates_to_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Expand the nested ``dates`` list-of-dicts column into one column per date enum.
+
+    Each date enum becomes ``date_<ENUM>`` and values are exported as ISO 8601
+    timestamps in UTC. If duplicate date records are present for a project and
+    enum, the latest timestamp is retained.
+
+    Created by copilot.
+    """
+    if df.empty:
+        return df
+    if "dates" not in df.columns:
+        return df
+
+    date_columns = {date_enum: f"date_{date_enum}" for date_enum in PBR_DATE_ENUMS}
+    for date_col in date_columns.values():
+        if date_col not in df.columns:
+            df[date_col] = pd.NA
+
+    for idx, dates_list in df["dates"].items():
+        if not isinstance(dates_list, list):
+            continue
+        for entry in dates_list:
+            if not isinstance(entry, dict):
+                continue
+            date_name = entry.get("name")
+            if not date_name or date_name not in PBR_DATE_ENUMS:
+                continue
+            parsed_ts = _parse_iso_datetime(entry.get("date"))
+            if parsed_ts is None:
+                continue
+
+            date_col = date_columns[date_name]
+            existing_ts = _parse_iso_datetime(df.at[idx, date_col])
+            if existing_ts is None or parsed_ts > existing_ts:
+                df.at[idx, date_col] = parsed_ts.isoformat()
+
+    df = df.drop(columns=["dates"])
+    return df
+
+
+def normalize_affiliates_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Flatten org and PBR affiliate arrays into an analytics table.
+
+    Emits one row per ``project_id x affiliate x role``. Role values are kept
+    explicit so many-to-many relationships are preserved.
+
+    Created by copilot.
+    """
+    columns = [
+        "project_id",
+        "affiliate_source_type",
+        "affiliate_id",
+        "affiliate_name",
+        "affiliate_url",
+        "role",
+    ]
+
+    if df.empty or "id" not in df.columns:
+        return pd.DataFrame(columns=columns)
+
+    records: list[dict[str, Any]] = []
+    for _, row in df.iterrows():
+        project_id = row.get("id")
+        if project_id is None:
+            continue
+
+        org_affiliates = row.get("orgAffiliates")
+        if isinstance(org_affiliates, list):
+            for affiliate in org_affiliates:
+                if not isinstance(affiliate, dict):
+                    continue
+                org_info = affiliate.get("organization") if isinstance(affiliate.get("organization"), dict) else {}
+                roles = affiliate.get("roles") if isinstance(affiliate.get("roles"), list) else []
+                roles = roles if roles else [None]
+                for role in roles:
+                    records.append(
+                        {
+                            "project_id": str(project_id),
+                            "affiliate_source_type": "ORG",
+                            "affiliate_id": str(affiliate.get("id") or org_info.get("id") or ""),
+                            "affiliate_name": org_info.get("name"),
+                            "affiliate_url": None,
+                            "role": role,
+                        }
+                    )
+
+        pbr_affiliates = row.get("pbrAffiliates")
+        if isinstance(pbr_affiliates, list):
+            for affiliate in pbr_affiliates:
+                if not isinstance(affiliate, dict):
+                    continue
+                roles = affiliate.get("roles") if isinstance(affiliate.get("roles"), list) else []
+                roles = roles if roles else [None]
+                for role in roles:
+                    records.append(
+                        {
+                            "project_id": str(project_id),
+                            "affiliate_source_type": "PBR",
+                            "affiliate_id": "",
+                            "affiliate_name": affiliate.get("name"),
+                            "affiliate_url": affiliate.get("url"),
+                            "role": role,
+                        }
+                    )
+
+    affiliates_df = pd.DataFrame(records, columns=columns)
+    if affiliates_df.empty:
+        return affiliates_df
+    return affiliates_df.drop_duplicates().reset_index(drop=True)
+
+
+def _extent_to_geometry(extent_value: Any):
+    """Convert a PBR extent payload into a shapely geometry.
+
+    Supports GeoJSON geometry, Feature, and FeatureCollection payload variants.
+
+    Created by copilot.
+    """
+    if not isinstance(extent_value, dict):
+        return None
+
+    geo_type = extent_value.get("type")
+    try:
+        if geo_type == "FeatureCollection":
+            features = extent_value.get("features") if isinstance(extent_value.get("features"), list) else []
+            geometries = []
+            for feature in features:
+                if isinstance(feature, dict) and isinstance(feature.get("geometry"), dict):
+                    geometries.append(shape(feature["geometry"]))
+            if not geometries:
+                return None
+            return unary_union(geometries)
+
+        if geo_type == "Feature" and isinstance(extent_value.get("geometry"), dict):
+            return shape(extent_value["geometry"])
+
+        return shape(extent_value)
+    except Exception:
+        return None
+
+
+def build_project_extents_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
+    """Build a project extent GeoDataFrame from ``extent`` payloads.
+
+    Returns an EPSG:4326 GeoDataFrame with one row per project id where an
+    extent geometry was present and parseable.
+
+    Created by copilot.
+    """
+    extent_columns = ["project_id", "geometry"]
+    if df.empty or "id" not in df.columns or "extent" not in df.columns:
+        return gpd.GeoDataFrame(columns=extent_columns, geometry="geometry", crs="EPSG:4326")
+
+    extent_rows: list[dict[str, Any]] = []
+    for _, row in df.iterrows():
+        project_id = row.get("id")
+        geometry = _extent_to_geometry(row.get("extent"))
+        if project_id is None or geometry is None or geometry.is_empty:
+            continue
+        extent_rows.append({"project_id": str(project_id), "geometry": geometry})
+
+    return gpd.GeoDataFrame(extent_rows, columns=extent_columns, geometry="geometry", crs="EPSG:4326")
 
 
 def _ensure_actions_metric_metadata() -> None:
