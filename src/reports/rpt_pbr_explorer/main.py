@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import sqlite3
 from pathlib import Path
 
 import geopandas as gpd
@@ -21,16 +22,20 @@ from rsxml import Logger
 
 from reports.rpt_pbr_explorer import __version__ as report_version
 from reports.rpt_pbr_explorer.dataprep import (
+    PBR_DATE_ENUMS,
     PBR_PROJECTS_LAYER_ID,
     SUMMARY_METRICS_LAYER_ID,
     _ensure_actions_metric_metadata,
     build_actions_metrics,
+    build_project_extents_gdf,
     build_summary_metrics,
     count_projects_with_actions,
     define_fields,
     load_cached_pbr_data,
     load_live_pbr_data,
+    normalize_affiliates_table,
     parse_actions_to_columns,
+    parse_dates_to_columns,
 )
 from reports.rpt_pbr_explorer.figures import build_pbr_figures
 from util import prepare_gdf_for_athena
@@ -48,6 +53,10 @@ from util.report_entrypoint import (
 )
 
 REPORT_SLUG = "rpt-pbr-explorer"
+PBR_EXPORT_GPKG_FILENAME = "pbr_projects.gpkg"
+PBR_EXPORT_LAYER_PROJECTS = "projects"
+PBR_EXPORT_LAYER_EXTENTS = "project_extents"
+PBR_EXPORT_TABLE_AFFILIATES = "project_affiliates"
 
 
 def make_report(
@@ -107,6 +116,90 @@ def make_report(
         static_path = report.render(fig_mode="svg", suffix="_static")
         pdf_path = make_pdf_from_html(static_path)
         log.info(f'PDF report built from static at {pdf_path}')
+
+
+def _strip_pint_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert pint columns to magnitudes for file export compatibility."""
+    export_df = df.copy()
+    for col in export_df.columns:
+        if isinstance(export_df[col].dtype, pint_pandas.PintType):
+            export_df[col] = export_df[col].pint.magnitude
+    return export_df
+
+
+def export_column_metadata_csv(project_df: pd.DataFrame, output_path: Path) -> Path:
+    """Export column metadata for project-layer fields used in the package.
+
+    Created by copilot.
+    """
+    metadata_path = output_path / "column_metadata.csv"
+    layer_id = project_df.attrs.get("layer_id", PBR_PROJECTS_LAYER_ID)
+    meta = RSFieldMeta()
+
+    records: list[dict[str, str | None]] = []
+    for column_name in project_df.columns:
+        field_meta = meta.get_field_meta(column_name, layer_id=layer_id)
+        records.append(
+            {
+                "table_name": PBR_EXPORT_LAYER_PROJECTS,
+                "column_name": column_name,
+                "friendly_name": field_meta.friendly_name if field_meta else column_name,
+                "data_unit": str(field_meta.data_unit) if field_meta and field_meta.data_unit is not None else None,
+                "description": field_meta.description if field_meta else None,
+            }
+        )
+
+    pd.DataFrame(records).to_csv(metadata_path, index=False)
+    return metadata_path
+
+
+def export_data_gpkg(data_df: pd.DataFrame, output_path: Path) -> Path:
+    """Export PBR projects, extents, and affiliates to a single GeoPackage.
+
+    Created by copilot.
+    """
+    log = Logger("Export PBR Data")
+    data_dir = output_path / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    gpkg_path = data_dir / PBR_EXPORT_GPKG_FILENAME
+
+    export_df = _strip_pint_columns(data_df)
+    export_df = parse_dates_to_columns(export_df)
+    affiliates_df = normalize_affiliates_table(export_df)
+    extents_gdf = build_project_extents_gdf(export_df)
+
+    # Keep only flat project columns in the main export layer.
+    drop_columns = [
+        "orgAffiliates",
+        "pbrAffiliates",
+        "extent",
+        "budget.items",
+    ]
+    project_df = export_df.drop(columns=[c for c in drop_columns if c in export_df.columns], errors="ignore").copy()
+
+    # Ensure date columns are included even if all null for this AOI.
+    for date_enum in PBR_DATE_ENUMS:
+        date_col = f"date_{date_enum}"
+        if date_col not in project_df.columns:
+            project_df[date_col] = pd.NA
+
+    projects_gdf = gpd.GeoDataFrame(
+        project_df,
+        geometry=gpd.points_from_xy(project_df["location.longitude"], project_df["location.latitude"]),
+        crs="EPSG:4326",
+    )
+    projects_gdf.to_file(gpkg_path, layer=PBR_EXPORT_LAYER_PROJECTS, driver="GPKG")
+
+    if not extents_gdf.empty:
+        extents_gdf.to_file(gpkg_path, layer=PBR_EXPORT_LAYER_EXTENTS, driver="GPKG")
+
+    with sqlite3.connect(gpkg_path) as conn:
+        affiliates_df.to_sql(PBR_EXPORT_TABLE_AFFILIATES, conn, if_exists="replace", index=False)
+
+    metadata_path = export_column_metadata_csv(project_df, output_path)
+    log.info(f"Exported projects to {gpkg_path}")
+    log.info(f"Exported metadata to {metadata_path}")
+    return gpkg_path
 
 
 def summary_stats(data_df: pd.DataFrame) -> MetricCards:
@@ -175,12 +268,15 @@ def orchestrate(
         )
     else:
         data_df.attrs["layer_id"] = PBR_PROJECTS_LAYER_ID
-        # Parse nested actions before applying units so metadata resolves correctly.
+        # Parse nested arrays before applying units so metadata resolves correctly.
         data_df = parse_actions_to_columns(data_df)
+        data_df = parse_dates_to_columns(data_df)
         try:
             data_df, _applied_units = RSFieldMeta().apply_units(data_df, layer_id=PBR_PROJECTS_LAYER_ID)
         except Exception as exc:
             log.warning(f"Unable to apply units for all fields: {exc}")
+
+        export_data_gpkg(data_df, output_path)
 
         cards = summary_stats(data_df)
 
