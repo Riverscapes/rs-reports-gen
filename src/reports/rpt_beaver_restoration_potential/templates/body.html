@@ -12,6 +12,11 @@
       the report area. This information can be used to identify areas where beaver dam building activity is occurring and where 
       it is not occurring, which can inform restoration efforts and management decisions.
     </p>
+    <p>
+      <b>NOTE:</b> The current version of the report (v1.0) only returns information where dam census data is available
+      (currently Montana, Idaho, Utah, and New Mexico). To include additional regions, dam census data must be collected 
+      and made available (LINK).
+    </p>
   </div>
 </section>
 
@@ -69,27 +74,56 @@
 </section>
 
 <section>
-  <h2>Restoration Potential within the Report Area (by watershed)</h2>
+  <h2>Realized Dam Capacity by Watershed</h2>
   <p>
     The following table contains information on the quantity of beaver dams observed and the BRAT-modeled 
     beaver dam capacity summarized by HUC10 watershed within the report area. This information can be used 
     to identify watersheds where there is high restoration potential (i.e. high capacity but low 
     observed beaver dam building activity) and to compare the state of beaver dam building across watersheds 
-    within the report area.
+    within the report area. The table contains only watersheds where dams have been observed; if a watershed 
+    is not included in the table, it is because no dams were observed in that watershed at the time censusing was 
+    performed.
   </p>
   {{ summary_tables.hucs|safe }}
 </section>
 
 <section>
-  <h2>Restoration Potential within the Report Area (by stream)</h2>
+  <h2>Realized Dam Capacity by Stream</h2>
   <p>
     The following table contains information on the quantity of beaver dams observed and the BRAT-modeled 
     beaver dam capacity summarized by stream within the report area. This information can be used 
     to identify streams where there is high restoration potential (i.e. high capacity but low 
     observed beaver dam building activity) and to compare the state of beaver dam building across streams 
-    within the report area.
+    within the report area. The table contains only streams where dams have been observed; if a stream is 
+    not included in the table, it is because no dams were observed in that stream at the time censusing was 
+    performed.
   </p>
   {{ summary_tables.level_paths|safe }}
+</section>
+
+
+<section id="summary-tables">
+  <h2>BRAT Output Summaries</h2>
+  <p>CSV exports of each summary table are available in the data folder.</p>
+
+  <h3>Current BRAT Capacity</h3>
+  <p>
+    BRAT Capacity is the density of dams (dams/length of riverscape) that the 
+  {{ summary_tables.capacity|safe }}
+  {{ figures.capacity_by_length|safe }}
+
+  <h3>BRAT Risk</h3>
+  {{ summary_tables.risk|safe }}
+  {{ figures.risk_by_length|safe }}
+
+  <h3>BRAT Opportunity</h3>
+  {{ summary_tables.opportunity|safe }}
+  {{ figures.opportunity_by_length|safe }}
+
+  <h3>BRAT Limitation</h3>
+  {{ summary_tables.limitation|safe }}
+  {{ figures.limitation_by_length|safe }}
+
 </section>
 
 
@@ -103,30 +137,4 @@
     <dt>Distinct HUC10s</dt><dd>{{ context.huc10_count }}</dd>
     <dt>Total Riverscape Area</dt><dd>{{ context.total_riverscape_area }}</dd>
   </dl>
-</section>
-
-<section id="summary-tables">
-  <h2>Summary Tables</h2>
-  <p>CSV exports of each summary table are available in the data folder.</p>
-
-  <h3>Current BRAT Capacity</h3>
-  {{ summary_tables.capacity|safe }}
-
-  <h3>BRAT Opportunity</h3>
-  {{ summary_tables.opportunity|safe }}
-
-  <h3>BRAT Limitation</h3>
-  {{ summary_tables.limitation|safe }}
-
-  <h3>BRAT Risk</h3>
-  {{ summary_tables.risk|safe }}
-</section>
-
-<section id="figures">
-  <h2>Figures</h2>
-  {% for key, fig_html in figures.items() %}
-  <figure class="report-figure">
-    {{ fig_html|safe }}
-  </figure>
-  {% endfor %}
 </section>
