@@ -684,6 +684,8 @@ def make_point_map_with_aoi(
     valid_hover_cols = []
     if hover_cols:
         valid_hover_cols = [col for col in hover_cols if col in points_wgs84.columns]
+        if len(valid_hover_cols) < len(hover_cols):
+            log.warning(f"Requested hover columns {[col for col in hover_cols if col not in points_wgs84.columns]} not found, will be ignored")
 
     customdata = None
     hovertemplate = "Lat: %{lat:.5f}<br>Lon: %{lon:.5f}<extra></extra>"

@@ -153,6 +153,50 @@ def export_column_metadata_csv(project_df: pd.DataFrame, output_path: Path) -> P
     return metadata_path
 
 
+def _register_gpkg_attribute_table(conn: sqlite3.Connection, table_name: str) -> None:
+    """Register a non-spatial table in GeoPackage metadata for QGIS discovery.
+
+    Created by copilot.
+    """
+    table_exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    ).fetchone()
+    if table_exists is None:
+        return
+
+    conn.execute("DELETE FROM gpkg_contents WHERE table_name = ?", (table_name,))
+    conn.execute(
+        """
+        INSERT INTO gpkg_contents (
+            table_name,
+            data_type,
+            identifier,
+            description,
+            last_change,
+            min_x,
+            min_y,
+            max_x,
+            max_y,
+            srs_id
+        )
+        VALUES (
+            ?,
+            'attributes',
+            ?,
+            ?,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL
+        )
+        """,
+        (table_name, table_name, "PBR project affiliates (attribute table)"),
+    )
+
+
 def export_data_gpkg(data_df: pd.DataFrame, output_path: Path) -> Path:
     """Export PBR projects, extents, and affiliates to a single GeoPackage.
 
@@ -176,6 +220,9 @@ def export_data_gpkg(data_df: pd.DataFrame, output_path: Path) -> Path:
         "budget.items",
     ]
     project_df = export_df.drop(columns=[c for c in drop_columns if c in export_df.columns], errors="ignore").copy()
+    extent_prefixed_columns = [c for c in project_df.columns if c == "extent" or c.startswith("extent.")]
+    if extent_prefixed_columns:
+        project_df = project_df.drop(columns=extent_prefixed_columns)
 
     # Ensure date columns are included even if all null for this AOI.
     for date_enum in PBR_DATE_ENUMS:
@@ -195,8 +242,9 @@ def export_data_gpkg(data_df: pd.DataFrame, output_path: Path) -> Path:
 
     with sqlite3.connect(gpkg_path) as conn:
         affiliates_df.to_sql(PBR_EXPORT_TABLE_AFFILIATES, conn, if_exists="replace", index=False)
+        _register_gpkg_attribute_table(conn, PBR_EXPORT_TABLE_AFFILIATES)
 
-    metadata_path = export_column_metadata_csv(project_df, output_path)
+    metadata_path = export_column_metadata_csv(project_df, output_path / "data")
     log.info(f"Exported projects to {gpkg_path}")
     log.info(f"Exported metadata to {metadata_path}")
     return gpkg_path
