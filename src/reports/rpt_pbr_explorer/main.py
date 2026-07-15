@@ -127,24 +127,31 @@ def _strip_pint_columns(df: pd.DataFrame) -> pd.DataFrame:
     return export_df
 
 
-def export_column_metadata_csv(project_df: pd.DataFrame, output_path: Path) -> Path:
+def export_column_metadata_csv(
+    project_df: pd.DataFrame,
+    output_path: Path,
+    applied_units: dict[str, object] | None = None,
+) -> Path:
     """Export column metadata for project-layer fields used in the package.
 
-    Created by copilot.
+    ``data_unit`` reflects the unit system actually applied to exported values
+    when ``applied_units`` is supplied.
     """
     metadata_path = output_path / "column_metadata.csv"
     layer_id = project_df.attrs.get("layer_id", PBR_PROJECTS_LAYER_ID)
     meta = RSFieldMeta()
+    resolved_applied_units = applied_units or {}
 
     records: list[dict[str, str | None]] = []
     for column_name in project_df.columns:
         field_meta = meta.get_field_meta(column_name, layer_id=layer_id)
+        export_unit = resolved_applied_units.get(column_name)
         records.append(
             {
                 "table_name": PBR_EXPORT_LAYER_PROJECTS,
                 "column_name": column_name,
                 "friendly_name": field_meta.friendly_name if field_meta else column_name,
-                "data_unit": str(field_meta.data_unit) if field_meta and field_meta.data_unit is not None else None,
+                "data_unit": (str(export_unit) if export_unit is not None else (str(field_meta.data_unit) if field_meta and field_meta.data_unit is not None else None)),
                 "description": field_meta.description if field_meta else None,
             }
         )
@@ -197,7 +204,11 @@ def _register_gpkg_attribute_table(conn: sqlite3.Connection, table_name: str) ->
     )
 
 
-def export_data_gpkg(data_df: pd.DataFrame, output_path: Path) -> Path:
+def export_data_gpkg(
+    data_df: pd.DataFrame,
+    output_path: Path,
+    applied_units: dict[str, object] | None = None,
+) -> Path:
     """Export PBR projects, extents, and affiliates to a single GeoPackage.
 
     Created by copilot.
@@ -244,7 +255,7 @@ def export_data_gpkg(data_df: pd.DataFrame, output_path: Path) -> Path:
         affiliates_df.to_sql(PBR_EXPORT_TABLE_AFFILIATES, conn, if_exists="replace", index=False)
         _register_gpkg_attribute_table(conn, PBR_EXPORT_TABLE_AFFILIATES)
 
-    metadata_path = export_column_metadata_csv(project_df, output_path / "data")
+    metadata_path = export_column_metadata_csv(project_df, output_path / "data", applied_units=applied_units)
     log.info(f"Exported projects to {gpkg_path}")
     log.info(f"Exported metadata to {metadata_path}")
     return gpkg_path
@@ -319,12 +330,13 @@ def orchestrate(
         # Parse nested arrays before applying units so metadata resolves correctly.
         data_df = parse_actions_to_columns(data_df)
         data_df = parse_dates_to_columns(data_df)
+        applied_units: dict[str, object] = {}
         try:
-            data_df, _applied_units = RSFieldMeta().apply_units(data_df, layer_id=PBR_PROJECTS_LAYER_ID)
+            data_df, applied_units = RSFieldMeta().apply_units(data_df, layer_id=PBR_PROJECTS_LAYER_ID)
         except Exception as exc:
             log.warning(f"Unable to apply units for all fields: {exc}")
 
-        export_data_gpkg(data_df, output_path)
+        export_data_gpkg(data_df, output_path, applied_units=applied_units)
 
         cards = summary_stats(data_df)
 
