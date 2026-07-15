@@ -50,7 +50,7 @@ def main() -> list[str] | None:
         if selected_geojson is None:
             print("\nNo geojson file selected. Exiting.\n")
             exit(0)
-        geojson_file = example_dir / selected_geojson.resolve()
+        geojson_file = example_dir / selected_geojson
 
     # ── Optional Parquet override ─────────────────────────────────────
     parquet_path = os.environ.get("RNS_PARQUET_PATH")
