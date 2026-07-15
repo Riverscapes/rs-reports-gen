@@ -11,7 +11,7 @@ def build_pbr_figures(main_data: pd.DataFrame, aoi: gpd.GeoDataFrame) -> dict[st
         "map": make_point_map_with_aoi(
             point_df_to_gdf(main_data, 'location.latitude', 'location.longitude'),
             aoi,
-            hover_cols=["name", "watershedName", "date_IMPLEMENTEDxxxx"],
+            hover_cols=["name", "watershedName", "date_IMPLEMENTED"],
             point_name="PBR Projects",
             point_size=10,
         )
