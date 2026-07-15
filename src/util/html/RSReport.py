@@ -90,10 +90,10 @@ class RSReport:
         """Generate the HTML report.
 
         Args:
-            suffix (str, optional): _description_. Defaults to "".
+            suffix (str, optional): string to append to base report name. Defaults to "".
 
         Returns:
-            _type_: _description_
+            str: output path of the report
         """
         log = Logger("template_builder")
         figure_exports = {}

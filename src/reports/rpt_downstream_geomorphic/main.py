@@ -110,11 +110,14 @@ def make_report(
 
     report.add_html_elements('context', context)
     report.add_html_elements('lp_summary', lp_summary)
-    report.render(fig_mode="interactive")
-    log.info(f"HTML report written to {report_dir}")
+    report_path = report.render(fig_mode="interactive")
+    log.info(f"HTML report written to {report_path}")
 
     if include_pdf:
-        make_pdf_from_html(str(report_dir))
+        # make a static version as well, so we get the figures
+        static_path = report.render(fig_mode="svg", suffix="_static")
+        pdf_path = make_pdf_from_html(static_path)
+        log.info(f'PDF report built from static at {pdf_path}')
 
 
 def orchestrate(

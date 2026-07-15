@@ -99,11 +99,14 @@ def make_report(
     report.add_html_elements("cards", cards)
     report.add_html_elements("actions_cards", actions_cards)
     report.add_html_elements("no_data_message", no_data_message)
-    report.render(fig_mode="interactive")
-    log.info(f"HTML report written to {report_dir}")
+    outpath = report.render(fig_mode="interactive")
+    log.info(f"HTML report written to {outpath}")
 
     if include_pdf:
-        make_pdf_from_html(str(report_dir))
+        # make a static version as well, so we get the figure
+        static_path = report.render(fig_mode="svg", suffix="_static")
+        pdf_path = make_pdf_from_html(static_path)
+        log.info(f'PDF report built from static at {pdf_path}')
 
 
 def summary_stats(data_df: pd.DataFrame) -> MetricCards:
