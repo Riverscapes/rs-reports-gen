@@ -1,6 +1,26 @@
 import os
+from types import ModuleType
+from typing import TYPE_CHECKING
 
-import weasyprint
+if TYPE_CHECKING:
+    import weasyprint
+
+    CSSStylesheet = weasyprint.CSS
+else:
+    CSSStylesheet = object
+
+
+def _load_weasyprint() -> ModuleType:
+    """Import WeasyPrint lazily to avoid hard failures at module import time.
+
+    Created by copilot.
+    """
+    try:
+        import weasyprint
+    except (ImportError, OSError) as exc:
+        raise RuntimeError("WeasyPrint could not load its native rendering libraries. Install system dependencies described in README.md, including libpango-1.0-0, libpangoft2-1.0-0, libcairo2, and libgdk-pixbuf-2.0-0.") from exc
+
+    return weasyprint
 
 
 def make_pdf_from_html(
@@ -8,7 +28,7 @@ def make_pdf_from_html(
     pdf_path: str | None = None,
     page_margin: str = "0.1in",
     zoom: float = 1.0,
-    extra_styles: list[weasyprint.CSS] | None = None,
+    extra_styles: list[CSSStylesheet] | None = None,
 ) -> str:
     """Generate a PDF from an HTML file using WeasyPrint with layout controls.
 
@@ -20,12 +40,10 @@ def make_pdf_from_html(
     Returns:
         Path to the generated PDF file.
     """
+    weasyprint = _load_weasyprint()
     pdf_path_final = pdf_path if pdf_path else os.path.splitext(html_path)[0] + ".pdf"
     margin_css = weasyprint.CSS(
-        string=(
-            "@page { margin: %s; } "
-            "body { margin: 0 !important; padding: 0 !important; }"
-        ) % page_margin,
+        string=("@page { margin: %s; } body { margin: 0 !important; padding: 0 !important; }") % page_margin,
         media_type="print",
     )
 

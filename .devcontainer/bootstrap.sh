@@ -10,7 +10,15 @@ uv sync
 # The Python gdal version must match the system libgdal version, so it cannot
 # be pinned in pyproject.toml generically. We install it here explicitly.
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends libgdal-dev gdal-bin libsqlite3-mod-spatialite unzip
+sudo apt-get install -y --no-install-recommends \
+  libgdal-dev \
+  gdal-bin \
+  libsqlite3-mod-spatialite \
+  libpango-1.0-0 \
+  libpangoft2-1.0-0 \
+  libcairo2 \
+  libgdk-pixbuf-2.0-0 \
+  unzip
 bash install_geo.sh
 
 # Install AWS CLI v2
