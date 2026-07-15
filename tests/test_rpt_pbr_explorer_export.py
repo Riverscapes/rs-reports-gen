@@ -13,7 +13,9 @@ import pandas as pd
 
 from reports.rpt_pbr_explorer.dataprep import (
     build_project_extents_gdf,
+    define_fields,
     normalize_affiliates_table,
+    parse_actions_to_columns,
     parse_dates_to_columns,
     parse_project_data,
 )
@@ -22,6 +24,7 @@ from reports.rpt_pbr_explorer.main import (
     PBR_EXPORT_TABLE_AFFILIATES,
     export_data_gpkg,
 )
+from util.pandas import RSFieldMeta
 
 
 def test_parse_dates_to_columns_keeps_latest_value() -> None:
@@ -230,3 +233,37 @@ def test_export_data_gpkg_writes_extents_from_parsed_project_json(tmp_path) -> N
     extents = gpd.read_file(gpkg_path, layer="project_extents")
     assert len(extents) == 1
     assert str(extents.iloc[0]["project_id"]) == "p_ext_1"
+
+
+def test_column_metadata_uses_applied_unit_system(tmp_path) -> None:
+    """Metadata data_unit should describe exported values in selected unit system."""
+    define_fields("imperial")
+    meta = RSFieldMeta()
+
+    data_df = pd.DataFrame(
+        [
+            {
+                "id": "p1",
+                "name": "Unit Test Project",
+                "location.latitude": 45.05,
+                "location.longitude": -119.95,
+                "lengthKm": 2.5,
+                "actions": [],
+                "dates": [],
+                "orgAffiliates": [],
+                "pbrAffiliates": [],
+                "extent": None,
+            }
+        ]
+    )
+    data_df.attrs["layer_id"] = "pbr_projects"
+    data_df = parse_actions_to_columns(data_df)
+    data_df = parse_dates_to_columns(data_df)
+    data_df, applied_units = meta.apply_units(data_df, layer_id="pbr_projects")
+
+    export_data_gpkg(data_df, tmp_path, applied_units=applied_units)
+
+    metadata_path = tmp_path / "data" / "column_metadata.csv"
+    metadata_df = pd.read_csv(metadata_path)
+    length_unit = metadata_df.loc[metadata_df["column_name"] == "lengthKm", "data_unit"].iloc[0]
+    assert length_unit == "mile"
