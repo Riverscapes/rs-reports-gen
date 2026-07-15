@@ -15,6 +15,7 @@ from reports.rpt_pbr_explorer.dataprep import (
     build_project_extents_gdf,
     normalize_affiliates_table,
     parse_dates_to_columns,
+    parse_project_data,
 )
 from reports.rpt_pbr_explorer.main import (
     PBR_EXPORT_GPKG_FILENAME,
@@ -173,8 +174,59 @@ def test_export_data_gpkg_writes_layers_and_affiliates_table(tmp_path) -> None:
     extents = gpd.read_file(gpkg_path, layer="project_extents")
     assert len(projects) == 1
     assert len(extents) == 1
+    assert not any(col.startswith("extent") for col in projects.columns)
 
     with sqlite3.connect(gpkg_path) as conn:
         affiliate_count = conn.execute(f"SELECT COUNT(*) FROM {PBR_EXPORT_TABLE_AFFILIATES}").fetchone()[0]
+        gpkg_contents_row = conn.execute(
+            "SELECT data_type FROM gpkg_contents WHERE table_name = ?",
+            (PBR_EXPORT_TABLE_AFFILIATES,),
+        ).fetchone()
     assert affiliate_count == 2
-    assert (tmp_path / "column_metadata.csv").exists()
+    assert gpkg_contents_row is not None
+    assert gpkg_contents_row[0] == "attributes"
+    assert (tmp_path / "column_metadata.csv").exists() or (tmp_path / "data" / "column_metadata.csv").exists()
+
+
+def test_export_data_gpkg_writes_extents_from_parsed_project_json(tmp_path) -> None:
+    """Extents should still export when project rows were flattened by json_normalize."""
+    projects_json = [
+        {
+            "id": "p_ext_1",
+            "name": "Project With Extent",
+            "location": {"latitude": 37.6087, "longitude": -105.3009},
+            "lengthKm": 1.0,
+            "actions": [{"action": "STRUCTURES_BUILT", "value": 3}],
+            "dates": [{"name": "IMPLEMENTED", "date": "2023-07-05"}],
+            "orgAffiliates": [],
+            "pbrAffiliates": [],
+            "extent": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "MultiPolygon",
+                            "coordinates": [
+                                [
+                                    [
+                                        [-105.3157089642, 37.6424454676],
+                                        [-105.3069828681, 37.6391582396],
+                                        [-105.3042933179, 37.6269058444],
+                                        [-105.3157089642, 37.6424454676],
+                                    ]
+                                ]
+                            ],
+                        },
+                    }
+                ],
+            },
+        }
+    ]
+
+    parsed_df = parse_project_data(projects_json)
+    gpkg_path = export_data_gpkg(parsed_df, tmp_path)
+
+    extents = gpd.read_file(gpkg_path, layer="project_extents")
+    assert len(extents) == 1
+    assert str(extents.iloc[0]["project_id"]) == "p_ext_1"

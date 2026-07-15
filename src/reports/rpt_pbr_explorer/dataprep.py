@@ -248,6 +248,15 @@ def parse_project_data(projects_json: list[dict[str, Any]]) -> pd.DataFrame:
     if not projects_json:
         return pd.DataFrame()
     projects_df = pd.json_normalize(projects_json)
+
+    # Preserve raw nested payloads that json_normalize may flatten into extent.*
+    # and similar dotted columns. Export routines rely on these object/list forms.
+    projects_df["extent"] = [project.get("extent") for project in projects_json]
+    projects_df["orgAffiliates"] = [project.get("orgAffiliates", []) for project in projects_json]
+    projects_df["pbrAffiliates"] = [project.get("pbrAffiliates", []) for project in projects_json]
+    projects_df["actions"] = [project.get("actions", []) for project in projects_json]
+    projects_df["dates"] = [project.get("dates", []) for project in projects_json]
+
     projects_df.attrs["layer_id"] = PBR_PROJECTS_LAYER_ID
     return projects_df
 
