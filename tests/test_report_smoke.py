@@ -90,7 +90,7 @@ REPORTS = [
         "name": "PBR Explorer",
         "module": "reports.rpt_pbr_explorer.main",
         "example_dir": "src/reports/rpt_pbr_explorer/example",
-        "expected_files": ["report.html"],
+        "expected_files": ["report.html", "data/pbr_projects.gpkg", "column_metadata.csv"],
         "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_pbr_explorer_test", "--unit_system", "imperial"],
     },
     # Add more reports or configurations as needed
