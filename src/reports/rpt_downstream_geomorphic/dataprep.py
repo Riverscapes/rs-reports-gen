@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 from rsxml import Logger
 
+from reports.rpt_downstream_geomorphic.selection_mode import SelectionMode
 from util.athena import query_to_local_parquet
 from util.pandas import RSFieldMeta, load_gdf_from_pq
 
@@ -44,7 +45,15 @@ def _validate_level_path(level_path: str) -> bool:
     raise ValueError(f'Level Path supplied ({level_path}) does not match expected pattern.')
 
 
-def _query_whole_level_path(level_path: str):
+def _query_downstream(node_id: str) -> str:
+    query_str = """
+
+    """
+    raise NotImplementedError
+    return query_str
+
+
+def _query_whole_level_path(level_path: str) -> str:
     _validate_level_path(level_path)
     # TODO: build and use an rs_rpt table instead of rs_raw
     query_str = f"""WITH rme AS (
@@ -66,7 +75,7 @@ def _query_whole_level_path(level_path: str):
     return query_str.format(level_path=level_path)
 
 
-def query_rme_data(mode: str, level_path: str, staging_path: Path) -> pd.DataFrame:
+def query_rme_data(mode: SelectionMode, level_path: str, staging_path: Path) -> pd.DataFrame:
     """Query RME intersection data from Athena and save as local Parquet.
 
 
@@ -80,9 +89,11 @@ def query_rme_data(mode: str, level_path: str, staging_path: Path) -> pd.DataFra
     log = Logger("QueryRME")
     log.info("Querying Athena for RME data ...")
 
-    # MODE: whole level path
-    # assumes we are given the level path
-    sql = _query_whole_level_path(level_path)
+    if mode is SelectionMode.WHOLE:
+        sql = _query_whole_level_path(level_path)
+    else:
+        raise NotImplementedError(f"Selection mode '{mode.value}' is not implemented for queries.")
+
     log.debug(f'Query:\n{sql}')
     query_to_local_parquet(
         sql,

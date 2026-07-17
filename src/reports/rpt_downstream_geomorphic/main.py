@@ -22,6 +22,7 @@ from reports.rpt_downstream_geomorphic.dataprep import (
     query_rme_data,
 )
 from reports.rpt_downstream_geomorphic.figures import build_profile_figures
+from reports.rpt_downstream_geomorphic.selection_mode import SelectionMode
 from util.athena import get_field_metadata
 from util.html import RSReport
 from util.pandas import RSFieldMeta, load_gdf_from_pq, load_meta_from_file, save_meta_to_file
@@ -72,7 +73,7 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
 def make_report(
     profile_df: pd.DataFrame,
     lp_summary_df: pd.DataFrame,
-    mode: str,
+    mode: SelectionMode,
     report_dir: Path,
     report_name: str,
     *,
@@ -103,7 +104,7 @@ def make_report(
 
     total_centerline_length_header = str(lp_summary_df.attrs.get("total_centerline_length_header", "Total Centerline Length"))
     context = {
-        'selection_mode': mode,
+        'selection_mode': mode.label,
         'total_centerline_length_header': total_centerline_length_header,
     }
     lp_summary = lp_summary_df.reset_index().to_dict(orient="records")
@@ -154,7 +155,7 @@ def orchestrate(
     define_fields(unit_system, load_from_parquet=load_meta_from_parquet, metadata_cachefile_path=meta_parquet_file_path)
 
     # MODE - level_path
-    mode = 'Whole Level Path'
+    mode = SelectionMode.WHOLE
 
     if parquet_path:
         log.info(f"Using supplied Parquet data files at {parquet_path}")
