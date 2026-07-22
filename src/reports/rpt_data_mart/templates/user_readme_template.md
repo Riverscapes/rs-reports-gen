@@ -33,6 +33,7 @@ Additional Data
 - `nid.parquet`: National Inventory Dams search results for the area of interest
 - `pastures.parquet`: From the BLM National Pastures dataset
 - `pastures_nm_bootheel.parquet`: From April update to Pastures prepared for NM Bootheel
+- `pastures_elva.parquet`: Pastures layer for Elko-Vale (June 2026).
 - `vegetation_cover.parquet`: (Optional) Vegetation cover timeseries extracted via Climate Engine.
 
 ## How to use this data

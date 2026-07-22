@@ -59,7 +59,9 @@ class DatasetQuery:
     name: str
     query_template: str
     geometry_field_expression: str
-    geom_bbox_field: str
+    # provide either geom_bbox_field OR geom_bbox_columns
+    geom_bbox_field: str | None = None
+    geom_bbox_columns: tuple[str, str, str, str] | None = None
 
 
 def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]:
@@ -90,7 +92,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         "road_dist, rail_dist, div_dist, canal_dist, infra_dist, "
         "fldpln_access, access_fldpln_extent, "
         "brat_capacity, brat_hist_capacity, brat_risk, brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, "
-        "rme_project_id, rme_version, rme_project_name, pasture_rs_row_id, pasture_nm_pasture_id "
+        "rme_project_id, rme_version, rme_project_name, pasture_rs_row_id, pasture_nm_pasture_id, pasture_elva_pasture_id "
     )
 
     # HUC10 watershed boundary + RS Context metadata.
@@ -98,6 +100,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
 
     pastures_fields = "rs_row_id, allot_no, allot_name, past_no, past_name, admin_st, adm_ofc_cd, adm_unit_cd, st_allot_past, st_allot_past_name, st_allot_past_multi"
     pastures_nm_fields = "pasture_id, pasture_name, pasture_latitude, pasture_longitude"
+    pastures_elva_fields = "past_name, st_allot_past"
 
     if include_geometry:
         dgo_fields += ", dgo_geom"
@@ -138,6 +141,12 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
             geometry_field_expression="ST_GeomFromBinary(geometry)",
             geom_bbox_field="geometry_bbox",
         ),
+        DatasetQuery(
+            name="pastures_elva",
+            query_template=f"SELECT {pastures_elva_fields} FROM input_geom, ext_raw.us_blm_pastures_elva_20260626 WHERE {{prefilter_condition}} AND {{intersects_condition}}",
+            geometry_field_expression="ST_GeomFromBinary(geom_wkb)",
+            geom_bbox_columns=('bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax'),
+        ),
     ]
 
 
@@ -163,6 +172,7 @@ def _query_dataset(
         geom_bbox_field=dataset.geom_bbox_field,
         aoi_gdf=query_gdf,
         local_path=staging_path,
+        geom_bbox_columns=dataset.geom_bbox_columns,
     )
     log.info(f"{dataset.name} query complete -> {staging_path}")
 
@@ -215,6 +225,7 @@ def define_fields(unit_system: str = "SI") -> None:
     Copilot-generated function.
     """
     meta = RSFieldMeta()
+    # TODO: switch to lakehouse_ref based metadata - check that all of these have the metadata loaded first.
     registry_field_meta = get_field_metadata(
         authority="data-exchange-scripts,riverscapes-tools",
         tool_schema_name="*",
@@ -242,7 +253,9 @@ def define_fields(unit_system: str = "SI") -> None:
     # At the dgo level metres and feet make sense but as soon as aggregating a few hundred as we typically do, km and miles are better
     # BLM asked for miles and acres to be default so we'll set them all and then add back exceptions
     # override all m > km and m2 to km2
-    for _, meta_row in meta.field_meta.iterrows():
+    field_meta = meta.field_meta
+    assert field_meta is not None
+    for _, meta_row in field_meta.iterrows():
         if meta_row["data_unit"] == ureg.meter:
             meta.set_display_unit(meta_row["name"], ureg.kilometer, meta_row["layer_id"])
         elif meta_row["data_unit"] == ureg.meter**2:
@@ -470,6 +483,15 @@ def export_data_mart(
     log.info(f"Pastures loaded: {len(pastures_nm_bootheel_df)} rows, {len(pastures_nm_bootheel_df.columns)} cols")
     _export_parquet(pastures_nm_bootheel_df, exports_dir / "pastures_nm_bootheel.parquet")
     all_tables["pastures_nm_bootheel"] = TableEntry(df=pastures_nm_bootheel_df, applied_units=pastures_nm_bootheel_applied_units)
+
+    # Pastures_elva : as above
+    pastures_elva_staging = Path(parquet_override / "pastures_elva") if parquet_override else staging_dir / "pastures_elva"
+    pastures_elva_df = load_gdf_from_pq(pastures_elva_staging)
+    pastures_elva_df.attrs["layer_id"] = "blm-pasture-elva"  # CHECK - ARE WE DECLARING THIS HERE? Or identifying how it has been declared elsewhere?
+    pastures_elva_df, pastures_elva_applied_units = meta.apply_units(pastures_elva_df)
+    log.info(f"Pastures loaded: {len(pastures_elva_df)} rows, {len(pastures_elva_df.columns)} cols")
+    _export_parquet(pastures_elva_df, exports_dir / "pastures_elva.parquet")
+    all_tables["pastures_elva"] = TableEntry(df=pastures_elva_df, applied_units=pastures_elva_applied_units)
 
     # Climate Engine: vegetation cover timeseries
     if ce_veg_df is not None:

@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pint
+from rsxml import Logger
 
 from util.pbi_format import python_format_to_pbi
 
@@ -131,6 +132,7 @@ class JoinDef:
 MODEL_JOINS: list[JoinDef] = [
     JoinDef(from_table="dgo", from_column="pasture_rs_row_id", to_table="pastures", to_column="rs_row_id"),
     JoinDef(from_table="dgo", from_column="pasture_nm_pasture_id", to_table="pastures_nm_bootheel", to_column="pasture_id"),
+    JoinDef(from_table="dgo", from_column="pasture_elva_pasture_id", to_table="pastures_elva", to_column="st_allot_past"),
     JoinDef(from_table="dgo", from_column="huc10", to_table="huc10_rscontext", to_column="huc"),
     JoinDef(from_table="nid", from_column="pasture_id", to_table="pastures_nm_bootheel", to_column="pasture_id"),
     JoinDef(from_table="nid", from_column="HUC10_Code", to_table="huc10_rscontext", to_column="huc"),
@@ -809,6 +811,7 @@ def generate_pbip(
 
     Copilot-generated function.
     """
+    log = Logger('Generate PBIP')
     # Load and resolve column metadata
     tables = _load_data_dictionary(data_dict_path)
     tables = _resolve_columns(tables)
@@ -829,7 +832,7 @@ def generate_pbip(
     relationships_tmdl, skipped_relationships = _generate_relationships_tmdl(tables, MODEL_JOINS)
     _write(def_dir / "relationships.tmdl", relationships_tmdl)
     for rel in skipped_relationships:
-        print(f"WARNING: Skipped relationship {rel}; one or both columns were not found in the generated model.")
+        log.warning(f"Skipped relationship {rel}; one or both columns were not found in the generated model.")
     _write(def_dir / "expressions.tmdl", _generate_expressions_tmdl(str(data_mart_root) if data_mart_root else ""))
     _write(cultures_dir / "en-US.tmdl", _generate_culture_tmdl())
 
@@ -856,7 +859,7 @@ def generate_pbip(
     _write(rpt_dir / "StaticResources" / "SharedResources" / "BaseThemes" / "Riverscapes.json", _generate_riverscapes_theme_json())
 
     pbip_path = output_dir / f"{model_name}.pbip"
-    print(f"PBIP project generated: {pbip_path}")
+    log.info(f"PBIP project generated: {pbip_path}")
     return pbip_path
 
 

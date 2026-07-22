@@ -1,5 +1,9 @@
 # Version History
 
+## 0.2.0 2026-July
+
+* adding additional intersection layers (starting with updated BLM Pastures for Elko-Vale)
+
 ## 0.1.7 2026-April
 
 * bug fixes in unit handling
