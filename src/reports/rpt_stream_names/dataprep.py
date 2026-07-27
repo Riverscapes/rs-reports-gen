@@ -15,7 +15,7 @@ def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     geom_field_clause = "ST_GeomFromBinary(dgo_geom)"  # must be a geometry, not a WKT or WKB
     geom_bbox_field = "dgo_geom_bbox"
     querystr = """
-SELECT stream_name, round(sum(centerline_length),0) AS total_riverscape_length, max(stream_order) AS max_stream_order, count(distinct level_path) as level_path_count, round(sum(segment_area) / sum(centerline_length),1) as rs_area_per_length
+SELECT stream_name, round(sum(centerline_length),0) AS total_riverscape_length, max(stream_order) AS max_stream_order, count(distinct level_path) as level_path_count
 FROM input_geom, raw_rme_pq2
 WHERE {prefilter_condition} AND {intersects_condition} AND (stream_name IS NOT NULL)
 GROUP BY stream_name

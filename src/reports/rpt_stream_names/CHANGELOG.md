@@ -1,5 +1,9 @@
 # Riverscapes Stream Names Report
 
+## Version 0.4
+
+* Add table, change to one word cloud
+
 ## Version 0.3.1
 
 * Sort file outputs
