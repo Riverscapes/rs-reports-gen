@@ -64,7 +64,6 @@ def make_report(
 
     word_cloud(df, figure_dir, frequency_field='total_riverscape_length')
     word_cloud(df, figure_dir, frequency_field='level_path_count')
-    word_cloud(df, figure_dir, frequency_field='rs_area_per_length')
 
     report = RSReport(
         report_name=report_name,
