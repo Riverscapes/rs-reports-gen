@@ -17,10 +17,25 @@
 </section>
 
 {% if not error_message %}
+<section id="map-of-polygons">
+  <h1>Report Watershed</h1>
+  <div class="section-context">
+    <p>The following map shows the watershed (and subwatersheds if applicable) for which the report was generated.</p>
+  </div>
+  <figure class="report-figure map">
+    <div>{{ figures.aoi_outline | safe }}</div>
+  </figure>
+</section>
+
 <section id="watershed">
-  <h1>Watershed</h1>
+  <h2>Watershed Information</h2>
   {{ render_metric_grid(cards, ["sum_hucareasqkm","countdistinct_huc"]) }}
 
+  <h3>HUC10 Watersheds</h3>
+  <figure class="report-figure">
+    {{ tables['hucs'] | safe }}
+  </figure>
+  
   <h3>States</h3>
   The selected watersheds are found within:
   <ul>
@@ -30,16 +45,6 @@
   </ul>
 
 </section>
-
-<!-- <section id="map-of-polygons">
-  <h2>Report Area of Interest</h2>
-  <div class="section-context">
-    <p>The following map shows the area of interest for which the report was generated.</p>
-  </div>
-  <figure class="report-figure map">
-    <div>{{ figures['map']|safe }}</div>
-  </figure>
-</section> -->
 
 <section id="HUC">
   <h2>Ownership</h2>

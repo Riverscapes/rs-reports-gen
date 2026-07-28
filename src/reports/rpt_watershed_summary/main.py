@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # 3rd party imports
+import geopandas as gpd
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -15,11 +16,11 @@ from rsxml.util import safe_makedirs
 
 # Report type imports
 from reports.rpt_watershed_summary import __version__ as report_version
-from reports.rpt_watershed_summary.figures import hydrography_table, ownership_summary_table, statistics, waterbody_summary_table
+from reports.rpt_watershed_summary.figures import huc_summary_table, hydrography_table, ownership_summary_table, statistics, waterbody_summary_table
 
 # Repo imports
 from util.athena import get_field_metadata, query_to_dataframe
-from util.figures import metric_cards
+from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
@@ -38,7 +39,18 @@ def define_fields(unit_system: str = "SI"):
     return
 
 
-def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, states_df: pd.DataFrame, report_dir: Path, report_name: str, include_static: bool = True, include_pdf: bool = True, error_message: str | None = None):
+def make_report(
+    aggregate_data_df: pd.DataFrame,
+    ownership_df: pd.DataFrame,
+    states_df: pd.DataFrame,
+    hucs_df: pd.DataFrame,
+    selected_geom_gdf: gpd.GeoDataFrame,
+    report_dir: Path,
+    report_name: str,
+    include_static: bool = True,
+    include_pdf: bool = True,
+    error_message: str | None = None,
+):
     """
     Generates HTML report(s) in report_dir.
     Args:
@@ -55,11 +67,11 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
     tables: dict[str, str] = {}
 
     if error_message is None:
-        tables = {
-            "waterbodies": waterbody_summary_table(aggregate_data_df),
-            "ownership": ownership_summary_table(ownership_df),
-            "hydrography": hydrography_table(aggregate_data_df),
-        }
+        tables = {"hucs": huc_summary_table(hucs_df), "waterbodies": waterbody_summary_table(aggregate_data_df), "ownership": ownership_summary_table(ownership_df), "hydrography": hydrography_table(aggregate_data_df)}
+        if selected_geom_gdf.empty:
+            log.warning("Selected geometry GeoDataFrame is empty; skipping AOI outline map figure.")
+        else:
+            figures = {"aoi_outline": make_aoi_outline_map(selected_geom_gdf)}
 
     report = RSReport(
         report_name=report_name,
@@ -133,6 +145,35 @@ ORDER BY state_name
     return df
 
 
+def get_huc_data(huc_condition: str) -> pd.DataFrame:
+    """Get HUC-level rows for the summary table."""
+    query_str = f"""
+SELECT huc, hucname, hucareasqkm
+FROM rs_context_huc10
+WHERE {huc_condition}
+ORDER BY huc
+"""
+    return query_to_dataframe(query_str, "huc summary")
+
+
+def get_selected_geometry_gdf(huc10_condition: str) -> gpd.GeoDataFrame:
+    """Get selected HUC10 geometries as a GeoDataFrame for map rendering."""
+    log = Logger("Get selected geometry")
+    query_str = f"""
+SELECT huc10 AS huc, name AS hucname, areasqkm AS hucareasqkm, ST_AsText(ST_GeomFromBinary(geometry)) AS geometry_wkt
+FROM wbdhu10_cleaned
+WHERE {huc10_condition}
+ORDER BY huc10
+"""
+    geom_df = query_to_dataframe(query_str, "selected geometry")
+    if geom_df.empty:
+        log.warning(f"Selected geometry query returned no rows for condition: {huc10_condition}")
+        return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
+    geom_df['geometry'] = gpd.GeoSeries.from_wkt(geom_df.pop('geometry_wkt'), crs="EPSG:4326")
+    return gpd.GeoDataFrame(geom_df, geometry='geometry', crs="EPSG:4326")
+
+
 def add_agg_field_meta(fields, agg_type: str):
     """Helper to transfer/add metadata for aggregated columns.
     assumes the new fields follow naming convention
@@ -147,7 +188,11 @@ def add_agg_field_meta(fields, agg_type: str):
         friendly_prefix = {"sum": "Total", "min": "Minimum", "max": "Maximum", "count": "Count", "countdistinct": "Count distinct"}.get(agg_type, agg_type.title())
 
         if orig_meta:
-            friendly_name = f"{friendly_prefix} {orig_meta.friendly_name}"
+            if orig_fld_nm == 'huc':
+                friendly_prefix = "Number of Watersheds"
+                friendly_name = f"{friendly_prefix} ({orig_meta.friendly_name})"
+            else:
+                friendly_name = f"{friendly_prefix} {orig_meta.friendly_name}"
             data_unit = orig_meta.data_unit
             dtype = orig_meta.dtype
         else:
@@ -248,26 +293,33 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
     log.info("Report orchestration begun")
     meta = RSFieldMeta()
     huc_condition = parse_hucs(hucs, 'huc', 10)
+    huc10_condition = parse_hucs(hucs, 'huc10', 10)
     log.debug(f"huc condition: {huc_condition}")
 
     define_fields(unit_system)
     df_aggregatedata = get_aggregated_data(huc_condition)
 
     if df_aggregatedata.empty:
-        # we send 3 empty dataframes and error_message
-        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, include_pdf, include_pdf, error_message="No results found for selection.")
+        # we send empty dataframes and error_message
+        empty_aoi_gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, df_aggregatedata, empty_aoi_gdf, report_dir, report_name, include_pdf, include_pdf, error_message="No results found for selection.")
     else:
         # although it doesn't make much difference with these quick queries, parallelizing is good practice
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             future_owners = executor.submit(get_ownership_data, huc_condition)
             future_states = executor.submit(get_states, huc_condition)
+            future_hucs = executor.submit(get_huc_data, huc_condition)
+            future_selected_geom = executor.submit(get_selected_geometry_gdf, huc10_condition)
             df_owners = future_owners.result()
             df_states = future_states.result()
+            df_hucs = future_hucs.result()
+            selected_geom_gdf = future_selected_geom.result()
 
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
         df_owners, _ = meta.apply_units(df_owners)
+        df_hucs, _ = meta.apply_units(df_hucs)
 
-        make_report(df_aggregatedata, df_owners, df_states, report_dir, report_name, include_pdf, include_pdf)
+        make_report(df_aggregatedata, df_owners, df_states, df_hucs, selected_geom_gdf, report_dir, report_name, include_pdf, include_pdf)
         safe_makedirs(str(report_dir / 'data'))
         # Export the data to Excel
         RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')

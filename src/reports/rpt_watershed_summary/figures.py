@@ -315,5 +315,67 @@ def waterbody_summary_table(df: pd.DataFrame) -> str:
 
 def ownership_summary_table(df: pd.DataFrame) -> str:
     """make html table for ownership"""
+    meta = RSFieldMeta()
+    existing_area_meta = meta.get_field_meta("sum_ownership_area", layer_id="ownership_summary")
+    existing_desc_meta = meta.get_field_meta("ownership_desc", layer_id="ownership_summary")
+
+    if existing_area_meta is None:
+        meta.add_field_meta(
+            name="sum_ownership_area",
+            layer_id="ownership_summary",
+            friendly_name="Area",
+            data_unit="kilometer ** 2",
+            display_unit="kilometer ** 2",
+            preferred_format="{:,.0f}",
+        )
+
+    if existing_desc_meta is None:
+        meta.add_field_meta(
+            name="ownership_desc",
+            layer_id="ownership_summary",
+            friendly_name="Ownership",
+        )
+
+    meta.add_field_meta(
+        name="Percent of Total Area",
+        layer_id="ownership_summary",
+        friendly_name="Percent of Total Area",
+        data_unit="percent",
+        display_unit="percent",
+        preferred_format="{:.2f}%",
+    )
+
+    if df.empty:
+        newrdf = RSGeoDataFrame(df)
+        return newrdf.to_html(index=False, escape=False, layer_id="ownership_summary")
+
+    ownership_df = df.copy()
+    total_area = ownership_df["sum_ownership_area"].sum()
+    if total_area == 0:
+        ownership_df["Percent of Total Area"] = 0.0
+    else:
+        ownership_df["Percent of Total Area"] = ownership_df["sum_ownership_area"] / total_area * 100
+
+    ownership_df["Percent of Total Area"] = ownership_df["Percent of Total Area"].astype(float)
+
+    total_row = pd.DataFrame(
+        [
+            {
+                "ownership_desc": "Total",
+                "sum_ownership_area": total_area,
+                "Percent of Total Area": 100.0,
+            }
+        ]
+    )
+    ownership_df = pd.concat([ownership_df, total_row], ignore_index=True)
+
+    newrdf = RSGeoDataFrame(ownership_df)
+    return newrdf.to_html(index=False, escape=False, layer_id="ownership_summary")
+
+
+def huc_summary_table(df: pd.DataFrame) -> str:
+    """make html table for huc summary"""
+    meta = RSFieldMeta()
     newrdf = RSGeoDataFrame(df)
+    newrdf, _ = meta.apply_units(newrdf)
     return newrdf.to_html(index=False, escape=False)
