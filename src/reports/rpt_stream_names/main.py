@@ -14,10 +14,11 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from reports.rpt_stream_names import __version__ as report_version
-from reports.rpt_stream_names.dataprep import get_wcdata_for_aoi
+from reports.rpt_stream_names.dataprep import build_highlight_cards_data, get_wcdata_for_aoi
 from reports.rpt_stream_names.figures import aoi_polygon_svg, word_cloud
 from util import prepare_gdf_for_athena
 from util.figures import (
+    HighlightCard,
     make_aoi_outline_map,
 )
 from util.html import RSReport
@@ -75,11 +76,20 @@ def define_fields(unit_system: str = "SI") -> None:
         data_unit=None,
         dtype="REAL",
         description="Percent of all distinct, named, level paths in the area of interest with this stream name.",
+        preferred_format="{:.2f}",
+    )
+    meta.add_field_meta(
+        name="pct_of_length",
+        friendly_name="% of Named Length",
+        data_unit=None,
+        dtype="REAL",
+        description="Percent of total named riverscape length in the area of interest accounted for by this stream name.",
+        preferred_format="{:.2f}",
     )
 
 
-def build_top_names_table(df: pd.DataFrame, top_n: int = 10) -> str:
-    """Build an HTML table of the top N stream names ranked by distinct paths then total length.
+def build_top_names_by_path_count_table(df: pd.DataFrame, top_n: int = 10) -> str:
+    """Build an HTML table of the top N stream names ranked by distinct level-path count then total riverscape length.
 
     Args:
         df (pd.DataFrame): The stream names dataframe from dataprep.
@@ -96,8 +106,8 @@ def build_top_names_table(df: pd.DataFrame, top_n: int = 10) -> str:
         df[["stream_name", "level_path_count", "total_riverscape_length"]]
         .copy()
         .sort_values(
-            by=["level_path_count", "total_riverscape_length"],
-            ascending=[False, False],
+            by=["level_path_count", "total_riverscape_length", "stream_name"],
+            ascending=[False, False, True],
             kind="mergesort",
         )
         .head(top_n)
@@ -108,6 +118,36 @@ def build_top_names_table(df: pd.DataFrame, top_n: int = 10) -> str:
 
     # Reorder columns for display
     display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "level_path_count", "pct_of_paths", "total_riverscape_length"]])
+    return display_df.to_html(index=False, escape=False)
+
+
+def build_top_names_by_riverscape_length_table(df: pd.DataFrame, top_n: int = 10) -> str:
+    """Build an HTML table of the top N stream names ranked by total riverscape length then distinct level-path count.
+
+    Args:
+        df (pd.DataFrame): The stream names dataframe from dataprep.
+        top_n (int): Number of top rows to include. Defaults to 10.
+
+    Returns:
+        str: HTML table fragment.
+    """
+    total_length = df["total_riverscape_length"].sum()
+
+    ranked = (
+        df[["stream_name", "level_path_count", "total_riverscape_length"]]
+        .copy()
+        .sort_values(
+            by=["total_riverscape_length", "level_path_count", "stream_name"],
+            ascending=[False, False, True],
+            kind="mergesort",
+        )
+        .head(top_n)
+        .reset_index(drop=True)
+    )
+    ranked.insert(0, "rank", range(1, len(ranked) + 1))
+    ranked["pct_of_length"] = ranked["total_riverscape_length"] / total_length * 100
+
+    display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "total_riverscape_length", "pct_of_length", "level_path_count"]])
     return display_df.to_html(index=False, escape=False)
 
 
@@ -127,6 +167,7 @@ def make_report(
     aoi_gdf: gpd.GeoDataFrame,
     include_static: bool = True,
     include_pdf: bool = True,
+    unit_system: str = "SI",
 ):
     """
     Generates HTML report(s) in report_dir.
@@ -138,6 +179,7 @@ def make_report(
             May be the raw AOI shape or the simplified query polygon.
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
+        unit_system (str, optional): Unit system for display values ("SI" or "imperial"). Defaults to "SI".
 
     Note: define_fields() must be called before this function to configure units.
     """
@@ -153,11 +195,14 @@ def make_report(
 
     header_svg = aoi_polygon_svg(aoi_gdf, figure_dir)
     tables = {
-        "top_names": build_top_names_table(df),
+        "top_names_by_path_count": build_top_names_by_path_count_table(df),
+        "top_names_by_riverscape_length": build_top_names_by_riverscape_length_table(df),
     }
 
     word_cloud(df, figure_dir, frequency_field='total_riverscape_length')
     word_cloud(df, figure_dir, frequency_field='level_path_count')
+
+    highlight_cards: list[HighlightCard] = build_highlight_cards_data(df, unit_system=unit_system)
 
     report = RSReport(
         report_name="What Did We Name Our Streams and Rivers?",
@@ -173,6 +218,7 @@ def make_report(
 
     report.set_header_svg(header_svg)
     report.add_html_elements("tables", tables)
+    report.add_html_elements("highlight_cards", highlight_cards)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -250,7 +296,7 @@ def make_report_orchestrator(
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
-    make_report(data_df, report_dir, report_name, aoi_gdf=query_gdf, include_static=include_pdf, include_pdf=include_pdf)
+    make_report(data_df, report_dir, report_name, aoi_gdf=query_gdf, include_static=include_pdf, include_pdf=include_pdf, unit_system=unit_system)
 
     log.info(f"Report Path: {report_dir}")
 
