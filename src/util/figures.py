@@ -949,6 +949,44 @@ class MetricCard(TypedDict):
 MetricCards = dict[str, MetricCard]
 
 
+class HighlightCardSecondaryStat(TypedDict):
+    """Secondary stat row shown beneath the primary value."""
+
+    icon: str  # Material Icon name
+    text: str
+
+
+class HighlightCardFooter(TypedDict):
+    """Footer row with a highlighted metric and a label."""
+
+    metric: str
+    label: str
+
+
+class HighlightCard(TypedDict):
+    """Template-facing payload for render_highlight_cards.
+
+    Fields
+    ------
+    theme           : CSS theme name (e.g. "blue", "green") — drives border / accent colours.
+    icon            : Material Icon name for the card header icon.
+    header          : All-caps card category label.
+    primary_value   : The headline value displayed large.
+    secondary_stat  : Supporting stat with icon + text.
+    footer          : Small footer row with a percentage / metric and its label.
+    """
+
+    theme: str
+    icon: str
+    header: str
+    primary_value: str
+    secondary_stat: HighlightCardSecondaryStat
+    footer: HighlightCardFooter
+
+
+HighlightCards = list[HighlightCard]
+
+
 def metric_cards(metrics: dict[str, object], layer_id: str | None = None) -> MetricCards:
     """transform a statistics dictionary into dictionary of elements for display
 

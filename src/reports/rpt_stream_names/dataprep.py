@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import geopandas as gpd
 import pandas as pd
 from rsxml import Logger
 
 from util.athena import aoi_query_to_dataframe
+from util.figures import HighlightCard
 
 
 def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
@@ -29,3 +32,87 @@ GROUP BY stream_name
         df["level_path_count"] = df["level_path_count"].astype(int)
         df["rs_area_per_length"] = df["rs_area_per_length"].astype(float)
     return df
+
+
+def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -> list[HighlightCard]:
+    """Build highlight card payloads from the stream names dataframe.
+
+    Produces two cards:
+    - Most Repeated Name  : top name by distinct level-path count.
+    - Most Riverscape Length : top name by total riverscape length.
+
+    Args:
+        data_df (pd.DataFrame): Stream names dataframe with columns
+            ``stream_name``, ``level_path_count``, and ``total_riverscape_length``.
+        unit_system (str): ``"SI"`` (km) or ``"imperial"`` (miles).
+
+    Returns:
+        list[dict]: List of HighlightCard-shaped dicts ready for the template.
+    """
+    if data_df.empty:
+        return []
+
+    total_paths = data_df["level_path_count"].sum()
+    total_length_m = data_df["total_riverscape_length"].sum()
+
+    # --- Most repeated name (by distinct level paths) ---
+    # Sort matches table: level_path_count desc, total_riverscape_length desc, stream_name asc
+    paths_sorted = data_df.sort_values(
+        by=["level_path_count", "total_riverscape_length", "stream_name"],
+        ascending=[False, False, True],
+        kind="mergesort",
+    )
+    top_by_paths = paths_sorted.iloc[0]
+    paths_count: int = int(top_by_paths["level_path_count"])
+    paths_pct: float = paths_count / total_paths * 100 if total_paths else 0.0
+    paths_is_tie: bool = (data_df["level_path_count"] == paths_count).sum() > 1
+
+    # --- Most riverscape length ---
+    # Sort: total_riverscape_length desc, level_path_count desc, stream_name asc
+    length_sorted = data_df.sort_values(
+        by=["total_riverscape_length", "level_path_count", "stream_name"],
+        ascending=[False, False, True],
+        kind="mergesort",
+    )
+    top_by_length = length_sorted.iloc[0]
+    length_m: float = float(top_by_length["total_riverscape_length"])
+    length_pct: float = length_m / total_length_m * 100 if total_length_m else 0.0
+    length_is_tie: bool = (data_df["total_riverscape_length"] == length_m).sum() > 1
+
+    if unit_system == "imperial":
+        length_value: float = length_m / 1000 * 0.621371
+        length_unit = "miles"
+    else:
+        length_value = length_m / 1000
+        length_unit = "km"
+
+    return [
+        {
+            "theme": "blue",
+            "icon": "emoji_events",
+            "header": "MOST REPEATED NAME",
+            "primary_value": str(top_by_paths["stream_name"]) + (" (tie)" if paths_is_tie else ""),
+            "secondary_stat": {
+                "icon": "waves",
+                "text": f"{paths_count:,} distinct named riverscape paths",
+            },
+            "footer": {
+                "metric": f"{paths_pct:.2f}%",
+                "label": "of named paths",
+            },
+        },
+        {
+            "theme": "green",
+            "icon": "water",
+            "header": "MOST RIVERSCAPE LENGTH",
+            "primary_value": str(top_by_length["stream_name"]) + (" (tie)" if length_is_tie else ""),
+            "secondary_stat": {
+                "icon": "straighten",
+                "text": f"{length_value:,.1f} {length_unit}",
+            },
+            "footer": {
+                "metric": f"{length_pct:.2f}%",
+                "label": "of named riverscape length",
+            },
+        },
+    ]

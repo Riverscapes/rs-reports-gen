@@ -2,61 +2,40 @@
  
   refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
 -->
+{% from 'macros.html' import render_metric_grid, render_highlight_cards %}
 <section>
   <div class="section-context">
-    <p>The riverscapes stream names report is intended to provide an accessible introduction to the the named streams
-      within a specific area of interest. It pulls together data from a variety of public sources and combines them with
-      the results from several models. The goal is to encourage exploration of the riverscape and the landscape context
-      in which it resides.</p>
+    <p>Every landscape has its own vocabulary of rivers, creeks, branches, bayous, and rivers. These names carry local history, natural features, and cultural significance. This report explores which riverscapes names occur most often within the selected area -- by the number of distinct named paths, and by total riverscape length.</p>
   </div>
+</section>
+
+<section id="highlight-cards">
+  {{render_highlight_cards(highlight_cards)}}
+</section>
+
+<section id="top-stream-names">
+  <h2>Top 10 Most Common Names </h2>
+  <div class="section-context">
+    <p>The table below shows the ten most common stream names within the area of interest, ranked first by the number of
+      distinct level paths and then by total riverscape length. The <em>% of All Paths</em> column shows each name's
+      share of all named level paths in the report area.</p>
+  </div>
+  {{ tables['top_names_by_path_count']|safe }}
 </section>
 
 
 <section id="word-cloud">
-  <h2>Stream Names</h2>
-  <h3>Name diversity</h3>
+  <h2>Do you see your guess in the cloud?</h2>
   <div class="section-context">
-    <p>When setlers were naming streams, lives were much more local than they are today. There was no national registry
-      like the <a href="https://www.usgs.gov/tools/geographic-names-information-system-gnis">Geographic Names
-        Information System</a>. As a result, many different streams share the same name. This word cloud illustrates
-      this by
-      making the size of the name proportional to the number of individual <b>level paths</b> that use that name within
-      the area of interest. Only the 200 named streams (by distinct level paths) are shown; the full list can be found
-      in the report data folder. Note - the word cloud algorithm adjusts word sizes to fit the shape and this effect is
-      more pronounced for small areas with just a few stream names. Consult the included data files for accurate values.
-    </p>
+    <p>The bigger the name, the more often it appears within the selected area.</p>
   </div>
   <figure class="report-figure">
     <a href="figures/stream_names_level_path_count_scale9.png"><img
         src="figures/stream_names_level_path_count_scale5.png"
         alt="Word cloud of stream names (medium resolution). Click through for higher resolution version; lower resolution also available in Figures folder" /></a>
   </figure>
-  <h3>Riverscape Length</h3>
-  <div class="section-context">
-    <p>The stream names come from NHD data aggregated as part of the Riverscapes Context project. In this word cloud,
-      the size of the name
-      is proportional to Riverscape length and the colour represents the maximum stream order for this stream within the
-      area of interest (darker colour = larger stream order). Only top 200 named streams (by Riverscape length) are
-      shown; the full list can be found in the report data folder.</p>
-  </div>
-
-  <figure class="report-figure">
-    <a href="figures/stream_names_total_riverscape_length_scale9.png"><img
-        src="figures/stream_names_total_riverscape_length_scale5.png"
-        alt="Word cloud of stream names (medium resolution). Click through for higher resolution version; lower resolution also available in Figures folder" /></a>
-  </figure>
-
 </section>
 
-<section id="top-stream-names">
-  <h2>Top 10 Stream Names by Distinct Paths</h2>
-  <div class="section-context">
-    <p>The table below shows the ten most common stream names within the area of interest, ranked first by the number of
-      distinct level paths and then by total riverscape length. The <em>% of All Paths</em> column shows each name's
-      share of all named level paths in the report area.</p>
-  </div>
-  {{ tables['top_names']|safe }}
-</section>
 
 <section id="map-of-polygons">
   <h2>Report Area of Interest</h2>
@@ -66,4 +45,36 @@
   <figure class="report-figure map">
     <div>{{ figures['map']|safe }}</div>
   </figure>
+</section>
+
+
+<section id="word-cloud-by-length">
+  <h2>Stream Names by Total Riverscape Length</h2>
+  <div class="section-context">
+    <p>The bigger the name, the more total riverscape length it represents within the selected area.</p>
+  </div>
+  <figure class="report-figure">
+    <a href="figures/stream_names_total_riverscape_length_scale9.png"><img
+        src="figures/stream_names_total_riverscape_length_scale5.png"
+        alt="Word cloud of stream names weighted by total riverscape length (medium resolution). Click through for higher resolution version." /></a>
+  </figure>
+</section>
+
+
+<section id="top-stream-names-by-length">
+  <h2>Top 10 by Total Riverscape Length</h2>
+  <div class="section-context">
+    <p>The table below shows the ten stream names with the greatest total riverscape length within the area of interest.
+      The <em>% of Named Length</em> column shows each name's share of all named riverscape length in the report area.</p>
+  </div>
+  {{ tables['top_names_by_riverscape_length']|safe }}
+</section>
+
+
+
+
+
+<section id="download">
+  <h2>More information</h2>
+  The zip file included with the report has the underlying data and complete tables, allowing you to explore the results in more detail.
 </section>
