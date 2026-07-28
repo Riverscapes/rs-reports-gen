@@ -47,8 +47,8 @@ try() {
     --stage "$STAGE"
   if [[ $? != 0 ]]; then return 1; fi
 
-  # Extract the "name" property from the $INPUTS_DIR/inputs/index.json file
-  REPORT_NAME=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('parameters',{}).get('areaName',None))" < "$INPUTS_DIR/index.json")
+  # Extract the "label" property from the $INPUTS_DIR/inputs/input.geojson file or 'Custom Area' if not found
+  REPORT_NAME=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('properties',{}).get('label','Custom Area'))" < "$INPUTS_DIR/input.geojson")
   if [[ -z "$REPORT_NAME" || "$REPORT_NAME" == "null" ]]; then
     echo "Error: Report name not found in $INPUTS_DIR/index.json"
     return 1

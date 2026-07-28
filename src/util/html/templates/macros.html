@@ -23,6 +23,46 @@ Example Usage:
 <!-- Render ALL cards -->
 {{ render_metric_grid(report_cards) }}
 #}
+{#
+Macro: render_highlight_cards(cards)
+
+Renders a row of highlight cards (e.g. "Most Repeated Name", "Most Riverscape Length").
+
+Args:
+    cards (list): A list of HighlightCard dicts, each with:
+        - theme        : CSS theme name (drives accent colour via data-theme attribute)
+        - icon         : Material Icon name
+        - header       : Card category label
+        - primary_value: Headline value
+        - secondary_stat: dict with 'icon' and 'text'
+        - footer       : dict with 'metric' and 'label'
+
+Example Usage:
+{% from 'macros.html' import render_highlight_cards %}
+{{ render_highlight_cards(highlight_cards) }}
+#}
+{% macro render_highlight_cards(cards) -%}
+<ul class="highlight-card-grid">
+    {% for card in cards %}
+    <li class="highlight-card" data-theme="{{ card.theme }}">
+        <div class="highlight-card__header">
+            <span class="material-icons" aria-hidden="true">{{ card.icon }}</span>
+            <span class="highlight-card__label">{{ card.header }}</span>
+        </div>
+        <div class="highlight-card__primary">{{ card.primary_value }}</div>
+        <div class="highlight-card__secondary">
+            <span class="material-icons" aria-hidden="true">{{ card.secondary_stat.icon }}</span>
+            <span>{{ card.secondary_stat.text }}</span>
+        </div>
+        <div class="highlight-card__footer">
+            <span class="highlight-card__footer-metric">{{ card.footer.metric }}</span>
+            <span class="highlight-card__footer-label">{{ card.footer.label }}</span>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{%- endmacro %}
+
 {% macro render_metric_grid(cards, keys=None) -%}
 {% set keys = keys if keys is not none else cards.keys() %}
 <dl class="metric-grid">

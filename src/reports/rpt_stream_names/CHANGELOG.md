@@ -1,8 +1,11 @@
 # Riverscapes Stream Names Report
 
-## Version 0.4
+## Version 0.4.0
 
-* Add table, change to one word cloud
+* Add "top 10" tables with Riverscape length (mi or km depending on unit system chosen) and level paths
+* Add new highlight cards with most repeated name and most riverscape length
+* Update header banner text and add chosen geography SVG thumbnail
+* text changes
 
 ## Version 0.3.1
 
