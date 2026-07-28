@@ -1,5 +1,9 @@
 # Watershed Report
 
+## 0.2.0
+
+* Output a fully formatted Excel file with formulas, multiple units
+
 ## 0.1.4
 
 * Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
