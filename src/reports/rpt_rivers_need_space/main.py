@@ -98,7 +98,8 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
     safe_makedirs(str(figure_dir))
 
     report = RSReport(
-        report_name=report_name,
+        report_name="Rivers Need Space",
+        report_subtitle=report_name,
         report_type="Rivers Need Space",
         report_dir=report_dir,
         figure_dir=figure_dir,

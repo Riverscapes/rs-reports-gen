@@ -27,12 +27,18 @@ class RSReport:
         body_template_path: Path | str | None = None,
         css_paths: list[Path | str] | None = None,
         report_version: str = "1.0",
+        report_subtitle: str | None = None,
     ):
         """_summary_
 
         Args:
-            report_name (str): report name, passed straight to the template (as 'title')
-            report_type (str): report type, passed straight to the template
+            report_name (str): report name / area-of-interest label, used as the page
+                title (``<h1>``) when no ``report_subtitle`` is given, or as the
+                document ``<title>`` element when one is.
+            report_type (str): report type label, shown above the title heading.
+            report_subtitle (str | None): optional subtitle (``<h2>``) rendered below
+                the main heading — typically the area-of-interest name, e.g.
+                ``"Missouri"`` or ``"Royal Gorge District"``. Defaults to None.
             report_dir (Path | str): path to where the report files should be put
             figure_dir (str): DEPRECATED; it will always be 'figures' under report_dir
             body_template_path (str, optional): _description_. Defaults to None.
@@ -40,6 +46,7 @@ class RSReport:
             version (str): report version, passed straight to the template
         """
         self.report_name = report_name
+        self.report_subtitle = report_subtitle
         self.report_type = report_type
         self.report_dir = Path(report_dir)
         self.figure_dir = self.report_dir / "figures"
@@ -48,6 +55,7 @@ class RSReport:
         self.figures = {}
         self.html_elements = {}
         self.tables: dict[str, str] = {}
+        self.header_svg_path: str | None = None  # optional SVG shown in the page header
 
         self.body_template_path = body_template_path
         self.css_paths = css_paths if css_paths else []
@@ -73,6 +81,17 @@ class RSReport:
             el (Any): The HTML element or data (can be str, list, dict, anything that can be represented with __str__)
         """
         self.html_elements[key] = el
+
+    def set_header_svg(self, svg_path: Path | str) -> None:
+        """Set an SVG file to display in the report page header.
+
+        The path is stored relative to the report directory so it works
+        regardless of where the report is served from.
+
+        Args:
+            svg_path (Path | str): Absolute path to the SVG file.
+        """
+        self.header_svg_path = os.path.relpath(svg_path, start=self.report_dir)
 
     def add_table(self, name: str, table_pl: str) -> None:
         """Add table dataframe (RSGeoDataFrame) to the report"""
@@ -142,6 +161,8 @@ class RSReport:
             'report': {
                 'head': style_tag,
                 'title': self.report_name,
+                'subtitle': self.report_subtitle,
+                'header_svg': self.header_svg_path,
                 'date': now.strftime('%B %d, %Y - %I:%M%p %Z'),
                 'date_iso': now.isoformat(),
                 'ReportType': self.report_type,

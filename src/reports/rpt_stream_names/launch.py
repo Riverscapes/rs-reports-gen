@@ -39,7 +39,7 @@ def main() -> list[str] | None:
             raise RuntimeError(colored(f"\nThe RSN_AOI_GEOJSON environment variable is set to '{env_aoi_geojson}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
     else:
         # If it's not set we need to ask for it. We choose from a list of preset shapes in the example folder
-        base_dir = os.path.dirname(__file__)
+        base_dir = Path(__file__).parent
         example_dir = base_dir / "example"
         choices = sorted(p.name for p in example_dir.glob("*.geojson")) if example_dir.exists() and example_dir.is_dir() else []
         if not choices:
@@ -70,7 +70,7 @@ def main() -> list[str] | None:
 
     report_name = os.environ.get("RSI_REPORT_NAME")
     if not report_name:
-        report_name = geojson_file.stem.replace(' ', '_') + " - Riverscapes Stream Names"
+        report_name = geojson_file.stem.replace(' ', '_')
 
     # Ask for whether or not to include PDF. Default to NO
     include_pdf = get_include_pdf()
@@ -88,5 +88,9 @@ def main() -> list[str] | None:
     if csv_file:
         args.append("--csv")
         args.append(csv_file)
+
+    # ── Unit system ───────────────────────────────────────────────────
+    args.append("--unit_system")
+    args.append("imperial")
 
     return args

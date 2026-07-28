@@ -3,7 +3,6 @@
 # System imports
 import argparse
 import logging
-import os
 import shutil
 import sys
 import traceback
@@ -16,13 +15,100 @@ from rsxml.util import safe_makedirs
 
 from reports.rpt_stream_names import __version__ as report_version
 from reports.rpt_stream_names.dataprep import get_wcdata_for_aoi
-from reports.rpt_stream_names.figures import word_cloud
+from reports.rpt_stream_names.figures import aoi_polygon_svg, word_cloud
 from util import prepare_gdf_for_athena
 from util.figures import (
     make_aoi_outline_map,
 )
 from util.html import RSReport
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
+
+
+def define_fields(unit_system: str = "SI") -> None:
+    """Register field metadata and configure unit system for this report.
+
+    Args:
+        unit_system (str): Unit system to use ("SI" or "imperial"). Defaults to "SI".
+
+    Created by copilot.
+    """
+    meta = RSFieldMeta()
+    meta.unit_system = unit_system
+
+    # total_riverscape_length arrives from Athena in metres; display in km or miles
+    meta.add_field_meta(
+        name="total_riverscape_length",
+        friendly_name="Total Riverscape Length",
+        data_unit="meter",
+        dtype="REAL",
+        description="Sum of riverscape centerline length for all level paths with this stream name.",
+        preferred_format="{:,.1f}",
+    )
+    # Set km display; RSFieldMeta will auto-convert to miles when unit_system is imperial
+    meta.set_display_unit("total_riverscape_length", "kilometer")
+
+    meta.add_field_meta(
+        name="level_path_count",
+        friendly_name="Distinct Paths",
+        data_unit=None,
+        dtype="INTEGER",
+        description="Number of distinct level paths with this stream name.",
+    )
+    meta.add_field_meta(
+        name="stream_name",
+        friendly_name="Stream Name",
+        data_unit=None,
+        dtype="TEXT",
+        description="Name of the stream.",
+    )
+    meta.add_field_meta(
+        name="rank",
+        friendly_name="Rank",
+        data_unit=None,
+        dtype="INTEGER",
+        description="Rank by distinct paths (ties broken by total length).",
+    )
+    meta.add_field_meta(
+        name="pct_of_paths",
+        friendly_name="% of Named Paths",
+        data_unit=None,
+        dtype="REAL",
+        description="Percent of all distinct, named, level paths in the area of interest with this stream name.",
+    )
+
+
+def build_top_names_table(df: pd.DataFrame, top_n: int = 10) -> str:
+    """Build an HTML table of the top N stream names ranked by distinct paths then total length.
+
+    Args:
+        df (pd.DataFrame): The stream names dataframe from dataprep.
+        top_n (int): Number of top rows to include. Defaults to 10.
+
+    Returns:
+        str: HTML table fragment.
+
+    Created by copilot.
+    """
+    total_paths = df["level_path_count"].sum()
+
+    ranked = (
+        df[["stream_name", "level_path_count", "total_riverscape_length"]]
+        .copy()
+        .sort_values(
+            by=["level_path_count", "total_riverscape_length"],
+            ascending=[False, False],
+            kind="mergesort",
+        )
+        .head(top_n)
+        .reset_index(drop=True)
+    )
+    ranked.insert(0, "rank", range(1, len(ranked) + 1))
+    ranked["pct_of_paths"] = ranked["level_path_count"] / total_paths * 100
+
+    # Reorder columns for display
+    display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "level_path_count", "pct_of_paths", "total_riverscape_length"]])
+    return display_df.to_html(index=False, escape=False)
 
 
 def sort_dataframe_for_deterministic_output(df: pd.DataFrame) -> pd.DataFrame:
@@ -36,9 +122,9 @@ def sort_dataframe_for_deterministic_output(df: pd.DataFrame) -> pd.DataFrame:
 
 def make_report(
     df: pd.DataFrame,
-    aoi_gdf: gpd.GeoDataFrame,
     report_dir: Path,
     report_name: str,
+    aoi_gdf: gpd.GeoDataFrame,
     include_static: bool = True,
     include_pdf: bool = True,
 ):
@@ -46,11 +132,14 @@ def make_report(
     Generates HTML report(s) in report_dir.
     Args:
         df (pandas DataFrame): The main data dataframe for the report.
-        aoi_df (gpd.GeoDataFrame): The area of interest geodataframe.
         report_dir (Path): The directory where the report will be saved.
         report_name (str): The name of the report.
+        aoi_gdf (gpd.GeoDataFrame): Polygon used for the AOI map and SVG graphic.
+            May be the raw AOI shape or the simplified query polygon.
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
+
+    Note: define_fields() must be called before this function to configure units.
     """
     log = Logger('make report')
 
@@ -62,20 +151,28 @@ def make_report(
     figure_dir = report_dir / 'figures'
     safe_makedirs(str(figure_dir))
 
+    header_svg = aoi_polygon_svg(aoi_gdf, figure_dir)
+    tables = {
+        "top_names": build_top_names_table(df),
+    }
+
     word_cloud(df, figure_dir, frequency_field='total_riverscape_length')
     word_cloud(df, figure_dir, frequency_field='level_path_count')
 
     report = RSReport(
-        report_name=report_name,
+        report_name="What Did We Name Our Streams and Rivers?",
+        report_subtitle=report_name,
         report_type="Riverscapes Stream Names",
         report_dir=report_dir,
         report_version=report_version,
-        figure_dir=figure_dir,
-        body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
-        css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
+        body_template_path=Path(__file__).parent / 'templates' / 'body.html',
+        css_paths=[Path(__file__).parent / 'templates' / 'report.css'],
     )
     for name, fig in figures.items():
         report.add_figure(name, fig)
+
+    report.set_header_svg(header_svg)
+    report.add_html_elements("tables", tables)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -100,6 +197,7 @@ def make_report_orchestrator(
     path_to_shape: str,
     existing_csv_path: Path | None = None,
     include_pdf: bool = True,
+    unit_system: str = "SI",
 ):
     """Orchestrates the report generation process:
 
@@ -114,9 +212,8 @@ def make_report_orchestrator(
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
 
-    # This is where all the initialization happens for fields and units
-    # we really don't need them for this report
-    # define_fields(unit_system)  # ensure fields are defined
+    # Initialize field metadata and unit system for this report
+    define_fields(unit_system)
 
     # make place for the data to go (as csv)
     safe_makedirs(str(report_dir / 'data'))
@@ -124,12 +221,14 @@ def make_report_orchestrator(
 
     # load shape as gdf
     aoi_gdf = gpd.read_file(path_to_shape)
+    query_gdf = None  # populated below when Athena query is run
 
     if existing_csv_path:
         log.info(f"Using supplied csv file at {csv_data_path}")
         if existing_csv_path != csv_data_path:
             shutil.copyfile(existing_csv_path, csv_data_path)
         data_df = pd.read_csv(csv_data_path)
+        query_gdf = aoi_gdf  # no Athena simplification; use raw AOI shape for SVG
     else:
         # use shape to query Athena
         query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
@@ -151,7 +250,7 @@ def make_report_orchestrator(
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
-    make_report(data_df, aoi_gdf, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)
+    make_report(data_df, report_dir, report_name, aoi_gdf=query_gdf, include_static=include_pdf, include_pdf=include_pdf)
 
     log.info(f"Report Path: {report_dir}")
 
@@ -162,7 +261,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
     parser.add_argument('path_to_shape', help='path to the geojson that is the aoi to process', type=str)
-    parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
+    parser.add_argument('report_name', help='name for the report (usually name of the area selected)')
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
     parser.add_argument('--csv', help='Path to a local CSV of downloaded data for the AOI to use instead of querying Athena', type=str, default=None)
@@ -181,7 +280,7 @@ def main():
     log.title('rs-rpt-stream-names')
     log.info(f"Output path: {output_path}")
     log.info(f"AOI shape: {args.path_to_shape}")
-    log.info(f"Report name: {args.report_name}")
+    log.info(f"Region name: {args.report_name}")
     log.info(f"Report Version: {report_version}")
     if args.csv:
         csvpath = Path(args.csv)
@@ -191,7 +290,7 @@ def main():
         csvpath = None
 
     try:
-        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, csvpath, args.include_pdf)
+        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, csvpath, args.include_pdf, args.unit_system)
 
     except Exception as e:
         log.error(e)
