@@ -15,7 +15,9 @@ def make_template(df_aggregatedata: pd.DataFrame):
     for each column, then saves back to TEMPLATE_FILE_PATH.
     Column names go in column A, corresponding values in column B.
     Each value cell is registered as a workbook-scoped DefinedName so that
-    other sheets can reference it by the column name."""
+    other sheets can reference it by the column name.
+    Call from main after have got the aggregate data, in SI units: `make_template(df_aggregatedata)`
+    """
     meta = RSFieldMeta()
     wb = load_workbook(TEMPLATE_FILE_PATH)
     s = wb.create_sheet('aggregatedata')
@@ -39,7 +41,10 @@ def make_template(df_aggregatedata: pd.DataFrame):
         defn = DefinedName(column, attr_text=value_cell_ref)
         wb.defined_names[column] = defn
         row += 1
-    wb.save(TEMPLATE_FILE_PATH)
+
+    # save with new name
+    output_path = TEMPLATE_FILE_PATH.stem + '_edit.xlsx'
+    wb.save(output_path)
 
 
 def make_excel(df_aggregatedata: pd.DataFrame, df_owners: pd.DataFrame, df_states: pd.DataFrame, output_file: Path):
@@ -49,7 +54,8 @@ def make_excel(df_aggregatedata: pd.DataFrame, df_owners: pd.DataFrame, df_state
 
     Pseudocode - load template
     for each column in df_aggregate, write to named cell (if found)
-    write to output path
+    nsert df_owners and df_states into named tables of the same name
+    write to output_file path
     """
 
 
