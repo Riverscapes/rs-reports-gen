@@ -60,7 +60,13 @@
           </p>
         </div>
         <h1>{{ report.title }}</h1>
+        {% if report.subtitle %}<p class="report-subtitle">{{ report.subtitle }}</p>{% endif %}
       </div>
+      {% if report.header_svg %}
+      <div class="header-aoi-map" aria-hidden="true">
+        <img src="{{ report.header_svg }}" alt="Area of interest outline" />
+      </div>
+      {% endif %}
     </div>
   </header>
 

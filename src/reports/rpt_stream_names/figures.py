@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import geopandas as gpd
+import matplotlib.pyplot as plt
 import pandas as pd
 from wordcloud import WordCloud
 
@@ -97,3 +99,40 @@ def word_cloud(indf: pd.DataFrame, output_dir: Path, frequency_field: str):
     # svg_path = output_dir / f"{base_name}.svg"
     # with open(svg_path, "w", encoding="utf-8") as f:
     #     f.write(svg_xml)
+
+
+def aoi_polygon_svg(query_gdf: gpd.GeoDataFrame, output_dir: Path) -> Path:
+    """Render the simplified AOI polygon as an SVG file for inclusion in the report.
+
+    Draws a clean, minimal outline of the polygon geometry — no basemap, no axes,
+    just the shape itself. The SVG is written to ``output_dir/aoi_polygon.svg``.
+
+    Args:
+        query_gdf (gpd.GeoDataFrame): Simplified GeoDataFrame used as the Athena
+            query polygon.  Must have a valid geometry column.
+        output_dir (Path): Directory where the SVG will be written (must already
+            exist).
+
+    Returns:
+        Path: Absolute path to the written SVG file.
+
+    Created by copilot.
+    """
+    # Reproject to WGS-84 for consistent aspect ratio, if not already
+    gdf = query_gdf.to_crs(epsg=4326) if query_gdf.crs is not None else query_gdf
+
+    fig, ax = plt.subplots(figsize=(4, 4))
+    gdf.plot(
+        ax=ax,
+        facecolor=(1, 1, 1, 0.15),  # semi-transparent white fill — legible on dark header
+        edgecolor="white",
+        linewidth=1.5,
+    )
+    ax.set_aspect("equal")
+    ax.axis("off")
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+    svg_path = output_dir / "aoi_polygon.svg"
+    fig.savefig(svg_path, format="svg", bbox_inches="tight", transparent=True)
+    plt.close(fig)
+    return svg_path
