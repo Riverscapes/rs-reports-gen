@@ -15,7 +15,7 @@ from rsxml.util import safe_makedirs
 
 # Report type imports
 from reports.rpt_watershed_summary import __version__ as report_version
-from reports.rpt_watershed_summary.excel import make_excel, make_template
+from reports.rpt_watershed_summary.excel import make_excel
 from reports.rpt_watershed_summary.figures import hydrography_table, ownership_summary_table, statistics, waterbody_summary_table
 
 # Repo imports
@@ -273,7 +273,6 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
         # Export the data to Excel (simple dumb export)
         RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')
         # Inject the data into smart Excel template
-        make_template(df_aggregatedata)
         make_excel(df_aggregatedata, df_owners, df_states, report_dir / 'report.xlsx')
 
 
