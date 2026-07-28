@@ -201,6 +201,30 @@ a:focus {
   border-bottom: none;
 }
 
+.report-subtitle {
+  color: #fffffaff;
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  margin: 0;
+  opacity: 0.88;
+}
+
+.header-aoi-map {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.header-aoi-map img {
+  height: 110px;
+  width: auto;
+  opacity: 0.85;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
 /**
   * Report Inner Layout
   */
