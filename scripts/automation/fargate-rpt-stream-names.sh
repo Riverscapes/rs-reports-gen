@@ -48,7 +48,7 @@ try() {
   if [[ $? != 0 ]]; then return 1; fi
 
   # Extract the "name" property from the $INPUTS_DIR/inputs/index.json file
-  REPORT_NAME=$(python3 -c "import json,sys; print(json.load(sys.stdin).get('name',None))" < "$INPUTS_DIR/index.json")
+  REPORT_NAME=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('parameters',{}).get('areaName',None))" < "$INPUTS_DIR/index.json")
   if [[ -z "$REPORT_NAME" || "$REPORT_NAME" == "null" ]]; then
     echo "Error: Report name not found in $INPUTS_DIR/index.json"
     return 1
