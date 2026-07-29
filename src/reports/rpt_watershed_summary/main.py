@@ -151,9 +151,9 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
         # Export the data to Excel (simple dumb export)
         RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')
         # one time
-        make_template(named_values)
+        # make_template(named_values)
         # Inject the data into smart Excel template (SI units; stats include derived metrics)
-        # render_excel(named_values, df_owners, report_dir / 'report.xlsx')
+        render_excel(named_values, df_owners, report_dir / 'report.xlsx')
 
 
 def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> str:
