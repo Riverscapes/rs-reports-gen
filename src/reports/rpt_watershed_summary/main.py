@@ -128,8 +128,8 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
             df_owners = future_owners.result()
             df_states = future_states.result()
 
-        # Compute statistics on the SI (pre-apply_units) dataframe so that derived
-        # quantities stay in SI base units for the Excel template.
+        # apply_units must run first so statistics() receives Pint-typed columns.
+        # build_named_values then converts derived stats back to SI data_unit for Excel.
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
         stats = statistics(df_aggregatedata)
         df_owners, _ = meta.apply_units(df_owners)
