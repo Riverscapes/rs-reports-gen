@@ -52,16 +52,16 @@
     is the percentage of the total dam building capacity that currently exists in the report area 
     based on this data. 
   </p>
-  {{ render_metric_grid(cards, ['total_dam_capacity', 'total_dams', 'realized_capacity']) }}
+  {{ render_metric_grid(cards, ['historic_dam_capacity', 'total_dam_capacity', 'total_dams', 'realized_capacity', 'remaining_capacity']) }}
 </section>
 
 <section id="high-rp-indicators">
-  <h2>Realized Dam Building Capacity in Highest Restoration Potential Riverscapes</h2>
+  <h2>Actionable Opportunty</h2>
   <p>
     The following metrics summarize the state of beaver dam building
-    capacity within the riverscapes with the highest restoration potential according to BRAT. These are streams
-    where there is high capacity to support dam building AND low risk to infrastructure. These riverscapes
-    correspond to the 'Conservation/Approporiate for Translocation' and 'Encourage Beaver Expansion/Colonization'
+    within the riverscapes with the highest restoration potential according to BRAT. These are streams
+    where there is high capacity to support dam building, no high intensity land use, AND low risk to infrastructure. 
+    These riverscapes correspond to the 'Conservation/Approporiate for Translocation' and 'Encourage Beaver Expansion/Colonization'
     output categories in the BRAT conservation/restoration opportunities output. The <b>Total Dam Capacity</b> is 
     the number of dams that the perennial riverscapes with the highest restoration potential in the report area could 
     support based on BRAT capacity estimates. The <b>Total Dams</b> is the number of dams present in the riverscapes 
@@ -70,7 +70,7 @@
     is the percentage of the total dam building capacity that currently exists in the riverscapes with the highest restoration 
     potential in the report area based on this data. 
   </p>
-  {{ render_metric_grid(cards, ['total_dam_capacity_(high_restoration_potential)', 'total_dams_(high_restoration_potential)', 'realized_capacity_(high_restoration_potential)']) }}
+  {{ render_metric_grid(cards, ['total_dam_capacity_(actionable_opportunity)', 'total_dams_(actionable_opportunity)', 'realized_capacity_(actionable_opportunity)', 'remaining_capacity_(actionable_opportunity)']) }}
 </section>
 
 <section>

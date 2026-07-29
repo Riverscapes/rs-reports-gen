@@ -171,7 +171,7 @@ def make_report(
 
     summary_stats = main_statistics(data_df)
     high_rp_stats = high_rp_statistics(data_df)
-    metrics_for_summary_cards = ["total_dam_capacity", "total_dams", "realized_capacity"]
+    metrics_for_summary_cards = ["historic_dam_capacity", "total_dam_capacity", "total_dams", "realized_capacity", "remaining_capacity"]
     metric_data_for_cards = {key: summary_stats[key] for key in metrics_for_summary_cards}
     metric_data_for_cards.update(high_rp_stats)
 

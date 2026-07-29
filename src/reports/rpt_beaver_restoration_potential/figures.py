@@ -75,11 +75,13 @@ def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame) -> dict[str, pint.Quant
     subset_df = RSGeoDataFrame(df) if isinstance(df, gpd.GeoDataFrame) else pd.DataFrame(df)
     perennial = subset_df[subset_df["fcode"].isin([46006, 55800])]
 
+    historic_dam_capacity = perennial.apply(lambda row: row["brat_hist_capacity"] * row["centerline_length"], axis=1).sum()
     total_dam_capacity = perennial.apply(lambda row: row["brat_capacity"] * row["centerline_length"], axis=1).sum()
     total_dams = perennial["dam_ct"].sum()
     realized_capacity = ((total_dams / total_dam_capacity) * ureg.dimensionless).to("percent") if total_dam_capacity > 0 else 0 * ureg.percent
+    remaining_capacity = total_dam_capacity - total_dams if total_dam_capacity > 0 else 0
 
-    stats = {'total_dam_capacity': total_dam_capacity, 'total_dams': total_dams, 'realized_capacity': realized_capacity}
+    stats = {'historic_dam_capacity': historic_dam_capacity, 'total_dam_capacity': total_dam_capacity, 'total_dams': total_dams, 'realized_capacity': realized_capacity, 'remaining_capacity': remaining_capacity}
 
     return stats
 
@@ -99,7 +101,13 @@ def high_rp_statistics(df: pd.DataFrame | gpd.GeoDataFrame) -> dict[str, pint.Qu
     total_high_rp_capacity = high_rp.apply(lambda row: row["brat_capacity"] * row["centerline_length"], axis=1).sum()
     total_high_rp_dams = high_rp["dam_ct"].sum()
     realized_high_rp_capacity = ((total_high_rp_dams / total_high_rp_capacity) * ureg.dimensionless).to("percent") if total_high_rp_capacity > 0 else 0 * ureg.percent
+    remaining_high_rp_capacity = total_high_rp_capacity - total_high_rp_dams if total_high_rp_capacity > 0 else 0
 
-    stats = {'total_dam_capacity_(high_restoration_potential)': total_high_rp_capacity, 'total_dams_(high_restoration_potential)': total_high_rp_dams, 'realized_capacity_(high_restoration_potential)': realized_high_rp_capacity}
+    stats = {
+        'total_dam_capacity_(actionable_opportunity)': total_high_rp_capacity,
+        'total_dams_(actionable_opportunity)': total_high_rp_dams,
+        'realized_capacity_(actionable_opportunity)': realized_high_rp_capacity,
+        'remaining_capacity_(actionable_opportunity)': remaining_high_rp_capacity,
+    }
 
     return stats
