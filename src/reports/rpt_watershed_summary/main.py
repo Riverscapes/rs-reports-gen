@@ -15,37 +15,38 @@ from rsxml.util import safe_makedirs
 
 # Report type imports
 from reports.rpt_watershed_summary import __version__ as report_version
-from reports.rpt_watershed_summary.excel import make_excel
+from reports.rpt_watershed_summary.dataprep import define_fields, get_aggregated_data, get_ownership_data, get_states, register_context_fields
+from reports.rpt_watershed_summary.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
 from reports.rpt_watershed_summary.figures import hydrography_table, ownership_summary_table, statistics, waterbody_summary_table
 
 # Repo imports
-from util.athena import get_field_metadata, query_to_dataframe
 from util.figures import metric_cards
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 
 
-def define_fields(unit_system: str = "SI"):
-    """Set up the fields and units for this report"""
-    meta = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    meta.field_meta = get_field_metadata(tool_schema_name=['rscontext_to_athena', 'rpt_rme'], layer_id=['rs_context_huc10', 'rpt_rme'])  # Set the field metadata for the report
-    meta.unit_system = unit_system  # Set the unit system for the report
-
-    # Here's where we can set any preferred units that differ from the data unit
-    # meta.set_display_unit('centerline_length', 'kilometer')
-    # meta.set_display_unit('segment_area', 'kilometer ** 2')
-
-    return
-
-
-def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, states_df: pd.DataFrame, report_dir: Path, report_name: str, include_static: bool = True, include_pdf: bool = True, error_message: str | None = None):
+def make_report(
+    aggregate_data_df: pd.DataFrame,
+    ownership_df: pd.DataFrame,
+    states_df: pd.DataFrame,
+    report_dir: Path,
+    report_name: str,
+    stats: dict | None = None,
+    include_static: bool = True,
+    include_pdf: bool = True,
+    error_message: str | None = None,
+):
     """
     Generates HTML report(s) in report_dir.
     Args:
-        df (pd.DataFrame): The main data dataframe for the report.
+        aggregate_data_df: The main data dataframe for the report.
+        ownership_df: Ownership summary dataframe.
+        states_df: States dataframe.
         report_dir (Path): The directory where the report will be saved.
         report_name (str): The name of the report.
+        stats: Pre-computed statistics dict from figures.statistics().  If None,
+            statistics() is called internally (display-unit df path, legacy behaviour).
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
         error_message: display to user *instead* of any figures
@@ -80,7 +81,8 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
     else:
         report.add_html_elements('tables', tables)
         report.add_html_elements('states', states_df['state_name'].tolist())
-        cards = metric_cards(statistics(aggregate_data_df))
+        effective_stats: dict[str, object] = stats if stats is not None else statistics(aggregate_data_df)  # type: ignore[assignment]
+        cards = metric_cards(effective_stats)
         report.add_html_elements('cards', cards)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
@@ -100,145 +102,6 @@ def make_report(aggregate_data_df: pd.DataFrame, ownership_df: pd.DataFrame, sta
         log.info(f'PDF: {pdf_path}')
 
 
-def get_ownership_data(huc_condition: str) -> pd.DataFrame:
-    """get ownership summary data (Unnest the ownership field)"""
-    log = Logger("Get ownership data")
-    query_str = f"""
-SELECT lu_blm_o.edomvd AS ownership_desc, sum(o.ownership_area) AS sum_ownership_area
-FROM rs_context_huc10
-         CROSS JOIN UNNEST(ownership) AS o (ownership_code, ownership_area)
-         LEFT JOIN lu_blm_ownership lu_blm_o ON upper(o.ownership_code) = upper(lu_blm_o.edomv)
-WHERE {huc_condition}
-GROUP BY lu_blm_o.edomvd
-ORDER BY lu_blm_o.edomvd
-"""
-    df = query_to_dataframe(query_str, "ownership")
-    # TODO - Units for data in athena should be defined in athena, not here
-    log.debug("Units for ownership area assumed to be m**2.")
-    meta = RSFieldMeta()
-    meta.add_field_meta(name='sum_ownership_area', friendly_name='Total Area', data_unit='m**2', display_unit='kilometer ** 2')
-    return df
-
-
-def get_states(huc_condition: str) -> pd.DataFrame:
-    """Get list of distinct states"""
-    query_str = f"""
-SELECT DISTINCT state_name
-FROM rs_context_huc10
-CROSS JOIN UNNEST(split(hucstates, ',')) AS t (state)
-JOIN ext_rpt.us_states on t.state = us_states.alphacode
-where {huc_condition}
-ORDER BY state_name
-"""
-    df = query_to_dataframe(query_str, "states")
-    return df
-
-
-def add_agg_field_meta(fields, agg_type: str):
-    """Helper to transfer/add metadata for aggregated columns.
-    assumes the new fields follow naming convention
-    Args:
-        agg_type - the prefix used for the aggregation type (sum, min, max)
-    """
-    meta = RSFieldMeta()
-    for orig_fld_nm in fields:
-        orig_meta = meta.get_field_meta(orig_fld_nm)
-        # NAMING CONVENTION:
-        agg_col = f"{agg_type}_{orig_fld_nm}"
-        friendly_prefix = {"sum": "Total", "min": "Minimum", "max": "Maximum", "count": "Count", "countdistinct": "Count distinct"}.get(agg_type, agg_type.title())
-
-        if orig_meta:
-            friendly_name = f"{friendly_prefix} {orig_meta.friendly_name}"
-            data_unit = orig_meta.data_unit
-            dtype = orig_meta.dtype
-        else:
-            friendly_name = f"{friendly_prefix} {orig_fld_nm.replace('_', ' ').title()}"
-            data_unit = None
-            dtype = 'REAL'  # could be int or something else but seems like a safe guess
-        # Special case: count fields should always have unit 'count' & data type int
-        if agg_type in ('count', 'countdistinct'):
-            data_unit = "count"
-            dtype = 'INT'
-
-        meta.add_field_meta(name=agg_col, layer_id='rs_context_huc10', data_unit=data_unit, dtype=dtype, friendly_name=friendly_name)
-
-
-def get_aggregated_data(huc_condition: str) -> pd.DataFrame:
-    """get all summary data: flowline, waterbody, dem, slope, etc"""
-    log = Logger("Get aggregated data")
-    sum_fields = [
-        'hucareasqkm',
-        'flowlineLengthPerennialKm',
-        'flowlineLengthIntermittentKm',
-        'flowlineLengthEphemeralKm',
-        'flowlineLengthCanalsKm',
-        'flowlineLengthAllKm',
-        'flowlineFeatureCount',
-        'waterbodyAreaSqKm',
-        'waterbodyFeatureCount',
-        'waterbodyLakesPondsAreaSqKm',
-        'waterbodyLakesPondsFeatureCount',
-        'waterbodyReservoirAreaSqKm',
-        'waterbodyReservoirFeatureCount',
-        'waterbodyEstuariesAreaSqKm',
-        'waterbodyEstuariesFeatureCount',
-        'waterbodyPlayaAreaSqKm',
-        'waterbodyPlayaFeatureCount',
-        'waterbodySwampMarshAreaSqKm',
-        'waterbodySwampMarshFeatureCount',
-        'waterbodyIceSnowAreaSqKm',
-        'waterbodyIceSnowFeatureCount',
-        'demsum',
-        'demcount',
-        'slopesum',
-        'slopecount',
-        'precipsum',
-        'precipcount',
-        'catchmentlength',
-        'catchmentarea',
-    ]
-    min_fields = [
-        'demminimum',
-        'slopeminimum',
-        'precipminimum',
-        'circularityRatio',
-        'elongationRatio',
-        'formFactor',
-    ]
-    max_fields = [
-        'demmaximum',
-        'slopemaximum',
-        'precipmaximum',
-    ]
-    countdistinct_fields = [
-        'huc',
-    ]
-    # NAMING CONVENTION
-    sum_expression = ','.join([f"SUM({f}) AS sum_{f}" for f in sum_fields])
-    min_expression = ','.join([f"MIN({f}) AS min_{f}" for f in min_fields])
-    max_expression = ','.join([f"MAX({f}) AS max_{f}" for f in max_fields])
-    countdistinct_expression = ','.join([f"COUNT(DISTINCT {f}) AS countdistinct_{f}" for f in countdistinct_fields])
-    query_str = f"""
-SELECT {sum_expression}, {min_expression}, {max_expression}, {countdistinct_expression}
-FROM rs_context_huc10
-WHERE {huc_condition}
-"""
-    df = query_to_dataframe(query_str, "aggregates")
-
-    if df.dropna(how="all").empty or df['countdistinct_huc'].iloc[0] == 0:
-        log.error(f"No results returned for the query (ie nothing matching {huc_condition})")
-        # short-circuit report generation
-        return pd.DataFrame()  # an empty DataFrame
-
-    # transfer/add metadata for the new aggregated columns
-    add_agg_field_meta(sum_fields, "sum")
-    add_agg_field_meta(min_fields, "min")
-    add_agg_field_meta(max_fields, "max")
-    add_agg_field_meta(countdistinct_fields, "countdistinct")
-
-    return df
-
-
 def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, include_pdf: bool = True, unit_system: str = "SI"):
     """Orcestratest the report generation process:
     * get the data
@@ -256,7 +119,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
 
     if df_aggregatedata.empty:
         # we send 3 empty dataframes and error_message
-        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, include_pdf, include_pdf, error_message="No results found for selection.")
+        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, error_message="No results found for selection.")
     else:
         # although it doesn't make much difference with these quick queries, parallelizing is good practice
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -265,15 +128,32 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
             df_owners = future_owners.result()
             df_states = future_states.result()
 
+        # Compute statistics on the SI (pre-apply_units) dataframe so that derived
+        # quantities stay in SI base units for the Excel template.
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
+        stats = statistics(df_aggregatedata)
         df_owners, _ = meta.apply_units(df_owners)
 
-        make_report(df_aggregatedata, df_owners, df_states, report_dir, report_name, include_pdf, include_pdf)
+        register_context_fields()
+
+        # Build string values for the registered fields
+        state_abbrevs = ', '.join(sorted(df_states['state_abbrev'].dropna().str.strip().unique()))
+        huc_list = [h.strip() for h in hucs.split(',') if h.strip()]
+        huc_codes_str = ', '.join(sorted(huc_list))
+        extra_named_values: dict[str, NamedValue] = {
+            'state_abbreviations': NamedValue(value=state_abbrevs),
+            'huc_codes': NamedValue(value=huc_codes_str),
+        }
+        named_values = build_named_values(df_aggregatedata, stats, extra=extra_named_values)
+
+        make_report(df_aggregatedata, df_owners, df_states, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
         safe_makedirs(str(report_dir / 'data'))
         # Export the data to Excel (simple dumb export)
         RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')
-        # Inject the data into smart Excel template
-        make_excel(df_aggregatedata, df_owners, df_states, report_dir / 'report.xlsx')
+        # one time
+        make_template(named_values)
+        # Inject the data into smart Excel template (SI units; stats include derived metrics)
+        # render_excel(named_values, df_owners, report_dir / 'report.xlsx')
 
 
 def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> str:
