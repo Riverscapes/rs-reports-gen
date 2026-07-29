@@ -182,11 +182,15 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     relief_ratio = total_relief.to("km") / rpt_stats['sum_catchmentlength'].to("km")
     meta.set_preferred_format('reliefratio', '{:.2f}', layer_id='rs_context_huc10')  # already defined in rs_context_huc10; just ensure format is set
 
-    # drainage densities are total flowline length divided by total
-    # these are found as metrics in individual hucs but we re-calculate for aggregates
-    drainage_density_perennial = rpt_stats['sum_flowlinelengthperennialkm'] / rpt_stats['sum_hucareasqkm']
-    drainage_density_non_perennial = (rpt_stats['sum_flowlinelengthintermittentkm'] + rpt_stats['sum_flowlinelengthephemeralkm']) / rpt_stats['sum_hucareasqkm']
-    drainage_density_all = rpt_stats['sum_flowlinelengthallkm'] / rpt_stats['sum_hucareasqkm']
+    # drainage densities are total flowline length divided by total catchment area.
+    # these are found as metrics in individual hucs but we re-calculate for aggregates.
+    if meta.unit_system == 'imperial':
+        dd_denominator = 'mi ** 2'
+    else:
+        dd_denominator = 'km ** 2'
+    drainage_density_perennial = rpt_stats['sum_flowlinelengthperennialkm'] / rpt_stats['sum_hucareasqkm'].to(dd_denominator)
+    drainage_density_non_perennial = (rpt_stats['sum_flowlinelengthintermittentkm'] + rpt_stats['sum_flowlinelengthephemeralkm']) / rpt_stats['sum_hucareasqkm'].to(dd_denominator)
+    drainage_density_all = rpt_stats['sum_flowlinelengthallkm'] / rpt_stats['sum_hucareasqkm'].to(dd_denominator)
     meta.add_field_meta(
         name='drainage_density_non_perennial',
         friendly_name='Drainage Density - Non Perrenial',
@@ -204,7 +208,12 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         preferred_format='{:.2f}',
     )
     meta.add_field_meta(
-        name='drainage_density_all', friendly_name='Drainage Density - Entire Network', description='Total length of All Streams, divided by Catchment Area', layer_id=layer_id, data_unit=drainage_density_all.units, preferred_format='{:.2f}'
+        name='drainage_density_all',
+        friendly_name='Drainage Density - Entire Network',
+        description='Total length of All Streams, divided by Catchment Area',
+        layer_id=layer_id,
+        data_unit=drainage_density_all.units,
+        preferred_format='{:.2f}',
     )
 
     if rpt_stats['countdistinct_huc'] == 1:

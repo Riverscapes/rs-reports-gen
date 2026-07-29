@@ -931,12 +931,14 @@ class RSFieldMeta:
 
         Created by copilot
         """
-        count_unit = ureg.Unit('count')
         unit_str = str(in_units)
 
         # Detect 'X / count' pattern: count appears with negative power
         if ' / count' in unit_str:
             scalar_str = unit_str.replace(' / count', '').strip()
+            # If the scalar part is already in the target system, leave it alone.
+            if scalar_str in lookup.values():
+                return in_units
             converted_scalar = lookup.get(scalar_str)
             if converted_scalar is not None:
                 try:
@@ -947,6 +949,9 @@ class RSFieldMeta:
         # Detect 'count / X' pattern: count appears with positive power as numerator
         if unit_str.startswith('count / '):
             scalar_str = unit_str[len('count / ') :].strip()
+            # If the scalar part is already in the target system, leave it alone.
+            if scalar_str in lookup.values():
+                return in_units
             converted_scalar = lookup.get(scalar_str)
             if converted_scalar is not None:
                 try:
@@ -983,7 +988,10 @@ class RSFieldMeta:
 
         # Test if we need a conversion and if not just return the input
         if lookup_val is None or lookup_val == in_units:
-            # Before warning, try programmatic count-compound resolution
+            # Before warning, try programmatic count-compound resolution.
+            # Use the forward lookup; _resolve_count_compound_unit now recognizes
+            # when the scalar part is already in the target system and returns
+            # the input unchanged without warning.
             count_result = self._resolve_count_compound_unit(in_units, lookup)
             if count_result is not None:
                 return count_result
