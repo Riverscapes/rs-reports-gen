@@ -11,7 +11,7 @@ from rsxml import Logger
 
 from util.pandas import RSFieldMeta
 
-TEMPLATE_FILE_PATH = Path(__file__).parent / 'templates' / 'WatershedReportTemplate_014.xlsx'
+TEMPLATE_FILE_PATH = Path(__file__).parent / 'templates' / 'WatershedReportTemplate_016.xlsx'
 
 
 @dataclass
@@ -114,14 +114,14 @@ def make_template(named_values: dict[str, NamedValue]):
     log = Logger("MAKE template")
     wb = load_workbook(TEMPLATE_FILE_PATH)
 
-    # Rename Ownership table once so all future outputs use tbl_ownership
-    ws_own = wb['Ownership']
-    if 'Table1' in ws_own.tables:
-        ws_own.tables['Table1'].displayName = 'tbl_ownership'
-        ws_own.tables['Table1'].name = 'tbl_ownership'
-    # Remove the now-redundant workbook DefinedName for ownership
-    if 'tbl_ownership' in wb.defined_names:
-        del wb.defined_names['tbl_ownership']
+    # # Rename Ownership table once so all future outputs use tbl_ownership
+    # ws_own = wb['tbl_ownership']
+    # if 'Table1' in ws_own.tables:
+    #     ws_own.tables['Table1'].displayName = 'tbl_ownership'
+    #     ws_own.tables['Table1'].name = 'tbl_ownership'
+    # # Remove the now-redundant workbook DefinedName for ownership
+    # if 'tbl_ownership' in wb.defined_names:
+    #     del wb.defined_names['tbl_ownership']
 
     # Create the sheet on first call; on subsequent calls reuse it and only append new entries.
     if 'aggregatedata' not in wb.sheetnames:
@@ -297,7 +297,7 @@ def _write_ownership_table(wb, df_owners: pd.DataFrame) -> None:
 
     Created by copilot.
     """
-    ws = wb['Ownership']
+    ws = wb['tbl_ownership']
     table = ws.tables['tbl_ownership']
 
     n_rows = len(df_owners)
@@ -327,4 +327,7 @@ def _write_ownership_table(wb, df_owners: pd.DataFrame) -> None:
     new_max_row = min_row + max(n_rows, 1)  # keep at least one data row so the table is valid
     first_col_letter = get_column_letter(min_col)
     last_col_letter = get_column_letter(max_col)
-    table.ref = f"{first_col_letter}{min_row}:{last_col_letter}{new_max_row}"
+    new_ref = f"{first_col_letter}{min_row}:{last_col_letter}{new_max_row}"
+    table.ref = new_ref
+    if table.autoFilter:
+        table.autoFilter.ref = new_ref
