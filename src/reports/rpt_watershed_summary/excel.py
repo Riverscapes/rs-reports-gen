@@ -7,11 +7,12 @@ import pint
 from openpyxl import load_workbook
 from openpyxl.utils import absolute_coordinate, get_column_letter, quote_sheetname, range_boundaries
 from openpyxl.workbook.defined_name import DefinedName
+from openpyxl.worksheet.formula import ArrayFormula
 from rsxml import Logger
 
 from util.pandas import RSFieldMeta
 
-TEMPLATE_FILE_PATH = Path(__file__).parent / 'templates' / 'WatershedReportTemplate_016.xlsx'
+TEMPLATE_FILE_PATH = Path(__file__).parent / 'templates' / 'WatershedReportTemplate_017.xlsx'
 
 
 @dataclass
@@ -114,15 +115,6 @@ def make_template(named_values: dict[str, NamedValue]):
     log = Logger("MAKE template")
     wb = load_workbook(TEMPLATE_FILE_PATH)
 
-    # # Rename Ownership table once so all future outputs use tbl_ownership
-    # ws_own = wb['tbl_ownership']
-    # if 'Table1' in ws_own.tables:
-    #     ws_own.tables['Table1'].displayName = 'tbl_ownership'
-    #     ws_own.tables['Table1'].name = 'tbl_ownership'
-    # # Remove the now-redundant workbook DefinedName for ownership
-    # if 'tbl_ownership' in wb.defined_names:
-    #     del wb.defined_names['tbl_ownership']
-
     # Create the sheet on first call; on subsequent calls reuse it and only append new entries.
     if 'aggregatedata' not in wb.sheetnames:
         s = wb.create_sheet('aggregatedata')
@@ -201,6 +193,43 @@ def render_excel(named_values: dict[str, NamedValue], df_owners: pd.DataFrame, o
     # --- Write ownership table ---
     _write_ownership_table(wb, df_owners)
     log.debug(f"Wrote {len(df_owners)} ownership row(s)")
+
+    # SPECIAL HANDLING FOR THE Ownership table
+    ws_huc = wb['HUC']
+
+    # 1. Grab the formula string and clean off any @ signs openpyxl left behind
+    cell_val = ws_huc['B11'].value
+    formula_text = cell_val.text if hasattr(cell_val, 'text') else str(cell_val)
+    if formula_text.startswith("=@"):
+        formula_text = "=" + formula_text[2:]
+
+    # 2. Calculate the EXACT footprint of the spilled array
+    # Data rows + 1 Total Row. (Using max() just in case the dataframe is ever empty)
+    total_output_rows = max(len(df_owners), 1) + 1
+
+    start_row = 11
+    end_row = start_row + total_output_rows - 1
+
+    # Assuming your formula spans 8 columns (B through I)
+    # This generates a string like "B11:I25"
+    array_ref = f"B{start_row}:I{end_row}"
+
+    # 3. Forge the Explicit Array
+    # This forces Excel Web to render the entire grid on load without needing F2
+    ws_huc['B11'] = ArrayFormula(array_ref, formula_text)
+
+    # 4. Sweep the ENTIRE drop zone (nuke the hardcoded ghosts)
+    # Sweep the rest of row 11 (C11 to Z11)
+    for col_idx in range(3, 20):
+        ws_huc.cell(row=11, column=col_idx).value = None
+
+    # Sweep all rows below the newly calculated array bounds
+    for row_idx in range(end_row + 1, 1000):
+        for col_idx in range(2, 20):
+            ws_huc.cell(row=row_idx, column=col_idx).value = None
+
+    wb.calculation.calcMode = 'auto'
+    wb.calculation.fullCalcOnLoad = True
 
     output_file = Path(output_file)
     output_file.parent.mkdir(parents=True, exist_ok=True)

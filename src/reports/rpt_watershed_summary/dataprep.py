@@ -155,6 +155,7 @@ def get_aggregated_data(huc_condition: str) -> pd.DataFrame:
         'precipcount',
         'catchmentlength',
         'catchmentarea',
+        'catchmentperimeter',
     ]
     min_fields = [
         'demminimum',
