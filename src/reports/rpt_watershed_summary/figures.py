@@ -158,11 +158,17 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     avg_segment_length = rpt_stats['sum_flowlinelengthallkm'] / rpt_stats['sum_flowlinefeaturecount']
     meta.add_field_meta(name='avg_segment_length', friendly_name='Average Segment Length', layer_id=layer_id, data_unit=avg_segment_length.units, preferred_format="{:.3g}")
     mean_precip_cell_value = rpt_stats['sum_precipsum'] / rpt_stats['sum_precipcount']
-    meta.add_field_meta(name='mean_precip_cell_value', friendly_name='Mean Average Precipitation', description='Mean of the 30-year Average Annual Precipitation across the selected area', layer_id=layer_id)
+    meta.add_field_meta(
+        name='mean_precip_cell_value',
+        friendly_name='Mean Average Precipitation',
+        description='Mean of the 30-year Average Annual Precipitation across the selected area',
+        layer_id=layer_id,
+        data_unit=mean_precip_cell_value.units,
+    )
     mean_elevation = rpt_stats['sum_demsum'] / rpt_stats['sum_demcount']
-    meta.add_field_meta(name='mean_elevation', friendly_name='Mean Elevation', description='Mean elevation across the selected area', layer_id=layer_id)
+    meta.add_field_meta(name='mean_elevation', friendly_name='Mean Elevation', description='Mean elevation across the selected area', layer_id=layer_id, data_unit=mean_elevation.units)
     mean_slope = rpt_stats['sum_slopesum'] / rpt_stats['sum_slopecount']
-    meta.add_field_meta(name='mean_slope', friendly_name='Mean Slope', description='Mean slope across the selected area', layer_id=layer_id)
+    meta.add_field_meta(name='mean_slope', friendly_name='Mean Slope', description='Mean slope across the selected area', layer_id=layer_id, data_unit=mean_slope.units)
     total_relief = rpt_stats['max_demmaximum'] - rpt_stats['min_demminimum']
     source_meta = meta.get_field_meta('max_demmaximum')
     meta.add_field_meta(
@@ -174,7 +180,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         preferred_format=source_meta.preferred_format if source_meta else None,
     )
     relief_ratio = total_relief.to("km") / rpt_stats['sum_catchmentlength'].to("km")
-    meta.set_preferred_format('reliefratio', '{:.2f}', layer_id='rs_context_huc10')
+    meta.set_preferred_format('reliefratio', '{:.2f}', layer_id='rs_context_huc10')  # already defined in rs_context_huc10; just ensure format is set
 
     # drainage densities are total flowline length divided by total
     # these are found as metrics in individual hucs but we re-calculate for aggregates
@@ -182,10 +188,24 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     drainage_density_non_perennial = (rpt_stats['sum_flowlinelengthintermittentkm'] + rpt_stats['sum_flowlinelengthephemeralkm']) / rpt_stats['sum_hucareasqkm']
     drainage_density_all = rpt_stats['sum_flowlinelengthallkm'] / rpt_stats['sum_hucareasqkm']
     meta.add_field_meta(
-        name='drainage_density_non_perennial', friendly_name='Drainage Density - Non Perrenial', description='Total length of Intermittent and Ephemeral Streams, divided by Catchment Area', layer_id=layer_id, preferred_format='{:.2f}'
+        name='drainage_density_non_perennial',
+        friendly_name='Drainage Density - Non Perrenial',
+        description='Total length of Intermittent and Ephemeral Streams, divided by Catchment Area',
+        layer_id=layer_id,
+        data_unit=drainage_density_non_perennial.units,
+        preferred_format='{:.2f}',
     )
-    meta.add_field_meta(name='drainage_density_perennial', friendly_name='Drainage Density - Perrenial', description='Total length of Perennial Streams, divided by Catchment Area', layer_id=layer_id, preferred_format='{:.2f}')
-    meta.add_field_meta(name='drainage_density_all', friendly_name='Drainage Density - Entire Network', description='Total length of All Streams, divided by Catchment Area', layer_id=layer_id, preferred_format='{:.2f}')
+    meta.add_field_meta(
+        name='drainage_density_perennial',
+        friendly_name='Drainage Density - Perrenial',
+        description='Total length of Perennial Streams, divided by Catchment Area',
+        layer_id=layer_id,
+        data_unit=drainage_density_perennial.units,
+        preferred_format='{:.2f}',
+    )
+    meta.add_field_meta(
+        name='drainage_density_all', friendly_name='Drainage Density - Entire Network', description='Total length of All Streams, divided by Catchment Area', layer_id=layer_id, data_unit=drainage_density_all.units, preferred_format='{:.2f}'
+    )
 
     if rpt_stats['countdistinct_huc'] == 1:
         singlehucstats = {"circularityratio": rpt_stats['min_circularityratio'], "elongationratio": rpt_stats['min_elongationratio'], "formfactor": rpt_stats['min_formfactor']}
