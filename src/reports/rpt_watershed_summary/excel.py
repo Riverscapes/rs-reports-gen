@@ -11,6 +11,7 @@ from openpyxl.worksheet.formula import ArrayFormula
 from rsxml import Logger
 
 from util.pandas import RSFieldMeta
+from util.pandas.RSFieldMeta import IMPERIAL_TO_SI
 
 TEMPLATE_FILE_PATH = Path(__file__).parent / 'templates' / 'WatershedReportTemplate_017.xlsx'
 
@@ -242,27 +243,31 @@ def render_excel(named_values: dict[str, NamedValue], df_owners: pd.DataFrame, o
 
 
 def _to_data_unit(value, field_name: str) -> 'pint.Quantity | None':
-    """Convert a Pint Quantity to the field's declared data_unit.
+    """Convert a Pint Quantity to SI (source) units for writing to the Excel template.
 
-    The Excel template is built around data units (e.g. km, km^2, mm, m) and uses
-    its own conversion factors to display imperial equivalents.  This helper ensures
-    that display-unit conversions (e.g. km -> miles applied by apply_units) are
-    reversed back to data_unit before writing.
+    The Excel template stores values in SI units and applies its own conversion
+    factors for display.  This helper reverses any display-unit conversion that
+    apply_units() may have applied — including on derived stats whose data_unit was
+    registered from a post-apply_units (display-unit) result.
 
-    If *value* has no Pint units, or no data_unit is declared in metadata, returns
-    None so the caller can fall back to the raw scalar.
-
-    Args:
-        value: A Pint Quantity, pint-pandas scalar, or plain scalar.
-        field_name: Column / stat name used to look up data_unit in RSFieldMeta.
-
-    Returns:
-        A Pint Quantity in data_unit, or None.
-
-    Created by copilot.
+    Strategy:
+      1. Direct IMPERIAL_TO_SI lookup on the value's current unit string — covers
+         all simple and compound imperial units without mutating the shared
+         RSFieldMeta singleton's unit_system.
+      2. Fallback: convert to the field's declared data_unit (correct when the
+         value is already SI, or for units not in the lookup table).
     """
     if not hasattr(value, 'to'):
         return None
+    # Step 1: direct imperial->SI lookup (no-op if unit is already SI)
+    unit_str = str(value.units)
+    si_unit_str = IMPERIAL_TO_SI.get(unit_str)
+    if si_unit_str:
+        try:
+            return value.to(si_unit_str)
+        except Exception:
+            pass
+    # Step 2: fallback to declared data_unit
     meta = RSFieldMeta()
     fm = meta.get_field_meta(field_name)
     if fm is None or not fm.data_unit:
@@ -344,7 +349,9 @@ def _write_ownership_table(wb, df_owners: pd.DataFrame) -> None:
         excel_row = min_row + 1 + i
         owner_val = data_row['ownership_desc']
         area_val = data_row['sum_ownership_area']
-        area_scalar = area_val.magnitude if hasattr(area_val, 'magnitude') else area_val
+        # always write as km**2. Could use _to_data_unit but this is super explicit
+        area_si = area_val.to('km**2')
+        area_scalar = area_si.magnitude if area_si is not None else (area_val.magnitude if hasattr(area_val, 'magnitude') else area_val)
         ws.cell(row=excel_row, column=min_col).value = owner_val
         ws.cell(row=excel_row, column=min_col + 1).value = area_scalar
 
