@@ -23,7 +23,7 @@ def set_basic_meta(meta, rows):
 
 
 def test_apply_units_custom_units(fresh_meta):
-    """ This test ensures that apply_units respects custom units in the metadata"""
+    """This test ensures that apply_units respects custom units in the metadata"""
     set_basic_meta(
         fresh_meta,
         [
@@ -38,7 +38,7 @@ def test_apply_units_custom_units(fresh_meta):
                 "friendly_name": "Length Sum",
                 "data_unit": "kilometer",
                 "dtype": "FLOAT",
-            }
+            },
         ],
     )
 
@@ -71,3 +71,60 @@ def test_get_friendly_name_falls_back_when_metadata_name_is_null(fresh_meta):
     )
 
     assert fresh_meta.get_friendly_name("dam_ct", layer_id="tbl") == "Dam Ct"
+
+
+# ---------------------------------------------------------------------------
+# Count-compound unit conversion tests (Created by copilot)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "data_unit,expected_imperial,expected_si",
+    [
+        # X / count  (density-like: dams per km, avg length per reach, etc.)
+        ("kilometer / count", "mile / count", "kilometer / count"),
+        ("meter / count", "foot / count", "meter / count"),
+        ("millimeter / count", "inch / count", "millimeter / count"),
+        # count / X  (frequency-like: dams per km)
+        ("count / kilometer", "count / mile", "count / kilometer"),
+        ("count / meter", "count / foot", "count / meter"),
+    ],
+)
+def test_get_system_units_count_compound_imperial(fresh_meta, data_unit, expected_imperial, expected_si):
+    """Count-compound units are converted by swapping the non-count dimension."""
+    fresh_meta.unit_system = "imperial"
+    result = fresh_meta.get_system_units(ureg.Unit(data_unit))
+    assert result == ureg.Unit(expected_imperial), f"Expected {expected_imperial!r}, got {result!r}"
+
+    fresh_meta.unit_system = "SI"
+    result_si = fresh_meta.get_system_units(ureg.Unit(data_unit))
+    assert result_si == ureg.Unit(expected_si), f"Expected SI passthrough {expected_si!r}, got {result_si!r}"
+
+
+def test_get_field_unit_count_compound_respects_unit_system(fresh_meta):
+    """get_field_unit returns the correct count-compound unit based on the active unit system."""
+    set_basic_meta(
+        fresh_meta,
+        [
+            {
+                "name": "dam_density",
+                "friendly_name": "Dam Density",
+                "data_unit": "count / kilometer",
+                "dtype": "FLOAT",
+            },
+            {
+                "name": "avg_dam_length",
+                "friendly_name": "Avg Dam Length",
+                "data_unit": "meter / count",
+                "dtype": "FLOAT",
+            },
+        ],
+    )
+
+    fresh_meta.unit_system = "imperial"
+    assert fresh_meta.get_field_unit("dam_density") == ureg.Unit("count / mile")
+    assert fresh_meta.get_field_unit("avg_dam_length") == ureg.Unit("foot / count")
+
+    fresh_meta.unit_system = "SI"
+    assert fresh_meta.get_field_unit("dam_density") == ureg.Unit("count / kilometer")
+    assert fresh_meta.get_field_unit("avg_dam_length") == ureg.Unit("meter / count")
