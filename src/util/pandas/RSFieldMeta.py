@@ -50,10 +50,11 @@ SI_SYSTEMS = ['SI', 'imperial']
 # So, for example, if I ask for "meters" and the current system is imperial, I should get "feet" back.
 # This will be a mapping of dimensionality to preferred units for each system.
 # FUTURE ENHANCEMENTS:
-# * handle all units "derived" with count?
 # * what about degrees vs percent for slope? is that an SI/imperial system choice?
 # NOTE: units here must be written *exactly* as pint str() would express them.
 # if unsure you can use `str(ureg.Unit('m^3'))` for example
+# NOTE: "X / count" and "count / X" compound units are handled programmatically
+# in get_system_units() — no need to list them here explicitly.
 SI_TO_IMPERIAL: dict[str, str] = {
     # basic units
     'meter': 'foot',
@@ -66,8 +67,6 @@ SI_TO_IMPERIAL: dict[str, str] = {
     'kilogram': 'pound',
     # compound units
     '1 / kilometer': '1 / mile',
-    'kilometer / count': 'mile / count',
-    'count / kilometer': 'count / mile',
     'meter ** 3 / second': 'foot ** 3 / second',  # Discharge
     # no conversion
     'percent': 'percent',
@@ -917,14 +916,57 @@ class RSFieldMeta:
 
         return column_headers
 
-    def get_system_units(self, in_units: pint.Unit) -> pint.Unit:
-        """get system units
+    def _resolve_count_compound_unit(self, in_units: pint.Unit, lookup: dict[str, str]) -> pint.Unit | None:
+        """Programmatically handle 'X / count' and 'count / X' compound units.
+
+        If the unit contains 'count' as a factor, strip it, convert the remaining
+        scalar part via the lookup table, then reconstruct the compound unit.
 
         Args:
-            in_units (pint.Unit): _description_
+            in_units (pint.Unit): The unit to attempt count-compound conversion on.
+            lookup (dict[str, str]): The SI->imperial or imperial->SI mapping to use.
 
         Returns:
-            pint.Unit: _description_
+            pint.Unit | None: The converted unit, or None if not a count-compound.
+
+        Created by copilot
+        """
+        count_unit = ureg.Unit('count')
+        unit_str = str(in_units)
+
+        # Detect 'X / count' pattern: count appears with negative power
+        if ' / count' in unit_str:
+            scalar_str = unit_str.replace(' / count', '').strip()
+            converted_scalar = lookup.get(scalar_str)
+            if converted_scalar is not None:
+                try:
+                    return ureg.Unit(f'{converted_scalar} / count')
+                except Exception:  # pragma: no cover
+                    pass
+
+        # Detect 'count / X' pattern: count appears with positive power as numerator
+        if unit_str.startswith('count / '):
+            scalar_str = unit_str[len('count / ') :].strip()
+            converted_scalar = lookup.get(scalar_str)
+            if converted_scalar is not None:
+                try:
+                    return ureg.Unit(f'count / {converted_scalar}')
+                except Exception:  # pragma: no cover
+                    pass
+
+        return None
+
+    def get_system_units(self, in_units: pint.Unit) -> pint.Unit:
+        """Get the preferred units for the current unit system.
+
+        Handles direct lookups from SI_TO_IMPERIAL / IMPERIAL_TO_SI tables as well
+        as programmatic conversion of 'X / count' and 'count / X' compound units.
+
+        Args:
+            in_units (pint.Unit): The unit to convert.
+
+        Returns:
+            pint.Unit: The preferred unit for the current system.
         """
 
         if self._unit_system == 'SI':
@@ -941,6 +983,10 @@ class RSFieldMeta:
 
         # Test if we need a conversion and if not just return the input
         if lookup_val is None or lookup_val == in_units:
+            # Before warning, try programmatic count-compound resolution
+            count_result = self._resolve_count_compound_unit(in_units, lookup)
+            if count_result is not None:
+                return count_result
             # If we didn't find a conversion and the unit is not in the reverse lookup then warn
             if lookup_val is None and reverse_val is None:
                 self._log.warning(f"No conversion found for unit '{in_units}' in current system '{self._unit_system}'.")
