@@ -29,7 +29,7 @@ def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, g
             count_col="segment_count",
             fallback_group_field="brat_capacity",
             show_legend=False,
-            height=420,
+            height=600,
         ),
         "opportunity_by_length": bar_from_summary(
             summary_tables.get("opportunity", pd.DataFrame()),
@@ -38,7 +38,7 @@ def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, g
             count_col="segment_count",
             fallback_group_field="brat_opportunity",
             show_legend=False,
-            height=420,
+            height=600,
         ),
         "limitation_by_length": bar_from_summary(
             summary_tables.get("limitation", pd.DataFrame()),
@@ -47,7 +47,7 @@ def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, g
             count_col="segment_count",
             fallback_group_field="brat_limitation",
             show_legend=False,
-            height=420,
+            height=600,
         ),
         "risk_by_length": bar_from_summary(
             summary_tables.get("risk", pd.DataFrame()),
@@ -56,7 +56,7 @@ def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, g
             count_col="segment_count",
             fallback_group_field="brat_risk",
             show_legend=False,
-            height=420,
+            height=600,
         ),
     }
     log.info(f"Built {len(figures)} figures for Beaver Restoration Potential")

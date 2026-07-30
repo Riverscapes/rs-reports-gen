@@ -24,7 +24,12 @@
   <h2>Table of Contents</h2>
   <ol class="toc-list">
     <li><a href="#map-of-polygons">Report Area</a></li>
-    <li><a href="#key-indicators">Key Indicators</a></li>
+    <li><a href="#key-indicators">Output Summary</a></li>
+    <li><a href="#high-rp-indicators">Actionable Opportunity</a></li>
+    <li><a href="#realized-dam-capacity-watershed">Realized Dam Capacity by Watershed</a></li>
+    <li><a href="#realized-dam-capacity-stream">Realized Dam Capacity
+    <li><a href="#summary-tables">BRAT Output Summaries</a></li>
+    <li><a href="#overview">Run Context</a></li>
   </ol>
 </section>
 
@@ -76,7 +81,7 @@
   {{ render_metric_grid(cards, ['total_dam_capacity_(actionable_opportunity)', 'total_dams_(actionable_opportunity)', 'realized_capacity_(actionable_opportunity)', 'remaining_capacity_(actionable_opportunity)']) }}
 </section>
 
-<section>
+<section id="realized-dam-capacity-watershed">
   <h2>Realized Dam Capacity by Watershed</h2>
   <p>
     The following table contains information on the quantity of beaver dams observed and the BRAT-modeled 
@@ -90,7 +95,7 @@
   {{ summary_tables.hucs|safe }}
 </section>
 
-<section>
+<section id="realized-dam-capacity-stream">
   <h2>Realized Dam Capacity by Stream</h2>
   <p>
     The following table contains information on the quantity of beaver dams observed and the BRAT-modeled 
@@ -113,18 +118,31 @@
   <h3>Current BRAT Capacity</h3>
   <p>
     BRAT Capacity is the estimated density of beaver dams (dams/length of riverscape) that the riverscape could support.
+    </p>
   {{ summary_tables.capacity|safe }}
   {{ figures.capacity_by_length|safe }}
 
   <h3>BRAT Risk</h3>
+  <p>
+    BRAT Risk is the estimated risk to infrastructure and human activity that could result from beaver dam building activity.
+    Risk is estimated based on proximity of channels to infrastructure and land use intensity within the riverscape.
+    </p>
   {{ summary_tables.risk|safe }}
   {{ figures.risk_by_length|safe }}
 
   <h3>BRAT Opportunity</h3>
+  <p>
+    BRAT Opportunity is the estimated potential for beaver dam building activity to occur in a riverscape based on the 
+    capacity of the riverscape to support beaver dams and the risk to infrastructure and human activity. 
+    </p>
   {{ summary_tables.opportunity|safe }}
   {{ figures.opportunity_by_length|safe }}
 
   <h3>BRAT Limitation</h3>
+  <p>
+    BRAT Limitation highlights factors that limit the ability for dam building to occur in riverscapes. Where capacity is 
+    0, this layer resolves the reasons why beaver dam building is not possible. 
+    </p>
   {{ summary_tables.limitation|safe }}
   {{ figures.limitation_by_length|safe }}
 
