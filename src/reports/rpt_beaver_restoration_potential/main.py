@@ -25,7 +25,7 @@ from reports.rpt_beaver_restoration_potential.dataprep import (
     query_beaver_data_for_aoi,
     summarize_beaver_potential,
 )
-from reports.rpt_beaver_restoration_potential.figures import build_beaver_figures, high_rp_statistics, main_statistics
+from reports.rpt_beaver_restoration_potential.figures import build_beaver_figures, main_statistics
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata_lakehouse_ref
 from util.figures import make_aoi_outline_map, metric_cards
@@ -170,14 +170,14 @@ def make_report(
         report.add_figure(name, fig)
 
     summary_stats = main_statistics(data_df)
-    high_rp_stats = high_rp_statistics(data_df)
-    metrics_for_summary_cards = ["historic_dam_capacity", "total_dam_capacity", "total_dams", "realized_capacity", "remaining_capacity"]
-    metric_data_for_cards = {key: summary_stats[key] for key in metrics_for_summary_cards}
-    metric_data_for_cards.update(high_rp_stats)
+    # high_rp_stats = high_rp_statistics(data_df)
+    # metrics_for_summary_cards = ["historic_dam_capacity", "total_dam_capacity", "total_dams", "realized_capacity", "remaining_capacity"]
+    # metric_data_for_cards = {key: summary_stats[key] for key in metrics_for_summary_cards}
+    # metric_data_for_cards.update(high_rp_stats)
 
     report.add_html_elements("summary_tables", summary_tables_html)
     report.add_html_elements("context", context)
-    report.add_html_elements("cards", metric_cards(metric_data_for_cards))
+    report.add_html_elements("cards", metric_cards(summary_stats))
     report.render(fig_mode="interactive")
     log.info(f"HTML report written to {report_dir}")
 

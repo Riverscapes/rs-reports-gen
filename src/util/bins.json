@@ -122,6 +122,43 @@
     ["hsl(216, 100%, 45%)","Pervasive: 15-40 dams/km (24-64 dams/mi)"]
   ]
  },
+ "brat_risk": {
+  "source": "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Riverscapes_BRAT/risk_dgo.json",
+  "edges": [0,0],
+  "legend": [
+    ["hsl(0, 100%, 45%)", "Considerable Risk"],
+    ["hsl(40, 100%, 50%)", "Some Risk"],
+    ["hsl(194, 100%, 50%)","Minor Risk"],
+    ["rgb(165, 165, 165)","Negligible Risk"]
+  ]
+ },
+ "brat_opportunity": {
+  "source": "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Riverscapes_BRAT/opportunity.json",
+  "edges": [0,0],
+  "legend": [
+    ["hsl(120, 100%, 33%)", "Conservation/Appropriate for Translocation"],
+    ["hsl(194, 100%, 50%)", "Encourage Beaver Expansion/Colonization"],
+    ["hsl(53, 100%, 45%)","Beaver Mimicry"],
+    ["hsl(24, 36%, 39%)", "Land Management Change"],
+    ["hsl(1, 55%, 50%)", "Conflict Management"],
+    ["hsl(240, 86%, 48%)", "Potential Floodpain/Side Channel Opportunities"],
+    ["hsl(0, 0%, 73%)", "Natural or Anthropogenic Limitations"]
+  ]
+ },
+ "brat_limitation": {
+  "source": "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Riverscapes_BRAT/limitation_dgo.json",
+  "edges": [0,0],
+  "legend": [
+    ["hsl(52, 100%, 45%)", "Anthropogenically Limited"],
+      ["hsl(194, 100%, 50%)","Stream Power Limited"],
+      ["hsl(0, 100%, 48%)", "Slope Limited"],
+      ["hsl(314, 100%, 73%)","Potential Reservoir or Land Use Change"],
+      ["hsl(100, 100%, 23%)", "Naturally Vegetation Limited"],
+      ["hsl(32, 100%, 52%)", "Stream Size Limited"],
+      ["hsl(0, 0%, 65%)", "Dam Building Possible"],
+      ["hsl(0, 0%, 0%)", "Other"]
+  ]
+ },
  "riparian_condition":{
   "source":"(change order) https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/rip_cond_rme3.json",
   "edges" : [-1,-0.0000000001,0,0.2,0.4,0.65,0.85],

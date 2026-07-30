@@ -42,7 +42,7 @@
 </section>
 
 <section id="key-indicators">
-  <h2>Realized Beaver Dam Building Capacity</h2>
+  <h2>Beaver Dam Building Capacity and Observed Dams</h2>
   <p>
     The following metrics summarize the state of beaver dam building
     capacity within the report area. The <b>Total Dam Capacity</b> is the number of dams that the
@@ -50,9 +50,12 @@
     The <b>Total Dams</b> is the number of dams present in the report area according to
     imagery-based dam identification (see associated projects, Appendix _). The <b>Realized Capacity</b>
     is the percentage of the total dam building capacity that currently exists in the report area 
-    based on this data. 
+    based on this data. the <b>Remaining Capacity</b> is the total number of dams that could still be built in the 
+    report area based on BRAT capacity estimates. The <b>Remaining Capacity (Actionable Opportunity)</b> is the total 
+    number of dams that could be supported in riverscapes modeled as having high restoration/conservation potential.
+    These are streams with high capacity to support dam building, no high intensity land use, AND low risk to infrastructure.
   </p>
-  {{ render_metric_grid(cards, ['historic_dam_capacity', 'total_dam_capacity', 'total_dams', 'realized_capacity', 'remaining_capacity']) }}
+  {{ render_metric_grid(cards, ['historic_dam_capacity', 'total_dam_capacity', 'total_dams', 'realized_capacity', 'remaining_capacity', 'remaining_capacity_(actionable_opportunity)']) }}
 </section>
 
 <section id="high-rp-indicators">
@@ -104,11 +107,12 @@
 
 <section id="summary-tables">
   <h2>BRAT Output Summaries</h2>
-  <p>CSV exports of each summary table are available in the data folder.</p>
+  <p>This section summarizes the outputs of BRAT for the selected report area. 
+    CSV exports of each summary table are available in the data folder.</p>
 
   <h3>Current BRAT Capacity</h3>
   <p>
-    BRAT Capacity is the density of dams (dams/length of riverscape) that the 
+    BRAT Capacity is the estimated density of beaver dams (dams/length of riverscape) that the riverscape could support.
   {{ summary_tables.capacity|safe }}
   {{ figures.capacity_by_length|safe }}
 

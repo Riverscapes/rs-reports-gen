@@ -426,6 +426,15 @@ def bar_from_summary(
     baked_summary_df, _ = meta.bake_units(summary_df.copy())
     label_lookup = meta.get_headers_dict(summary_df, layer_id=layer_id)
 
+    color_kwargs = {}
+    try:
+        _edges, bin_labels, bin_colours = get_bins_info(resolved_group_field)
+        # Map labels from bins.json to Plotly colors so chart colors match report symbology.
+        color_kwargs["color_discrete_map"] = dict(zip(bin_labels, bin_colours, strict=False))
+    except KeyError:
+        # No bins.json entry for this group field; use Plotly defaults.
+        pass
+
     fig = px.bar(
         baked_summary_df,
         x=group_col,
@@ -433,6 +442,7 @@ def bar_from_summary(
         color=group_col,
         hover_data=[count_col] if count_col and count_col in baked_summary_df.columns else None,
         labels=label_lookup,
+        **color_kwargs,
     )
 
     group_order = None
