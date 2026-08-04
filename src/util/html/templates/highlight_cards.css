@@ -1,0 +1,189 @@
+/*
+Highlight cards shared styles.
+Load this stylesheet only in reports that render render_highlight_cards.
+*/
+
+#highlight-cards {
+	margin: 1.5rem 0 2.25rem;
+}
+
+#highlight-cards .highlight-card-grid {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	gap: 1rem 1.25rem;
+}
+
+#highlight-cards .highlight-card {
+	--card-accent: #1f5ca5;
+	--icon-grad-start: #2b72bd;
+	--icon-grad-end: #0e4f99;
+
+	display: grid;
+	grid-template-columns: 7.25rem minmax(0, 1fr);
+	grid-template-rows: auto auto;
+	column-gap: 0.95rem;
+	row-gap: 0.6rem;
+	align-items: start;
+
+	background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+	border: 1px solid #d5deeb;
+	border-top: 4px solid var(--card-accent);
+	border-radius: 14px;
+	box-shadow: 0 3px 12px rgba(0, 26, 58, 0.14);
+	padding: 1.1rem 1.35rem 1rem;
+	list-style: none;
+}
+
+#highlight-cards .highlight-card[data-theme="blue"] {
+	--card-accent: #1f5ca5;
+	--icon-grad-start: #2b72bd;
+	--icon-grad-end: #0e4f99;
+}
+
+#highlight-cards .highlight-card[data-theme="green"] {
+	--card-accent: #3d8f3b;
+	--icon-grad-start: #63b348;
+	--icon-grad-end: #3c8f34;
+}
+
+#highlight-cards .highlight-card[data-theme="teal"] {
+	--card-accent: #1f7f80;
+	--icon-grad-start: #28a3a5;
+	--icon-grad-end: #1b7f80;
+}
+
+#highlight-cards .highlight-card__header {
+	grid-column: 2;
+	min-width: 0;
+}
+
+#highlight-cards .highlight-card__icon {
+	grid-column: 1;
+	grid-row: 1;
+	display: flex;
+	justify-content: center;
+	padding-top: 0.05rem;
+}
+
+#highlight-cards .highlight-card__icon .material-icons {
+	width: 78px;
+	height: 78px;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	font-size: 2.35rem;
+	line-height: 1;
+	background: radial-gradient(circle at 30% 24%, var(--icon-grad-start), var(--icon-grad-end));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px rgba(0, 0, 0, 0.16);
+}
+
+#highlight-cards .highlight-card__label {
+	display: block;
+	color: var(--card-accent);
+	text-transform: uppercase;
+	letter-spacing: 0.045em;
+	font-size: 0.72rem;
+	font-weight: 700;
+	line-height: 1.2;
+}
+
+#highlight-cards .highlight-card__primary {
+	color: var(--card-accent);
+	font-family: var(--body-font-family);
+	font-size: clamp(2.15rem, 3.15vw, 3.65rem);
+	font-weight: 700;
+	letter-spacing: 0.004em;
+	line-height: 1.03;
+	margin: 0.08rem 0 0.3rem;
+	overflow-wrap: anywhere;
+}
+
+#highlight-cards .highlight-card__secondary {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	color: #3d4655;
+	font-size: 0.77rem;
+	line-height: 1.25;
+	margin-bottom: 0;
+}
+
+#highlight-cards .highlight-card__secondary .material-icons {
+	color: var(--card-accent);
+	font-size: 1.08rem;
+	line-height: 1;
+}
+
+#highlight-cards .highlight-card__footer {
+	grid-column: 1 / -1;
+	border-top: 2px solid #dbe3ee;
+	padding-top: 0.62rem;
+	padding-left: 0.05rem;
+	display: flex;
+	align-items: baseline;
+	gap: 0.65rem;
+	justify-content: center;
+}
+
+#highlight-cards .highlight-card__footer-metric {
+	color: var(--card-accent);
+	font-size: 2.12rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	line-height: 1;
+}
+
+#highlight-cards .highlight-card__footer-label {
+	color: #4d5666;
+	font-size: 0.99rem;
+	line-height: 1.2;
+	font-weight: 500;
+}
+
+@media (max-width: 760px) {
+	#highlight-cards .highlight-card-grid {
+		grid-template-columns: 1fr;
+	}
+
+	#highlight-cards .highlight-card {
+		grid-template-columns: 4.35rem minmax(0, 1fr);
+		padding: 0.95rem 1rem;
+		column-gap: 0.72rem;
+	}
+
+	#highlight-cards .highlight-card__header {
+		grid-column: 2;
+	}
+
+	#highlight-cards .highlight-card__icon {
+		justify-content: flex-start;
+	}
+
+	#highlight-cards .highlight-card__icon .material-icons {
+		width: 58px;
+		height: 58px;
+		font-size: 1.8rem;
+	}
+
+	#highlight-cards .highlight-card__primary {
+		font-size: clamp(1.8rem, 9vw, 2.45rem);
+	}
+
+	#highlight-cards .highlight-card__secondary {
+		font-size: 0.83rem;
+	}
+
+	#highlight-cards .highlight-card__footer-metric {
+		font-size: 1.8rem;
+		text-align: left;
+	}
+
+	#highlight-cards .highlight-card__footer-label {
+		font-size: 0.95rem;
+	}
+}

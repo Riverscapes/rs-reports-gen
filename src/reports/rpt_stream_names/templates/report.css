@@ -1,1 +1,22 @@
-/* ONLY STYLES FOR RIVERS NEED SPACE REPORT */
+/* Stream Names report-specific styles */
+
+/**
+TABLE FORMATTING
+*/
+table,
+table.dataframe {
+	/* Collapse prevents visible corner radius in many table setups (including Pico defaults). */
+	border-collapse: separate;
+	border-spacing: 0;
+	border-radius: 8px;
+	overflow: hidden;
+	background: #fff;
+}
+
+
+/* Light blue separators between header cells. */
+table thead th + th,
+table.dataframe thead th + th {
+	border-left: 1px solid #c7dbf344;
+}
+

@@ -42,17 +42,25 @@ Example Usage:
 {{ render_highlight_cards(highlight_cards) }}
 #}
 {% macro render_highlight_cards(cards) -%}
+<style>
+/* NOTE: You may see an error on the next line but it is a false HTML/CSS Parser error. 
+  Just ignore it
+*/
+{% include 'highlight_cards.css' %}
+</style>
 <ul class="highlight-card-grid">
     {% for card in cards %}
     <li class="highlight-card" data-theme="{{ card.theme }}">
-        <div class="highlight-card__header">
-            <span class="material-icons" aria-hidden="true">{{ card.icon }}</span>
-            <span class="highlight-card__label">{{ card.header }}</span>
+        <div class="highlight-card__icon">
+          <span class="material-icons" aria-hidden="true">{{ card.icon }}</span>
         </div>
-        <div class="highlight-card__primary">{{ card.primary_value }}</div>
-        <div class="highlight-card__secondary">
-            <span class="material-icons" aria-hidden="true">{{ card.secondary_stat.icon }}</span>
-            <span>{{ card.secondary_stat.text }}</span>
+        <div class="highlight-card__header">
+            <span class="highlight-card__label">{{ card.header }}</span>
+            <div class="highlight-card__primary">{{ card.primary_value }}</div>
+            <div class="highlight-card__secondary">
+                <span class="material-icons" aria-hidden="true">{{ card.secondary_stat.icon }}</span>
+                <span>{{ card.secondary_stat.text }}</span>
+            </div>
         </div>
         <div class="highlight-card__footer">
             <span class="highlight-card__footer-metric">{{ card.footer.metric }}</span>
