@@ -226,7 +226,7 @@ def prepare_aoi_query(
 
     # Size budget: the AOI hex appears exactly once (in the CTE).
     cte_wrapper = "WITH input_geom AS (SELECT  AS geom) "  # 46 chars of overhead
-    intersects_template = f"ST_Intersects({geom_field_expression}, input_geom.geom)"
+    intersects_template = f"ST_Intersects({geom_field_expression}, input_geom.geom) AND ST_Area(ST_Intersection({geom_field_expression},input_geom.geom)) > 0"
     placeholder_chars = len("{prefilter_condition}") + len("{intersects_condition}")
     non_geom_overhead = len(cte_wrapper) + len(querystr) - placeholder_chars + len(prefilter_condition) + len(intersects_template)
     max_geom_size = 262144 - non_geom_overhead
@@ -235,7 +235,9 @@ def prepare_aoi_query(
     if not aoi_geom_str:
         raise ValueError("AOI geometry exceeds Athena size limit. Simplify and try again.")
 
-    intersects_condition = f"ST_Intersects({geom_field_expression}, input_geom.geom)"
+    # using strictly greater than 0 for now but could filter out inconsequential slivers here. Either with an absolute size or relative to the size of the DGO geometry
+    # Units would be square decimal degrees, divide by 9.5 x 10E9 for square meter approximation.
+    intersects_condition = f"ST_Intersects({geom_field_expression}, input_geom.geom) AND ST_Area(ST_Intersection({geom_field_expression},input_geom.geom)) > 0"
     cte = f"WITH input_geom AS (SELECT {aoi_geom_str} AS geom) "
 
     prepared_query = cte + querystr.format(
