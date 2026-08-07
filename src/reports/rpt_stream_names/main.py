@@ -26,6 +26,29 @@ from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 
 
+def normalize_guessed_name(raw_guess: str | None) -> str:
+    """Normalize optional guessed-name input for report rendering.
+
+    Treats blank and single-dot placeholder values as empty.
+
+    Args:
+        raw_guess (str | None): Raw guessed name from CLI or environment.
+
+    Returns:
+        str: Cleaned guessed name or empty string.
+
+    Created by copilot.
+    """
+    if raw_guess is None:
+        return ""
+
+    cleaned = raw_guess.strip()
+    if cleaned in {"", "."}:
+        return ""
+
+    return cleaned
+
+
 def define_fields(unit_system: str = "SI") -> None:
     """Register field metadata and configure unit system for this report.
 
@@ -221,7 +244,7 @@ def make_report(
     report.set_header_svg(header_svg)
     report.add_html_elements("tables", tables)
     report.add_html_elements("highlight_cards", highlight_cards)
-    report.add_html_elements("user_guess", guessed_name)
+    report.add_html_elements("user_guess", normalize_guessed_name(guessed_name))
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -261,6 +284,7 @@ def make_report_orchestrator(
     """
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
+    guessed_name = normalize_guessed_name(guessed_name)
 
     # Initialize field metadata and unit system for this report
     define_fields(unit_system)
@@ -328,6 +352,7 @@ def main():
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
+    args.guessed_name = normalize_guessed_name(args.guessed_name)
 
     # Set up some reasonable folders to store things
     output_path = Path(args.output_path)
