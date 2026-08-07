@@ -221,6 +221,7 @@ def make_report(
     report.set_header_svg(header_svg)
     report.add_html_elements("tables", tables)
     report.add_html_elements("highlight_cards", highlight_cards)
+    report.add_html_elements("user_guess", guessed_name)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None

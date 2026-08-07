@@ -94,11 +94,11 @@ def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -
             "primary_value": str(top_by_paths["stream_name"]) + (" (tie)" if paths_is_tie else ""),
             "secondary_stat": {
                 "icon": "waves",
-                "text": f"{paths_count:,} distinct named riverscape paths",
+                "text": f"{paths_count:,} distinct named systems",
             },
             "footer": {
-                "metric": f"{paths_pct:.2f}%",
-                "label": "of named paths",
+                "metric": f"{paths_pct:.1f}%",
+                "label": "of all named systems",
             },
         },
         {
@@ -111,8 +111,8 @@ def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -
                 "text": f"{length_value:,.1f} {length_unit}",
             },
             "footer": {
-                "metric": f"{length_pct:.2f}%",
-                "label": "of named riverscape length",
+                "metric": f"{length_pct:.1f}%",
+                "label": "of all named riverscape length",
             },
         },
     ]
