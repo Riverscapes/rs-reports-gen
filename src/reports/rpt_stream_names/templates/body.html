@@ -6,8 +6,7 @@
 <section>
   <aside id="user-guess">
     <div class="sidebar">
-      {% set has_user_guess = user_guess is string and user_guess|trim != '' %}
-      {% if has_user_guess %}
+      {% if user_guess %}
       <p>Before you ran this report, you guessed that the most common stream or river name would be:</p>
       <div class="user-guess">
         {{ user_guess }}
