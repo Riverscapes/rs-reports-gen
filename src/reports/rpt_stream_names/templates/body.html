@@ -5,7 +5,25 @@
 {% from 'macros.html' import render_metric_grid, render_highlight_cards %}
 <section>
   <div class="section-context">
-    <p>Every landscape has its own vocabulary of rivers, creeks, branches, bayous, and rivers. These names carry local history, natural features, and cultural significance. This report explores which riverscapes names occur most often within the selected area -- by the number of distinct named paths, and by total riverscape length.</p>
+    <p>Every landscape has its own vocabulary of rivers, creeks, brooks, branches, forks, washes, and other waterways.
+      Some names are distinctive to a particular place, while others occur again and again. This report explores the
+      stream and river names given to the channels within riverscapes in the selected area, identifying both the names
+      used for the greatest number of distinct systems and those representing the greatest total riverscape length.
+    </p>
+  </div>
+</section>
+
+<section id="user-guess">
+  <div class="sidebar">
+    {% if user_guess %}
+    Before you ran this report, you guessed that the most common stream or river name would be:
+    <div class="user-guess">
+      {{ user_guess }}
+    </div>
+    Was your guess one of the winners? Do you see it in the rankings or word clouds?
+    {% else %}
+    With these results, are you surprised by which stream or river names are most common?
+    {% endif %}
   </div>
 </section>
 
@@ -23,7 +41,6 @@
   {{ tables['top_names_by_path_count']|safe }}
 </section>
 
-
 <section id="word-cloud">
   <h2>Do you see your guess in the cloud?</h2>
   <div class="section-context">
@@ -36,7 +53,6 @@
   </figure>
 </section>
 
-
 <section id="map-of-polygons">
   <h2>Report Area of Interest</h2>
   <div class="section-context">
@@ -46,7 +62,6 @@
     <div>{{ figures['map']|safe }}</div>
   </figure>
 </section>
-
 
 <section id="word-cloud-by-length">
   <h2>Stream Names by Total Riverscape Length</h2>
@@ -60,21 +75,18 @@
   </figure>
 </section>
 
-
 <section id="top-stream-names-by-length">
   <h2>Top 10 by Total Riverscape Length</h2>
   <div class="section-context">
     <p>The table below shows the ten stream names with the greatest total riverscape length within the area of interest.
-      The <em>% of Named Length</em> column shows each name's share of all named riverscape length in the report area.</p>
+      The <em>% of Named Length</em> column shows each name's share of all named riverscape length in the report area.
+    </p>
   </div>
   {{ tables['top_names_by_riverscape_length']|safe }}
 </section>
 
-
-
-
-
 <section id="download">
   <h2>More information</h2>
-  The zip file included with the report has the underlying data and complete tables, allowing you to explore the results in more detail.
+  The zip file included with the report has the underlying data and complete tables, allowing you to explore the results
+  in more detail.
 </section>

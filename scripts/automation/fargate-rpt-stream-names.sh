@@ -53,14 +53,18 @@ try() {
     echo "Error: Report name not found in $INPUTS_DIR/index.json"
     return 1
   fi
-
+  # Extract parameters.guessedName from index.json 
+  # Extract the "name" property from the $INPUTS_DIR/index.json file
+  GUESSED_NAME=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('parameters',{}.get('guessedName',''))" < "$INPUTS_DIR/index.json")
+  
   echo "======================  Running rpt-stream-names ======================="
   python -m reports.rpt_stream_names.main \
     "$OUTPUTS_DIR" \
     "$INPUTS_DIR/input.geojson" \
     "$REPORT_NAME" \
     --include_pdf \
-    --unit_system "$UNIT_SYSTEM"
+    --unit_system "$UNIT_SYSTEM" \
+    --guessed_name "$GUESSED_NAME" 
   if [[ $? != 0 ]]; then return 1; fi
 
   echo "======================  Zipping up ======================="
