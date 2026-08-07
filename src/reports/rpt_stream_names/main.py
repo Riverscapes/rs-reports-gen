@@ -168,6 +168,7 @@ def make_report(
     include_static: bool = True,
     include_pdf: bool = True,
     unit_system: str = "SI",
+    guessed_name: str = "",
 ):
     """
     Generates HTML report(s) in report_dir.
@@ -180,6 +181,7 @@ def make_report(
         include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
         include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
         unit_system (str, optional): Unit system for display values ("SI" or "imperial"). Defaults to "SI".
+        guessed_name (str, optional): Users guess on most common name, will be included in report if not empty
 
     Note: define_fields() must be called before this function to configure units.
     """
@@ -205,9 +207,9 @@ def make_report(
     highlight_cards: list[HighlightCard] = build_highlight_cards_data(df, unit_system=unit_system)
 
     report = RSReport(
-        report_name="What Did We Name Our Streams and Rivers?",
+        report_name="What are the most common names of our streams and rivers?",
         report_subtitle=report_name,
-        report_type="Riverscapes Stream Names",
+        report_type="Riverscapes Word Cloud",
         report_dir=report_dir,
         report_version=report_version,
         body_template_path=Path(__file__).parent / 'templates' / 'body.html',
@@ -244,6 +246,7 @@ def make_report_orchestrator(
     existing_csv_path: Path | None = None,
     include_pdf: bool = True,
     unit_system: str = "SI",
+    guessed_name: str = "",
 ):
     """Orchestrates the report generation process:
 
@@ -296,7 +299,16 @@ def make_report_orchestrator(
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
-    make_report(data_df, report_dir, report_name, aoi_gdf=query_gdf, include_static=include_pdf, include_pdf=include_pdf, unit_system=unit_system)
+    make_report(
+        data_df,
+        report_dir,
+        report_name,
+        aoi_gdf=query_gdf,
+        include_static=include_pdf,
+        include_pdf=include_pdf,
+        unit_system=unit_system,
+        guessed_name=guessed_name,
+    )
 
     log.info(f"Report Path: {report_dir}")
 
@@ -311,6 +323,7 @@ def main():
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
     parser.add_argument('--csv', help='Path to a local CSV of downloaded data for the AOI to use instead of querying Athena', type=str, default=None)
+    parser.add_argument('--guessed_name', help='What name do you think is most common in this area?', type=str, default='')
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -336,7 +349,7 @@ def main():
         csvpath = None
 
     try:
-        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, csvpath, args.include_pdf, args.unit_system)
+        make_report_orchestrator(args.report_name, output_path, args.path_to_shape, csvpath, args.include_pdf, args.unit_system, args.guessed_name)
 
     except Exception as e:
         log.error(e)

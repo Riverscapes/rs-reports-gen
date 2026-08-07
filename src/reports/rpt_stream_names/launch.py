@@ -68,10 +68,27 @@ def main() -> list[str] | None:
         if csv_file is not None:
             csv_file = csv_file.strip().strip('"').strip("'")
 
+    # ── Unit system ───────────────────────────────────────────────────
+    unit_env = os.environ.get("UNIT_SYSTEM")
+    if unit_env:
+        if unit_env not in ("SI", "imperial"):
+            raise RuntimeError(colored(f"\nUNIT_SYSTEM must be 'SI' or 'imperial', got '{unit_env}'.\n", "red"))
+        unit_system = unit_env
+    else:
+        unit_system = questionary.select("Select a unit system:", choices=["SI", "imperial"], default="SI").ask()
+        if unit_system is None:
+            print("\nNo unit system selected. Exiting.\n")
+            return None
+
+    # ── Report name ───────────────────────────────────────────────────
     report_name = os.environ.get("RSI_REPORT_NAME")
     if not report_name:
         report_name = geojson_file.stem.replace(' ', '_')
 
+    # ── Stream name Guess──────────────────────────────────────────────
+    guessed_name = questionary.text(message="What name do you think is most common in this area?", default="").ask()
+
+    # ── Include PDF ───────────────────────────────────────────────────
     # Ask for whether or not to include PDF. Default to NO
     include_pdf = get_include_pdf()
     if include_pdf is None:
@@ -82,15 +99,15 @@ def main() -> list[str] | None:
         output_dir,
         geojson_file,
         report_name,
+        "--unit_system",
+        unit_system,
+        "--guessed_name",
+        guessed_name,
     ]
     if include_pdf:
         args.append("--include_pdf")
     if csv_file:
         args.append("--csv")
         args.append(csv_file)
-
-    # ── Unit system ───────────────────────────────────────────────────
-    args.append("--unit_system")
-    args.append("imperial")
 
     return args
