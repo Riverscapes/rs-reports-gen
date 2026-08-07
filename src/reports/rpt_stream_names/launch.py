@@ -7,6 +7,29 @@ from termcolor import colored
 from util.prompt import get_include_pdf
 
 
+def normalize_guessed_name(raw_guess: str | None) -> str:
+    """Normalize optional user guess input for CLI forwarding.
+
+    Treats blank and single-dot placeholder values as empty.
+
+    Args:
+        raw_guess (str | None): Raw prompt input.
+
+    Returns:
+        str: Cleaned guess or empty string.
+
+    Created by copilot.
+    """
+    if raw_guess is None:
+        return ""
+
+    cleaned = raw_guess.strip().strip('"').strip("'").strip()
+    if cleaned in {"", "."}:
+        return ""
+
+    return cleaned
+
+
 def main() -> list[str] | None:
     """The purpose of this function is to return an array of arguments that will satisfy the
     main() function in the report
@@ -86,7 +109,7 @@ def main() -> list[str] | None:
         report_name = geojson_file.stem.replace(' ', '_')
 
     # ── Stream name Guess──────────────────────────────────────────────
-    guessed_name = questionary.text(message="What name do you think is most common in this area?", default="").ask()
+    guessed_name = normalize_guessed_name(questionary.text(message="What name do you think is most common in this area?", default="").ask())
 
     # ── Include PDF ───────────────────────────────────────────────────
     # Ask for whether or not to include PDF. Default to NO
@@ -101,9 +124,10 @@ def main() -> list[str] | None:
         report_name,
         "--unit_system",
         unit_system,
-        "--guessed_name",
-        guessed_name,
     ]
+    if guessed_name:
+        args.append("--guessed_name")
+        args.append(guessed_name)
     if include_pdf:
         args.append("--include_pdf")
     if csv_file:
