@@ -1,5 +1,10 @@
 # Riverscapes Stream Names Report
 
+## Version 0.4.1
+
+* Wire in user-supplied 'guess' for most common name
+* CSS improvements have been added
+
 ## Version 0.4.0
 
 * Add "top 10" tables with Riverscape length (mi or km depending on unit system chosen) and level paths
