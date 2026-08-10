@@ -14,6 +14,20 @@
     ["rgb(0, 68, 27)", "> 75%"]
   ]
 },
+"elevated_ratio": {
+    "source" : "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Elevated_Ratio.json",
+    "edges" : [0, 0.02, 0.05, 0.10, 0.15, 0.25, 0.50, 0.75, 1],
+    "legend": [
+    ["rgb(247, 252, 245)", "< 2%"],
+    ["rgb(242, 244, 183)", "2% to 5%"],
+    ["rgb(237, 236, 121)", "5% to 10%"],
+    ["rgb(231, 228, 59)", "10% to 15%"],
+    ["rgb(212, 208, 31)", "15% to 25%"],
+    ["rgb(179, 176, 39)", "25% to 50%"],
+    ["rgb(146, 143, 46)", "50% to 75%"],
+    ["rgb(113, 111, 53)", "> 75%"]
+  ]
+},
   "lf_riparian_prop": {
     "source" : "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/Prop_Rip.json",
   "edges":[0, 0.000000001, 0.05, 0.15, 0.3, 0.6, 1],
