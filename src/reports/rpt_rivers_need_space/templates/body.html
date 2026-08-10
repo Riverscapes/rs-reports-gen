@@ -8,19 +8,45 @@
     <p>This Riverscapes Need Space Report is an estimate of how much space the riverscape could utilize, based on models of valley bottom (riverscapes) from the Valley Bottom Extraction Tool driven by a 10 m NED digital elevation dataset and the National Hydrography Dataset (<a href="https://docs.riverscapes.net/initiatives/CONUS-runs">CONUS2025 Run</a>). The model and this report are only as good as the underlying data used to generate them, but they can help begin to characterize intrinsic riverscape properties for your riverscape, as well as start to consider current conditions from the perspective of the first principle of healthy riverscapes - healthy riverscapes need access to their valley bottoms.</p>
   </div>
 </section>
+
 <section id='toc'>
   <h2>Table of Contents</h2>
   <ol class="toc-list">
-    <li><a href="#key-indicators">Summary Metrics</a></li>
-    <li><a href="#map-of-polygons">Locator Map</a></li>
-    <li><a href="#ownership-and-flowtypes">Ownership and Flow Types</a></li>
+    <li><a href="#map-of-polygons">Report Area Map</a></li>
+    <li><a href="#key-indicators">How Much Space?</a></li>
+    <li><a href="#ownership-and-flowtypes">Flow Types and Ownership</a></li>
     <li><a href="#stream-names">Stream Names and Lengths</a></li>
+    <li><a href="#fragmentation">Riverscape Fragmentation</a></li>
     <li><a href="#condition-and-recovery-potential">Condition and Recovery Potential</a></li>
     <li><a href="#appendices">Appendices</a></li>
   </ol>
 </section>
+
+<div class="page-break-before"></div>
+
+<section id="map-of-polygons">
+  <h2>Report Area Map</h2>
+  <div class="section-context">
+    <p>This map shows the riverscape segments/reaches (DGOs) that were selected for this report. These polygons 
+      represent the areas of interest for the analysis, and the information in this report provides insights into 
+      these riverscapes, specifically their spatial extent and the degree to which they have been fragmented.</p>
+  </div>
+  <figure class="report-figure map">
+    {{ figures['map']|safe }}
+    <!-- <figcaption>Interactive map of identified polygons.</figcaption> -->
+  </figure>
+</section>
+
+<div class="page-break-before"></div>
+
 <section id="key-indicators">
-  <h2>Summary Metrics for this Riverscape</h2>
+  <h2>How Much Space?</h2>
+  <p>How much space to the selected riverscapes need? The following metrics provide an overview of the 
+    total area of the selected riverscape. In an intact condition, rivers would have access to their full valley 
+    bottoms, interacting with them via hydrologic processes like flooding and geomorphic process like channel migration.
+    Various impacts, summarized in following sections, fragment riverscapes and reduce the ability of rivers to 
+    access their full valley bottoms.
+  </p>
 
   <dl class="metric-grid">
     {% for key, card in cards.items() %}
@@ -34,20 +60,25 @@
     {% endfor %}
   </dl>
 </section>
-<div class="page-break-before"></div>
-<section id="map-of-polygons">
-  <h2>Locator Map</h2>
+
+<section id="ownership-and-flowtypes">
+  <h2>Characteristics of Riverscapes</h2>
+  <p>This section provides essential information on the selected riverscapes, specifically ownership of riverscape areas
+     and flow types of the primary channels associated with them. This is important for restoration and conservation 
+     planning and management of riverscapes.
+  </p>
+  <section id="flow-types">
+  <h3>Flow Types</h3>
   <div class="section-context">
-    <p>The following map shows the riverscape sample frames (DGOs) that were selected for this report. These polygons represent the areas of
-      interest for the analysis. The charts and tables that follow provide further insights into these areas.</p>
+    <p>This section categorizes the river segments based on their flow types, providing insights into the hydrological
+      characteristics of the study area.</p>
   </div>
-  <figure class="report-figure map">
-    {{ figures['map']|safe }}
-    <!-- <figcaption>Interactive map of identified polygons.</figcaption> -->
+  <figure class="report-figure">
+    {{ figures['pie']|safe }}
+    <!-- <figcaption>Segment areas grouped by flow type.</figcaption> -->
   </figure>
 </section>
-<section id="ownership-and-flowtypes">
-  <h2>Ownership</h2>
+  <h3>Ownership</h3>
   <div class="section-context">
     <p>This section provides an overview of the ownership of the river segments within the study area. The dominant
       ownership category is determined for each riverscape and then summed across the area of interest.</p>
@@ -65,24 +96,38 @@
     <!-- <figcaption>Tabular summary of segment ownership.</figcaption> -->
   </figure>
 </section>
-<section id="flow-types">
-  <h2>Flow Types</h2>
-  <div class="section-context">
-    <p>This section categorizes the river segments based on their flow types, providing insights into the hydrological
-      characteristics of the study area.</p>
-  </div>
-  <figure class="report-figure">
-    {{ figures['pie']|safe }}
-    <!-- <figcaption>Segment areas grouped by flow type.</figcaption> -->
-  </figure>
-</section>
+
 <section id="stream-names">
-  <h2>Table of Stream Names and lengths</h2>
+  <h3>Table of Stream Names and lengths</h3>
   <figure class="report-figure">
     {{ tables['river_names']|safe}}
     <!-- <figcaption>Stream names listed with calculated lengths.</figcaption> -->
   </figure>
 </section>
+
+<section id="fragmentation">
+  <h2>Riverscape Fragmentation</h2>
+  <p>Various anthropogenic impacts can fragment riverscapes, affecting their ecological integrity and connectivity.
+    Four factors that are modeled using the riverscapes network models are: elevated floodplain area, floodplain accessibility,
+    proportion converted to agriculture and proportion developed. Elevated floodplains are areas that are topographically high 
+    relative to the channel, and serve as a proxy for inactive floodplain surfaces. High proportions of elevated floodplain can
+    be indicative of channel incision or intentional disconnection from channel alteration (channelization, straightening, bank
+    hardening). Floodplain accessibility estimates the fraction of each reach where the floodplain is accessible (or inaccessible)
+    due to the presence of transportation infrastructure (roads, railroads, canals). The proportion converted to agriculture
+    or developed represents the fraction of each reach that has been converted to agricultural use or urban development, and 
+    is therefore not likely to be functional floodplain.
+  </p>
+  <figure class="report-figure">
+    {{figures['elevated_bin_bar']|safe}}
+  </figure>
+  <figure class="report-figure">
+    {{figures['floodplain_access_bar']|safe}}
+  </figure>
+  <figure class="report-figure">
+    {{figures['prop_ag_dev_bar']|safe}}
+  </figure>
+</section>
+
 <section id="condition-and-recovery-potential">
   <h2>Condition</h2>
   <figure class="report-figure">
