@@ -1,5 +1,9 @@
 # Riverscapes Stream Names Report
 
+## Version 0.4.2
+
+* new statistics section
+
 ## Version 0.4.1
 
 * Wire in user-supplied 'guess' for most common name

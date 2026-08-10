@@ -14,7 +14,7 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from reports.rpt_stream_names import __version__ as report_version
-from reports.rpt_stream_names.dataprep import build_highlight_cards_data, get_wcdata_for_aoi
+from reports.rpt_stream_names.dataprep import additional_stats, build_highlight_cards_data, get_wcdata_for_aoi
 from reports.rpt_stream_names.figures import aoi_polygon_svg, word_cloud
 from util import prepare_gdf_for_athena
 from util.figures import (
@@ -321,6 +321,8 @@ def make_report_orchestrator(
     data_df.to_csv(csv_data_path, index=False)
     # given the data groups by stream name and there are only ~80k distinct stream names in CONUS this shouldn't blow up
     data_df.to_excel(report_dir / 'data' / 'data.xlsx', index=False)
+
+    stats = additional_stats(aoi_gdf, data_df)
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
