@@ -6,6 +6,7 @@ from rsxml import Logger
 
 from util.athena import aoi_query_to_dataframe
 from util.figures import HighlightCard
+from util.rs_geo_helpers import total_aoi_area_m2
 
 
 def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
@@ -116,3 +117,10 @@ def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -
             },
         },
     ]
+
+
+def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame) -> dict[str, pint.Quantity]:
+    """summary statsitics including area of AOI"""
+    aoi_area = total_aoi_area_m2(aoi_gdf)
+    stats = {"aoi_area": aoi_area}
+    return stats

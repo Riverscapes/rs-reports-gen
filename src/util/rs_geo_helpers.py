@@ -4,7 +4,10 @@ import json
 from dataclasses import dataclass
 
 import geopandas as gpd
+import pint
 from rsxml import Logger
+
+UREG = pint.UnitRegistry()
 
 
 @dataclass
@@ -160,3 +163,28 @@ def get_bounds_from_gdf(gdf: gpd.GeoDataFrame) -> tuple[dict, tuple[float, float
     bounds = union_geom.bounds  # (minx, miny, maxx, maxy)
 
     return geojson_output, (centroid.x, centroid.y), bounds
+
+
+def total_aoi_area_m2(aoi_gdf: gpd.GeoDataFrame) -> pint.Quantity:
+    """get area of union of all polygons in the dataframe
+    Returns a pint quantity (units will be in m**2, converting is up to caller).
+    area_m2 = total_aoi_area_m2(aoi_gdf)
+    area_km2 = area_m2 / 1_000_000
+    area_acres = area_m2 / 4046.8564224
+    """
+    if aoi_gdf.crs is None:
+        raise ValueError("AOI has no CRS; cannot compute area reliably.")
+
+    g = aoi_gdf[aoi_gdf.geometry.notna()].copy()
+    g["geometry"] = g.geometry.make_valid()
+
+    # Prefer an equal-area/projected CRS before area calculations.
+    # For local AOIs, estimate_utm_crs() is usually fine.
+    area_crs = g.estimate_utm_crs() or "EPSG:5070"
+    g = g.to_crs(area_crs)
+
+    # Union all polygons so overlaps are not double-counted.
+    union_geom = g.geometry.union_all()  # fallback: g.unary_union
+    area_float = union_geom.area
+
+    return area_float * UREG.meter**2
