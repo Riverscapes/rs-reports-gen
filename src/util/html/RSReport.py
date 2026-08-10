@@ -155,7 +155,7 @@ class RSReport:
                 log.warning(f"CSS path {css_path} does not exist and will be skipped.")
         style_tag = f"<style>{css}</style>"
         now = datetime.now(UTC)
-
+        stage = os.getenv('STAGE', 'Unknown')
         # This is what is passed to each template
         report_context = {
             'report': {
@@ -167,6 +167,7 @@ class RSReport:
                 'date_iso': now.isoformat(),
                 'ReportType': self.report_type,
                 'version': self.report_version,
+                'stage': stage,
             },
             'figures': figure_exports,
             **self.html_elements,
