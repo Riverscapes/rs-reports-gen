@@ -9,6 +9,7 @@ import pandas as pd
 import pint
 
 from util.figures import common_statistics
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 
 # assume pint registry has been set up already
 
@@ -62,8 +63,27 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     common_stats = common_statistics(gdf)
     # any statistics needed for this report specifically go here
 
+    subset_df = RSGeoDataFrame(gdf[["segment_area", "centerline_length", "stream_length"]].copy())
+    # Calculate totals
+    total_segment_area = subset_df["segment_area"].sum()
+    total_centerline_length = subset_df["centerline_length"].sum()
+
+    if total_centerline_length != 0:
+        integrated_valley_bottom_area_per_length = total_segment_area / total_centerline_length
+    else:
+        integrated_valley_bottom_area_per_length = float('nan') * total_segment_area.units / total_centerline_length.units
+
+    RSFieldMeta().add_field_meta(
+        name='integrated_valley_bottom_area_per_length',
+        friendly_name='Area per Length of Riverscape',
+        data_unit='acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer',
+        dtype='REAL',
+        description='Total riverscape area divided by total riverscape length.',
+    )
+
     # Compose result dictionary
     stats = {
         **common_stats,
+        'integrated_valley_bottom_area_per_length': integrated_valley_bottom_area_per_length.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
     }
     return stats
