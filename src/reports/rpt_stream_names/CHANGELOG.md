@@ -3,6 +3,7 @@
 ## Version 0.4.2
 
 * new statistics section
+* better tracking of no results vs error in querying Athena
 
 ## Version 0.4.1
 
