@@ -11,7 +11,7 @@ FUTURE ENHANCEMENTs:
 
 import json
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TypedDict
 
 import geopandas as gpd
@@ -987,7 +987,7 @@ class HighlightCard(TypedDict):
 HighlightCards = list[HighlightCard]
 
 
-def metric_cards(metrics: dict[str, object], layer_id: str | None = None) -> MetricCards:
+def metric_cards(metrics: Mapping[str, object], layer_id: str | None = None) -> MetricCards:
     """transform a statistics dictionary into dictionary of elements for display
 
     Args:

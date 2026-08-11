@@ -10,6 +10,13 @@ from util.figures import HighlightCard
 from util.rs_geo_helpers import total_aoi_area_m2
 
 
+def named_wcdata(df: pd.DataFrame) -> pd.DataFrame:
+    """Return data for named streams only (what our query used to return)"""
+    name = df["stream_name"].astype("string").str.strip()
+    mask = name.notna() & ~name.str.casefold().isin({"", "-unnamed-"})
+    return df.loc[mask].copy()
+
+
 def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     """get word cloud data for an area of interest
     and return dataframe
@@ -20,9 +27,9 @@ def get_wcdata_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     geom_field_clause = "ST_GeomFromBinary(dgo_geom)"  # must be a geometry, not a WKT or WKB
     geom_bbox_field = "dgo_geom_bbox"
     querystr = """
-SELECT stream_name, round(sum(centerline_length),0) AS total_riverscape_length, max(stream_order) AS max_stream_order, count(distinct level_path) as level_path_count
-FROM input_geom, raw_rme_pq2
-WHERE {prefilter_condition} AND {intersects_condition} AND (stream_name IS NOT NULL)
+SELECT stream_name, round(sum(centerline_length),0) AS total_riverscape_length, max(stream_order) AS max_stream_order, count(distinct level_path) as level_path_count, round(SUM(stream_length),0) as total_channel_length
+FROM input_geom, rs_rpt.rme_datamart_base_vw
+WHERE {prefilter_condition} AND {intersects_condition}
 GROUP BY stream_name
 """
     query_result = aoi_query_to_dataframe_result(querystr, geom_field_clause, geom_bbox_field, aoi_gdf)
@@ -32,13 +39,14 @@ GROUP BY stream_name
         raise RuntimeError(f"Failed to query stream-name data from Athena: {message}") from query_result.error
 
     df = query_result.data if query_result.data is not None else pd.DataFrame()
-    if query_result.status == QueryStatus.EMPTY or df.empty:
-        df = pd.DataFrame(columns=["stream_name", "total_riverscape_length", "max_stream_order", "level_path_count", "rs_area_per_length"], data=[["No stream names found", 10.0, 3, 1, 1.0]])
-        df["stream_name"] = df["stream_name"].astype(str)
-        df["total_riverscape_length"] = df["total_riverscape_length"].astype(float)
-        df["max_stream_order"] = df["max_stream_order"].astype(int)
-        df["level_path_count"] = df["level_path_count"].astype(int)
-        df["rs_area_per_length"] = df["rs_area_per_length"].astype(float)
+    # so-called 'Sentinel row' was used to make a report full of dummy figures, but gets more and more complicated as the report expands
+    # if query_result.status == QueryStatus.EMPTY or df.empty:
+    #     df = pd.DataFrame(columns=["stream_name", "total_riverscape_length", "max_stream_order", "level_path_count", "rs_area_per_length"], data=[["No stream data returned", 10.0, 3, 1, 1.0]])
+    #     df["stream_name"] = df["stream_name"].astype(str)
+    #     df["total_riverscape_length"] = df["total_riverscape_length"].astype(float)
+    #     df["max_stream_order"] = df["max_stream_order"].astype(int)
+    #     df["level_path_count"] = df["level_path_count"].astype(int)
+    #     df["rs_area_per_length"] = df["rs_area_per_length"].astype(float)
     return df
 
 
@@ -126,10 +134,10 @@ def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -
     ]
 
 
-def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame) -> dict[str, pint.Quantity]:
-    """summary statsitics including area of AOI
-
-    # TODO: Additional stats:
+def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.DataFrame) -> dict[str, pint.Quantity]:
+    """Summary statistics for all, named & unnamed in the AOI.
+       including
+    Area of AOI
     Total channel length
     Total riverscape length
     Total number of systems or level paths
@@ -141,6 +149,24 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame) -> dict[str, p
 
     """
     aoi_area = total_aoi_area_m2(aoi_gdf)
+    grand_total_channel_length = df['total_channel_length'].sum()
+    grand_total_riverscape_length = df['total_riverscape_length'].sum()
+    grand_total_level_paths = df['level_path_count'].sum()
+    grand_total_named_channel_length = named_df['total_channel_length'].sum()
+    grand_total_unnamed_channel_length = grand_total_channel_length - grand_total_named_channel_length
+    percentage_channel_length_named = grand_total_named_channel_length / grand_total_channel_length
+    grand_total_named_riverscape_length = named_df['total_riverscape_length'].sum()
+    percentage_riverscape_length_named = grand_total_named_riverscape_length / grand_total_riverscape_length
+    relative_flow_length = grand_total_channel_length / grand_total_riverscape_length
 
-    stats = {"aoi_area": aoi_area}
+    stats = {
+        "aoi_area": aoi_area,
+        "grand_total_channel_length": grand_total_channel_length,
+        "grand_total_riverscape_length": grand_total_riverscape_length,
+        "grand_total_level_paths": grand_total_level_paths,
+        "percentage_channel_length_named": percentage_channel_length_named,
+        "percentage_riverscape_length_named": percentage_riverscape_length_named,
+        "grand_total_unnamed_channel_length": grand_total_unnamed_channel_length,
+        "relative_flow_length": relative_flow_length,
+    }
     return stats
