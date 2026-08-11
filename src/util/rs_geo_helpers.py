@@ -5,9 +5,10 @@ from dataclasses import dataclass
 
 import geopandas as gpd
 import pint
+import pint_pandas  # noqa: F401  # pylint: disable=unused-import
 from rsxml import Logger
 
-UREG = pint.UnitRegistry()
+UREG = pint.get_application_registry()
 
 
 @dataclass
@@ -166,16 +167,23 @@ def get_bounds_from_gdf(gdf: gpd.GeoDataFrame) -> tuple[dict, tuple[float, float
 
 
 def total_aoi_area_m2(aoi_gdf: gpd.GeoDataFrame) -> pint.Quantity:
-    """get area of union of all polygons in the dataframe
-    Returns a pint quantity (units will be in m**2, converting is up to caller).
-    area_m2 = total_aoi_area_m2(aoi_gdf)
-    area_km2 = area_m2 / 1_000_000
-    area_acres = area_m2 / 4046.8564224
+    """Get area of the union of all AOI polygons.
+
+    Returns:
+        pint.Quantity: Total AOI area in square meters.
+
+    Example:
+        area = total_aoi_area_m2(aoi_gdf)
+        area_km2 = area.to("kilometer**2")
+        area_acres = area.to("acre")
     """
     if aoi_gdf.crs is None:
         raise ValueError("AOI has no CRS; cannot compute area reliably.")
 
     g = aoi_gdf[aoi_gdf.geometry.notna()].copy()
+    if g.empty:
+        return 0 * UREG.meter**2
+
     g["geometry"] = g.geometry.make_valid()
 
     # Prefer an equal-area/projected CRS before area calculations.
