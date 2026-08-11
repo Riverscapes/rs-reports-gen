@@ -4,6 +4,7 @@
 
 * new statistics section
 * better tracking of no results vs error in querying Athena
+* including statistics for unnamed-stream Riverscapes
 
 ## Version 0.4.1
 

@@ -14,12 +14,13 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 from reports.rpt_stream_names import __version__ as report_version
-from reports.rpt_stream_names.dataprep import additional_stats, build_highlight_cards_data, get_wcdata_for_aoi
+from reports.rpt_stream_names.dataprep import additional_stats, build_highlight_cards_data, get_wcdata_for_aoi, named_wcdata
 from reports.rpt_stream_names.figures import aoi_polygon_svg, word_cloud
 from util import prepare_gdf_for_athena
 from util.figures import (
     HighlightCard,
     make_aoi_outline_map,
+    metric_cards,
 )
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
@@ -219,15 +220,20 @@ def make_report(
     safe_makedirs(str(figure_dir))
 
     header_svg = aoi_polygon_svg(aoi_gdf, figure_dir)
+
+    named_df = named_wcdata(df)
+
     tables = {
-        "top_names_by_path_count": build_top_names_by_path_count_table(df),
-        "top_names_by_riverscape_length": build_top_names_by_riverscape_length_table(df),
+        "top_names_by_path_count": build_top_names_by_path_count_table(named_df),
+        "top_names_by_riverscape_length": build_top_names_by_riverscape_length_table(named_df),
     }
 
-    word_cloud(df, figure_dir, frequency_field='total_riverscape_length')
-    word_cloud(df, figure_dir, frequency_field='level_path_count')
+    stats = additional_stats(aoi_gdf, df, named_df)
 
-    highlight_cards: list[HighlightCard] = build_highlight_cards_data(df, unit_system=unit_system)
+    word_cloud(named_df, figure_dir, frequency_field='total_riverscape_length')
+    word_cloud(named_df, figure_dir, frequency_field='level_path_count')
+
+    highlight_cards: list[HighlightCard] = build_highlight_cards_data(named_df, unit_system=unit_system)
 
     report = RSReport(
         report_name="What are the most common names of our streams and rivers?",
@@ -245,6 +251,7 @@ def make_report(
     report.add_html_elements("tables", tables)
     report.add_html_elements("highlight_cards", highlight_cards)
     report.add_html_elements("user_guess", normalize_guessed_name(guessed_name))
+    report.add_html_elements("cards", metric_cards(stats, "stats"))
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -321,8 +328,6 @@ def make_report_orchestrator(
     data_df.to_csv(csv_data_path, index=False)
     # given the data groups by stream name and there are only ~80k distinct stream names in CONUS this shouldn't blow up
     data_df.to_excel(report_dir / 'data' / 'data.xlsx', index=False)
-
-    stats = additional_stats(aoi_gdf, data_df)
 
     # make html report
     # If we aren't including pdf we just make interactive report. No need for the static one
