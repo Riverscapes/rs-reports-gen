@@ -63,10 +63,14 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     common_stats = common_statistics(gdf)
     # any statistics needed for this report specifically go here
 
-    subset_df = RSGeoDataFrame(gdf[["segment_area", "centerline_length", "stream_length"]].copy())
+    subset_df = RSGeoDataFrame(gdf[["segment_area", "centerline_length", "elevated_ratio", "lf_agriculture", "lf_developed", "access_fldpln_extent"]].copy())
     # Calculate totals
     total_segment_area = subset_df["segment_area"].sum()
     total_centerline_length = subset_df["centerline_length"].sum()
+    elevated_ratio = sum(subset_df["elevated_ratio"] * subset_df["segment_area"]) / total_segment_area if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    lf_agriculture_ratio = subset_df["lf_agriculture"].sum() / total_segment_area if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    lf_developed_ratio = subset_df["lf_developed"].sum() / total_segment_area if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    inaccessible_fldpln_ratio = 1 - (subset_df["access_fldpln_extent"].sum() / total_segment_area) if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
 
     if total_centerline_length != 0:
         integrated_valley_bottom_area_per_length = total_segment_area / total_centerline_length
@@ -80,10 +84,34 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
         dtype='REAL',
         description='Total riverscape area divided by total riverscape length.',
     )
+    RSFieldMeta().add_field_meta(
+        name='inaccessible_fldpln_ratio',
+        friendly_name='Inaccessible Floodplain Ratio',
+        data_unit='',
+        dtype='REAL',
+        description='Proportion of the floodplain that is inaccessible.',
+        preferred_format='{:.1%}',
+    )
+
+    for ratio_field in ['elevated_ratio', 'lf_agriculture_prop', 'lf_developed_prop']:
+        try:
+            RSFieldMeta().set_preferred_format(ratio_field, '{:.1%}')
+        except Exception:
+            # Some schemas may omit a field; add a minimal metadata row so cards still format correctly.
+            RSFieldMeta().add_field_meta(
+                name=ratio_field,
+                data_unit='',
+                dtype='REAL',
+                preferred_format='{:.1%}',
+            )
 
     # Compose result dictionary
     stats = {
         **common_stats,
         'integrated_valley_bottom_area_per_length': integrated_valley_bottom_area_per_length.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
+        'elevated_ratio': elevated_ratio,
+        'lf_agriculture_prop': lf_agriculture_ratio,
+        'lf_developed_prop': lf_developed_ratio,
+        'inaccessible_fldpln_ratio': inaccessible_fldpln_ratio,
     }
     return stats

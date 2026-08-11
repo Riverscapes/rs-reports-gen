@@ -41,19 +41,19 @@
 
 <section id="key-indicators">
   <h2>How Much Space?</h2>
-  <p>How much space to the selected riverscapes need? The following metrics provide an overview of the 
-    total area of the selected riverscape. In an intact condition, rivers would have access to their full valley 
+  <p>How much space do the selected riverscapes need? The following metrics provide an overview of the 
+    total area of the riverscapes. In an intact condition, rivers would have access to their full valley 
     bottoms, interacting with them via hydrologic processes like flooding and geomorphic process like channel migration.
     Various impacts, summarized in following sections, fragment riverscapes and reduce the ability of rivers to 
     access their full valley bottoms.
   </p>
 
   <dl class="metric-grid">
-    {% for key, card in cards.items() %}
+    {% for key, card in (cards.items() | list)[:5] %}
     <div class="metric">
       <dt>{{ card.title }}</dt>
       <dd class="metric-number">{{ card.value }}</dd>
-      {% if details %}
+      {% if card.details %}
       <dd class="metric-details">{{ card.details }}</dd>
       {% endif %}
     </div>
@@ -70,8 +70,8 @@
   <section id="flow-types">
   <h3>Flow Types</h3>
   <div class="section-context">
-    <p>This section categorizes the river segments based on their flow types, providing insights into the hydrological
-      characteristics of the study area.</p>
+    <p>This section summarizes the riverscape segments based on the flow type of the primary channel associated with them, 
+      providing insights into the hydrological characteristics of the study area.</p>
   </div>
   <figure class="report-figure">
     {{ figures['pie']|safe }}
@@ -80,8 +80,9 @@
 </section>
   <h3>Ownership</h3>
   <div class="section-context">
-    <p>This section provides an overview of the ownership of the river segments within the study area. The dominant
-      ownership category is determined for each riverscape and then summed across the area of interest.</p>
+    <p>This section provides an overview of the ownership of the riverscape segments within the study area. The dominant
+      ownership category is determined for each riverscape (based on the majority ownership within that segment) and 
+      then summed across the area of interest.</p>
   </div>
   <figure class="report-figure">
     {{ figures['bar']|safe }}
@@ -117,6 +118,21 @@
     or developed represents the fraction of each reach that has been converted to agricultural use or urban development, and 
     is therefore not likely to be functional floodplain.
   </p>
+
+  <dl class="metric-grid">
+    {% for key, card in (cards.items() | list)[5:9] %}
+    <div class="metric">
+      <dt>{{ card.title }}</dt>
+      <dd class="metric-number">{{ card.value }}</dd>
+      {% if card.details %}
+      <dd class="metric-details">{{ card.details }}</dd>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </dl>
+
+  <div class="page-break-before"></div>
+
   <figure class="report-figure">
     {{figures['elevated_bin_bar']|safe}}
   </figure>
