@@ -120,7 +120,20 @@ def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -
 
 
 def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame) -> dict[str, pint.Quantity]:
-    """summary statsitics including area of AOI"""
+    """summary statsitics including area of AOI
+
+    # TODO: Additional stats:
+    Total channel length
+    Total riverscape length
+    Total number of systems or level paths
+    Named channel length
+    Unnamed channel length
+    Percentage of channel length named
+    Percentage of riverscape length associated with a named stream
+    Relative flow length = channel length ÷ riverscape length
+
+    """
     aoi_area = total_aoi_area_m2(aoi_gdf)
+
     stats = {"aoi_area": aoi_area}
     return stats
