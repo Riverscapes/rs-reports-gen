@@ -107,6 +107,8 @@ import tempfile
 import time
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -125,6 +127,31 @@ S3_ATHENA_BUCKET = "riverscapes-athena-output"
 ATHENA_WORKGROUP = "primary"
 AWS_REGION = "us-west-2"
 DEFAULT_FLAT_BBOX_COLUMNS = ("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax")
+
+
+class QueryStatus(StrEnum):
+    """Status values for Athena dataframe query helpers.
+
+    Created by copilot.
+    """
+
+    OK = "ok"
+    EMPTY = "empty"
+    ERROR = "error"
+
+
+@dataclass
+class DataFrameQueryResult:
+    """Structured result for Athena query helpers that return DataFrames.
+
+    Created by copilot.
+    """
+
+    status: QueryStatus
+    data: pd.DataFrame | None = None
+    message: str | None = None
+    error: Exception | None = None
+
 
 # ===== Local Helpers =====
 
@@ -385,6 +412,57 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
     log.info(f"Download complete. Files are in {local_path}")
 
 
+def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQueryResult:
+    """Execute Athena query and return structured status plus DataFrame payload.
+
+    Distinguishes successful empty results from execution errors.
+
+    Created by copilot.
+    """
+    log = Logger("Athena unload query to DF")
+    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+
+    query_bytes = len(query.encode('utf-8'))
+    if query_bytes > 262144:
+        err = ValueError(f"Query exceeds Athena's 256 KB limit ({query_bytes} bytes).")
+        log.error(str(err))
+        return DataFrameQueryResult(status=QueryStatus.ERROR, message=str(err), error=err)
+
+    log.debug(f"Query {querylabel}:\n{query}")
+    try:
+        df = wr.athena.read_sql_query(
+            query,
+            database='default',
+            ctas_approach=False,
+            unload_approach=True,  # only PARQUET format is supported with this option
+            s3_output=s3_output,
+        )
+        log.debug(f"Query {querylabel} to dataframe completed.")
+        if df.empty:
+            return DataFrameQueryResult(
+                status=QueryStatus.EMPTY,
+                data=df,
+                message=f"Query {querylabel} completed successfully with no rows.",
+            )
+        return DataFrameQueryResult(status=QueryStatus.OK, data=df)
+    except Exception as e:
+        error_text = str(e)
+        # Keep warning-level logging for the known no-results/untyped dataframe case.
+        if "Query would return untyped, empty dataframe" in error_text:
+            log.warning(f"Query {querylabel} returned no results: {e}")
+            return DataFrameQueryResult(
+                status=QueryStatus.EMPTY,
+                data=pd.DataFrame(),
+                message=f"Query {querylabel} returned no rows.",
+            )
+        # Missing table should always be elevated to error.
+        if "TABLE_NOT_FOUND" in error_text:
+            log.error(f"Query {querylabel} failed (TABLE_NOT_FOUND): {e}")
+        else:
+            log.error(f"Query {querylabel} failed: {e}")
+        return DataFrameQueryResult(status=QueryStatus.ERROR, message=error_text, error=e)
+
+
 def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     """uses awswrangler to return a dataframe for a given query
     args:
@@ -407,35 +485,41 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     *   Does not support columns with undefined data types.
     *   data has to fit into RAM memory. do not use for results with millions of rows
     """
-    log = Logger("Athena unload query to DF")
-    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+    result = query_to_dataframe_result(query, querylabel)
+    if result.status == QueryStatus.ERROR:
+        if isinstance(result.error, ValueError):
+            # Keep legacy behavior for query-size validation failures.
+            raise result.error
+        return pd.DataFrame()
+    if result.data is None:
+        return pd.DataFrame()
+    return result.data
 
-    query_bytes = len(query.encode('utf-8'))
-    if query_bytes > 262144:
-        raise ValueError(f"Query exceeds Athena's 256 KB limit ({query_bytes} bytes).")
 
-    log.debug(f"Query {querylabel}:\n{query}")
+def aoi_query_to_dataframe_result(
+    querystr: str,
+    geometry_field_expression: str,
+    geom_bbox_field: str | None,
+    aoi_gdf: gpd.GeoDataFrame,
+    *,
+    geom_bbox_columns: tuple[str, str, str, str] | None = None,
+) -> DataFrameQueryResult:
+    """Execute a spatial AOI query and return structured status plus DataFrame payload.
+
+    Created by copilot.
+    """
     try:
-        df = wr.athena.read_sql_query(
-            query,
-            database='default',
-            ctas_approach=False,
-            unload_approach=True,  # only PARQUET format is supported with this option
-            s3_output=s3_output,
+        prepared_query = prepare_aoi_query(
+            querystr,
+            geometry_field_expression,
+            geom_bbox_field,
+            aoi_gdf,
+            geom_bbox_columns=geom_bbox_columns,
         )
-        log.debug(f"Query {querylabel} to dataframe completed.")
-        return df
     except Exception as e:
-        error_text = str(e)
-        # Keep warning-level logging for the known no-results/untyped dataframe case.
-        if "Query would return untyped, empty dataframe" in error_text:
-            log.warning(f"Query {querylabel} returned no results: {e}")
-        # Missing table should always be elevated to error.
-        elif "TABLE_NOT_FOUND" in error_text:
-            log.error(f"Query {querylabel} failed (TABLE_NOT_FOUND): {e}")
-        else:
-            log.error(f"Query {querylabel} failed: {e}")
-        return pd.DataFrame()  # Return empty DataFrame for downstream code
+        return DataFrameQueryResult(status=QueryStatus.ERROR, message=str(e), error=e)
+
+    return query_to_dataframe_result(prepared_query, 'aoi_query')
 
 
 def aoi_query_to_dataframe(

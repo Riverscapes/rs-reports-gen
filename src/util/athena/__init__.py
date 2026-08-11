@@ -1,7 +1,10 @@
 """Helpers for interacting with AWS Athena and S3."""
 
 from .athena import (
+    DataFrameQueryResult,
+    QueryStatus,
     aoi_query_to_dataframe,
+    aoi_query_to_dataframe_result,
     aoi_query_to_local_parquet,
     athena_select_to_dataframe,
     # legacy
@@ -12,6 +15,7 @@ from .athena import (
     get_field_metadata,
     get_field_metadata_lakehouse_ref,
     query_to_dataframe,
+    query_to_dataframe_result,
     query_to_local_parquet,
     run_aoi_athena_query,
 )
@@ -19,7 +23,11 @@ from .athena import (
 __all__ = [
     # preferred
     "query_to_dataframe",
+    "query_to_dataframe_result",
+    "QueryStatus",
+    "DataFrameQueryResult",
     "aoi_query_to_dataframe",
+    "aoi_query_to_dataframe_result",
     "query_to_local_parquet",
     "aoi_query_to_local_parquet",
     "get_field_metadata_lakehouse_ref",
