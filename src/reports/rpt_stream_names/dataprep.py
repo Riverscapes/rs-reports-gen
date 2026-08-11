@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import geopandas as gpd
 import pandas as pd
+import pint
 from rsxml import Logger
 
-from util.athena import aoi_query_to_dataframe
+from util.athena import QueryStatus, aoi_query_to_dataframe_result
 from util.figures import HighlightCard
 from util.rs_geo_helpers import total_aoi_area_m2
 
@@ -24,8 +25,14 @@ FROM input_geom, raw_rme_pq2
 WHERE {prefilter_condition} AND {intersects_condition} AND (stream_name IS NOT NULL)
 GROUP BY stream_name
 """
-    df = aoi_query_to_dataframe(querystr, geom_field_clause, geom_bbox_field, aoi_gdf)
-    if df.empty:
+    query_result = aoi_query_to_dataframe_result(querystr, geom_field_clause, geom_bbox_field, aoi_gdf)
+
+    if query_result.status == QueryStatus.ERROR:
+        message = query_result.message or "Unknown Athena query error"
+        raise RuntimeError(f"Failed to query stream-name data from Athena: {message}") from query_result.error
+
+    df = query_result.data if query_result.data is not None else pd.DataFrame()
+    if query_result.status == QueryStatus.EMPTY or df.empty:
         df = pd.DataFrame(columns=["stream_name", "total_riverscape_length", "max_stream_order", "level_path_count", "rs_area_per_length"], data=[["No stream names found", 10.0, 3, 1, 1.0]])
         df["stream_name"] = df["stream_name"].astype(str)
         df["total_riverscape_length"] = df["total_riverscape_length"].astype(float)
