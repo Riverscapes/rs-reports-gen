@@ -5,7 +5,13 @@
 
 <section>
   <div class="section-context">
-    <p>This Riverscapes Need Space Report is an estimate of how much space the riverscape could utilize, based on models of valley bottom (riverscapes) from the Valley Bottom Extraction Tool driven by a 10 m NED digital elevation dataset and the National Hydrography Dataset (<a href="https://docs.riverscapes.net/initiatives/CONUS-runs">CONUS2025 Run</a>). The model and this report are only as good as the underlying data used to generate them, but they can help begin to characterize intrinsic riverscape properties for your riverscape, as well as start to consider current conditions from the perspective of the first principle of healthy riverscapes - healthy riverscapes need access to their valley bottoms.</p>
+    <p>The first principle of riverscape health is that streams need access to their valley bottoms (<a href="https://wires.onlinelibrary.wiley.com/doi/full/10.1002/wat2.70028">Glassic et al. 2025</a>).
+      This 'Riverscapes Need Space' Report provides an estimate of how much space your selected riverscapes could utilize, 
+      based on modeled valley bottom (riverscape) extent from the Valley Bottom Extraction Tool (VBET), driven by a 10 m resolution 
+      digital elevation model, and the National Hydrography Dataset (<a href="https://docs.riverscapes.net/initiatives/CONUS-runs">CONUS2025 Run</a>). 
+      The model and this report are only as good as the underlying data used to generate them, but they can 
+      help to characterize intrinsic riverscape properties for your riverscape. The report also provides information 
+      regarding potential impacts that fragment riverscape space under current conditions.</p>
   </div>
 </section>
 
@@ -15,8 +21,7 @@
     <li><a href="#map-of-polygons">Report Area Map</a></li>
     <li><a href="#key-indicators">How Much Space?</a></li>
     <li><a href="#ownership-and-flowtypes">Flow Types and Ownership</a></li>
-    <li><a href="#stream-names">Stream Names and Lengths</a></li>
-    <li><a href="#fragmentation">Riverscape Fragmentation</a></li>
+    <li><a href="#fragmentation">Impacts to Riverscape Space</a></li>
     <li><a href="#condition-and-recovery-potential">Condition and Recovery Potential</a></li>
     <li><a href="#appendices">Appendices</a></li>
   </ol>
@@ -67,6 +72,13 @@
      and flow types of the primary channels associated with them. This is important for restoration and conservation 
      planning and management of riverscapes.
   </p>
+  <section id="stream-names">
+  <h3>Table of Stream Names and Lengths</h3>
+  <figure class="report-figure">
+    {{ tables['river_names']|safe}}
+    <!-- <figcaption>Stream names listed with calculated lengths.</figcaption> -->
+  </figure>
+  </section>
   <section id="flow-types">
   <h3>Flow Types</h3>
   <div class="section-context">
@@ -74,10 +86,15 @@
       providing insights into the hydrological characteristics of the study area.</p>
   </div>
   <figure class="report-figure">
-    {{ figures['pie']|safe }}
+    {{ figures['flow_bar']|safe }}
     <!-- <figcaption>Segment areas grouped by flow type.</figcaption> -->
   </figure>
-</section>
+  <figure class="report-figure">
+    {{ tables['flow_type']|safe}}
+    <!-- <figcaption>Tabular summary of flow types.</figcaption> -->
+  </figure>
+  </section>
+  <section id="ownership">
   <h3>Ownership</h3>
   <div class="section-context">
     <p>This section provides an overview of the ownership of the riverscape segments within the study area. The dominant
@@ -85,29 +102,18 @@
       then summed across the area of interest.</p>
   </div>
   <figure class="report-figure">
-    {{ figures['bar']|safe }}
-    <!-- <figcaption>Visualization of riverscape area by ownership category.</figcaption> -->
-  </figure>
-  <figure class="report-figure">
-    {{ figures['owner_bar']|safe }}
+    {{ figures['owner_pie']|safe }}
     <!-- <figcaption>NEW Visualization of riverscape area by ownership category.</figcaption> -->
   </figure>
   <figure class="report-figure">
     {{ tables['owners']|safe}}
     <!-- <figcaption>Tabular summary of segment ownership.</figcaption> -->
   </figure>
-</section>
-
-<section id="stream-names">
-  <h3>Table of Stream Names and lengths</h3>
-  <figure class="report-figure">
-    {{ tables['river_names']|safe}}
-    <!-- <figcaption>Stream names listed with calculated lengths.</figcaption> -->
-  </figure>
+  </section>
 </section>
 
 <section id="fragmentation">
-  <h2>Riverscape Fragmentation</h2>
+  <h2>Impacts to Riverscape Space</h2>
   <p>Various anthropogenic impacts can fragment riverscapes, affecting their ecological integrity and connectivity.
     Four factors that are modeled using the riverscapes network models are: elevated floodplain area, floodplain accessibility,
     proportion converted to agriculture and proportion developed. Elevated floodplains are areas that are topographically high 
