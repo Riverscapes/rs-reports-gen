@@ -89,7 +89,7 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
         friendly_name='Inaccessible Floodplain Ratio',
         data_unit='',
         dtype='REAL',
-        description='Proportion of the floodplain that is inaccessible.',
+        description='Proportion of the floodplain that is inaccessible due to transportation infrastructure.',
         preferred_format='{:.1%}',
     )
 

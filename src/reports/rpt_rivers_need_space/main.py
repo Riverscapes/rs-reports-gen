@@ -18,12 +18,14 @@ from reports.rpt_rivers_need_space.dataprep import add_calculated_cols
 from reports.rpt_rivers_need_space.figures import statistics
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.color import DEFAULT_FCODE_COLOR_MAP
 from util.figures import (
     bar_group_x_by_y,
     bar_total_x_by_ybins,
     dens_road_rail,
     make_map_with_aoi,
     make_rs_area_by_featcode,
+    make_rs_area_by_owner,
     metric_cards,
     project_id_list,
     prop_ag_dev,
@@ -77,6 +79,8 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
+        "owner_pie": make_rs_area_by_owner(gdf),
+        "flow_bar": bar_group_x_by_y(gdf, 'segment_area', ['fcode_desc'], fig_params={"color": "fcode_desc", "color_discrete_map": DEFAULT_FCODE_COLOR_MAP}),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
         "elevated_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['elevated_ratio']),
@@ -91,6 +95,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
         "owners": table_total_x_by_y(gdf, 'stream_length', ['ownership', 'ownership_desc']),
+        "flow_type": table_total_x_by_y(gdf, 'stream_length', ['fcode_desc']),
     }
     appendices = {
         "project_ids": project_id_list(gdf),

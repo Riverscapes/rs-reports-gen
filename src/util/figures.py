@@ -24,7 +24,7 @@ from rsxml import Logger
 from shapely.geometry import MultiPolygon, Polygon
 
 from util.binning import get_bins_info as _get_bins_info
-from util.color import DEFAULT_FCODE_COLOR_MAP
+from util.color import DEFAULT_FCODE_COLOR_MAP, DEFAULT_OWNER_COLOR_MAP
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 
 
@@ -797,6 +797,41 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
     return fig
 
 
+def make_rs_area_by_owner(gdf) -> go.Figure:
+    """Create pie chart of total segment area by owner"""
+    chart_data = gdf.groupby('ownership_desc', as_index=False)['segment_area'].sum()
+
+    meta = RSFieldMeta()
+    baked_header_lookup = meta.get_headers_dict(chart_data)
+    baked_chart_data, baked_headers = meta.bake_units(chart_data)
+
+    total_name = meta.get_friendly_name('segment_area')
+    group_name = baked_header_lookup.get('ownership_desc', meta.get_friendly_name('ownership_desc'))
+    title = f"Total {total_name} by {group_name}"
+
+    fig = px.pie(
+        baked_chart_data,
+        names="ownership_desc",
+        values="segment_area",
+        color="ownership_desc",
+        labels=baked_header_lookup,  # legend/axis labels use your nice names
+        title=title,
+        color_discrete_map=DEFAULT_OWNER_COLOR_MAP,
+    )
+
+    # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
+    fig.update_traces(
+        textinfo="percent",
+        hovertemplate=f"<b>{baked_header_lookup.get('segment_area', 'segment_area')} for {baked_header_lookup.get('ownership_desc', 'Ownership')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
+        # Use :,.1f or :,.2f if you want decimals.
+    )
+
+    # Prevent legend/hover name truncation
+    fig.update_layout(hoverlabel=dict(namelength=-1))
+
+    return fig
+
+
 def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     """Calculate and return key statistics for riverscapes RME as a dictionary
     Args:
@@ -870,8 +905,22 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     baked_header_lookup['bin'] = 'Land Use Intensity'
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=baked_agg_data['bin'], y=baked_agg_data['ag_segment_area'], name='Agriculture'))
-    fig.add_trace(go.Bar(x=baked_agg_data['bin'], y=baked_agg_data['dev_segment_area'], name='Development'))
+    fig.add_trace(
+        go.Bar(
+            x=baked_agg_data['bin'],
+            y=baked_agg_data['ag_segment_area'],
+            name='Agriculture',
+            marker_color='#e5e515',
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            x=baked_agg_data['bin'],
+            y=baked_agg_data['dev_segment_area'],
+            name='Developed',
+            marker_color='#ed2024',
+        )
+    )
 
     fig.update_layout(
         title='Agriculture and Development Proportion',
