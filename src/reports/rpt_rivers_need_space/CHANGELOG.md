@@ -4,6 +4,10 @@
 
 Internal use only
 
+### 0.3.0
+
+* Changed focus of content to characterize size of selected riverscapes and potential fragmentation from human land use (to align with VBET manuscript).
+
 ### 0.2.3
 
 * Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
