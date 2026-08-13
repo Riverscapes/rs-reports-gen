@@ -45,6 +45,7 @@ rpt-downstream-geomorphic = "reports.rpt_downstream_geomorphic.main:main"
 rpt-beaver-restoration-potential = "reports.rpt_beaver_restoration_potential.main:main"
 rs-report-demo = "util.html.demo.build_demo:main"
 rs-report-demo-live = "util.html.demo.live_server:main"
+rpt-inventory-of-resources = "reports.rpt_inventory_of_resources.main:main"
 
 # Install these using uv by typing: "uv pip install ".[dev]"
 [project.optional-dependencies]
@@ -67,6 +68,10 @@ where = ["src"]
     "templates/*.html",
     "templates/*.css",
     "example_inputs/*.geojson",
+]
+"reports.rpt_inventory_of_resources" = [
+    "templates/*.html",
+    "templates/*.css",
 ]
 
 [dependency-groups]

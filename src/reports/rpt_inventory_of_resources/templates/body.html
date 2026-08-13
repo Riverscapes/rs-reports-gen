@@ -1,0 +1,68 @@
+{% from 'macros.html' import render_metric_grid %}
+<section class="report-section">
+    <h2>Summary of Streams, Riparian-Wetland Areas, and Waterbodies</h2>
+    <p>Hydrographic features are the surficial expressions and/or conduits of water, sediment, and organic matter in a watershed 
+        that support most riparian-wetland and aquatic areas. Here, we summarize the location, type, extent, ownership patterns, 
+        and key attributes of the hydrographic features and associated riparian-wetland and aquatic resources. These details establish 
+        the spatial domain and context for assessing resource conditions, trends, contributing factors, monitoring needs, and 
+        management options.</p>
+</section>
+
+<section id='toc'>
+  <h2>Table of Contents</h2>
+  <ol class="toc-list">
+    <li><a href="#map">Locator Map</a></li>
+    <li><a href="#resource_inventory">Resource Inventory</a></li>
+    
+  </ol>
+</section>
+
+<section id="map">
+	<h2>Area of Interest</h2>
+	<figure class="report-figure map">{{ figures['map']|safe }}</figure>
+</section>
+
+<section id="resource_inventory">
+    <h2>Resource Inventory & Management Control</h2>
+	<div class="section-context">
+		<p>A unified, high-density overview of watershed resources and the extent of BLM's management influence. This context is
+            critical for prioritizing management actions across the landscape
+        </p>
+	</div>
+
+</section>
+
+<section id="characteristics">
+    <h2>Characteristics of Hydrographic Features & Riparian-Wetland Areas</h2>
+    <div class="section-context">
+        <p>This section summarizes key biophysical contextual attributes that commonly influence formative processes, biophysical
+            attributes, and/or resource values of: (i) streams/rivers, (ii) riparian-wetland areas, and (iii) waterbodies, seeps
+            and springs. This information helps analysts:
+            <ul>
+                <li>interpret the relevance and overall significance of various metrics and indicators to an area</li>
+                <li>identify types of areas that provide specific values of interest</li>
+                <li>Estimate the sensitivity of features to various managment actions</li>
+                <li>target the location and types of management interventions that would elicit desired outcomes most efficiently and effectively</li>
+            </ul>
+        </p>
+    </div>
+    <h3>Streams and Rivers</h3>
+    <h4>Streams by Type</h4>
+    <div class="section-context">
+        <p>Why this is useful: Stream types dictate the hydrologic regime and types of riparian vegetation that can be supported</p>
+    </div>
+    <figure class="report-figure">{{ figures['streams_by_type']|safe }}</figure>
+    <h4>Streams by Strahler Stream Order</h4>
+    <div class="section-context">
+        <p>Why this is useful: Strahler Stream Order measures relative stream size. Higher-order streams are larger and integrate
+            cumulative upstream processes.
+        </p>
+    </div>
+    <figure class="report-figure">{{ figures['streams_by_order']|safe }}</figure>
+    
+    <!-- conceptual fig of slope and valley morphology -->
+    <!-- channel slope: perennial streams -->
+    <!-- channel slope: non-perennial streams -->
+</section>
+
+
