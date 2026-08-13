@@ -54,7 +54,7 @@
   </p>
 
   <dl class="metric-grid">
-    {% for key, card in (cards.items() | list)[:5] %}
+    {% for key, card in (cards.items() | list)[:7] %}
     <div class="metric">
       <dt>{{ card.title }}</dt>
       <dd class="metric-number">{{ card.value }}</dd>
@@ -83,7 +83,7 @@
   <h3>Flow Types</h3>
   <div class="section-context">
     <p>This section summarizes the riverscape segments based on the flow type of the primary channel associated with them, 
-      providing insights into the hydrological characteristics of the study area.</p>
+      providing insights into the hydrological characteristics of the selected riverscapes.</p>
   </div>
   <figure class="report-figure">
     {{ figures['flow_bar']|safe }}
@@ -99,7 +99,7 @@
   <div class="section-context">
     <p>This section provides an overview of the ownership of the riverscape segments within the study area. The dominant
       ownership category is determined for each riverscape (based on the majority ownership within that segment) and 
-      then summed across the area of interest.</p>
+      then summed across the selected riverscapes.</p>
   </div>
   <figure class="report-figure">
     {{ figures['owner_pie']|safe }}
@@ -126,7 +126,7 @@
   </p>
 
   <dl class="metric-grid">
-    {% for key, card in (cards.items() | list)[5:9] %}
+    {% for key, card in (cards.items() | list)[7:11] %}
     <div class="metric">
       <dt>{{ card.title }}</dt>
       <dd class="metric-number">{{ card.value }}</dd>
@@ -150,7 +150,7 @@
   </figure>
 </section>
 
-<section id="condition-and-recovery-potential">
+<!-- <section id="condition-and-recovery-potential">
   <h2>Condition</h2>
   <figure class="report-figure">
     {{figures['low_lying_bin_bar']|safe}}
@@ -177,7 +177,7 @@
   <figure class="report-figure">
     {{figures['dens_road_rail_bar']|safe}}
   </figure>
-</section>
+</section> -->
 
 <section id="appendices" class="appendix">
   <h1>Appendices</h1>

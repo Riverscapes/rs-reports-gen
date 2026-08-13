@@ -74,8 +74,12 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
 
     if total_centerline_length != 0:
         integrated_valley_bottom_area_per_length = total_segment_area / total_centerline_length
+        min_size = min(subset_df["segment_area"] / subset_df["centerline_length"])
+        max_size = max(subset_df["segment_area"] / subset_df["centerline_length"])
     else:
         integrated_valley_bottom_area_per_length = float('nan') * total_segment_area.units / total_centerline_length.units
+        min_size = float('nan') * total_segment_area.units / total_centerline_length.units
+        max_size = float('nan') * total_segment_area.units / total_centerline_length.units
 
     RSFieldMeta().add_field_meta(
         name='integrated_valley_bottom_area_per_length',
@@ -91,6 +95,20 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
         dtype='REAL',
         description='Proportion of the floodplain that is inaccessible due to transportation infrastructure.',
         preferred_format='{:.1%}',
+    )
+    RSFieldMeta().add_field_meta(
+        name='min_size',
+        friendly_name='Minimum Area per Length of Riverscape',
+        data_unit='acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer',
+        dtype='REAL',
+        description='Minimum segment area divided by its centerline length.',
+    )
+    RSFieldMeta().add_field_meta(
+        name='max_size',
+        friendly_name='Maximum Area per Length of Riverscape',
+        data_unit='acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer',
+        dtype='REAL',
+        description='Maximum segment area divided by its centerline length.',
     )
 
     for ratio_field in ['elevated_ratio', 'lf_agriculture_prop', 'lf_developed_prop']:
@@ -109,6 +127,8 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     stats = {
         **common_stats,
         'integrated_valley_bottom_area_per_length': integrated_valley_bottom_area_per_length.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
+        'min_size': min_size.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
+        'max_size': max_size.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
         'elevated_ratio': elevated_ratio,
         'lf_agriculture_prop': lf_agriculture_ratio,
         'lf_developed_prop': lf_developed_ratio,
