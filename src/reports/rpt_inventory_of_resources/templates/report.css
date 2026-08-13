@@ -1,0 +1,18 @@
+/* Inventory of Resources report-specific styles. */
+
+.figure-grid {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.report-figure {
+	margin: 1rem 0;
+}
+
+table.dataframe {
+	display: block;
+	max-height: 28rem;
+	overflow: auto;
+	font-size: 0.88rem;
+}
