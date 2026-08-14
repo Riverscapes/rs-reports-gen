@@ -233,6 +233,143 @@ def horizontal_bar_chart(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     return fig
 
 
+def horizontal_split_bar_chart(
+    df: pd.DataFrame,
+    category_col: str,
+    value_col: str,
+    split_col: str,
+    color_discrete_map: dict[str, str] | None = None,
+    fig_params: dict | None = None,
+) -> go.Figure:
+    """
+    Horizontal bar chart with one bar per distinct category_col value. Each bar's
+    length is the total of value_col, stacked and coloured by split_col (typically,
+    but not necessarily, two values).
+
+    Args:
+        df (pd.DataFrame): dataframe containing category_col, value_col, split_col
+        category_col (str): categorical column - one bar per distinct value
+        value_col (str): numeric column summed to produce each bar segment's length
+        split_col (str): categorical column used to split/colour each bar
+        color_discrete_map (dict[str, str] | None): optional explicit colours for split_col values.
+            Defaults to DEFAULT_FCODE_COLOR_MAP when split_col is 'fcode_desc'.
+        fig_params (dict | None): extra kwargs passed through to px.bar (e.g. title)
+
+    Returns:
+        go.Figure: horizontal stacked bar chart, bars ordered smallest-to-largest total (largest on top)
+
+    Usage:
+        horizontal_split_bar_chart(data_df, 'ownership_desc', 'stream_length', 'fcode_desc')
+    """
+    fields = [category_col, split_col, value_col]
+    chart_subset_df = df[fields].copy()
+    agg_data = chart_subset_df.groupby([category_col, split_col], as_index=False, observed=False)[value_col].sum()
+
+    meta = RSFieldMeta()
+    baked_header_lookup = meta.get_headers_dict(agg_data)
+    baked_agg_data, _baked_headers = meta.bake_units(agg_data)
+
+    if fig_params is None:
+        fig_params = {}
+
+    if "title" not in fig_params:
+        fig_params["title"] = f"Total {meta.get_friendly_name(value_col)} by {meta.get_friendly_name(category_col)} and {meta.get_friendly_name(split_col)}"
+
+    # order categories smallest-to-largest total so the largest bar renders at the top
+    category_order = agg_data.groupby(category_col, observed=False)[value_col].sum().sort_values(ascending=True).index.tolist()
+    fig_params.setdefault("category_orders", {})
+    fig_params["category_orders"].setdefault(category_col, category_order)
+
+    color_kwargs = {}
+    if color_discrete_map:
+        color_kwargs["color_discrete_map"] = color_discrete_map
+    elif split_col == "fcode_desc":
+        color_kwargs["color_discrete_map"] = {k: v for k, v in DEFAULT_FCODE_COLOR_MAP.items() if k in set(chart_subset_df["fcode_desc"].astype(str))}
+
+    fig = px.bar(
+        baked_agg_data,
+        x=value_col,
+        y=category_col,
+        color=split_col,
+        orientation='h',
+        labels=baked_header_lookup,
+        height=400,
+        **color_kwargs,
+        **fig_params,
+    )
+    fig.update_layout(barmode='stack', margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+
+def split_bar_chart_by_bins(
+    df: pd.DataFrame,
+    bin_col: str,
+    value_col: str,
+    split_col: str,
+    color_discrete_map: dict[str, str] | None = None,
+    fig_params: dict | None = None,
+) -> go.Figure:
+    """
+    Vertical bar chart with one bar per bin of bin_col (bins looked up from bins.json).
+    Each bar's height is the total of value_col, stacked and coloured by split_col
+    (typically, but not necessarily, two values).
+
+    Args:
+        df (pd.DataFrame): dataframe containing bin_col, value_col, split_col
+        bin_col (str): numeric column binned via util.binning.get_bins_info
+        value_col (str): numeric column summed to produce each bar segment's height
+        split_col (str): categorical column used to split/colour each bar
+        color_discrete_map (dict[str, str] | None): optional explicit colours for split_col values.
+            Defaults to DEFAULT_FCODE_COLOR_MAP when split_col is 'fcode_desc'.
+        fig_params (dict | None): extra kwargs passed through to px.bar (e.g. title)
+
+    Returns:
+        go.Figure: vertical stacked bar chart, one bar per bin in bins.json order
+
+    Usage:
+        split_bar_chart_by_bins(data_df, 'confinement_ratio', 'stream_length', 'fcode_desc')
+    """
+    fields = [bin_col, split_col, value_col]
+    chart_subset_df = df[fields].copy()
+    edges, labels, _bin_colours = get_bins_info(bin_col)
+    chart_subset_df['bin'] = pd.cut(chart_subset_df[bin_col], bins=edges, labels=labels, include_lowest=True)
+    agg_data = chart_subset_df.groupby(['bin', split_col], as_index=False, observed=False)[value_col].sum()
+
+    meta = RSFieldMeta()
+    baked_header_lookup = meta.get_headers_dict(agg_data)
+    baked_agg_data, _baked_headers = meta.bake_units(agg_data)
+    baked_header_lookup['bin'] = meta.get_friendly_name(bin_col)
+
+    if fig_params is None:
+        fig_params = {}
+
+    if "title" not in fig_params:
+        fig_params["title"] = f"Total {meta.get_friendly_name(value_col)} by {meta.get_friendly_name(bin_col)} Bins and {meta.get_friendly_name(split_col)}"
+
+    # bins render left-to-right in bins.json order
+    fig_params.setdefault("category_orders", {})
+    fig_params["category_orders"].setdefault('bin', list(labels))
+
+    color_kwargs = {}
+    if color_discrete_map:
+        color_kwargs["color_discrete_map"] = color_discrete_map
+    elif split_col == "fcode_desc":
+        color_kwargs["color_discrete_map"] = {k: v for k, v in DEFAULT_FCODE_COLOR_MAP.items() if k in set(chart_subset_df["fcode_desc"].astype(str))}
+
+    fig = px.bar(
+        baked_agg_data,
+        x='bin',
+        y=value_col,
+        color=split_col,
+        labels=baked_header_lookup,
+        height=400,
+        **color_kwargs,
+        **fig_params,
+    )
+    fig.update_layout(barmode='stack', margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+
 def total_x_by_y(
     df: pd.DataFrame,
     total_col: str,

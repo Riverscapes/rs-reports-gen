@@ -68,6 +68,7 @@ def build_report_summaries(data_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     Returns:
             Named report summary tables.
     """
+
     return {
         "ownership": summarize_by_length(data_df, ["ownership_desc"]),
         "feature_type": summarize_by_length(data_df, ["fcode_desc"]),
