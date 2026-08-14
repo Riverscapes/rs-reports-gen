@@ -46,23 +46,88 @@
             </ul>
         </p>
     </div>
-    <h3>Streams and Rivers</h3>
-    <h4>Streams by Type</h4>
-    <div class="section-context">
-        <p>Why this is useful: Stream types dictate the hydrologic regime and types of riparian vegetation that can be supported</p>
-    </div>
-    <figure class="report-figure">{{ figures['streams_by_type']|safe }}</figure>
-    <h4>Streams by Strahler Stream Order</h4>
-    <div class="section-context">
-        <p>Why this is useful: Strahler Stream Order measures relative stream size. Higher-order streams are larger and integrate
-            cumulative upstream processes.
-        </p>
-    </div>
-    <figure class="report-figure">{{ figures['streams_by_order']|safe }}</figure>
-    
-    <!-- conceptual fig of slope and valley morphology -->
-    <!-- channel slope: perennial streams -->
-    <!-- channel slope: non-perennial streams -->
-</section>
+    <section id="streams_and_rivers">
+        <h3>Streams and Rivers</h3>
 
+        <h4>Streams by Type</h4>
+        <div class="section-context">
+            <p>Why this is useful: Stream types dictate the hydrologic regime and types of riparian vegetation that can be supported</p>
+        </div>
+        <figure class="report-figure">{{ figures['streams_by_type']|safe }}</figure>
+        
+        <h4>Streams by Strahler Stream Order</h4>
+        <div class="section-context">
+            <p>Why this is useful: Strahler Stream Order measures relative stream size. Higher-order streams are larger and integrate
+                cumulative upstream processes.
+            </p>
+        </div>
+        <figure class="report-figure">{{ figures['streams_by_order']|safe }}</figure>
+    
+        <!-- conceptual fig of slope and valley morphology -->
+
+        <h4>Channel Slope: Perennial Streams</h4>
+        <div class="section-context">
+            <p>Why this is useful: Channel slope influences stream power, sediment transport, and habitat potential. Perennial streams
+                often have lower slopes in valley bottoms.
+            </p>
+        </div>
+        <figure class="report-figure">{{ figures['channel_slope_perennial']|safe }}</figure>
+
+        <h4>Channel Slope: Non-Perennial Streams</h4>
+        <div class="section-context">
+            <p>Why this is useful: Channel slope influences stream power, sediment transport, and habitat potential. Non-perennial streams
+                often have steeper slopes and more variable flow regimes.
+            </p>
+        </div>
+        <figure class="report-figure">{{ figures['channel_slope_non_perennial']|safe }}</figure>
+
+        <!-- conceptual fig of confinement/constriction -->
+
+         <h4>Streams by Valley Confinement</h4>
+         <div class="section-context">
+            <p>Why this is useful: confinement describes lateral restriction by valley walls. Unconfined channels have greater potential
+                for restoration and habitat complexity.
+            </p>
+        </div>
+        <figure class="report-figure">{{ figures['streams_by_valley_confinement']|safe }}</figure>
+    </section>
+
+    <section id="riparian-wetland">
+        <h3>Riparian-Wetland Areas</h3>
+
+        <h4>Riparian-Wetland Areas</h4>
+        <div class="section-context">
+            <p>Why this is useful: Riparian and wetland areas are the most productive habitats in arid landscapes. BLM is required
+                to manage these areas for Proper Functioning Condition (PFC) to protect biodiversity, water quality, and forage.
+            </p>
+        </div>
+        <figure class="report-figure">{{ figures['riparian_by_type']|safe }}</figure>
+
+        <h4>Cowardin Riparian-Wetland Classes</h4>
+        <div class="section-context">
+            <p>Why this is useful: Cowardin classification provides a standardized method for identifying wetland types. This is 
+                critical for analysis as different classes (e.g., forested vs. emergent) have different ecological requirements and
+                management strategies.
+            </p>
+        </div>
+        <figure class="report-figure">{{ figures['cowardin_riparian_wetland_classes']|safe }}</figure>
+
+        <h4>NWI Water Regimes & Special Modifiers</h4>
+        <div class="section-context">
+            <p>Why this is useful: water regimes describe flooding duration/frequency. Specifial modifiers (like beaver activity)
+                identify key drivers of riverscape health.
+            </p>
+        </div>
+        <figure class="report-figure">{{ figures['nwi_regimes_modifiers']|safe }}</figure>
+    </section>
+
+    <section id="waterbodies">
+        <h3>Waterbodies, Seeps, and Springs</h3>
+
+        <h4>Waterbodies, Seeps, and Springs</h4>
+
+        <figure class="report-figure">{{ figures['waterbodies']|safe }}</figure>
+        <figure class="report-figure">{{ figures['seeps_springs']|safe }}</figure>
+    </section>
+</section>  
 
