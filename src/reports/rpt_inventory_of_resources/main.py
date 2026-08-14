@@ -26,7 +26,7 @@ from reports.rpt_inventory_of_resources.dataprep import (
 )
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata
-from util.figures import make_aoi_outline_map, project_id_list
+from util.figures import horizontal_split_bar_chart, make_aoi_outline_map, project_id_list, split_bar_chart_by_bins
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
 from util.pdf import make_pdf_from_html
@@ -80,9 +80,19 @@ def make_report(
     """
     log = Logger('make report')
 
+    data_df['ownership_binary'] = data_df['ownership_desc'].apply(lambda x: 'Bureau of Land Management' if x == 'Bureau of Land Management' else 'Non-BLM')
+    data_df['fcode_binary'] = data_df['fcode'].apply(lambda x: 'Perennial' if x in (46006, 55800) else 'Non-Perennial')
+    data_perennial = data_df[data_df['fcode_binary'] == 'Perennial']
+    data_non_perennial = data_df[data_df['fcode_binary'] == 'Non-Perennial']
+
     summaries = build_report_summaries(data_df)
     figures = {
         "map": make_aoi_outline_map(aoi_gdf),
+        "streams_by_type": horizontal_split_bar_chart(data_df, "fcode_binary", "stream_length", "ownership_binary"),
+        "streams_by_order": horizontal_split_bar_chart(data_df, "stream_order", "stream_length", "ownership_binary"),
+        "channel_slope_perennial": split_bar_chart_by_bins(data_perennial, "channel_slope", "stream_length", "ownership_binary"),
+        "channel_slope_non_perennial": split_bar_chart_by_bins(data_non_perennial, "channel_slope", "stream_length", "ownership_binary"),
+        "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary"),
     }
     tables = {name: _table_html(summary) for name, summary in summaries.items()}
     appendices = {
