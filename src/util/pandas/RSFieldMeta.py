@@ -44,7 +44,7 @@ from rsxml import Logger
 # shared canonical unit registry
 ureg = pint.get_application_registry()
 
-SI_SYSTEMS = ['SI', 'imperial']
+UNIT_SYSTEMS = ['SI', 'imperial']
 
 # I need a lookup table for converting units like meters to feet and km to miles based on the current unit system.
 # So, for example, if I ask for "meters" and the current system is imperial, I should get "feet" back.
@@ -257,7 +257,7 @@ class RSFieldMeta:
             ValueError: If the unit system is invalid.
         """
         normalized = system.strip()
-        valid_systems = set(SI_SYSTEMS)
+        valid_systems = set(UNIT_SYSTEMS)
         if normalized not in valid_systems:
             raise ValueError(f"Invalid unit system '{system}'. Valid options are: {list(valid_systems)}")
         ureg.default_system = normalized
@@ -611,6 +611,7 @@ class RSFieldMeta:
         *,
         decimals: int = 0,
         include_units: bool = True,
+        full_format: bool = False,
     ) -> str:
         """Format a scalar metric using metadata-aware rules.
 
@@ -620,19 +621,29 @@ class RSFieldMeta:
             layer_id (str | None): Layer identifier for disambiguation.
             decimals (int, optional): Fallback decimal places when no preferred format is defined.
             include_units (bool, optional): Append unit labels when available. Defaults to True.
+            full_format (bool, optional): When including units, use full name print. Defaults to False (ie use short form).
         """
         if value is None:
             return ""
 
-        converted_value = value
-        if isinstance(value, pint.Quantity):
-            try:
-                converted_value = self.get_system_unit_value(value)
-            except Exception:  # pragma: no cover - leave value unmodified on failure
-                converted_value = value
-
         fm = self.get_field_meta(column_name, layer_id)
         preferred_format = getattr(fm, "preferred_format", "") if fm else ""
+
+        converted_value = value
+        if isinstance(value, pint.Quantity):
+            target_unit = None
+            try:
+                target_unit = self.get_field_unit(column_name, layer_id=layer_id)
+            except Exception:  # pragma: no cover - keep formatting resilient
+                target_unit = None
+
+            try:
+                if target_unit is not None:
+                    converted_value = value.to(target_unit)
+                else:
+                    converted_value = self.get_system_unit_value(value)
+            except Exception:  # pragma: no cover - leave value unmodified on failure
+                converted_value = value
 
         magnitude = converted_value.magnitude if hasattr(converted_value, "magnitude") else converted_value
 
@@ -669,7 +680,10 @@ class RSFieldMeta:
         if clean_unit == ureg.dimensionless:
             unit_text = ""
         else:
-            unit_text = f"{clean_unit:~P}".strip()
+            if full_format:
+                unit_text = f"{clean_unit:P}".strip()
+            else:
+                unit_text = f"{clean_unit:~P}".strip()
             if unit_text.startswith("1/"):
                 unit_text = unit_text[1:]
 

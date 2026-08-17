@@ -12,7 +12,7 @@ FUTURE ENHANCEMENTs:
 import json
 import math
 from collections.abc import Mapping, Sequence
-from typing import TypedDict
+from typing import Any, NotRequired, TypedDict
 
 import geopandas as gpd
 import numpy as np
@@ -939,14 +939,50 @@ def project_id_list(df: pd.DataFrame, id_col: str = 'rme_project_id', name_col: 
 
 
 class MetricCard(TypedDict):
-    """Template-facing metric card payload for render_metric_grid."""
+    """Template-facing metric card payload for render_metric_grid.
+
+    * title: friendly metric name
+    * value: formatted metric value, including units (e.g. '3.5 km')
+    * details: additional description (not optional, but can be Null)
+    * value_full_format: (optional) formatted metric value, including full units (e.g. '3.5 kilometer')
+    """
 
     title: str
     value: str
     details: str | None
+    value_full_format: NotRequired[str] | None
 
 
 MetricCards = dict[str, MetricCard]
+
+type MetricValue = Any
+
+
+class MetricBundle(Mapping[str, MetricValue]):
+    """Dictionary-like metric payload with optional attrs metadata.
+
+    Mirrors DataFrame-style ``attrs`` so callers can attach a ``layer_id``
+    without threading it through every function call.
+    """
+
+    def __init__(self, metrics: Mapping[str, MetricValue] | None = None, *, layer_id: str | None = None):
+        self._metrics = dict(metrics) if metrics is not None else {}
+        self.attrs: dict[str, object] = {}
+        if layer_id is not None and str(layer_id).strip():
+            self.attrs["layer_id"] = str(layer_id)
+
+    def __getitem__(self, key: str) -> MetricValue:
+        return self._metrics[key]
+
+    def __iter__(self):
+        return iter(self._metrics)
+
+    def __len__(self) -> int:
+        return len(self._metrics)
+
+    def to_dict(self) -> dict[str, MetricValue]:
+        """Return a shallow copy of the metric payload."""
+        return dict(self._metrics)
 
 
 class HighlightCardSecondaryStat(TypedDict):
@@ -995,20 +1031,26 @@ def metric_cards(metrics: Mapping[str, object], layer_id: str | None = None) -> 
         **uses Friendly name, description and preferred_format if they have been added to the RSFieldMeta**
 
     Returns:
-        dictionary of cards. Each card is a dictionary each having:
-            * title: friendly metric name
-            * value: formatted metric value, including units
-            * details: additional description (optional)
+        MetricCards object (typed dictionary)
 
     Uses the order of the dictionary (guaranteed to be insertion order from Python 3.7 and later)
     """
+    resolved_layer_id = layer_id
+    if resolved_layer_id is None:
+        attrs = getattr(metrics, "attrs", None)
+        if isinstance(attrs, dict):
+            attr_layer_id = attrs.get("layer_id")
+            if attr_layer_id is not None and str(attr_layer_id).strip():
+                resolved_layer_id = str(attr_layer_id)
+
     cards: MetricCards = {}
     meta = RSFieldMeta()
     log = Logger('metric_cards')
     for key, value in metrics.items():
-        friendly = meta.get_friendly_name(key, layer_id)
-        desc = meta.get_description(key, layer_id)
+        friendly = meta.get_friendly_name(key, resolved_layer_id)
+        desc = meta.get_description(key, resolved_layer_id)
         log.debug(f"metric: {key}, friendly: {friendly}, desc: {desc}")
-        formatted = meta.format_scalar(key, value, layer_id=layer_id)
-        cards[key] = {"title": friendly, "value": formatted, "details": desc}
+        formatted = meta.format_scalar(key, value, layer_id=resolved_layer_id)
+        full_formatted = meta.format_scalar(key, value, layer_id=resolved_layer_id, full_format=True)
+        cards[key] = {"title": friendly, "value": formatted, "details": desc, "value_full_format": full_formatted}
     return cards
