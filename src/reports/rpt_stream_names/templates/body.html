@@ -33,9 +33,8 @@
 <section id="top-stream-names">
   <h2>Top 10 Most Common Names </h2>
   <div class="section-context">
-    <p>The table below shows the ten most common stream names within the area of interest, ranked first by the number of
-      distinct level paths and then by total riverscape length. The <em>% of All Paths</em> column shows each name's
-      share of all named level paths in the report area.</p>
+    <p>The table below shows the ten most common stream names within the <strong>{{ cards['aoi_area']['value_full_format'] }}</strong> area of interest. Names are ranked first by the number of
+      distinct named systems - represented in the data as level paths - and then by total riverscape length. Together, all named systems in the report area contain <strong>{{ cards['grand_total_named_channel_length']['value_full_format']}} of channel</strong> and represent <strong>{{ cards['grand_total_riverscape_length']['value_full_format'] }} of riverscape</strong>. The <em>% of Named Paths</em> column shows the share of all named systems associated with each name.</p>
   </div>
   {{ tables['top_names_by_path_count']|safe }}
 </section>

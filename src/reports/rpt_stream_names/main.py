@@ -251,7 +251,7 @@ def make_report(
     report.add_html_elements("tables", tables)
     report.add_html_elements("highlight_cards", highlight_cards)
     report.add_html_elements("user_guess", normalize_guessed_name(guessed_name))
-    report.add_html_elements("cards", metric_cards(stats, "stats"))
+    report.add_html_elements("cards", metric_cards(stats))
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None

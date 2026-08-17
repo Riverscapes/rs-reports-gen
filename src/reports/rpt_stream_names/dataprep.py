@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from typing import Any
+
 import geopandas as gpd
 import pandas as pd
 import pint
 from rsxml import Logger
 
 from util.athena import QueryStatus, aoi_query_to_dataframe_result
-from util.figures import HighlightCard
+from util.figures import HighlightCard, MetricBundle
+from util.pandas import RSFieldMeta
 from util.rs_geo_helpers import total_aoi_area_m2
 
 
@@ -134,7 +137,7 @@ def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -
     ]
 
 
-def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.DataFrame) -> dict[str, pint.Quantity]:
+def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.DataFrame) -> MetricBundle:
     """Summary statistics for all, named & unnamed in the AOI.
        including
     Area of AOI
@@ -148,25 +151,152 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.D
     Relative flow length = channel length ÷ riverscape length
 
     """
+    layer_id = "stats"
+    meta = RSFieldMeta()
+
+    def _add_meta_if_missing(
+        name: str,
+        friendly_name: str,
+        data_unit: str | pint.Unit | None,
+        dtype: str,
+        description: str,
+        preferred_format: str,
+        display_unit: str | None = None,
+    ) -> None:
+        if meta.get_field_meta(name, layer_id=layer_id) is not None:
+            return
+        meta.add_field_meta(
+            name=name,
+            layer_id=layer_id,
+            friendly_name=friendly_name,
+            data_unit=data_unit,
+            display_unit=display_unit,
+            dtype=dtype,
+            description=description,
+            preferred_format=preferred_format,
+        )
+
+    def _to_quantity(value: Any, default_unit: str) -> Any:
+        if isinstance(value, pint.Quantity):
+            return value
+        return pint.Quantity(value, default_unit)
+
+    def _safe_ratio(numerator: Any, denominator: Any) -> Any:
+        denom_magnitude = denominator.magnitude if isinstance(denominator, pint.Quantity) else denominator
+        if denom_magnitude == 0:
+            return pint.Quantity(0.0, "dimensionless")
+
+        ratio = numerator / denominator
+        if isinstance(ratio, pint.Quantity):
+            return ratio.to("dimensionless")
+        return pint.Quantity(ratio, "dimensionless")
+
     aoi_area = total_aoi_area_m2(aoi_gdf)
-    grand_total_channel_length = df['total_channel_length'].sum()
-    grand_total_riverscape_length = df['total_riverscape_length'].sum()
-    grand_total_level_paths = df['level_path_count'].sum()
-    grand_total_named_channel_length = named_df['total_channel_length'].sum()
+    _add_meta_if_missing(
+        name="aoi_area",
+        friendly_name="AOI Area",
+        data_unit=aoi_area.units,
+        display_unit="km**2",
+        dtype="REAL",
+        description="Area of interest",
+        preferred_format="{value:,.1f}",
+    )
+
+    grand_total_channel_length = _to_quantity(df['total_channel_length'].sum(), "meter")
+    _add_meta_if_missing(
+        name="grand_total_channel_length",
+        friendly_name="Total Channel Length",
+        data_unit="meter",
+        display_unit="kilometer",
+        dtype="REAL",
+        description="Sum of stream channel length across all systems in the AOI.",
+        preferred_format="{value:,.1f}",
+    )
+
+    grand_total_riverscape_length = _to_quantity(df['total_riverscape_length'].sum(), "meter")
+    _add_meta_if_missing(
+        name="grand_total_riverscape_length",
+        friendly_name="Total Riverscape Length",
+        data_unit="meter",
+        display_unit="kilometer",
+        dtype="REAL",
+        description="Sum of riverscape centerline length across all systems in the AOI.",
+        preferred_format="{value:,.1f}",
+    )
+
+    grand_total_level_paths = _to_quantity(df['level_path_count'].sum(), "count")
+    _add_meta_if_missing(
+        name="grand_total_level_paths",
+        friendly_name="Total number of systems",
+        data_unit="count",
+        dtype="INTEGER",
+        description="Distinct level paths",
+        preferred_format="{value:,.0f}",
+    )
+
+    grand_total_named_channel_length = _to_quantity(named_df['total_channel_length'].sum(), "meter")
+    _add_meta_if_missing(
+        name="grand_total_named_channel_length",
+        friendly_name="Named channel length",
+        display_unit="kilometer",
+        data_unit=grand_total_named_channel_length.units,
+        dtype="REAL",
+        description="Named channel length",
+        preferred_format="{value:,.0f}",
+    )
+
+    grand_total_named_riverscape_length = _to_quantity(named_df['total_riverscape_length'].sum(), "meter")
+
     grand_total_unnamed_channel_length = grand_total_channel_length - grand_total_named_channel_length
-    percentage_channel_length_named = grand_total_named_channel_length / grand_total_channel_length
-    grand_total_named_riverscape_length = named_df['total_riverscape_length'].sum()
-    percentage_riverscape_length_named = grand_total_named_riverscape_length / grand_total_riverscape_length
-    relative_flow_length = grand_total_channel_length / grand_total_riverscape_length
+    _add_meta_if_missing(
+        name="grand_total_unnamed_channel_length",
+        friendly_name="Unnamed Channel Length",
+        data_unit="meter",
+        display_unit="kilometer",
+        dtype="REAL",
+        description="Total channel length not associated with a named stream.",
+        preferred_format="{value:,.1f}",
+    )
+
+    percentage_channel_length_named = _safe_ratio(grand_total_named_channel_length, grand_total_channel_length)
+    _add_meta_if_missing(
+        name="percentage_channel_length_named",
+        friendly_name="Channel Length Named",
+        data_unit="dimensionless",
+        dtype="REAL",
+        description="Share of total channel length associated with named streams.",
+        preferred_format="{value:.1%}",
+    )
+
+    percentage_riverscape_length_named = _safe_ratio(grand_total_named_riverscape_length, grand_total_riverscape_length)
+    _add_meta_if_missing(
+        name="percentage_riverscape_length_named",
+        friendly_name="Riverscape Length Named",
+        data_unit="dimensionless",
+        dtype="REAL",
+        description="Share of total riverscape length associated with named streams.",
+        preferred_format="{value:.1%}",
+    )
+
+    relative_flow_length = _safe_ratio(grand_total_channel_length, grand_total_riverscape_length)
+    _add_meta_if_missing(
+        name="relative_flow_length",
+        friendly_name="Relative Flow Length",
+        data_unit="dimensionless",
+        dtype="REAL",
+        description="Ratio of total channel length to total riverscape length.",
+        preferred_format="{value:.2f}",
+    )
 
     stats = {
         "aoi_area": aoi_area,
         "grand_total_channel_length": grand_total_channel_length,
-        "grand_total_riverscape_length": grand_total_riverscape_length,
-        "grand_total_level_paths": grand_total_level_paths,
-        "percentage_channel_length_named": percentage_channel_length_named,
-        "percentage_riverscape_length_named": percentage_riverscape_length_named,
+        "grand_total_named_channel_length": grand_total_named_channel_length,
         "grand_total_unnamed_channel_length": grand_total_unnamed_channel_length,
+        "percentage_channel_length_named": percentage_channel_length_named,
+        "grand_total_riverscape_length": grand_total_riverscape_length,
+        "percentage_riverscape_length_named": percentage_riverscape_length_named,
+        "grand_total_level_paths": grand_total_level_paths,
         "relative_flow_length": relative_flow_length,
     }
-    return stats
+    return MetricBundle(stats, layer_id=layer_id)
