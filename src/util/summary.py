@@ -14,6 +14,9 @@ from util.binning import get_bins_info
 DEFAULT_UNKNOWN_LABEL = "Unknown"
 DEFAULT_OUT_OF_RANGE_LABEL = "Out of Range / Unknown"
 DEFAULT_COUNT_FIELD = "segment_count"
+DEFAULT_ALL_OTHERS_LABEL = "All Other Named Values"
+DEFAULT_UNNAMED_LABEL = "Unnamed Systems"
+DEFAULT_GRAND_TOTAL_LABEL = "Grand Total (Named + Unnamed)"
 
 
 def _validate_metric_series(series: pd.Series, metric_field: str) -> pd.Series:
@@ -137,3 +140,75 @@ def summarize_metric_by_binned_numeric(
     result.attrs["total_field"] = metric_field
     result.attrs["group_order"] = group_order
     return result
+
+
+def summarize_top_n_rollups(
+    full_df: pd.DataFrame,
+    named_df: pd.DataFrame,
+    *,
+    name_field: str,
+    metric_fields: list[str],
+    top_n: int,
+    sort_by: list[str],
+    ascending: list[bool],
+    all_others_label: str = DEFAULT_ALL_OTHERS_LABEL,
+    unnamed_label: str = DEFAULT_UNNAMED_LABEL,
+    grand_total_label: str = DEFAULT_GRAND_TOTAL_LABEL,
+    include_unnamed_row: bool = True,
+) -> pd.DataFrame:
+    """Summarize Top N, named remainder, and total rows for grouped tables.
+
+    This helper assumes ``named_df`` is a subset of ``full_df`` and computes
+    unnamed values as the complement of ``named_df`` rows in ``full_df``.
+
+    Args:
+        full_df (pd.DataFrame): Full grouped dataset including named and unnamed values.
+        named_df (pd.DataFrame): Filtered grouped dataset containing only named values.
+        name_field (str): Categorical label field (for example stream_name).
+        metric_fields (list[str]): Numeric metric fields to sum in rollup rows.
+        top_n (int): Number of top rows represented by the Top N summary row.
+        sort_by (list[str]): Sort fields used to determine Top N rows.
+        ascending (list[bool]): Sort directions corresponding to ``sort_by``.
+        all_others_label (str): Label for named rows not in Top N.
+        unnamed_label (str): Label for unnamed row.
+        grand_total_label (str): Label for grand total row.
+        include_unnamed_row (bool): Include explicit unnamed row when True.
+
+    Returns:
+        pd.DataFrame: Rollup rows with ``name_field`` plus all ``metric_fields``.
+
+    Created by copilot.
+    """
+    required_columns = [name_field, *metric_fields, *sort_by]
+    for col in required_columns:
+        if col not in full_df.columns:
+            raise KeyError(f"Column '{col}' is required in full_df")
+        if col not in named_df.columns:
+            raise KeyError(f"Column '{col}' is required in named_df")
+
+    if len(sort_by) != len(ascending):
+        raise ValueError("sort_by and ascending must have the same length")
+
+    if top_n < 0:
+        raise ValueError("top_n must be non-negative")
+
+    ranked_named = named_df.sort_values(by=sort_by, ascending=ascending, kind="mergesort").head(top_n).copy()
+
+    top_names = ranked_named[name_field].astype("string")
+    named_names = named_df[name_field].astype("string")
+    all_other_named = named_df.loc[~named_names.isin(top_names)]
+    unnamed_df = full_df.loc[~full_df.index.isin(named_df.index)]
+
+    def _metric_totals(df: pd.DataFrame) -> dict[str, object]:
+        return {field: df[field].sum() for field in metric_fields}
+
+    rows: list[dict[str, object]] = []
+    rows.append({name_field: f"Top {len(ranked_named)} Total", **_metric_totals(ranked_named)})
+    rows.append({name_field: all_others_label, **_metric_totals(all_other_named)})
+
+    if include_unnamed_row:
+        rows.append({name_field: unnamed_label, **_metric_totals(unnamed_df)})
+
+    rows.append({name_field: grand_total_label, **_metric_totals(full_df)})
+
+    return pd.DataFrame(rows, columns=[name_field, *metric_fields])

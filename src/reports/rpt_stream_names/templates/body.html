@@ -34,7 +34,7 @@
   <h2>Top 10 Most Common Names </h2>
   <div class="section-context">
     <p>The table below shows the ten most common stream names within the <strong>{{ cards['aoi_area']['value_full_format'] }}</strong> area of interest. Names are ranked first by the number of
-      distinct named systems - represented in the data as level paths - and then by total riverscape length. Together, all named systems in the report area contain <strong>{{ cards['grand_total_named_channel_length']['value_full_format']}} of channel</strong> and represent <strong>{{ cards['grand_total_riverscape_length']['value_full_format'] }} of riverscape</strong>. The <em>% of Named Paths</em> column shows the share of all named systems associated with each name.</p>
+      distinct named systems - represented in the data as level paths - and then by total riverscape length. Together, all named systems in the report area contain <strong>{{ cards['grand_total_named_channel_length']['value_full_format']}} of channel</strong> and represent <strong>{{ cards['grand_total_riverscape_length']['value_full_format'] }} of riverscape</strong>. Footer rows summarize the Top 10 shown, all other named values, unnamed systems, and the grand total. The <em>% of Named Paths</em> column applies to named-system rows only.</p>
   </div>
   {{ tables['top_names_by_path_count']|safe }}
 </section>
@@ -86,7 +86,8 @@
   <h2>Top 10 by Total Riverscape Length</h2>
   <div class="section-context">
     <p>The table below shows the ten stream names with the greatest total riverscape length within the area of interest.
-      The <em>% of Named Length</em> column shows each name's share of all named riverscape length in the report area.
+      Footer rows summarize the Top 10 shown, all other named values, unnamed systems, and the grand total.
+      The <em>% of Named Length</em> column shows each name's share of all named riverscape length in the report area and applies to named-system rows only.
     </p>
   </div>
   {{ tables['top_names_by_riverscape_length']|safe }}
