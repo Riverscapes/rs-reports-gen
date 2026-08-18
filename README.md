@@ -31,7 +31,7 @@ SPATIALITE_PATH=/opt/homebrew/lib/mod_spatialite.8.dylib
 # RNS_REPORT_NAME='Steve the report'
 # RNS_CSV=
 
-# OPTIONAL OVERRIES FOR "IGO Project" REPORT
+# OPTIONAL OVERRIDES FOR "IGO Project" REPORT
 IGO_AOI_GEOJSON=/my/awesome/aoi.geojson 
 IGO_REPORT_NAME='Gary'
 ```

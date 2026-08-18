@@ -19,8 +19,19 @@ from rsxml.util import safe_makedirs
 # Local imports
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.html import RSReport
+from util.pdf import make_pdf_from_html
 
 from .__version__ import __version__
+from .dataprep import (
+    build_highlight_cards,
+    build_source_project_table,
+    define_fields,
+    load_igo_report_data,
+    summarize_cards,
+    summarize_flow_breakdown,
+)
+from .figures import build_igo_figures
 from .rawrme_to_igos_project import create_gpkg_igos_from_parquet, create_igos_project
 
 THEME_TO_TABLE = {
@@ -110,8 +121,8 @@ def field_metadata_to_file(output_path: Path, table_defs: pd.DataFrame):
     df.to_csv(output_path, index=False)
 
 
-def generate_report(project_dir: Path):
-    """Make a readme file plus metadata artifacts."""
+def generate_readme(project_dir: Path):
+    """Write the report README markdown file from template."""
     # build readme
     src_dir = os.path.dirname(__file__)
     template_path = os.path.join(src_dir, 'templates', 'template_readme.md')
@@ -121,6 +132,66 @@ def generate_report(project_dir: Path):
     readme_contents = template.render(context)
     with open(os.path.join(project_dir, 'README.md'), 'w', encoding='utf-8') as f:
         f.write(readme_contents)
+
+
+def generate_igo_report(project_dir: Path, project_name: str, aoi_gdf: gpd.GeoDataFrame, parquet_source: Path):
+    """Generate interactive HTML, static HTML, and PDF summaries for the IGO package."""
+    log = Logger('IGO report')
+
+    define_fields(unit_system='SI')
+    report_df = load_igo_report_data(parquet_source)
+
+    card_summary = summarize_cards(report_df, aoi_gdf)
+    flow_summary = summarize_flow_breakdown(report_df)
+    highlight_cards = build_highlight_cards(card_summary)
+    figures = build_igo_figures(aoi_gdf, flow_summary)
+
+    source_projects_df = build_source_project_table(report_df)
+    data_dir = project_dir / 'data'
+    safe_makedirs(str(data_dir))
+    source_projects_df.to_csv(data_dir / 'source_projects.csv', index=False)
+
+    html_source_table = source_projects_df.copy()
+    if not html_source_table.empty and 'project_url' in html_source_table.columns:
+        html_source_table['open_project'] = html_source_table['project_url'].apply(lambda url: f'<a href="{url}" target="_blank" rel="noopener">Open project</a>')
+        html_source_table = html_source_table.drop(columns=['project_url'])
+
+    html_source_table = html_source_table.rename(
+        columns={
+            'huc10_code': 'HUC10 code',
+            'watershed_name': 'Watershed name',
+            'source_rme_project': 'Source RME project',
+            'project_version_or_date': 'Project version or date',
+            'citation': 'Citation',
+            'open_project': 'Link to open the project',
+        }
+    )
+
+    tables = {'source_projects': html_source_table.to_html(index=False, escape=False) if not html_source_table.empty else '<p>No contributing source projects were found in the AOI dataset.</p>'}
+    messages = {'source_projects_caption': 'Full source-project export available at <a href="data/source_projects.csv">data/source_projects.csv</a>.'}
+
+    report = RSReport(
+        report_name=project_name,
+        report_type='Custom Riverscapes Metrics Dataset',
+        report_dir=project_dir,
+        report_version=__version__,
+        body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
+    )
+
+    for name, fig in figures.items():
+        report.add_figure(name, fig)
+
+    report.add_html_elements('highlight_cards', highlight_cards)
+    report.add_html_elements('tables', tables)
+    report.add_html_elements('messages', messages)
+
+    interactive_path = report.render(fig_mode='interactive', suffix='')
+    static_path = report.render(fig_mode='svg', suffix='_static')
+    pdf_path = make_pdf_from_html(static_path)
+
+    log.info(f'Interactive report written to {interactive_path}')
+    log.info(f'Static report written to {static_path}')
+    log.info(f'PDF report written to {pdf_path}')
 
 
 def get_and_process_aoi(
@@ -194,7 +265,8 @@ def get_and_process_aoi(
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
     # column_meta
     field_metadata_to_file(project_dir / 'column_metadata.csv', table_defs)
-    generate_report(project_dir)
+    generate_readme(project_dir)
+    generate_igo_report(project_dir, project_name, aoi_gdf, parquet_data_source)
 
     if not keep_parquet:
         try:
