@@ -29,6 +29,7 @@ def main() -> list[str] | None:
         IGO_REPORT_NAME - name for the report (optional)
         IGO_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
         IGO_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
+        INCLUDE_PDF - set to '1' or 'true' to include static HTML + PDF outputs (optional)
 
     """
     # ── DATA_ROOT (required) ──────────────────────────────────────────
@@ -75,7 +76,7 @@ def main() -> list[str] | None:
         raise RuntimeError(colored(f"\nIGO_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable for interactive prompt.\n", "red"))
     if not parquet_path:
         parquet_prompt = questionary.text(
-            message='Optional: path to notthe Parquet folder or file to use for results (leave blank to query Athena)',
+            message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
             default="",
         ).ask()
         if parquet_prompt is None:
@@ -108,5 +109,18 @@ def main() -> list[str] | None:
 
     if keep_parquet:
         args.append("--keep-parquet")
+
+    # ── Include PDF/static report outputs ────────────────────────────
+    include_pdf_env = os.environ.get("INCLUDE_PDF")
+    if include_pdf_env is not None:
+        include_pdf = is_truthy(include_pdf_env)
+    else:
+        include_pdf = questionary.confirm(message='Include a PDF version of the report?', default=False).ask()
+        if include_pdf is None:
+            print("\nCancelled. Exiting.\n")
+            return None
+
+    if include_pdf:
+        args.append("--include_pdf")
 
     return args

@@ -45,7 +45,7 @@ THEME_TO_TABLE = {
 }
 
 
-def get_igo_table_defs() -> pd.DataFrame:
+def get_igo_table_defs(layerdefs: pd.DataFrame) -> pd.DataFrame:
     """Gets the table definitions from layer_definitions in Athena
 
     Also adds sequential integer dgoid to all tables and geom, because this added in processing and isn't in the layer_definitions
@@ -56,12 +56,6 @@ def get_igo_table_defs() -> pd.DataFrame:
 
     """
     log = Logger('Get table defs')
-    layerdefs = get_field_metadata(
-        column_names='*',
-        authority='data-exchange-scripts',
-        tool_schema_name='rme_to_athena',
-        layer_id='raw_rme',
-    )
     # remap theme to table name, preserving row order
     df = layerdefs.copy()
     df['table_name'] = df['theme'].map(THEME_TO_TABLE)
@@ -134,11 +128,18 @@ def generate_readme(project_dir: Path):
         f.write(readme_contents)
 
 
-def generate_igo_report(project_dir: Path, project_name: str, aoi_gdf: gpd.GeoDataFrame, parquet_source: Path):
+def generate_igo_report(
+    project_dir: Path,
+    project_name: str,
+    aoi_gdf: gpd.GeoDataFrame,
+    parquet_source: Path,
+    layerdefs: pd.DataFrame,
+    include_pdf: bool = False,
+):
     """Generate interactive HTML, static HTML, and PDF summaries for the IGO package."""
     log = Logger('IGO report')
 
-    define_fields(unit_system='SI')
+    define_fields(unit_system='SI', field_meta_df=layerdefs)
     report_df = load_igo_report_data(parquet_source)
 
     card_summary = summarize_cards(report_df, aoi_gdf)
@@ -153,22 +154,27 @@ def generate_igo_report(project_dir: Path, project_name: str, aoi_gdf: gpd.GeoDa
 
     html_source_table = source_projects_df.copy()
     if not html_source_table.empty and 'project_url' in html_source_table.columns:
-        html_source_table['open_project'] = html_source_table['project_url'].apply(lambda url: f'<a href="{url}" target="_blank" rel="noopener">Open project</a>')
+        html_source_table['open_project'] = html_source_table['project_url'].apply(
+            lambda url: f'<a href="{url}" target="_blank" rel="noopener"><span class="material-icons" aria-hidden="true" style="font-size:1rem;vertical-align:text-bottom;">open_in_new</span> View</a>'
+        )
         html_source_table = html_source_table.drop(columns=['project_url'])
+
+    html_row_limit = 5
+    html_source_table = html_source_table.head(html_row_limit)
 
     html_source_table = html_source_table.rename(
         columns={
             'huc10_code': 'HUC10 code',
-            'watershed_name': 'Watershed name',
+            'project_name': 'Project name',
             'source_rme_project': 'Source RME project',
             'project_version_or_date': 'Project version or date',
             'citation': 'Citation',
-            'open_project': 'Link to open the project',
+            'open_project': 'Data Exchange',
         }
     )
 
     tables = {'source_projects': html_source_table.to_html(index=False, escape=False) if not html_source_table.empty else '<p>No contributing source projects were found in the AOI dataset.</p>'}
-    messages = {'source_projects_caption': 'Full source-project export available at <a href="data/source_projects.csv">data/source_projects.csv</a>.'}
+    messages = {'source_projects_caption': 'Showing first 5 source projects. Full source-project export available at <a href="data/source_projects.csv">data/source_projects.csv</a>.'}
 
     report = RSReport(
         report_name=project_name,
@@ -176,6 +182,7 @@ def generate_igo_report(project_dir: Path, project_name: str, aoi_gdf: gpd.GeoDa
         report_dir=project_dir,
         report_version=__version__,
         body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
+        css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
     )
 
     for name, fig in figures.items():
@@ -186,12 +193,17 @@ def generate_igo_report(project_dir: Path, project_name: str, aoi_gdf: gpd.GeoDa
     report.add_html_elements('messages', messages)
 
     interactive_path = report.render(fig_mode='interactive', suffix='')
-    static_path = report.render(fig_mode='svg', suffix='_static')
-    pdf_path = make_pdf_from_html(static_path)
+    static_path = None
+    pdf_path = None
+    if include_pdf:
+        static_path = report.render(fig_mode='svg', suffix='_static')
+        pdf_path = make_pdf_from_html(static_path)
 
     log.info(f'Interactive report written to {interactive_path}')
-    log.info(f'Static report written to {static_path}')
-    log.info(f'PDF report written to {pdf_path}')
+    if static_path:
+        log.info(f'Static report written to {static_path}')
+    if pdf_path:
+        log.info(f'PDF report written to {pdf_path}')
 
 
 def get_and_process_aoi(
@@ -202,6 +214,7 @@ def get_and_process_aoi(
     log_path: Path,
     parquet_override: Path | None = None,
     keep_parquet: bool = False,
+    include_pdf: bool = False,
 ):
     """Get and process AOI orchestrator
 
@@ -258,15 +271,30 @@ def get_and_process_aoi(
 
         aoi_query_to_local_parquet(query_str, 'ST_GeomFromBinary(dgo_geom)', 'dgo_geom_bbox', query_gdf, parquet_data_source)
 
+    # Retrieve layer metadata once and reuse for both package schema and report formatting
+    layerdefs = get_field_metadata(
+        column_names='*',
+        authority='data-exchange-scripts',
+        tool_schema_name='rme_to_athena',
+        layer_id='raw_rme',
+    )
+
     # Retrieve table definitions
-    table_defs = get_igo_table_defs()
+    table_defs = get_igo_table_defs(layerdefs)
     # NOTE: only columns found in `table_defs` will be added, regardless of what is selected from Athena (in this case raw_rme_pq2);
     gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source, table_defs)
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
     # column_meta
     field_metadata_to_file(project_dir / 'column_metadata.csv', table_defs)
     generate_readme(project_dir)
-    generate_igo_report(project_dir, project_name, aoi_gdf, parquet_data_source)
+    generate_igo_report(
+        project_dir,
+        project_name,
+        aoi_gdf,
+        parquet_data_source,
+        layerdefs,
+        include_pdf=include_pdf,
+    )
 
     if not keep_parquet:
         try:
@@ -301,6 +329,12 @@ def main():
         action='store_true',
         help='Keep the downloaded AOI Parquet files instead of deleting the pq folder',
     )
+    parser.add_argument(
+        '--include_pdf',
+        help='Include a PDF version of the report',
+        action='store_true',
+        default=False,
+    )
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -324,6 +358,7 @@ def main():
             log_path,
             parquet_override=args.parquet_path,
             keep_parquet=args.keep_parquet,
+            include_pdf=args.include_pdf,
         )
         # print(path_to_results)
         print("done")
