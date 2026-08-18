@@ -98,11 +98,12 @@ def build_highlight_cards_data(data_df: pd.DataFrame, unit_system: str = "SI") -
     length_pct: float = length_m / total_length_m * 100 if total_length_m else 0.0
     length_is_tie: bool = (data_df["total_riverscape_length"] == length_m).sum() > 1
 
+    length_quantity = pint.Quantity(length_m, "meter")
     if unit_system == "imperial":
-        length_value: float = length_m / 1000 * 0.621371
-        length_unit = "miles"
+        length_value = float(length_quantity.to("mile").magnitude)
+        length_unit = RSFieldMeta.pluralize_unit_label("mile", length_value)
     else:
-        length_value = length_m / 1000
+        length_value = float(length_quantity.to("kilometer").magnitude)
         length_unit = "km"
 
     return [
@@ -155,13 +156,7 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.D
     meta = RSFieldMeta()
 
     def _add_meta_if_missing(
-        name: str,
-        friendly_name: str,
-        data_unit: str | pint.Unit | None,
-        dtype: str,
-        description: str,
-        preferred_format: str,
-        display_unit: str | None = None,
+        name: str, friendly_name: str, data_unit: str | pint.Unit | None, dtype: str, description: str, preferred_format: str, display_unit: str | None = None, display_unit_imperial: str | pint.Unit | None = None
     ) -> None:
         if meta.get_field_meta(name, layer_id=layer_id) is not None:
             return
@@ -171,6 +166,7 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.D
             friendly_name=friendly_name,
             data_unit=data_unit,
             display_unit=display_unit,
+            display_unit_imperial=display_unit_imperial,
             dtype=dtype,
             description=description,
             preferred_format=preferred_format,
@@ -197,9 +193,10 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.D
         friendly_name="AOI Area",
         data_unit=aoi_area.units,
         display_unit="km**2",
+        display_unit_imperial="mi**2",
         dtype="REAL",
         description="Area of interest",
-        preferred_format="{value:,.1f}",
+        preferred_format="{value:,.0f}",
     )
 
     grand_total_channel_length = _to_quantity(df['total_channel_length'].sum(), "meter")
@@ -210,7 +207,7 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.D
         display_unit="kilometer",
         dtype="REAL",
         description="Sum of stream channel length across all systems in the AOI.",
-        preferred_format="{value:,.1f}",
+        preferred_format="{value:,.0f}",
     )
 
     grand_total_riverscape_length = _to_quantity(df['total_riverscape_length'].sum(), "meter")
@@ -221,7 +218,7 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.D
         display_unit="kilometer",
         dtype="REAL",
         description="Sum of riverscape centerline length across all systems in the AOI.",
-        preferred_format="{value:,.1f}",
+        preferred_format="{value:,.0f}",
     )
 
     grand_total_level_paths = _to_quantity(df['level_path_count'].sum(), "count")
@@ -255,7 +252,7 @@ def additional_stats(aoi_gdf: gpd.GeoDataFrame, df: pd.DataFrame, named_df: pd.D
         display_unit="kilometer",
         dtype="REAL",
         description="Total channel length not associated with a named stream.",
-        preferred_format="{value:,.1f}",
+        preferred_format="{value:,.0f}",
     )
 
     percentage_channel_length_named = _safe_ratio(grand_total_named_channel_length, grand_total_channel_length)
