@@ -61,6 +61,9 @@ def define_fields(unit_system: str = "SI") -> None:
     meta = RSFieldMeta()
     meta.unit_system = unit_system
 
+    # Set km display; RSFieldMeta will auto-convert to miles when unit_system is imperial
+    meta.set_display_unit("total_riverscape_length", "kilometer")
+
     # total_riverscape_length arrives from Athena in metres; display in km or miles
     meta.add_field_meta(
         name="total_riverscape_length",
@@ -70,12 +73,19 @@ def define_fields(unit_system: str = "SI") -> None:
         description="Sum of riverscape centerline length for all level paths with this stream name.",
         preferred_format="{:,.1f}",
     )
-    # Set km display; RSFieldMeta will auto-convert to miles when unit_system is imperial
-    meta.set_display_unit("total_riverscape_length", "kilometer")
+
+    meta.add_field_meta(
+        name="total_channel_length",
+        friendly_name="Total Channel Length",
+        data_unit="meter",
+        description="Sum of NHD flowlines within the Riverscape where named stream is dominant.",
+        dtype="REAL",
+        preferred_format="{:,.1f}",
+    )
 
     meta.add_field_meta(
         name="level_path_count",
-        friendly_name="Distinct Paths",
+        friendly_name="Distinct Systems",
         data_unit=None,
         dtype="INTEGER",
         description="Number of distinct level paths with this stream name.",
@@ -158,7 +168,7 @@ def build_top_names_by_riverscape_length_table(df: pd.DataFrame, top_n: int = 10
     total_length = df["total_riverscape_length"].sum()
 
     ranked = (
-        df[["stream_name", "level_path_count", "total_riverscape_length"]]
+        df[["stream_name", "level_path_count", "total_riverscape_length", "total_channel_length"]]
         .copy()
         .sort_values(
             by=["total_riverscape_length", "level_path_count", "stream_name"],
@@ -171,7 +181,7 @@ def build_top_names_by_riverscape_length_table(df: pd.DataFrame, top_n: int = 10
     ranked.insert(0, "rank", range(1, len(ranked) + 1))
     ranked["pct_of_length"] = ranked["total_riverscape_length"] / total_length * 100
 
-    display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "total_riverscape_length", "pct_of_length", "level_path_count"]])
+    display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "total_riverscape_length", "pct_of_length", "total_channel_length", "level_path_count"]])
     return display_df.to_html(index=False, escape=False)
 
 
