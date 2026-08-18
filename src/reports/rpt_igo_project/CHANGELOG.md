@@ -4,6 +4,11 @@
 
 Internal use only
 
+### Version 0.4.0 2026-08
+
+* Rebrand from **IGO Scraper** to **Custom Riverscapes Metrics Dataset**
+* Adds a report with summary of area
+
 ### Version 0.3.3 2026-03-04
 
 * Bug fix for geometry column problem. geom in the geopackage comes from the latitude and longitude

@@ -54,6 +54,12 @@
           // "**/.venv/**": true,
           "**/__pycache__/**": true
         },
+        "chat.tools.terminal.autoApprove": {
+          "/^uv run pytest tests/test_report_smoke\\.py -k igo -q$/": {
+            "approve": true,
+            "matchCommandLine": true
+          }
+        },
       },
       "extensions": {
         "recommendations": [

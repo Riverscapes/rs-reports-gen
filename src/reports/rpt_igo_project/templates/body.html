@@ -1,0 +1,52 @@
+<!-- IGO project summary report body template.
+     Created 2026-08-18.
+     Created by copilot.
+-->
+{% from 'macros.html' import render_highlight_cards %}
+<section>
+  <div class="section-context">
+    <p><strong>Your Custom Riverscapes Metrics Dataset</strong></p>
+    <p>A summary of geographic coverage, riverscape footprint, records assembled, and source RME projects used to generate this package.</p>
+  </div>
+</section>
+
+<section id="highlight-cards">
+  {{ render_highlight_cards(highlight_cards) }}
+</section>
+
+<section id="map-of-aoi">
+  <h2>Area of Interest Map</h2>
+  <div class="section-context">
+    <p>The map below shows the area of interest used to assemble this custom IGO package.</p>
+  </div>
+  <figure class="report-figure map">
+    {{ figures['map']|safe }}
+  </figure>
+</section>
+
+<section id="flow-permanence">
+  <h2>Flow Permanence Breakdown</h2>
+  <div class="section-context">
+    <p>Each chart partitions perennial and non-perennial contributions in the selected AOI. Totals are shown at the end of each stacked bar.</p>
+  </div>
+  <figure class="report-figure">
+    {{ figures['flow_length']|safe }}
+  </figure>
+  <figure class="report-figure">
+    {{ figures['flow_area']|safe }}
+  </figure>
+  <figure class="report-figure">
+    {{ figures['flow_segments']|safe }}
+  </figure>
+</section>
+
+<section id="source-projects">
+  <h2>Source RME Projects</h2>
+  <div class="section-context">
+    <p>One row per contributing source project. HUC10 and watershed fields list all values associated with each project in the assembled records.</p>
+  </div>
+  <figure class="report-figure">
+    {{ tables['source_projects']|safe }}
+    <figcaption>{{ messages['source_projects_caption']|safe }}</figcaption>
+  </figure>
+</section>
