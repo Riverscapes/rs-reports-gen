@@ -23,18 +23,21 @@ PERENNIAL_FCODES = {46006, 55800}
 ureg = pint.get_application_registry()
 
 
-def define_fields(unit_system: str = "SI") -> None:
+def define_fields(unit_system: str = "SI", field_meta_df: pd.DataFrame | None = None) -> None:
     """Load metadata and set report display-unit preferences.
 
     Created 2026-08-18.
     Created by copilot.
     """
     meta = RSFieldMeta()
-    meta.field_meta = get_field_metadata(
-        authority="data-exchange-scripts",
-        tool_schema_name="rme_to_athena",
-        layer_id="raw_rme,rs_context_huc10",
-    )
+    if field_meta_df is None:
+        meta.field_meta = get_field_metadata(
+            authority="data-exchange-scripts",
+            tool_schema_name="rme_to_athena",
+            layer_id="raw_rme",
+        )
+    else:
+        meta.field_meta = field_meta_df.copy()
     meta.unit_system = unit_system
 
     # Keep a stable display system for cards/charts.
@@ -203,33 +206,67 @@ def summarize_cards(df: pd.DataFrame, aoi_gdf: gpd.GeoDataFrame) -> dict[str, ob
     }
 
 
-def _lookup_watershed_names(huc10_codes: list[str]) -> dict[str, str]:
-    """Fetch HUC10 names for the supplied watershed identifiers.
+def _parse_exchange_timestamp(raw_value: object) -> str:
+    """Parse Data Exchange bigint timestamps to YYYY-MM-DD.
+
+    Handles both second and millisecond epochs.
 
     Created 2026-08-18.
     Created by copilot.
     """
-    if not huc10_codes:
+    if raw_value is None:
+        return ""
+
+    if isinstance(raw_value, str) and raw_value.strip() == "":
+        return ""
+
+    value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").iloc[0]
+    if pd.isna(value):
+        return ""
+
+    unit = "ms" if float(value) >= 1_000_000_000_000 else "s"
+    parsed = pd.to_datetime(value, unit=unit, utc=True, errors="coerce")
+    if pd.isna(parsed):
+        return ""
+    return parsed.strftime("%Y-%m-%d")
+
+
+def _lookup_project_metadata(project_ids: list[str]) -> dict[str, dict[str, str]]:
+    """Fetch Data Exchange project names and created dates for supplied project ids.
+
+    Created 2026-08-18.
+    Created by copilot.
+    """
+    if not project_ids:
         return {}
 
-    clean_hucs = sorted({h for h in huc10_codes if isinstance(h, str) and len(h) == 10 and h.isdigit()})
-    if not clean_hucs:
+    clean_ids = sorted({str(pid).strip().lower() for pid in project_ids if str(pid).strip()})
+    if not clean_ids:
         return {}
 
-    huc_sql = "(" + ",".join([f"'{h}'" for h in clean_hucs]) + ")"
-    sql = f"SELECT huc, hucname FROM rs_context_huc10 WHERE huc IN {huc_sql}"
+    id_sql = "(" + ",".join([f"'{pid}'" for pid in clean_ids]) + ")"
+    sql = f"SELECT lower(uuid) AS uuid, name, createdonts AS createdon FROM rs_raw.data_exchange_projects WHERE lower(uuid) IN {id_sql}"
 
     try:
         lookup_df = athena_unload_to_dataframe(sql)
     except Exception as exc:  # pragma: no cover
-        Logger("IGO dataprep").warning(f"Unable to fetch watershed names from rs_context_huc10: {exc}")
+        Logger("IGO dataprep").warning(f"Unable to fetch project metadata from rs_raw.data_exchange_projects: {exc}")
         return {}
 
     if lookup_df.empty:
         return {}
 
-    lookup_df["huc"] = _format_huc10(lookup_df["huc"])
-    return dict(zip(lookup_df["huc"], lookup_df["hucname"].fillna(""), strict=False))
+    metadata: dict[str, dict[str, str]] = {}
+    for row in lookup_df.itertuples(index=False):
+        uuid_val = str(getattr(row, "uuid", "")).strip().lower()
+        if not uuid_val:
+            continue
+        metadata[uuid_val] = {
+            "project_name": str(getattr(row, "name", "") or "").strip(),
+            "created_on": _parse_exchange_timestamp(getattr(row, "createdon", None)),
+        }
+
+    return metadata
 
 
 def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -244,7 +281,7 @@ def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(
             columns=[
                 "huc10_code",
-                "watershed_name",
+                "project_name",
                 "source_rme_project",
                 "project_version_or_date",
                 "citation",
@@ -269,19 +306,24 @@ def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
     else:
         work_df["project_version"] = pd.Series([pd.NA] * len(work_df), dtype="string")
 
-    huc_lookup = _lookup_watershed_names(work_df["huc10_code"].dropna().astype(str).tolist())
+    project_lookup = _lookup_project_metadata(work_df["source_rme_project"].dropna().astype(str).tolist())
 
     rows: list[dict[str, str]] = []
     for project_id, grp in work_df.groupby("source_rme_project", dropna=True):
         clean_project_id = str(project_id)
+        project_meta = project_lookup.get(clean_project_id.lower(), {})
+        project_name = project_meta.get("project_name", "") or "n/a"
         huc_codes = sorted({h for h in grp["huc10_code"].dropna().astype(str) if h})
-        watershed_names = sorted({huc_lookup.get(h, "") for h in huc_codes if huc_lookup.get(h, "")})
 
         version_values = grp["project_version"].dropna().astype(str)
         version_value = version_values.iloc[-1] if not version_values.empty else ""
 
-        date_values = grp["project_date"].dropna()
-        date_value = date_values.max().strftime("%Y-%m-%d") if not date_values.empty else ""
+        preferred_date = project_meta.get("created_on", "")
+        if preferred_date:
+            date_value = preferred_date
+        else:
+            date_values = grp["project_date"].dropna()
+            date_value = date_values.max().strftime("%Y-%m-%d") if not date_values.empty else ""
 
         if version_value and date_value:
             version_or_date = f"v{version_value} ({date_value})"
@@ -292,12 +334,12 @@ def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
         else:
             version_or_date = "n/a"
 
-        citation = f"Riverscapes Consortium RME source project {clean_project_id}, {version_or_date}."
+        citation = f"Riverscapes Consortium RME source project {clean_project_id} ({project_name}), {version_or_date}."
 
         rows.append(
             {
                 "huc10_code": ", ".join(huc_codes) if huc_codes else "n/a",
-                "watershed_name": ", ".join(watershed_names) if watershed_names else "n/a",
+                "project_name": project_name,
                 "source_rme_project": clean_project_id,
                 "project_version_or_date": version_or_date,
                 "citation": citation,
@@ -326,6 +368,19 @@ def build_highlight_cards(card_summary: dict[str, object]) -> list[dict[str, obj
             return f"{value:,.{decimals}f}" if decimals > 0 else f"{value:,.0f}"
         return str(value)
 
+    def _pct_str(value: object, decimals: int = 2) -> str:
+        magnitude = getattr(value, "magnitude", value)
+        if isinstance(magnitude, (int, float)):
+            pct_value = float(magnitude)
+        elif isinstance(magnitude, str):
+            try:
+                pct_value = float(magnitude)
+            except ValueError:
+                pct_value = 0.0
+        else:
+            pct_value = 0.0
+        return f"{pct_value:,.{decimals}f}%"
+
     themes = ["blue", "green", "teal", "blue", "green", "teal", "blue", "green"]
 
     segments_text = f"Perennial: {card_summary['perennial_count']:,}; Non-perennial: {card_summary['non_perennial_count']:,}"
@@ -343,10 +398,10 @@ def build_highlight_cards(card_summary: dict[str, object]) -> list[dict[str, obj
         (
             "percent",
             "Area of Interest in Riverscapes",
-            f"{float(card_summary['area_ratio_pct'].magnitude):,.2f}%",
+            _pct_str(card_summary.get("area_ratio_pct", 0.0), 2),
             "donut_small",
             "AOI represented by riverscapes",
-            f"{float(card_summary['area_ratio_pct'].magnitude):,.2f}%",
+            _pct_str(card_summary.get("area_ratio_pct", 0.0), 2),
         ),
         (
             "straighten",

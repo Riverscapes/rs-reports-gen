@@ -5,8 +5,9 @@
 {% from 'macros.html' import render_highlight_cards %}
 <section>
   <div class="section-context">
-    <p><strong>Your Custom Riverscapes Metrics Dataset</strong></p>
-    <p>A summary of geographic coverage, riverscape footprint, records assembled, and source RME projects used to generate this package.</p>
+    <h1>Your Custom Riverscapes Metrics Dataset</h1>
+    <p>A summary of its geographic coverage, riverscape footprint, records assembled, and source projects</p>
+    <div>Your dataset contains riverscape locations and associated metrics extracted from Riverscapes Metric Engine projects that overlap your area of interest. This report summarizes the spatial coverage and source projects included in your dataset. It does not summarize individual metric values.</div>
   </div>
 </section>
 
@@ -15,9 +16,9 @@
 </section>
 
 <section id="map-of-aoi">
-  <h2>Area of Interest Map</h2>
+  <h2>Where did this data come from?</h2>
   <div class="section-context">
-    <p>The map below shows the area of interest used to assemble this custom IGO package.</p>
+    <p>HUC10 watersheds included in your dataset</p>
   </div>
   <figure class="report-figure map">
     {{ figures['map']|safe }}
@@ -25,9 +26,10 @@
 </section>
 
 <section id="flow-permanence">
-  <h2>Flow Permanence Breakdown</h2>
+  <h2>Riverscapes in your dataset</h2>
+
   <div class="section-context">
-    <p>Each chart partitions perennial and non-perennial contributions in the selected AOI. Totals are shown at the end of each stacked bar.</p>
+    <p>Breakdown by flow permanence</p>
   </div>
   <figure class="report-figure">
     {{ figures['flow_length']|safe }}
@@ -41,12 +43,39 @@
 </section>
 
 <section id="source-projects">
-  <h2>Source RME Projects</h2>
+  <h2>Source Riverscape Metric Engine Projects</h2>
   <div class="section-context">
-    <p>One row per contributing source project. HUC10 and watershed fields list all values associated with each project in the assembled records.</p>
+    <p>These RME project provided the data for your dataset.</p>
   </div>
   <figure class="report-figure">
     {{ tables['source_projects']|safe }}
     <figcaption>{{ messages['source_projects_caption']|safe }}</figcaption>
   </figure>
+
+  <section id="download-contents">
+    <h2>What's in your download?</h2>
+    <p>Your ZIP file includes a complete Riverscapes project and supporting files.</p>
+    <div class="download-contents-grid">
+      <div class="download-content-item">
+        <span class="material-icons download-content-icon" aria-hidden="true">folder_shared</span>
+        <div class="download-content-title">Riverscapes project</div>
+        <div class="download-content-description">Open in the Riverscapes Viewer in QGIS or ArcGIS Pro.</div>
+      </div>
+      <div class="download-content-item">
+        <span class="material-icons download-content-icon" aria-hidden="true">map</span>
+        <div class="download-content-title">GIS dataset</div>
+        <div class="download-content-description">GeoPackage with riverscape points and metric attributes.</div>
+      </div>
+      <div class="download-content-item">
+        <span class="material-icons download-content-icon" aria-hidden="true">list_alt</span>
+        <div class="download-content-title">Column guide</div>
+        <div class="download-content-description">CSV with attribute names, descriptions, and units.</div>
+      </div>
+      <div class="download-content-item">
+        <span class="material-icons download-content-icon" aria-hidden="true">source</span>
+        <div class="download-content-title">Source projects</div>
+        <div class="download-content-description">List of RME projects included in this dataset.</div>
+      </div>
+    </div>
+  </section>
 </section>
