@@ -107,6 +107,20 @@ def define_fields(unit_system: str = "SI") -> None:
         description="Rank by distinct paths (ties broken by total length).",
     )
     meta.add_field_meta(
+        name="rank_by_path_count",
+        friendly_name="Rank by Distinct Systems",
+        data_unit=None,
+        dtype="INTEGER",
+        description="Rank among named streams by distinct systems, then total riverscape length, then stream name.",
+    )
+    meta.add_field_meta(
+        name="rank_by_riverscape_length",
+        friendly_name="Rank by Total Riverscape Length",
+        data_unit=None,
+        dtype="INTEGER",
+        description="Rank among named streams by total riverscape length, then distinct systems, then stream name.",
+    )
+    meta.add_field_meta(
         name="pct_of_paths",
         friendly_name="% of Named Paths",
         data_unit=None,
@@ -232,6 +246,44 @@ def sort_dataframe_for_deterministic_output(df: pd.DataFrame) -> pd.DataFrame:
 
     sort_columns = list(df.columns)
     return df.sort_values(by=sort_columns, kind="mergesort", na_position="last").reset_index(drop=True)
+
+
+def add_full_export_rank_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add full-table rank columns using the same ordering rules as report Top 10 tables.
+
+    Unnamed rows keep null ranks.
+    """
+    ranked_df = df.copy()
+    ranked_df["rank_by_path_count"] = pd.Series(pd.NA, index=ranked_df.index, dtype="Int64")
+    ranked_df["rank_by_riverscape_length"] = pd.Series(pd.NA, index=ranked_df.index, dtype="Int64")
+
+    named_mask = named_wcdata(ranked_df).index
+    if len(named_mask) == 0:
+        return ranked_df
+
+    by_path_index = (
+        ranked_df.loc[named_mask]
+        .sort_values(
+            by=["level_path_count", "total_riverscape_length", "stream_name"],
+            ascending=[False, False, True],
+            kind="mergesort",
+        )
+        .index
+    )
+    ranked_df.loc[by_path_index, "rank_by_path_count"] = pd.Series(range(1, len(by_path_index) + 1), index=by_path_index, dtype="Int64")
+
+    by_length_index = (
+        ranked_df.loc[named_mask]
+        .sort_values(
+            by=["total_riverscape_length", "level_path_count", "stream_name"],
+            ascending=[False, False, True],
+            kind="mergesort",
+        )
+        .index
+    )
+    ranked_df.loc[by_length_index, "rank_by_riverscape_length"] = pd.Series(range(1, len(by_length_index) + 1), index=by_length_index, dtype="Int64")
+
+    return ranked_df
 
 
 def make_report(
@@ -375,6 +427,7 @@ def make_report_orchestrator(
         data_df = get_wcdata_for_aoi(query_gdf)
 
     data_df = sort_dataframe_for_deterministic_output(data_df)
+    data_df = add_full_export_rank_columns(data_df)
     data_df.to_csv(csv_data_path, index=False)
     # given the data groups by stream name and there are only ~80k distinct stream names in CONUS this shouldn't blow up
     data_df.to_excel(report_dir / 'data' / 'data.xlsx', index=False)
