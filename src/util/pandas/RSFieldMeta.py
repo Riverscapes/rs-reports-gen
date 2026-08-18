@@ -36,6 +36,10 @@ Authors: Matt Reimer, Lorin Gaertner
 October 2025
 """
 
+# from enum import StrEnum
+
+from typing import Any, cast
+
 import pandas as pd
 import pint  # noqa: F401  # pylint: disable=unused-import
 import pint_pandas  # noqa: F401  # pylint: disable=unused-import # this is needed
@@ -43,6 +47,11 @@ from rsxml import Logger
 
 # shared canonical unit registry
 ureg = pint.get_application_registry()
+
+# FUTURE ENHANCEMENT
+# class UnitSystem(StrEnum):
+#     SI = "SI"
+#     IMPERIAL = "imperial"
 
 UNIT_SYSTEMS = ['SI', 'imperial']
 
@@ -107,6 +116,7 @@ class FieldMetaValues:
         "friendly_name",
         "data_unit",
         "display_unit",
+        "display_unit_imperial",
         "dtype",
         "no_convert",
         "description",
@@ -120,6 +130,7 @@ class FieldMetaValues:
         self.friendly_name: str = ""
         self.data_unit: pint.Unit | None = None
         self.display_unit: pint.Unit | None = None
+        self.display_unit_imperial: pint.Unit | None = None
         self.dtype: str = ""
         self.no_convert: bool = False
         self.description: str = ""
@@ -144,6 +155,7 @@ class RSFieldMeta:
     """
 
     _shared_state = {}
+    UNIT_COLUMNS = ("data_unit", "display_unit", "display_unit_imperial")
 
     def __init__(self):
         self.__dict__ = self._shared_state
@@ -228,11 +240,11 @@ class RSFieldMeta:
         # Create the unique ID for indexing
         value['_unique_id'] = value.apply(lambda row: _get_unique_id(row.get('layer_id'), row.get('name')), axis=1)
 
-        # Make our unit objects a little easier to work with
-        if "data_unit" in value.columns:
-            value["data_unit"] = value["data_unit"].apply(self._coerce_unit)
-        if "display_unit" in value.columns:
-            value["display_unit"] = value["display_unit"].apply(self._coerce_unit)
+        # Transform columns with unit strings to Pint units to make them easier to work with
+        for column in self.UNIT_COLUMNS:
+            if column in value.columns:
+                unit_series = cast(pd.Series, value[column])
+                value[column] = unit_series.map(self._coerce_unit)
 
         # IF there is no meta then set it
         if self._field_meta is None:
@@ -324,20 +336,22 @@ class RSFieldMeta:
         friendly_name: str = "",
         data_unit: str | pint.Unit | None = None,
         display_unit: str | pint.Unit | None = None,
+        display_unit_imperial: str | pint.Unit | None = None,
         dtype: str = "",
         no_convert: bool = False,
         description: str = "",
         preferred_format: str | None = None,
         theme: str = "",
     ):
-        """Add a new column to the metadata DataFrame if it does not already exist.
+        """Add a new row (defining a column, confusing yes) to the metadata DataFrame if row for this column does not already exist.
 
         Args:
-            name: The name of the column to add.
+            name: The name of the column definition to add.
             layer_id: Stable identifier of the layer/namespace for the column.
             friendly_name: Human-friendly label for surfaces, tables, etc.
             data_unit: Unit attached to the stored data values.
-            display_unit: Unit to use when rendering values (overrides preferred units).
+            display_unit: Unit to use when rendering values (overrides preferred units)
+            display_unit_imperial: Unit to use when rendering values in imperial system (overrides system-wide default conversion)
             dtype: Field type descriptor (string, integer, area_m2, etc.).
             no_convert: If True, values stay in `display_unit`/`data_unit` order without conversion.
             description: Tooltip/help text exposed to end users.
@@ -350,7 +364,7 @@ class RSFieldMeta:
 
         if self._field_meta is None:
             self._field_meta = pd.DataFrame(columns=FieldMetaValues.VALID_COLUMNS)
-            for col in ['data_unit', 'display_unit']:
+            for col in self.UNIT_COLUMNS:
                 self._field_meta[col] = self._field_meta[col].astype(object)
 
         if unique_id in self._field_meta.index:
@@ -358,16 +372,18 @@ class RSFieldMeta:
             return
 
         self._field_meta.loc[unique_id, FieldMetaValues.VALID_COLUMNS] = None
-        self._field_meta.loc[unique_id, "name"] = name
-        self._field_meta.loc[unique_id, "friendly_name"] = friendly_name if friendly_name else name
-        self._field_meta.loc[unique_id, "layer_id"] = layer_id
-        self._field_meta.loc[unique_id, "data_unit"] = self._coerce_unit(data_unit)
-        self._field_meta.loc[unique_id, "display_unit"] = self._coerce_unit(display_unit)
-        self._field_meta.loc[unique_id, "dtype"] = dtype
-        self._field_meta.loc[unique_id, "no_convert"] = bool(no_convert)
-        self._field_meta.loc[unique_id, "description"] = description
-        self._field_meta.loc[unique_id, "preferred_format"] = preferred_format
-        self._field_meta.loc[unique_id, "theme"] = theme
+        self._field_meta.at[unique_id, "name"] = name
+        self._field_meta.at[unique_id, "friendly_name"] = friendly_name if friendly_name else name
+        self._field_meta.at[unique_id, "layer_id"] = layer_id
+        # Transform columns with unit strings to Pint units to make them easier to work with
+        self._field_meta.at[unique_id, "data_unit"] = cast(Any, self._coerce_unit(data_unit))
+        self._field_meta.at[unique_id, "display_unit"] = cast(Any, self._coerce_unit(display_unit))
+        self._field_meta.at[unique_id, "display_unit_imperial"] = cast(Any, self._coerce_unit(display_unit_imperial))
+        self._field_meta.at[unique_id, "dtype"] = dtype
+        self._field_meta.at[unique_id, "no_convert"] = bool(no_convert)
+        self._field_meta.at[unique_id, "description"] = description
+        self._field_meta.at[unique_id, "preferred_format"] = preferred_format
+        self._field_meta.at[unique_id, "theme"] = theme
 
     def _no_data_warning(self):
         """Warn if no metadata is set."""
@@ -375,7 +391,7 @@ class RSFieldMeta:
             self._log.warning("No metadata set. Remember to instantiate the RSFieldMeta using RSFieldMeta().df = meta_df")
 
     @staticmethod
-    def _normalize_unit_value(unit_value):
+    def _normalize_unit_value(unit_value: object) -> str | pint.Unit | None:
         """Normalize user-provided unit text, treating 'NA' as missing."""
         if unit_value is None:
             return None
@@ -389,13 +405,13 @@ class RSFieldMeta:
                 return None
             return cleaned
         try:
-            if pd.isna(unit_value):
+            if pd.isna(cast(Any, unit_value)):
                 return None
         except Exception:  # pragma: no cover - defensive fallback
             pass
-        return unit_value
+        return str(unit_value).strip() or None
 
-    def _coerce_unit(self, unit_value):
+    def _coerce_unit(self, unit_value: object) -> pint.Unit | None:
         """Convert arbitrary unit input into a pint.Unit or None."""
         normalized = self._normalize_unit_value(unit_value)
         if normalized is None or isinstance(normalized, pint.Unit):
@@ -457,8 +473,9 @@ class RSFieldMeta:
         new_layer_id: str | None = None,
         new_friendly: str | None = None,
         new_description: str | None = None,
-        new_data_unit: str | None = None,
-        new_display_unit: str | None = None,
+        new_data_unit: str | pint.Unit | None = None,
+        new_display_unit: str | pint.Unit | None = None,
+        new_display_unit_imperial: str | pint.Unit | None = None,
         new_dtype: str | None = None,
         new_no_convert: bool | None = None,
         new_preferred_format: str | None = None,
@@ -507,6 +524,7 @@ class RSFieldMeta:
             friendly_name=new_friendly if new_friendly is not None else fm.friendly_name,
             data_unit=new_data_unit if new_data_unit is not None else fm.data_unit,
             display_unit=new_display_unit if new_display_unit is not None else fm.display_unit,
+            display_unit_imperial=(new_display_unit_imperial if new_display_unit_imperial is not None else fm.display_unit_imperial),
             dtype=new_dtype if new_dtype is not None else fm.dtype,
             no_convert=new_no_convert if new_no_convert is not None else fm.no_convert,
             description=new_description if new_description is not None else fm.description,
@@ -549,8 +567,9 @@ class RSFieldMeta:
         meta_values.name = _clean_text_meta(meta_row.get('name', ''))
         meta_values.friendly_name = _clean_text_meta(meta_row.get("friendly_name", ''))
         meta_values.layer_id = _clean_text_meta(meta_row.get("layer_id", ''))
-        meta_values.data_unit = meta_row.get("data_unit")
-        meta_values.display_unit = meta_row.get("display_unit")
+        meta_values.data_unit = self._coerce_unit(meta_row.get("data_unit"))
+        meta_values.display_unit = self._coerce_unit(meta_row.get("display_unit"))
+        meta_values.display_unit_imperial = self._coerce_unit(meta_row.get("display_unit_imperial"))
         meta_values.dtype = _clean_text_meta(meta_row.get("dtype", ''))
         meta_values.no_convert = bool(meta_row.get("no_convert", False))
         meta_values.description = _clean_text_meta(meta_row.get("description", ''))
@@ -602,6 +621,78 @@ class RSFieldMeta:
         """
         unit_str_with_ones = str(quantity.units).replace('count', '1')
         return ureg.Unit(unit_str_with_ones)
+
+    @staticmethod
+    def pluralize_unit_label(unit_label: str | pint.Unit, magnitude: Any) -> str:
+        """Return a singular/plural unit label from an explicit canonical-unit map.
+
+        The map is keyed by Pint canonical unit text (e.g., ``"mile ** 2"``).
+        To discover keys for map entries, use ``str(ureg.Unit("<candidate>"))``.
+
+        Supported input for ``unit_label``:
+        - ``pint.Unit`` (preferred)
+        - Unit strings parseable by Pint (canonicalized before lookup)
+        - Any other string (returned unchanged when not mapped)
+
+        Behavior:
+        - Magnitude ``+/-1`` returns singular mapped label.
+        - Other magnitudes return plural mapped label.
+        - Unmapped labels are returned unchanged (or pretty-Pint label for Unit input).
+        """
+        if isinstance(unit_label, pint.Unit):
+            map_key = str(unit_label).strip()
+            fallback_label = f"{unit_label:P}".strip()
+        else:
+            fallback_label = str(unit_label).strip()
+            if fallback_label == "":
+                return fallback_label
+            try:
+                map_key = str(ureg.Unit(fallback_label)).strip()
+            except Exception:  # pragma: no cover - not a parseable unit string
+                map_key = fallback_label
+
+        try:
+            mag = float(magnitude)
+        except Exception:  # pragma: no cover - defensive
+            return fallback_label
+
+        label_map: dict[str, tuple[str, str]] = {
+            'mile': ('mile', 'miles'),
+            'mile ** 2': ('square mile', 'square miles'),
+            'meter': ('meter', 'meters'),
+            'kilometer': ('kilometer', 'kilometers'),
+            'millimeter': ('millimeter', 'millimeters'),
+            'yard': ('yard', 'yards'),
+            'yard ** 3': ('cubic yard', 'cubic yards'),
+            'foot': ('foot', 'feet'),
+            'inch': ('inch', 'inches'),
+            'acre': ('acre', 'acres'),
+            'hectare': ('hectare', 'hectares'),
+            'degree': ('degree', 'degrees'),
+        }
+        mapped = label_map.get(map_key)
+        if mapped is None:
+            return fallback_label
+
+        singular_label, plural_label = mapped
+        return singular_label if abs(mag) == 1 else plural_label
+
+    def _get_explicit_display_unit(self, fm: FieldMetaValues, *, for_no_convert: bool = False) -> pint.Unit | None:
+        """Return explicit display unit override for the active unit system.
+
+        In imperial mode for normal conversion, only display_unit_imperial is considered
+        explicit; otherwise we fall back to system-wide conversion.
+        """
+        if self._unit_system.lower() == 'imperial':
+            if fm.display_unit_imperial is not None and str(fm.display_unit_imperial).strip() != "":
+                return fm.display_unit_imperial
+            if for_no_convert and fm.display_unit is not None and str(fm.display_unit).strip() != "":
+                return fm.display_unit
+            return None
+
+        if fm.display_unit is not None and str(fm.display_unit).strip() != "":
+            return fm.display_unit
+        return None
 
     def format_scalar(
         self,
@@ -681,7 +772,7 @@ class RSFieldMeta:
             unit_text = ""
         else:
             if full_format:
-                unit_text = f"{clean_unit:P}".strip()
+                unit_text = self.pluralize_unit_label(clean_unit, converted_value.magnitude)
             else:
                 unit_text = f"{clean_unit:~P}".strip()
             if unit_text.startswith("1/"):
@@ -788,16 +879,14 @@ class RSFieldMeta:
                 if not fm.data_unit:
                     self._log.debug(f'No data unit for column {col}. Skipping unit application.')
                     continue
-                df_copy[col] = df_copy[col].astype(f"pint[{fm.data_unit}]")
+                df_copy[col] = df_copy[col].astype(cast(Any, f"pint[{fm.data_unit}]"))
                 if fm.no_convert:
-                    # If no_convert is true then we use the display_unit if it exists
-                    if fm.display_unit:
-                        # Even though no_convert is true we still convert it to the display unit
-                        df_copy[col] = df_copy[col].pint.to(fm.display_unit)
-                        # put back the dtype
-                        # df_copy[col] = df_copy[col].astype(dtype)
-                        applied_unit = fm.display_unit
-                        self._log.debug(f'Applied {fm.display_unit} to {col} with no_convert using display unit override')
+                    explicit_unit = self._get_explicit_display_unit(fm, for_no_convert=True)
+                    # If no_convert is true, use explicit display override if present for current system.
+                    if explicit_unit is not None:
+                        df_copy[col] = df_copy[col].pint.to(explicit_unit)
+                        applied_unit = explicit_unit
+                        self._log.debug(f'Applied {explicit_unit} to {col} with no_convert using display override')
                     else:
                         applied_unit = fm.data_unit
                         self._log.debug(f'Applied {fm.data_unit} to {col} with no_convert using data unit fallback')
@@ -836,22 +925,19 @@ class RSFieldMeta:
             if no_convert:
                 return fm.data_unit
 
-            # The data unit is always the fallback
-            applied_unit = ureg.Unit(fm.data_unit)
+            # Explicit display overrides win over system conversion.
+            explicit_unit = self._get_explicit_display_unit(fm)
             try:
-                if fm.display_unit:
-                    applied_unit = ureg.Unit(fm.display_unit)
                 if fm.no_convert:
-                    # If no_convert is true then we use the display_unit if it exists
-                    if fm.display_unit is not None and str(fm.display_unit).strip() != "":
-                        applied_unit = fm.display_unit
-                    else:
-                        applied_unit = fm.data_unit
-                else:
-                    applied_unit = self.get_system_units(applied_unit)
+                    return explicit_unit if explicit_unit is not None else fm.data_unit
+                if explicit_unit is not None:
+                    return explicit_unit
+                if self._unit_system.lower() == 'imperial' and fm.display_unit is not None and str(fm.display_unit).strip() != "":
+                    return self.get_system_units(ureg.Unit(fm.display_unit))
+                return self.get_system_units(ureg.Unit(fm.data_unit))
             except Exception as exc:  # pragma: no cover - log unexpected issues
-                self._log.warning(f"Unable to resolve display unit for field '{name}' in layer_id '{layer_id}' (data_unit='{fm.data_unit}', display_unit='{fm.display_unit}'): {exc}")
-            return applied_unit
+                self._log.warning(f"Unable to resolve display unit for field '{name}' in layer_id '{layer_id}' (data_unit='{fm.data_unit}', display_unit='{fm.display_unit}', display_unit_imperial='{fm.display_unit_imperial}'): {exc}")
+            return fm.data_unit
         return None
 
     def get_field_header(self, name: str, include_units: bool = True, unit_fmt=" ({unit})", layer_id: str | None = None) -> str:
