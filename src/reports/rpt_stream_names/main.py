@@ -25,6 +25,7 @@ from util.figures import (
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
+from util.summary import summarize_top_n_rollups
 
 
 def normalize_guessed_name(raw_guess: str | None) -> str:
@@ -61,9 +62,6 @@ def define_fields(unit_system: str = "SI") -> None:
     meta = RSFieldMeta()
     meta.unit_system = unit_system
 
-    # Set km display; RSFieldMeta will auto-convert to miles when unit_system is imperial
-    meta.set_display_unit("total_riverscape_length", "kilometer")
-
     # total_riverscape_length arrives from Athena in metres; display in km or miles
     meta.add_field_meta(
         name="total_riverscape_length",
@@ -82,6 +80,10 @@ def define_fields(unit_system: str = "SI") -> None:
         dtype="REAL",
         preferred_format="{:,.1f}",
     )
+
+    # Set km display; RSFieldMeta will auto-convert to miles when unit_system is imperial
+    meta.set_display_unit("total_riverscape_length", "kilometer")
+    meta.set_display_unit("total_channel_length", "kilometer")
 
     meta.add_field_meta(
         name="level_path_count",
@@ -110,7 +112,7 @@ def define_fields(unit_system: str = "SI") -> None:
         data_unit=None,
         dtype="REAL",
         description="Percent of all distinct, named, level paths in the area of interest with this stream name.",
-        preferred_format="{:.2f}",
+        preferred_format="{:.1f}",
     )
     meta.add_field_meta(
         name="pct_of_length",
@@ -118,15 +120,16 @@ def define_fields(unit_system: str = "SI") -> None:
         data_unit=None,
         dtype="REAL",
         description="Percent of total named riverscape length in the area of interest accounted for by this stream name.",
-        preferred_format="{:.2f}",
+        preferred_format="{:.1f}",
     )
 
 
-def build_top_names_by_path_count_table(df: pd.DataFrame, top_n: int = 10) -> str:
+def build_top_names_by_path_count_table(full_df: pd.DataFrame, named_df: pd.DataFrame, top_n: int = 10) -> str:
     """Build an HTML table of the top N stream names ranked by distinct level-path count then total riverscape length.
 
     Args:
-        df (pd.DataFrame): The stream names dataframe from dataprep.
+        full_df (pd.DataFrame): Full stream names dataframe including named and unnamed values.
+        named_df (pd.DataFrame): Named-only stream names dataframe from dataprep.
         top_n (int): Number of top rows to include. Defaults to 10.
 
     Returns:
@@ -134,10 +137,10 @@ def build_top_names_by_path_count_table(df: pd.DataFrame, top_n: int = 10) -> st
 
     Created by copilot.
     """
-    total_paths = df["level_path_count"].sum()
+    total_paths = named_df["level_path_count"].sum()
 
     ranked = (
-        df[["stream_name", "level_path_count", "total_riverscape_length"]]
+        named_df[["stream_name", "level_path_count", "total_riverscape_length"]]
         .copy()
         .sort_values(
             by=["level_path_count", "total_riverscape_length", "stream_name"],
@@ -148,27 +151,46 @@ def build_top_names_by_path_count_table(df: pd.DataFrame, top_n: int = 10) -> st
         .reset_index(drop=True)
     )
     ranked.insert(0, "rank", range(1, len(ranked) + 1))
-    ranked["pct_of_paths"] = ranked["level_path_count"] / total_paths * 100
+    ranked["rank"] = ranked["rank"].astype(str)
+    ranked["pct_of_paths"] = ranked["level_path_count"] / total_paths * 100 if total_paths else 0.0
+
+    rollups = summarize_top_n_rollups(
+        full_df,
+        named_df,
+        name_field="stream_name",
+        metric_fields=["level_path_count", "total_riverscape_length"],
+        top_n=top_n,
+        sort_by=["level_path_count", "total_riverscape_length", "stream_name"],
+        ascending=[False, False, True],
+        include_unnamed_row=True,
+    )
+    rollups.insert(0, "rank", [""] * len(rollups))
+    rollups["pct_of_paths"] = float("nan")
+    named_rollup_mask = rollups["stream_name"].isin({f"Top {len(ranked)} Total", "All Other Named Values"})
+    if total_paths:
+        rollups.loc[named_rollup_mask, "pct_of_paths"] = rollups.loc[named_rollup_mask, "level_path_count"] / total_paths * 100
 
     # Reorder columns for display
     display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "level_path_count", "pct_of_paths", "total_riverscape_length"]])
+    display_df.set_footer(rollups[["rank", "stream_name", "level_path_count", "pct_of_paths", "total_riverscape_length"]])
     return display_df.to_html(index=False, escape=False)
 
 
-def build_top_names_by_riverscape_length_table(df: pd.DataFrame, top_n: int = 10) -> str:
+def build_top_names_by_riverscape_length_table(full_df: pd.DataFrame, named_df: pd.DataFrame, top_n: int = 10) -> str:
     """Build an HTML table of the top N stream names ranked by total riverscape length then distinct level-path count.
 
     Args:
-        df (pd.DataFrame): The stream names dataframe from dataprep.
+        full_df (pd.DataFrame): Full stream names dataframe including named and unnamed values.
+        named_df (pd.DataFrame): Named-only stream names dataframe from dataprep.
         top_n (int): Number of top rows to include. Defaults to 10.
 
     Returns:
         str: HTML table fragment.
     """
-    total_length = df["total_riverscape_length"].sum()
+    total_length = named_df["total_riverscape_length"].sum()
 
     ranked = (
-        df[["stream_name", "level_path_count", "total_riverscape_length", "total_channel_length"]]
+        named_df[["stream_name", "level_path_count", "total_riverscape_length", "total_channel_length"]]
         .copy()
         .sort_values(
             by=["total_riverscape_length", "level_path_count", "stream_name"],
@@ -179,9 +201,27 @@ def build_top_names_by_riverscape_length_table(df: pd.DataFrame, top_n: int = 10
         .reset_index(drop=True)
     )
     ranked.insert(0, "rank", range(1, len(ranked) + 1))
-    ranked["pct_of_length"] = ranked["total_riverscape_length"] / total_length * 100
+    ranked["rank"] = ranked["rank"].astype(str)
+    ranked["pct_of_length"] = ranked["total_riverscape_length"] / total_length * 100 if total_length else 0.0
+
+    rollups = summarize_top_n_rollups(
+        full_df,
+        named_df,
+        name_field="stream_name",
+        metric_fields=["total_riverscape_length", "total_channel_length", "level_path_count"],
+        top_n=top_n,
+        sort_by=["total_riverscape_length", "level_path_count", "stream_name"],
+        ascending=[False, False, True],
+        include_unnamed_row=True,
+    )
+    rollups.insert(0, "rank", [""] * len(rollups))
+    rollups["pct_of_length"] = float("nan")
+    named_rollup_mask = rollups["stream_name"].isin({f"Top {len(ranked)} Total", "All Other Named Values"})
+    if total_length:
+        rollups.loc[named_rollup_mask, "pct_of_length"] = rollups.loc[named_rollup_mask, "total_riverscape_length"] / total_length * 100
 
     display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "total_riverscape_length", "pct_of_length", "total_channel_length", "level_path_count"]])
+    display_df.set_footer(rollups[["rank", "stream_name", "total_riverscape_length", "pct_of_length", "total_channel_length", "level_path_count"]])
     return display_df.to_html(index=False, escape=False)
 
 
@@ -234,8 +274,8 @@ def make_report(
     named_df = named_wcdata(df)
 
     tables = {
-        "top_names_by_path_count": build_top_names_by_path_count_table(named_df),
-        "top_names_by_riverscape_length": build_top_names_by_riverscape_length_table(named_df),
+        "top_names_by_path_count": build_top_names_by_path_count_table(df, named_df),
+        "top_names_by_riverscape_length": build_top_names_by_riverscape_length_table(df, named_df),
     }
 
     stats = additional_stats(aoi_gdf, df, named_df)
