@@ -6,21 +6,213 @@ Created by copilot.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 import pint
+import pyarrow.parquet as pq
 from rsxml import Logger
 
 from util.athena import athena_unload_to_dataframe, get_field_metadata
-from util.pandas import RSFieldMeta, load_gdf_from_pq
+from util.athena.athena_unload_utils import list_athena_unload_payload_files
+from util.figures import HighlightCard, MetricBundle
+from util.pandas import RSFieldMeta
+from util.rs_geo_helpers import total_aoi_area_m2
 
 RME_LAYER_ID = "raw_rme"
-PERENNIAL_FCODES = {46006, 55800}
+PERENNIAL_FCODES = {46006, 55800}  # TODO get Joe to confirm see https://github.com/Riverscapes/rs-reports-gen/issues/177#issuecomment-5347530479
 
 ureg = pint.get_application_registry()
+
+
+@dataclass
+class IGOReportArtifacts:
+    """Typed artifact payload for IGO report data transfer.
+
+    Created 2026-08-19.
+    Created by copilot.
+    """
+
+    flow_summary: dict[str, dict[str, float | str]]
+    card_metrics: MetricBundle
+    source_rows_df: pd.DataFrame
+
+
+def _extract_metric_values(per_val: object, non_val: object, default_unit: str) -> dict[str, float | str]:
+    """Convert two metric values into a summary dict with percentages.
+
+    Created 2026-08-19.
+    Created by copilot.
+    """
+
+    def _as_float(value: object) -> float:
+        value_any = cast(Any, value)
+        if value_any is None or pd.isna(value_any):
+            return 0.0
+        try:
+            return float(value_any)
+        except (TypeError, ValueError):
+            return 0.0
+
+    per_any = cast(Any, per_val)
+    non_any = cast(Any, non_val)
+
+    if hasattr(per_any, "to") or hasattr(non_any, "to"):
+        quantity_val = per_any if hasattr(per_any, "to") else non_any
+        unit_name = f"{quantity_val.units:~P}"
+
+        if hasattr(per_any, "to"):
+            per_float = float(per_any.to(quantity_val.units).magnitude)
+        else:
+            per_float = _as_float(per_any)
+
+        if hasattr(non_any, "to"):
+            non_float = float(non_any.to(quantity_val.units).magnitude)
+        else:
+            non_float = _as_float(non_any)
+    else:
+        unit_name = default_unit
+        per_float = _as_float(per_any)
+        non_float = _as_float(non_any)
+
+    total = per_float + non_float
+    per_pct = (per_float / total * 100.0) if total > 0 else 0.0
+    non_pct = (non_float / total * 100.0) if total > 0 else 0.0
+
+    return {
+        "perennial": per_float,
+        "non_perennial": non_float,
+        "total": total,
+        "unit": unit_name,
+        "perennial_pct": per_pct,
+        "non_perennial_pct": non_pct,
+    }
+
+
+def _stream_flow_and_source_summary(parquet_source: Path, batch_size: int = 90_000) -> tuple[dict[str, float], dict[str, float], dict[str, dict[str, object]]]:
+    """Stream parquet files to collect report totals and source-project summaries.
+
+    Created 2026-08-19.
+    Created by copilot.
+    """
+    if parquet_source.is_file():
+        parquet_files = [parquet_source]
+    else:
+        parquet_files = list_athena_unload_payload_files(parquet_source)
+
+    overall_totals: dict[str, float] = {
+        "row_count": 0.0,
+        "segment_area": 0.0,
+        "centerline_length": 0.0,
+        "integrated_width": 0.0,
+        "integrated_width_count": 0.0,
+    }
+
+    flow_totals: dict[str, float] = {
+        "perennial_length": 0.0,
+        "non_perennial_length": 0.0,
+        "perennial_area": 0.0,
+        "non_perennial_area": 0.0,
+        "perennial_count": 0.0,
+        "non_perennial_count": 0.0,
+    }
+
+    source_rollup: dict[str, dict[str, Any]] = {}
+
+    columns_to_read = ["fcode", "centerline_length", "segment_area", "integrated_width", "watershed_id", "rme_project_id", "rme_date_created_ts", "rme_version"]
+
+    for parquet_file in parquet_files:
+        pq_file = pq.ParquetFile(parquet_file)
+        file_cols = set(pq_file.schema.names)
+        active_cols = [col for col in columns_to_read if col in file_cols]
+        if not active_cols:
+            continue
+
+        for batch in pq_file.iter_batches(columns=active_cols, batch_size=batch_size):
+            batch_df = batch.to_pandas()
+            if batch_df.empty:
+                continue
+
+            overall_totals["row_count"] += float(len(batch_df))
+
+            if "fcode" in batch_df.columns:
+                fcode_series = pd.to_numeric(batch_df["fcode"], errors="coerce")
+                is_perennial = fcode_series.isin(PERENNIAL_FCODES)
+            else:
+                is_perennial = pd.Series([False] * len(batch_df), index=batch_df.index)
+
+            lengths = pd.to_numeric(batch_df["centerline_length"], errors="coerce") if "centerline_length" in batch_df.columns else pd.Series([0.0] * len(batch_df), index=batch_df.index)
+            areas = pd.to_numeric(batch_df["segment_area"], errors="coerce") if "segment_area" in batch_df.columns else pd.Series([0.0] * len(batch_df), index=batch_df.index)
+
+            overall_totals["centerline_length"] += float(lengths.sum(skipna=True))
+            overall_totals["segment_area"] += float(areas.sum(skipna=True))
+
+            if "integrated_width" in batch_df.columns:
+                integrated_width = pd.to_numeric(batch_df["integrated_width"], errors="coerce")
+                overall_totals["integrated_width"] += float(integrated_width.sum(skipna=True))
+                overall_totals["integrated_width_count"] += float(integrated_width.notna().sum())
+
+            flow_totals["perennial_length"] += float(lengths.where(is_perennial, 0).sum(skipna=True))
+            flow_totals["non_perennial_length"] += float(lengths.where(~is_perennial, 0).sum(skipna=True))
+            flow_totals["perennial_area"] += float(areas.where(is_perennial, 0).sum(skipna=True))
+            flow_totals["non_perennial_area"] += float(areas.where(~is_perennial, 0).sum(skipna=True))
+            flow_totals["perennial_count"] += float(is_perennial.sum())
+            flow_totals["non_perennial_count"] += float((~is_perennial).sum())
+
+            if "rme_project_id" not in batch_df.columns:
+                continue
+
+            source_df = pd.DataFrame()
+            source_df["project_id"] = batch_df["rme_project_id"].astype("string").str.strip().str.lower()
+            source_df = source_df[source_df["project_id"].notna() & (source_df["project_id"] != "")]
+            if source_df.empty:
+                continue
+
+            if "watershed_id" in batch_df.columns:
+                source_df["huc10_code"] = _format_huc10(batch_df.loc[source_df.index, "watershed_id"])
+            else:
+                source_df["huc10_code"] = ""
+
+            if "rme_date_created_ts" in batch_df.columns:
+                source_df["project_date"] = pd.to_datetime(batch_df.loc[source_df.index, "rme_date_created_ts"], errors="coerce", utc=True)
+            else:
+                source_df["project_date"] = pd.NaT
+
+            if "rme_version" in batch_df.columns:
+                source_df["project_version"] = batch_df.loc[source_df.index, "rme_version"].astype("string")
+            else:
+                source_df["project_version"] = pd.Series([pd.NA] * len(source_df), dtype="string")
+
+            for row in source_df.itertuples(index=False):
+                project_id = str(row.project_id)
+                record = source_rollup.setdefault(
+                    project_id,
+                    {
+                        "huc10_codes": set(),
+                        "project_date": pd.NaT,
+                        "project_version": "",
+                    },
+                )
+
+                huc = str(row.huc10_code).strip()
+                if huc and huc.lower() != "<na>":
+                    cast(set[str], record["huc10_codes"]).add(huc)
+
+                proj_date = row.project_date
+                proj_date_ts = pd.to_datetime(pd.Series([proj_date]), errors="coerce", utc=True).iloc[0]
+                if pd.notna(proj_date_ts):
+                    existing_date = pd.to_datetime(pd.Series([record["project_date"]]), errors="coerce", utc=True).iloc[0]
+                    if pd.isna(existing_date) or proj_date_ts > existing_date:
+                        record["project_date"] = proj_date_ts
+
+                proj_version = str(row.project_version).strip()
+                if proj_version and proj_version.lower() != "<na>":
+                    record["project_version"] = proj_version
+
+    return overall_totals, flow_totals, source_rollup
 
 
 def define_fields(unit_system: str = "SI", field_meta_df: pd.DataFrame | None = None) -> None:
@@ -42,26 +234,11 @@ def define_fields(unit_system: str = "SI", field_meta_df: pd.DataFrame | None = 
 
     # Keep a stable display system for cards/charts.
     meta.set_display_unit("segment_area", "kilometer ** 2", RME_LAYER_ID)
+    meta.set_display_unit_imperial("segment_area", "mile ** 2", RME_LAYER_ID)
     meta.set_display_unit("centerline_length", "kilometer", RME_LAYER_ID)
+    meta.set_display_unit_imperial("centerline_length", "mile", RME_LAYER_ID)
     meta.set_display_unit("integrated_width", "meter", RME_LAYER_ID)
-
-
-def _compute_aoi_area(aoi_gdf: gpd.GeoDataFrame) -> pint.Quantity:
-    """Return AOI area in square kilometers.
-
-    Created 2026-08-18.
-    Created by copilot.
-    """
-    if aoi_gdf.empty:
-        return 0 * ureg("kilometer ** 2")
-
-    if aoi_gdf.crs is None:
-        projected = aoi_gdf.set_crs(epsg=4326).to_crs(epsg=5070)
-    else:
-        projected = aoi_gdf.to_crs(epsg=5070)
-
-    aoi_sq_m = float(projected.geometry.area.sum())
-    return (aoi_sq_m * ureg("meter ** 2")).to("kilometer ** 2")
+    meta.set_display_unit_imperial("integrated_width", "foot", RME_LAYER_ID)
 
 
 def _format_huc10(series: pd.Series) -> pd.Series:
@@ -75,122 +252,128 @@ def _format_huc10(series: pd.Series) -> pd.Series:
     return clean.str.zfill(10)
 
 
-def load_igo_report_data(parquet_source: Path) -> pd.DataFrame:
-    """Load staged AOI parquet and prepare report-ready columns.
+def load_igo_report_data(parquet_source: Path) -> IGOReportArtifacts:
+    """Load staged AOI parquet and prepare typed report summary payload.
 
     Created 2026-08-18.
     Created by copilot.
     """
     log = Logger("IGO dataprep")
-    df = load_gdf_from_pq(parquet_source)
-    if df.empty:
-        return df
+    overall_totals, flow_totals, source_rollup = _stream_flow_and_source_summary(parquet_source)
 
-    df.attrs["layer_id"] = RME_LAYER_ID
+    totals_df = pd.DataFrame(
+        [
+            {
+                "segment_area": overall_totals.get("segment_area", 0.0),
+                "centerline_length": overall_totals.get("centerline_length", 0.0),
+                "integrated_width": (overall_totals.get("integrated_width", 0.0) / overall_totals["integrated_width_count"] if overall_totals["integrated_width_count"] > 0 else 0.0),
+            }
+        ]
+    )
+    totals_df.attrs["layer_id"] = RME_LAYER_ID
 
-    if "watershed_id" in df.columns:
-        df["watershed_id"] = _format_huc10(df["watershed_id"])
-
-    if "fcode" in df.columns:
-        fcode_series = pd.to_numeric(df["fcode"], errors="coerce")
-        df["flow_permanence"] = np.where(fcode_series.isin(PERENNIAL_FCODES), "Perennial", "Non-perennial")
-    else:
-        df["flow_permanence"] = "Unknown"
+    flow_df = pd.DataFrame(
+        [
+            {
+                "centerline_length": flow_totals["perennial_length"],
+                "segment_area": flow_totals["perennial_area"],
+            },
+            {
+                "centerline_length": flow_totals["non_perennial_length"],
+                "segment_area": flow_totals["non_perennial_area"],
+            },
+        ]
+    )
+    flow_df.attrs["layer_id"] = RME_LAYER_ID
 
     try:
-        df, _applied_units = RSFieldMeta().apply_units(df, layer_id=RME_LAYER_ID)
+        totals_df, _totals_units = RSFieldMeta().apply_units(totals_df, layer_id=RME_LAYER_ID)
+        flow_df, _flow_units = RSFieldMeta().apply_units(flow_df, layer_id=RME_LAYER_ID)
     except Exception as exc:  # pragma: no cover
         log.warning(f"Unable to apply units from metadata: {exc}")
 
-    return df
+    per_length = flow_df.iloc[0]["centerline_length"]
+    non_length = flow_df.iloc[1]["centerline_length"]
+    per_area = flow_df.iloc[0]["segment_area"]
+    non_area = flow_df.iloc[1]["segment_area"]
 
-
-def summarize_flow_breakdown(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
-    """Summarize perennial vs non-perennial contributions for key metrics.
-
-    Created 2026-08-18.
-    Created by copilot.
-    """
-    categories = ["Perennial", "Non-perennial"]
-    flow_df = df.copy()
-    if "flow_permanence" not in flow_df.columns:
-        flow_df["flow_permanence"] = "Non-perennial"
-
-    flow_df = flow_df[flow_df["flow_permanence"].isin(categories)]
-
-    grouped = flow_df.groupby("flow_permanence", observed=False)
-
-    length = grouped["centerline_length"].sum() if "centerline_length" in flow_df.columns else pd.Series(dtype=float)
-    area = grouped["segment_area"].sum() if "segment_area" in flow_df.columns else pd.Series(dtype=float)
-    seg_count = grouped.size() if len(flow_df) else pd.Series(dtype=int)
-
-    def _extract_metric(series: pd.Series, default_unit: str) -> dict[str, float | str]:
-        per_val = series.get("Perennial", 0)
-        non_val = series.get("Non-perennial", 0)
-
-        if hasattr(per_val, "to") or hasattr(non_val, "to"):
-            quantity_val = per_val if hasattr(per_val, "to") else non_val
-            unit_name = f"{quantity_val.units:~P}"
-
-            if hasattr(per_val, "to"):
-                per_float = float(per_val.to(quantity_val.units).magnitude)
-            else:
-                per_float = float(per_val)
-
-            if hasattr(non_val, "to"):
-                non_float = float(non_val.to(quantity_val.units).magnitude)
-            else:
-                non_float = float(non_val)
-        else:
-            unit_name = default_unit
-            per_float = float(per_val) if pd.notna(per_val) else 0.0
-            non_float = float(non_val) if pd.notna(non_val) else 0.0
-
-        total = per_float + non_float
-        per_pct = (per_float / total * 100.0) if total > 0 else 0.0
-        non_pct = (non_float / total * 100.0) if total > 0 else 0.0
-
-        return {
-            "perennial": per_float,
-            "non_perennial": non_float,
-            "total": total,
-            "unit": unit_name,
-            "perennial_pct": per_pct,
-            "non_perennial_pct": non_pct,
-        }
-
-    return {
-        "length": _extract_metric(length, "km"),
-        "area": _extract_metric(area, "km^2"),
-        "segments": _extract_metric(seg_count, "count"),
+    precomputed_flow = {
+        "length": _extract_metric_values(per_length, non_length, "km"),
+        "area": _extract_metric_values(per_area, non_area, "km^2"),
+        "segments": _extract_metric_values(flow_totals["perennial_count"], flow_totals["non_perennial_count"], "count"),
     }
 
+    precomputed_source_rows: list[dict[str, object]] = []
+    for project_id, details in source_rollup.items():
+        precomputed_source_rows.append(
+            {
+                "source_rme_project": project_id,
+                "huc10_codes": sorted(cast(set[str], details["huc10_codes"])),
+                "project_version": str(details["project_version"]),
+                "project_date": details["project_date"],
+            }
+        )
 
-def summarize_cards(df: pd.DataFrame, aoi_gdf: gpd.GeoDataFrame) -> dict[str, object]:
+    card_metrics = MetricBundle(
+        {
+            "riverscape_area": totals_df.iloc[0]["segment_area"],
+            "riverscape_length": totals_df.iloc[0]["centerline_length"],
+            "avg_integrated_width": totals_df.iloc[0]["integrated_width"],
+            "segments_count": int(overall_totals.get("row_count", 0.0)),
+            "source_project_count": len(source_rollup),
+            "perennial_count": int(flow_totals["perennial_count"]),
+            "non_perennial_count": int(flow_totals["non_perennial_count"]),
+        },
+        layer_id=RME_LAYER_ID,
+    )
+
+    source_rows_df = pd.DataFrame(precomputed_source_rows)
+
+    return IGOReportArtifacts(
+        flow_summary=precomputed_flow,
+        card_metrics=card_metrics,
+        source_rows_df=source_rows_df,
+    )
+
+
+def _get_aoi_area_for_display(aoi_gdf: gpd.GeoDataFrame, unit_system: str) -> pint.Quantity:
+    """Compute AOI area and convert it to report display units.
+
+    Created 2026-08-19.
+    Created by copilot.
+    """
+    aoi_area = total_aoi_area_m2(aoi_gdf)
+    target_unit = "mile ** 2" if unit_system.strip().lower() == "imperial" else "kilometer ** 2"
+    return aoi_area.to(target_unit)
+
+
+def compute_summary_statistics(summary: IGOReportArtifacts, aoi_gdf: gpd.GeoDataFrame, unit_system: str = "SI") -> dict[str, object]:
     """Compute top-level summary values for highlight cards.
 
     Created 2026-08-18.
     Created by copilot.
     """
-    aoi_area = _compute_aoi_area(aoi_gdf)
+    aoi_area = _get_aoi_area_for_display(aoi_gdf, unit_system)
 
-    total_segment_area = df["segment_area"].sum() if "segment_area" in df.columns and not df.empty else 0 * ureg("kilometer ** 2")
-    total_centerline_length = df["centerline_length"].sum() if "centerline_length" in df.columns and not df.empty else 0 * ureg("kilometer")
+    card_metrics = summary.card_metrics
+    total_segment_area = card_metrics["riverscape_area"]
+    total_centerline_length = card_metrics["riverscape_length"]
+    average_integrated_width = card_metrics["avg_integrated_width"]
+    segments_count = int(cast(Any, card_metrics["segments_count"]))
+    source_project_count = int(cast(Any, card_metrics["source_project_count"]))
+    perennial_count = int(cast(Any, card_metrics["perennial_count"]))
+    non_perennial_count = int(cast(Any, card_metrics["non_perennial_count"]))
 
-    area_ratio_pct = (total_segment_area / aoi_area * 100.0) if aoi_area.magnitude > 0 else 0 * ureg("dimensionless")
+    def _to_float_magnitude(value: object) -> float:
+        raw_value = getattr(value, "magnitude", value)
+        try:
+            return float(cast(Any, raw_value))
+        except (TypeError, ValueError):
+            return 0.0
 
-    avg_area_per_length = (total_segment_area / total_centerline_length) if total_centerline_length.magnitude > 0 else 0 * ureg("meter")
+    area_ratio_pct = (cast(Any, total_segment_area) / aoi_area * 100.0) if aoi_area.magnitude > 0 else 0 * ureg("dimensionless")
 
-    if "integrated_width" in df.columns and not df.empty:
-        average_integrated_width = df["integrated_width"].mean()
-    else:
-        average_integrated_width = avg_area_per_length
-
-    segments_count = int(len(df))
-    source_project_count = int(df["rme_project_id"].dropna().astype("string").nunique()) if "rme_project_id" in df.columns else 0
-
-    perennial_count = int((df["flow_permanence"] == "Perennial").sum()) if "flow_permanence" in df.columns else 0
-    non_perennial_count = int((df["flow_permanence"] == "Non-perennial").sum()) if "flow_permanence" in df.columns else 0
+    avg_area_per_length = (cast(Any, total_segment_area) / cast(Any, total_centerline_length)) if _to_float_magnitude(total_centerline_length) > 0 else 0 * ureg("meter")
 
     return {
         "aoi_area": aoi_area,
@@ -269,7 +452,7 @@ def _lookup_project_metadata(project_ids: list[str]) -> dict[str, dict[str, str]
     return metadata
 
 
-def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
+def build_source_project_table(summary: IGOReportArtifacts) -> pd.DataFrame:
     """Build one row per contributing RME source project.
 
     Columns match report requirements (HUC10, watershed name, project info, citation, link).
@@ -277,7 +460,8 @@ def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
     Created 2026-08-18.
     Created by copilot.
     """
-    if df.empty or "rme_project_id" not in df.columns:
+    source_rows_df = summary.source_rows_df
+    if source_rows_df.empty:
         return pd.DataFrame(
             columns=[
                 "huc10_code",
@@ -289,41 +473,27 @@ def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
             ]
         )
 
-    work_df = df.copy()
-    work_df["source_rme_project"] = work_df["rme_project_id"].astype("string")
-    if "watershed_id" in work_df.columns:
-        work_df["huc10_code"] = _format_huc10(work_df["watershed_id"])
-    else:
-        work_df["huc10_code"] = ""
-
-    if "rme_date_created_ts" in work_df.columns:
-        work_df["project_date"] = pd.to_datetime(work_df["rme_date_created_ts"], errors="coerce", utc=True)
-    else:
-        work_df["project_date"] = pd.NaT
-
-    if "rme_version" in work_df.columns:
-        work_df["project_version"] = work_df["rme_version"].astype("string")
-    else:
-        work_df["project_version"] = pd.Series([pd.NA] * len(work_df), dtype="string")
-
-    project_lookup = _lookup_project_metadata(work_df["source_rme_project"].dropna().astype(str).tolist())
+    project_ids = source_rows_df["source_rme_project"].dropna().astype(str).tolist() if "source_rme_project" in source_rows_df.columns else []
+    project_lookup = _lookup_project_metadata(project_ids)
 
     rows: list[dict[str, str]] = []
-    for project_id, grp in work_df.groupby("source_rme_project", dropna=True):
-        clean_project_id = str(project_id)
+    for item in source_rows_df.itertuples(index=False):
+        clean_project_id = str(getattr(item, "source_rme_project", ""))
+        if not clean_project_id:
+            continue
         project_meta = project_lookup.get(clean_project_id.lower(), {})
         project_name = project_meta.get("project_name", "") or "n/a"
-        huc_codes = sorted({h for h in grp["huc10_code"].dropna().astype(str) if h})
+        huc_codes = [h for h in getattr(item, "huc10_codes", []) if str(h).strip()]
 
-        version_values = grp["project_version"].dropna().astype(str)
-        version_value = version_values.iloc[-1] if not version_values.empty else ""
+        version_value = str(getattr(item, "project_version", "") or "").strip()
 
         preferred_date = project_meta.get("created_on", "")
         if preferred_date:
             date_value = preferred_date
         else:
-            date_values = grp["project_date"].dropna()
-            date_value = date_values.max().strftime("%Y-%m-%d") if not date_values.empty else ""
+            stream_date = getattr(item, "project_date", pd.NaT)
+            stream_date_ts = pd.to_datetime(pd.Series([stream_date]), errors="coerce", utc=True).iloc[0]
+            date_value = stream_date_ts.strftime("%Y-%m-%d") if pd.notna(stream_date_ts) else ""
 
         if version_value and date_value:
             version_or_date = f"v{version_value} ({date_value})"
@@ -338,7 +508,7 @@ def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
 
         rows.append(
             {
-                "huc10_code": ", ".join(huc_codes) if huc_codes else "n/a",
+                "huc10_code": ", ".join(sorted(huc_codes)) if huc_codes else "n/a",
                 "project_name": project_name,
                 "source_rme_project": clean_project_id,
                 "project_version_or_date": version_or_date,
@@ -354,7 +524,7 @@ def build_source_project_table(df: pd.DataFrame) -> pd.DataFrame:
     return out_df.sort_values(by=["huc10_code", "source_rme_project"]).reset_index(drop=True)
 
 
-def build_highlight_cards(card_summary: dict[str, object]) -> list[dict[str, object]]:
+def build_highlight_cards(card_summary: dict[str, object]) -> list[HighlightCard]:
     """Convert summary metrics into macro-compatible highlight card payloads.
 
     Created 2026-08-18.
@@ -386,7 +556,17 @@ def build_highlight_cards(card_summary: dict[str, object]) -> list[dict[str, obj
     segments_text = f"Perennial: {card_summary['perennial_count']:,}; Non-perennial: {card_summary['non_perennial_count']:,}"
 
     card_specs = [
-        ("area_chart", "Total Area of Interest", _fmt(card_summary["aoi_area"], 2), "public", "AOI footprint", _fmt(card_summary["aoi_area"], 2)),
+        (
+            "area_chart",
+            "Total Area of Interest",
+            _fmt(card_summary["aoi_area"], 1),
+            "public",
+            "AOI footprint",
+            _fmt(
+                card_summary["aoi_area"],
+                2,
+            ),
+        ),
         (
             "water",
             "Total Area of Riverscapes",
@@ -445,7 +625,7 @@ def build_highlight_cards(card_summary: dict[str, object]) -> list[dict[str, obj
         ),
     ]
 
-    cards: list[dict[str, object]] = []
+    cards: list[HighlightCard] = []
     for idx, spec in enumerate(card_specs):
         icon, header, primary, secondary_icon, secondary_text, footer_metric = spec
         cards.append(

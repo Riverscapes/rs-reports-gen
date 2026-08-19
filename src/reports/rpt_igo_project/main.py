@@ -3,7 +3,6 @@
 # Standard library imports
 import argparse
 import logging
-import os
 import shutil
 import sys
 import traceback
@@ -26,10 +25,9 @@ from .__version__ import __version__
 from .dataprep import (
     build_highlight_cards,
     build_source_project_table,
+    compute_summary_statistics,
     define_fields,
     load_igo_report_data,
-    summarize_cards,
-    summarize_flow_breakdown,
 )
 from .figures import build_igo_figures
 from .rawrme_to_igos_project import create_gpkg_igos_from_parquet, create_igos_project
@@ -118,13 +116,13 @@ def field_metadata_to_file(output_path: Path, table_defs: pd.DataFrame):
 def generate_readme(project_dir: Path):
     """Write the report README markdown file from template."""
     # build readme
-    src_dir = os.path.dirname(__file__)
-    template_path = os.path.join(src_dir, 'templates', 'template_readme.md')
-    with open(template_path, encoding='utf-8') as f:
+    src_dir = Path(__file__).resolve().parent
+    template_path = src_dir / 'templates' / 'template_readme.md'
+    with template_path.open(encoding='utf-8') as f:
         template = Template(f.read())
     context = {"report_version": __version__}
     readme_contents = template.render(context)
-    with open(os.path.join(project_dir, 'README.md'), 'w', encoding='utf-8') as f:
+    with (project_dir / 'README.md').open('w', encoding='utf-8') as f:
         f.write(readme_contents)
 
 
@@ -134,16 +132,17 @@ def generate_igo_report(
     aoi_gdf: gpd.GeoDataFrame,
     parquet_source: Path,
     layerdefs: pd.DataFrame,
+    unit_system: str = 'SI',
     include_pdf: bool = False,
 ):
     """Generate interactive HTML, static HTML, and PDF summaries for the IGO package."""
     log = Logger('IGO report')
 
-    define_fields(unit_system='SI', field_meta_df=layerdefs)
+    define_fields(unit_system=unit_system, field_meta_df=layerdefs)
     report_df = load_igo_report_data(parquet_source)
 
-    card_summary = summarize_cards(report_df, aoi_gdf)
-    flow_summary = summarize_flow_breakdown(report_df)
+    card_summary = compute_summary_statistics(report_df, aoi_gdf, unit_system=unit_system)
+    flow_summary = report_df.flow_summary
     highlight_cards = build_highlight_cards(card_summary)
     figures = build_igo_figures(aoi_gdf, flow_summary)
 
@@ -174,15 +173,19 @@ def generate_igo_report(
     )
 
     tables = {'source_projects': html_source_table.to_html(index=False, escape=False) if not html_source_table.empty else '<p>No contributing source projects were found in the AOI dataset.</p>'}
-    messages = {'source_projects_caption': 'Showing first 5 source projects. Full source-project export available at <a href="data/source_projects.csv">data/source_projects.csv</a>.'}
+    if len(source_projects_df) <= html_row_limit:
+        footer_message = f'Showing all {len(source_projects_df)} projects.'
+    else:
+        footer_message = f'Showing first {html_row_limit} source projects.'
+    messages = {'source_projects_caption': f'{footer_message} Full source-project export available at <a href="data/source_projects.csv">data/source_projects.csv</a>.'}
 
     report = RSReport(
         report_name=project_name,
         report_type='Custom Riverscapes Metrics Dataset',
         report_dir=project_dir,
         report_version=__version__,
-        body_template_path=os.path.join(os.path.dirname(__file__), 'templates', 'body.html'),
-        css_paths=[os.path.join(os.path.dirname(__file__), 'templates', 'report.css')],
+        body_template_path=str(Path(__file__).resolve().parent / 'templates' / 'body.html'),
+        css_paths=[str(Path(__file__).resolve().parent / 'templates' / 'report.css')],
     )
 
     for name, fig in figures.items():
@@ -214,6 +217,7 @@ def get_and_process_aoi(
     log_path: Path,
     parquet_override: Path | None = None,
     keep_parquet: bool = False,
+    unit_system: str = 'SI',
     include_pdf: bool = False,
 ):
     """Get and process AOI orchestrator
@@ -293,6 +297,7 @@ def get_and_process_aoi(
         aoi_gdf,
         parquet_data_source,
         layerdefs,
+        unit_system=unit_system,
         include_pdf=include_pdf,
     )
 
@@ -335,6 +340,7 @@ def main():
         action='store_true',
         default=False,
     )
+    parser.add_argument('--unit_system', help='Unit system to use for summary only: SI or imperial', type=str, default='SI')
     # NOTE: IF WE CHANGE THESE VALUES PLEASE UPDATE ./launch.py
 
     args = dotenv.parse_args_env(parser)
@@ -358,6 +364,7 @@ def main():
             log_path,
             parquet_override=args.parquet_path,
             keep_parquet=args.keep_parquet,
+            unit_system=args.unit_system,
             include_pdf=args.include_pdf,
         )
         # print(path_to_results)

@@ -4,6 +4,11 @@
 
 Internal use only
 
+### Version 0.4.1 2026-08
+
+* Allows report to be in user-selected unit system (SI or imperial)
+* Extracts summaries from parquet files individually and only loading needed columns rather than loading the entire dataset into memory to compute summary statistics
+
 ### Version 0.4.0 2026-08
 
 * Rebrand from **IGO Scraper** to **Custom Riverscapes Metrics Dataset**

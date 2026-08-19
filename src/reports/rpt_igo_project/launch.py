@@ -29,6 +29,7 @@ def main() -> list[str] | None:
         IGO_REPORT_NAME - name for the report (optional)
         IGO_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
         IGO_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
+        IGO_UNIT_SYSTEM - unit system to use for report prep ('SI' or 'imperial') (optional)
         INCLUDE_PDF - set to '1' or 'true' to include static HTML + PDF outputs (optional)
 
     """
@@ -109,6 +110,24 @@ def main() -> list[str] | None:
 
     if keep_parquet:
         args.append("--keep-parquet")
+
+    # ── Unit system for report prep ──────────────────────────────────
+    unit_system = os.environ.get("IGO_UNIT_SYSTEM")
+    if unit_system:
+        unit_system = unit_system.strip()
+    else:
+        unit_system = questionary.select(
+            "Select unit system for report values:",
+            choices=["SI", "imperial"],
+            default="SI",
+        ).ask()
+        if unit_system is None:
+            print("\nCancelled. Exiting.\n")
+            return None
+
+    if unit_system:
+        args.append("--unit_system")
+        args.append(unit_system)
 
     # ── Include PDF/static report outputs ────────────────────────────
     include_pdf_env = os.environ.get("INCLUDE_PDF")
