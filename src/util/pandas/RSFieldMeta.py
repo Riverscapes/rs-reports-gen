@@ -808,6 +808,10 @@ class RSFieldMeta:
         """Set the display unit for a column in the metadata."""
         self.__set_value(col, "display_unit", self._coerce_unit(display_unit), layer_id)
 
+    def set_display_unit_imperial(self, col, display_unit_imperial, layer_id: str | None = None):
+        """Set the imperial display unit override for a column in the metadata."""
+        self.__set_value(col, "display_unit_imperial", self._coerce_unit(display_unit_imperial), layer_id)
+
     def set_dtype(self, col, dtype, layer_id: str | None = None):
         """Set the field type for a column in the metadata."""
         self.__set_value(col, "dtype", dtype, layer_id)
