@@ -132,6 +132,7 @@ def generate_igo_report(
     aoi_gdf: gpd.GeoDataFrame,
     parquet_source: Path,
     layerdefs: pd.DataFrame,
+    source_project_list_df: pd.DataFrame,
     unit_system: str = 'SI',
     include_pdf: bool = False,
 ):
@@ -146,10 +147,7 @@ def generate_igo_report(
     highlight_cards = build_highlight_cards(card_summary)
     figures = build_igo_figures(aoi_gdf, flow_summary)
 
-    source_projects_df = build_source_project_table(report_df)
-    data_dir = project_dir / 'data'
-    safe_makedirs(str(data_dir))
-    source_projects_df.to_csv(data_dir / 'source_projects.csv', index=False)
+    source_projects_df = build_source_project_table(report_df, source_project_list_df=source_project_list_df)
 
     html_source_table = source_projects_df.copy()
     if not html_source_table.empty and 'project_url' in html_source_table.columns:
@@ -177,7 +175,7 @@ def generate_igo_report(
         footer_message = f'Showing all {len(source_projects_df)} projects.'
     else:
         footer_message = f'Showing first {html_row_limit} source projects.'
-    messages = {'source_projects_caption': f'{footer_message} Full source-project export available at <a href="data/source_projects.csv">data/source_projects.csv</a>.'}
+    messages = {'source_projects_caption': f'{footer_message} Full source-project export available at <a href="source_projects.csv">source_projects.csv</a>.'}
 
     report = RSReport(
         report_name=project_name,
@@ -259,6 +257,7 @@ def get_and_process_aoi(
         log.info(f"Running AOI query and writing Parquet output to {parquet_data_source}")
         fields_we_need = (
             "ST_AsBinary(ST_POINT(longitude, latitude)) AS geom, "
+            "dep.name AS source_project_name, dep.createdonts AS source_project_createdonts, "
             "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, "
             "stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, "
             "tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, "
@@ -271,7 +270,7 @@ def get_and_process_aoi(
             "qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, "
             "brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
         )
-        query_str = f"SELECT {fields_we_need} FROM input_geom, raw_rme_pq2 WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+        query_str = f"SELECT {fields_we_need} FROM input_geom, raw_rme_pq2 LEFT JOIN rs_raw.data_exchange_projects dep ON raw_rme_pq2.rme_project_id = dep.uuid WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
         aoi_query_to_local_parquet(query_str, 'ST_GeomFromBinary(dgo_geom)', 'dgo_geom_bbox', query_gdf, parquet_data_source)
 
@@ -286,7 +285,7 @@ def get_and_process_aoi(
     # Retrieve table definitions
     table_defs = get_igo_table_defs(layerdefs)
     # NOTE: only columns found in `table_defs` will be added, regardless of what is selected from Athena (in this case raw_rme_pq2);
-    gpkg_path = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source, table_defs)
+    gpkg_path, source_projects_df = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source, table_defs)
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
     # column_meta
     field_metadata_to_file(project_dir / 'column_metadata.csv', table_defs)
@@ -297,6 +296,7 @@ def get_and_process_aoi(
         aoi_gdf,
         parquet_data_source,
         layerdefs,
+        source_project_list_df=source_projects_df,
         unit_system=unit_system,
         include_pdf=include_pdf,
     )

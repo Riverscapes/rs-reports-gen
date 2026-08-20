@@ -9,7 +9,10 @@ from pathlib import Path
 import questionary
 from termcolor import colored
 
-from util.prompt import is_truthy
+from util.prompt import get_env_or_confirm, is_truthy
+from util.report_entrypoint import (
+    prompt_parquet,
+)
 
 EXAMPLE_DIR = Path(__file__).resolve().parent / "example"
 
@@ -72,29 +75,14 @@ def main() -> list[str] | None:
         report_name = geojson_file.stem.replace(' ', '_') + " - IGO Scrape"
 
     # ── Optional Parquet override ─────────────────────────────────────
-    parquet_path = os.environ.get("IGO_PARQUET_PATH")
-    if parquet_path and not Path(parquet_path).exists():
-        raise RuntimeError(colored(f"\nIGO_PARQUET_PATH is set to '{parquet_path}' but that path does not exist. Please fix or unset the variable for interactive prompt.\n", "red"))
-    if not parquet_path:
-        parquet_prompt = questionary.text(
-            message='Optional: path to the Parquet folder or file to use for results (leave blank to query Athena)',
-            default="",
-        ).ask()
-        if parquet_prompt is None:
-            print("\nCancelled. Exiting.\n")
-            return None
-
-        parquet_path = parquet_prompt.strip().strip('"').strip("'")
-
-    # ── Keep parquet ──────────────────────────────────────────────────
-    keep_parquet_env = os.environ.get("IGO_KEEP_PARQUET")
-    if keep_parquet_env is not None:
-        keep_parquet = is_truthy(keep_parquet_env)
-    else:
-        keep_parquet = questionary.confirm(message='Keep downloaded Parquet files after processing?', default=False).ask()
-        if keep_parquet is None:
-            print("\nCancelled. Exiting.\n")
-            return None
+    parquet_path = prompt_parquet(env_var="IGO_PARQUET_PATH")
+    keep_parquet = get_env_or_confirm(
+        env_var="IGO_KEEP_PARQUET",
+        message='Keep downloaded Parquet files after processing?',
+        default=bool(parquet_path),
+    )
+    if keep_parquet is None:
+        return None
 
     # The final argument array we pass back
     args = [

@@ -63,6 +63,22 @@ LAYERDEF_GPKG_DTYPE_MAP = {
 }
 
 
+def _parse_exchange_timestamp(raw_value: object) -> str:
+    """Parse Data Exchange bigint timestamps to YYYY-MM-DD."""
+    if raw_value is None:
+        return ""
+
+    value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").iloc[0]
+    if pd.isna(value):
+        return ""
+
+    unit = "ms" if float(value) >= 1_000_000_000_000 else "s"
+    parsed = pd.to_datetime(value, unit=unit, utc=True, errors="coerce")
+    if pd.isna(parsed):
+        return ""
+    return parsed.strftime("%Y-%m-%d")
+
+
 def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path: str) -> apsw.Connection:
     """
     Create a GeoPackage (SQLite) file and tables as specified in table_schema_map.
@@ -144,13 +160,6 @@ def create_geopackage(gpkg_path: Path, table_defs: pd.DataFrame, spatialite_path
     return conn
 
 
-def write_source_projects_csv(project_ids: set[str], output_path: Path) -> None:
-    """Persist deduplicated project IDs with matching portal URLs."""
-    rows = [{"project_id": project_id, "project_url": f'https://data.riverscapes.net/p/{project_id}'} for project_id in sorted(project_ids)]
-    df = pd.DataFrame(rows)
-    df.to_csv(output_path, index=False)
-
-
 def get_parquet_files(parquet_path: str | Path) -> list[Path]:
     """
     Resolve a file or directory into a list of Parquet file paths.
@@ -166,7 +175,7 @@ def populate_tables_from_parquet(
     conn: apsw.Connection,
     table_defs: pd.DataFrame,
     batch_size: int = 90_000,
-) -> set[str]:
+) -> pd.DataFrame:
     """Insert rows into tables from one or more Parquet files.
 
     This function is designed to handle very large out-of-core datasets (gigabytes)
@@ -180,7 +189,7 @@ def populate_tables_from_parquet(
         table_defs: tables and columns we are populating
         batch_size: Row batch size when streaming Parquet content.
     Returns:
-        Set of distinct ``rme_project_id`` values observed during ingestion.
+        DataFrame of distinct source projects observed during ingestion.
     """
 
     log = Logger('Populate Tables (Parquet)')
@@ -199,7 +208,7 @@ def populate_tables_from_parquet(
     prog_bar = ProgressBar(progress_total, text='Transfer from parquet to database table')
     curs = conn.cursor()
     inserted_rows = 0
-    project_ids: set[str] = set()  # track unique source projects during ingestion
+    source_project_lookup: dict[str, dict[str, str]] = {}
 
     conn.execute('BEGIN')
     # Step 1: Precompute table groupings
@@ -226,9 +235,36 @@ def populate_tables_from_parquet(
             for batch in pq_file.iter_batches(batch_size=batch_size):
                 batch_df = batch.to_pandas()
 
-                # Track project_ids in batch (vectorized)
+                # Track source projects in batch (vectorized extraction + deterministic dedupe)
                 if 'rme_project_id' in batch_df.columns:
-                    project_ids.update(batch_df['rme_project_id'].dropna().astype(str).unique())
+                    source_projects_df = pd.DataFrame(
+                        {
+                            'project_id': batch_df['rme_project_id'].astype('string').str.strip().str.lower(),
+                            'project_name': batch_df['source_project_name'].astype('string').str.strip() if 'source_project_name' in batch_df.columns else '',
+                            'created_on_raw': batch_df['source_project_createdonts'] if 'source_project_createdonts' in batch_df.columns else pd.NA,
+                        }
+                    )
+                    source_projects_df = source_projects_df[source_projects_df['project_id'].notna() & (source_projects_df['project_id'] != '')]
+                    if not source_projects_df.empty:
+                        source_projects_df = source_projects_df.drop_duplicates(subset=['project_id'], keep='last')
+                        for row in source_projects_df.itertuples(index=False):
+                            project_id = str(row.project_id)
+                            if not project_id:
+                                continue
+                            record = source_project_lookup.setdefault(
+                                project_id,
+                                {
+                                    'project_name': 'n/a',
+                                    'created_on': '',
+                                },
+                            )
+                            project_name = str(row.project_name).strip()
+                            if project_name and project_name.lower() != '<na>':
+                                record['project_name'] = project_name
+
+                            created_on = _parse_exchange_timestamp(row.created_on_raw)
+                            if created_on:
+                                record['created_on'] = created_on
 
                 # Step 3: Route columns to proper tables and execute batch inserts
                 for ops in table_ops.values():
@@ -261,7 +297,7 @@ def populate_tables_from_parquet(
                 prog_bar.update(inserted_rows)
         conn.execute('COMMIT')
         prog_bar.finish()
-        log.info(f"Inserted {inserted_rows} rows from Parquet and tracked {len(project_ids)} distinct source projects.")
+        log.info(f"Inserted {inserted_rows} rows from Parquet and tracked {len(source_project_lookup)} distinct source projects.")
     except Exception as exc:
         conn.execute('ROLLBACK')
         log.error(f"Error while loading Parquet data: {exc}")
@@ -270,7 +306,16 @@ def populate_tables_from_parquet(
         if inserted_rows == 0:
             prog_bar.finish()
 
-    return project_ids
+    source_project_rows = [
+        {
+            'project_id': project_id,
+            'project_name': details['project_name'],
+            'created_on': details['created_on'],
+            'project_url': f'https://data.riverscapes.net/p/{project_id}',
+        }
+        for project_id, details in sorted(source_project_lookup.items())
+    ]
+    return pd.DataFrame(source_project_rows, columns=['project_id', 'project_name', 'created_on', 'project_url'])
 
 
 def add_geopackage_tables(conn: apsw.Connection):
@@ -503,7 +548,7 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
     # We have some Pandas NA values in Description, which are not the same as NULL and sqlite doesn't like them
     columns_needed = ['table_name', 'name', 'friendly_name', 'data_unit', 'description']
     table_defs_clean = table_defs[columns_needed].copy()
-    table_defs_clean = table_defs_clean.applymap(lambda x: None if pd.isna(x) else x)
+    table_defs_clean = table_defs_clean.astype(object).where(pd.notna(table_defs_clean), None)
 
     def make_title(name, friendly_name, data_unit):
         if not friendly_name:
@@ -553,8 +598,8 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
     log.info("GeoPackage data_columns table populated with metadata.")
 
 
-def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: Path, table_defs: pd.DataFrame) -> Path:
-    """Create geopackage from parquet file"""
+def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: Path, table_defs: pd.DataFrame) -> tuple[Path, pd.DataFrame]:
+    """Create geopackage from parquet file and source-project list."""
     log = Logger('Create GPKG from Parquet')
 
     outputs_dir = project_dir / 'outputs'
@@ -577,7 +622,7 @@ def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parqu
         table_defs = table_defs[~missing_mask].copy()
 
     conn = create_geopackage(gpkg_path, table_defs, spatialite_path)
-    project_ids = populate_tables_from_parquet(parquet_path, conn, table_defs)
+    source_projects_df = populate_tables_from_parquet(parquet_path, conn, table_defs)
     create_indexes(conn, table_defs)
     create_views(conn, table_defs)
 
@@ -591,7 +636,6 @@ def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parqu
     view_aliases += [('vw_dgo_metrics', t) for t in dgo_tables]
 
     populate_geopackage_metadata(conn, table_defs, view_aliases)
+    source_projects_df.to_csv(project_dir / 'source_projects.csv', index=False)
 
-    write_source_projects_csv(project_ids, project_dir / 'source_projects.csv')
-
-    return gpkg_path
+    return gpkg_path, source_projects_df
