@@ -257,7 +257,7 @@ def get_and_process_aoi(
         log.info(f"Running AOI query and writing Parquet output to {parquet_data_source}")
         fields_we_need = (
             "ST_AsBinary(ST_POINT(longitude, latitude)) AS geom, "
-            "dep.name AS source_project_name, dep.createdonts AS source_project_createdonts, "
+            "dep.name AS source_project_name, dep.created_on_date AS source_project_created_on, "
             "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, "
             "stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, "
             "tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, "
@@ -270,7 +270,7 @@ def get_and_process_aoi(
             "qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, "
             "brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
         )
-        query_str = f"SELECT {fields_we_need} FROM input_geom, raw_rme_pq2 LEFT JOIN rs_raw.data_exchange_projects dep ON raw_rme_pq2.rme_project_id = dep.uuid WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+        query_str = f"SELECT {fields_we_need} FROM input_geom, raw_rme_pq2 LEFT JOIN default.data_exchange_projects dep ON raw_rme_pq2.rme_project_id = dep.uuid WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
         aoi_query_to_local_parquet(query_str, 'ST_GeomFromBinary(dgo_geom)', 'dgo_geom_bbox', query_gdf, parquet_data_source)
 

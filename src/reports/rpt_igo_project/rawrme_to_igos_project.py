@@ -63,17 +63,9 @@ LAYERDEF_GPKG_DTYPE_MAP = {
 }
 
 
-def _parse_exchange_timestamp(raw_value: object) -> str:
-    """Parse Data Exchange bigint timestamps to YYYY-MM-DD."""
-    if raw_value is None:
-        return ""
-
-    value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").iloc[0]
-    if pd.isna(value):
-        return ""
-
-    unit = "ms" if float(value) >= 1_000_000_000_000 else "s"
-    parsed = pd.to_datetime(value, unit=unit, utc=True, errors="coerce")
+def _format_exchange_date(raw_value: object) -> str:
+    """Format Data Exchange created_on_date values to YYYY-MM-DD."""
+    parsed = pd.to_datetime(pd.Series([raw_value]), errors="coerce", utc=True).iloc[0]
     if pd.isna(parsed):
         return ""
     return parsed.strftime("%Y-%m-%d")
@@ -241,7 +233,7 @@ def populate_tables_from_parquet(
                         {
                             'project_id': batch_df['rme_project_id'].astype('string').str.strip().str.lower(),
                             'project_name': batch_df['source_project_name'].astype('string').str.strip() if 'source_project_name' in batch_df.columns else '',
-                            'created_on_raw': batch_df['source_project_createdonts'] if 'source_project_createdonts' in batch_df.columns else pd.NA,
+                            'created_on': batch_df['source_project_created_on'] if 'source_project_created_on' in batch_df.columns else pd.NA,
                         }
                     )
                     source_projects_df = source_projects_df[source_projects_df['project_id'].notna() & (source_projects_df['project_id'] != '')]
@@ -262,7 +254,7 @@ def populate_tables_from_parquet(
                             if project_name and project_name.lower() != '<na>':
                                 record['project_name'] = project_name
 
-                            created_on = _parse_exchange_timestamp(row.created_on_raw)
+                            created_on = _format_exchange_date(row.created_on)
                             if created_on:
                                 record['created_on'] = created_on
 
