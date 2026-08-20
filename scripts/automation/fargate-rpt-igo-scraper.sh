@@ -39,6 +39,7 @@ df -h
 WORK_ROOT="/usr/local/data"
 INPUTS_DIR="$WORK_ROOT/inputs"
 OUTPUTS_DIR="$WORK_ROOT/output"
+PROJECT_DIR="$OUTPUTS_DIR/project"
 PYTHONPATH="/usr/local/rs-reports-gen/src:${PYTHONPATH:-}"
 
 uv sync
@@ -61,21 +62,31 @@ try() {
   fi
 
   echo "======================  Running rpt_igo_project ======================="
+  # IGO script writes a complete Riverscapes project bundle. We stage that bundle in
+  # a subfolder so we can publish selected user-facing artifacts separately while
+  # keeping heavyweight project internals zip-only.
   python -m reports.rpt_igo_project.main \
     "/usr/local/lib/mod_spatialite.so" \
-    "$OUTPUTS_DIR/project" \
+    "$PROJECT_DIR" \
     "$INPUTS_DIR/input.geojson" \
     "$REPORT_NAME" \
     --unit_system $UNIT_SYSTEM
   if [[ $? != 0 ]]; then return 1; fi
 
   echo "======================  Zipping up ======================="
-  # Add everything in the outputs directory to a zip file inside the outputs directory
-  (cd "$OUTPUTS_DIR/project" && zip -r "../report.zip" .)
+  # Zip the full project as the canonical deliverable.
+  (cd "$PROJECT_DIR" && zip -r "../report.zip" .)
   if [[ $? != 0 ]]; then return 1; fi
 
-  # Delete the original project so it doesn't get uploaded
-  rm -fr "$OUTPUTS_DIR/project"
+  echo "======================  Promoting standalone artifacts ======================="
+  # Upload these top-level files separately for direct HTTP access in the frontend.
+  cp "$PROJECT_DIR/report.html" "$OUTPUTS_DIR/report.html"
+  if [[ -f "$PROJECT_DIR/report.pdf" ]]; then cp "$PROJECT_DIR/report.pdf" "$OUTPUTS_DIR/report.pdf"; fi
+  if [[ -f "$PROJECT_DIR/report.log" ]]; then cp "$PROJECT_DIR/report.log" "$OUTPUTS_DIR/report.log"; fi
+
+  # Remove unzipped project contents to avoid uploading duplicate large artifacts
+  # (notably GeoPackage files) both standalone and inside report.zip.
+  rm -fr "$PROJECT_DIR"
 
   echo "======================  Uploading outputs ======================="
   python -m api.uploadOutputs \
