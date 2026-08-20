@@ -65,7 +65,8 @@ try() {
     "/usr/local/lib/mod_spatialite.so" \
     "$OUTPUTS_DIR/project" \
     "$INPUTS_DIR/input.geojson" \
-    "$REPORT_NAME"
+    "$REPORT_NAME" \
+    --unit_system $UNIT_SYSTEM
   if [[ $? != 0 ]]; then return 1; fi
 
   echo "======================  Zipping up ======================="
