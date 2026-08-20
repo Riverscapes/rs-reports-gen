@@ -16,7 +16,7 @@ import pint
 import pyarrow.parquet as pq
 from rsxml import Logger
 
-from util.athena import athena_unload_to_dataframe, get_field_metadata
+from util.athena import get_field_metadata
 from util.athena.athena_unload_utils import list_athena_unload_payload_files
 from util.figures import HighlightCard, MetricBundle
 from util.pandas import RSFieldMeta
@@ -201,10 +201,9 @@ def _stream_flow_and_source_summary(parquet_source: Path, batch_size: int = 90_0
                 if huc and huc.lower() != "<na>":
                     cast(set[str], record["huc10_codes"]).add(huc)
 
-                proj_date = row.project_date
-                proj_date_ts = pd.to_datetime(pd.Series([proj_date]), errors="coerce", utc=True).iloc[0]
+                proj_date_ts = pd.to_datetime(cast(Any, row.project_date), errors="coerce", utc=True)
                 if pd.notna(proj_date_ts):
-                    existing_date = pd.to_datetime(pd.Series([record["project_date"]]), errors="coerce", utc=True).iloc[0]
+                    existing_date = pd.to_datetime(cast(Any, record["project_date"]), errors="coerce", utc=True)
                     if pd.isna(existing_date) or proj_date_ts > existing_date:
                         record["project_date"] = proj_date_ts
 
@@ -389,70 +388,7 @@ def compute_summary_statistics(summary: IGOReportArtifacts, aoi_gdf: gpd.GeoData
     }
 
 
-def _parse_exchange_timestamp(raw_value: object) -> str:
-    """Parse Data Exchange bigint timestamps to YYYY-MM-DD.
-
-    Handles both second and millisecond epochs.
-
-    Created 2026-08-18.
-    Created by copilot.
-    """
-    if raw_value is None:
-        return ""
-
-    if isinstance(raw_value, str) and raw_value.strip() == "":
-        return ""
-
-    value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").iloc[0]
-    if pd.isna(value):
-        return ""
-
-    unit = "ms" if float(value) >= 1_000_000_000_000 else "s"
-    parsed = pd.to_datetime(value, unit=unit, utc=True, errors="coerce")
-    if pd.isna(parsed):
-        return ""
-    return parsed.strftime("%Y-%m-%d")
-
-
-def _lookup_project_metadata(project_ids: list[str]) -> dict[str, dict[str, str]]:
-    """Fetch Data Exchange project names and created dates for supplied project ids.
-
-    Created 2026-08-18.
-    Created by copilot.
-    """
-    if not project_ids:
-        return {}
-
-    clean_ids = sorted({str(pid).strip().lower() for pid in project_ids if str(pid).strip()})
-    if not clean_ids:
-        return {}
-
-    id_sql = "(" + ",".join([f"'{pid}'" for pid in clean_ids]) + ")"
-    sql = f"SELECT lower(uuid) AS uuid, name, createdonts AS createdon FROM rs_raw.data_exchange_projects WHERE lower(uuid) IN {id_sql}"
-
-    try:
-        lookup_df = athena_unload_to_dataframe(sql)
-    except Exception as exc:  # pragma: no cover
-        Logger("IGO dataprep").warning(f"Unable to fetch project metadata from rs_raw.data_exchange_projects: {exc}")
-        return {}
-
-    if lookup_df.empty:
-        return {}
-
-    metadata: dict[str, dict[str, str]] = {}
-    for row in lookup_df.itertuples(index=False):
-        uuid_val = str(getattr(row, "uuid", "")).strip().lower()
-        if not uuid_val:
-            continue
-        metadata[uuid_val] = {
-            "project_name": str(getattr(row, "name", "") or "").strip(),
-            "created_on": _parse_exchange_timestamp(getattr(row, "createdon", None)),
-        }
-
-    return metadata
-
-
-def build_source_project_table(summary: IGOReportArtifacts) -> pd.DataFrame:
+def build_source_project_table(summary: IGOReportArtifacts, source_project_list_df: pd.DataFrame) -> pd.DataFrame:
     """Build one row per contributing RME source project.
 
     Columns match report requirements (HUC10, watershed name, project info, citation, link).
@@ -460,64 +396,84 @@ def build_source_project_table(summary: IGOReportArtifacts) -> pd.DataFrame:
     Created 2026-08-18.
     Created by copilot.
     """
+    output_columns = [
+        "huc10_code",
+        "project_name",
+        "source_rme_project",
+        "project_version_or_date",
+        "citation",
+        "project_url",
+    ]
+
     source_rows_df = summary.source_rows_df
     if source_rows_df.empty:
-        return pd.DataFrame(
-            columns=[
-                "huc10_code",
-                "project_name",
-                "source_rme_project",
-                "project_version_or_date",
-                "citation",
-                "project_url",
-            ]
-        )
+        return pd.DataFrame(columns=output_columns)
 
-    project_ids = source_rows_df["source_rme_project"].dropna().astype(str).tolist() if "source_rme_project" in source_rows_df.columns else []
-    project_lookup = _lookup_project_metadata(project_ids)
+    source_df = source_rows_df.copy()
+    source_df["source_rme_project"] = source_df["source_rme_project"].astype(str).str.strip()
+    source_df = source_df[source_df["source_rme_project"] != ""].copy()
+    if source_df.empty:
+        return pd.DataFrame(columns=output_columns)
 
-    rows: list[dict[str, str]] = []
-    for item in source_rows_df.itertuples(index=False):
-        clean_project_id = str(getattr(item, "source_rme_project", ""))
-        if not clean_project_id:
-            continue
-        project_meta = project_lookup.get(clean_project_id.lower(), {})
-        project_name = project_meta.get("project_name", "") or "n/a"
-        huc_codes = [h for h in getattr(item, "huc10_codes", []) if str(h).strip()]
+    source_df["source_rme_project"] = source_df["source_rme_project"].str.lower()
 
-        version_value = str(getattr(item, "project_version", "") or "").strip()
+    if source_project_list_df.empty:
+        raise ValueError("source_project_list_df is required and cannot be empty")
 
-        preferred_date = project_meta.get("created_on", "")
-        if preferred_date:
-            date_value = preferred_date
-        else:
-            stream_date = getattr(item, "project_date", pd.NaT)
-            stream_date_ts = pd.to_datetime(pd.Series([stream_date]), errors="coerce", utc=True).iloc[0]
-            date_value = stream_date_ts.strftime("%Y-%m-%d") if pd.notna(stream_date_ts) else ""
+    project_list_df = source_project_list_df.copy()
+    if "project_id" in project_list_df.columns and "source_rme_project" not in project_list_df.columns:
+        project_list_df = project_list_df.rename(columns={"project_id": "source_rme_project"})
 
-        if version_value and date_value:
-            version_or_date = f"v{version_value} ({date_value})"
-        elif version_value:
-            version_or_date = f"v{version_value}"
-        elif date_value:
-            version_or_date = date_value
-        else:
-            version_or_date = "n/a"
+    required_cols = {"source_rme_project", "project_name", "created_on", "project_url"}
+    missing_cols = required_cols.difference(project_list_df.columns)
+    if missing_cols:
+        raise ValueError(f"source_project_list_df is missing required columns: {sorted(missing_cols)}")
 
-        citation = f"Riverscapes Consortium RME source project {clean_project_id} ({project_name}), {version_or_date}."
+    project_list_df = project_list_df[["source_rme_project", "project_name", "created_on", "project_url"]].copy()
+    project_list_df["source_rme_project"] = project_list_df["source_rme_project"].astype(str).str.strip().str.lower()
+    project_list_df["project_name"] = project_list_df["project_name"].fillna("").astype(str).str.strip()
+    project_list_df.loc[project_list_df["project_name"] == "", "project_name"] = "n/a"
+    project_list_df["created_on"] = project_list_df["created_on"].fillna("").astype(str).str.strip()
+    project_list_df["project_url"] = project_list_df["project_url"].fillna("").astype(str).str.strip()
+    project_list_df.loc[project_list_df["project_url"] == "", "project_url"] = "https://data.riverscapes.net/p/" + project_list_df.loc[project_list_df["project_url"] == "", "source_rme_project"]
+    project_list_df = project_list_df.drop_duplicates(subset=["source_rme_project"], keep="last")
 
-        rows.append(
-            {
-                "huc10_code": ", ".join(sorted(huc_codes)) if huc_codes else "n/a",
-                "project_name": project_name,
-                "source_rme_project": clean_project_id,
-                "project_version_or_date": version_or_date,
-                "citation": citation,
-                "project_url": f"https://data.riverscapes.net/p/{clean_project_id}",
-            }
-        )
+    out_df = source_df.merge(project_list_df, on="source_rme_project", how="left")
 
-    out_df = pd.DataFrame(rows)
+    stream_dates = pd.to_datetime(out_df["project_date"], errors="coerce", utc=True)
+    stream_date_text = stream_dates.dt.strftime("%Y-%m-%d").fillna("")
+    out_df["created_on"] = out_df["created_on"].fillna("").astype(str)
+    out_df["date_value"] = out_df["created_on"].where(out_df["created_on"].str.strip() != "", stream_date_text)
+
+    out_df["project_version"] = out_df["project_version"].fillna("").astype(str).str.strip()
+    has_version = out_df["project_version"] != ""
+    has_date = out_df["date_value"].str.strip() != ""
+
+    out_df["project_version_or_date"] = "n/a"
+    out_df.loc[has_date & ~has_version, "project_version_or_date"] = out_df.loc[has_date & ~has_version, "date_value"]
+    out_df.loc[has_version & ~has_date, "project_version_or_date"] = "v" + out_df.loc[has_version & ~has_date, "project_version"]
+    out_df.loc[has_version & has_date, "project_version_or_date"] = "v" + out_df.loc[has_version & has_date, "project_version"] + " (" + out_df.loc[has_version & has_date, "date_value"] + ")"
+
+    def _huc_list_to_text(values: object) -> str:
+        if not isinstance(values, list):
+            return "n/a"
+        cleaned_values = [str(v).strip() for v in values if str(v).strip()]
+        return ", ".join(sorted(cleaned_values)) if cleaned_values else "n/a"
+
+    out_df["huc10_code"] = out_df["huc10_codes"].map(_huc_list_to_text)
+    out_df["citation"] = "Riverscapes Consortium RME source project " + out_df["source_rme_project"] + " (" + out_df["project_name"] + "), " + out_df["project_version_or_date"] + "."
+
+    out_df = out_df[
+        [
+            "huc10_code",
+            "project_name",
+            "source_rme_project",
+            "project_version_or_date",
+            "citation",
+            "project_url",
+        ]
+    ]
+
     if out_df.empty:
         return out_df
 
