@@ -37,63 +37,97 @@ def flow_breakdown_chart(metric_name: str, metric_data: dict[str, float | str]) 
     total = float(metric_data.get("total", 0.0))
     unit = str(metric_data.get("unit", ""))
 
-    per_pct = float(metric_data.get("perennial_pct", 0.0))
-    non_pct = float(metric_data.get("non_perennial_pct", 0.0))
+    if total > 0:
+        per_pct = (perennial / total) * 100.0
+        non_pct = (non_perennial / total) * 100.0
+    else:
+        per_pct = float(metric_data.get("perennial_pct", 0.0))
+        non_pct = float(metric_data.get("non_perennial_pct", 0.0))
+
+    pct_sum = per_pct + non_pct
+    if pct_sum > 0:
+        scale = 100.0 / pct_sum
+        per_pct *= scale
+        non_pct *= scale
 
     fig = go.Figure()
+    per_value_label = _metric_value_format(perennial, unit)
+    non_value_label = _metric_value_format(non_perennial, unit)
+    unit_suffix = f" {unit}" if unit and unit != "count" else ""
+
     fig.add_trace(
         go.Bar(
             y=["Riverscape"],
-            x=[perennial],
+            x=[per_pct],
             orientation="h",
             name="Perennial",
             marker_color=PERENNIAL_COLOR,
-            text=[f"{per_pct:.1f}%"],
-            textposition="inside",
-            hovertemplate="Perennial<br>Value: %{x:,.2f}<extra></extra>",
+            hoverinfo="skip",
         )
     )
     fig.add_trace(
         go.Bar(
             y=["Riverscape"],
-            x=[non_perennial],
+            x=[non_pct],
             orientation="h",
             name="Non-perennial",
             marker_color=NON_PERENNIAL_COLOR,
-            text=[f"{non_pct:.1f}%"],
-            textposition="inside",
-            hovertemplate="Non-perennial<br>Value: %{x:,.2f}<extra></extra>",
+            hoverinfo="skip",
         )
     )
 
-    total_label = _metric_value_format(total, unit)
-    total_text = f"Total: {total_label} {unit}".strip()
-
     fig.add_annotation(
-        x=total,
-        y="Riverscape",
-        text=total_text,
+        x=per_pct / 2,
+        y=0.92,
+        xref="x",
+        yref="paper",
+        text=f"Perennial<br>{per_value_label}{unit_suffix}<br>{per_pct:.0f}%",
         showarrow=False,
-        xanchor="left",
-        xshift=8,
-        font={"size": 13},
+        xanchor="center",
+        yanchor="bottom",
+        align="center",
+        font={"size": 12},
+    )
+    fig.add_annotation(
+        x=per_pct + (non_pct / 2),
+        y=0.92,
+        xref="x",
+        yref="paper",
+        text=f"Non-perennial<br>{non_value_label}{unit_suffix}<br>{non_pct:.0f}%",
+        showarrow=False,
+        xanchor="center",
+        yanchor="bottom",
+        align="center",
+        font={"size": 12},
     )
 
-    x_axis_title = f"{metric_name} ({unit})" if unit and unit != "count" else metric_name
     fig.update_layout(
-        title=f"Flow Permanence Breakdown: {metric_name}",
+        title=f"{metric_name}",
         barmode="stack",
-        xaxis_title=x_axis_title,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        xaxis_title="",
         yaxis_title="",
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "left", "x": 0},
-        margin={"r": 60, "t": 55, "l": 0, "b": 0},
+        showlegend=False,
+        margin={"r": 10, "t": 85, "l": 0, "b": 0},
         height=280,
     )
 
-    if unit == "count":
-        fig.update_xaxes(tickformat=",")
-    else:
-        fig.update_xaxes(tickformat=",.2f")
+    fig.update_xaxes(
+        range=[0, 100],
+        showticklabels=False,
+        ticks="",
+        showgrid=False,
+        zeroline=False,
+        title=None,
+    )
+    fig.update_yaxes(
+        showticklabels=False,
+        ticks="",
+        showgrid=False,
+        zeroline=False,
+        title=None,
+    )
 
     return fig
 
