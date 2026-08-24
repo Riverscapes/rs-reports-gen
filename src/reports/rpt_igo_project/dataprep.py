@@ -23,7 +23,7 @@ from util.pandas import RSFieldMeta
 from util.rs_geo_helpers import total_aoi_area_m2
 
 RME_LAYER_ID = "raw_rme"
-PERENNIAL_FCODES = {46006, 55800}  # TODO get Joe to confirm see https://github.com/Riverscapes/rs-reports-gen/issues/177#issuecomment-5347530479
+PERENNIAL_FCODES = {46006, 55800}  # Confirmed by Joe and Jordan 2026-08-20. Also built in to rs_rpt.rme_datamart_base_vw https://github.com/Riverscapes/rs-reports-gen/issues/177#issuecomment-5347530479
 
 ureg = pint.get_application_registry()
 
