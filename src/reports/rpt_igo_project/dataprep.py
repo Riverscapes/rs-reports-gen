@@ -435,7 +435,7 @@ def build_source_project_table(summary: IGOReportArtifacts, source_project_list_
     project_list_df.loc[project_list_df["project_name"] == "", "project_name"] = "n/a"
     project_list_df["created_on"] = project_list_df["created_on"].fillna("").astype(str).str.strip()
     project_list_df["project_url"] = project_list_df["project_url"].fillna("").astype(str).str.strip()
-    project_list_df.loc[project_list_df["project_url"] == "", "project_url"] = "https://data.riverscapes.net/p/" + project_list_df.loc[project_list_df["project_url"] == "", "source_rme_project"]
+    project_list_df.loc[project_list_df["project_url"] == "", "project_url"] = "https://data.riverscapes.net/rv/" + project_list_df.loc[project_list_df["project_url"] == "", "source_rme_project"]
     project_list_df = project_list_df.drop_duplicates(subset=["source_rme_project"], keep="last")
 
     out_df = source_df.merge(project_list_df, on="source_rme_project", how="left")
