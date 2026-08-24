@@ -303,7 +303,7 @@ def populate_tables_from_parquet(
             'project_id': project_id,
             'project_name': details['project_name'],
             'created_on': details['created_on'],
-            'project_url': f'https://data.riverscapes.net/p/{project_id}',
+            'project_url': f'https://data.riverscapes.net/rv/{project_id}',
         }
         for project_id, details in sorted(source_project_lookup.items())
     ]
@@ -400,7 +400,7 @@ def create_igos_project(project_dir: Path, project_name: str, gpkg_path: Path, l
             "This project was generated as an extract from raw_rme which is itself an extract of Riverscapes Metric Engine projects in the Riverscapes Data "
             "Exchange produced as part of the 2025 CONUS run of Riverscapes tools. "
             "See https://docs.riverscapes.net/initiatives/CONUS-runs for more about this initiative.\n"
-            "At the time of extraction this dataset has not yet been thoroughly quality controlled and may contain errors or gaps."
+            "May contain errors or gaps."
         ),
         meta_data=MetaData(
             values=[
