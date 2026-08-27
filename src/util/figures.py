@@ -30,6 +30,13 @@ from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 from util.plotly.riverscapes import apply_riverscapes_theme  # noqa: F401  # side effect: registers brand template as default (see util.plotly.riverscapes)
 
+# Rules for switching a value column's display unit once its aggregated total gets large.
+# Each rule applies to a set of columns, above a total threshold (in base_unit), to an SI/imperial display unit.
+_UNIT_OVERRIDE_RULES = [
+    {"columns": {"stream_length", "centerline_length"}, "base_unit": "meter", "threshold": 10_000, "si_unit": "kilometer", "imperial_unit": "mile"},
+    {"columns": {"segment_area", "waterbody_extent"}, "base_unit": "meter ** 2", "threshold": 100_000, "si_unit": "hectare", "imperial_unit": "acre"},
+]
+
 
 def get_bins_info(key: str):
     """Backward-compatible wrapper for shared bin lookup.
@@ -107,8 +114,14 @@ def bar_total_x_by_ybins(
     # prepare the data
     # TODO: for grouped bar chart we should merge the bins and do something different with the colors
     meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(agg_data)
-    baked_agg_data, _baked_headers = RSFieldMeta().bake_units(agg_data)
+
+    # Large stream/channel length or area totals are easier to read in larger units (km/mile, hectare/acre)
+    override = _apply_unit_override(meta, agg_data, total_col)
+    try:
+        baked_header_lookup = meta.get_headers_dict(agg_data)
+        baked_agg_data, _baked_headers = meta.bake_units(agg_data)
+    finally:
+        _restore_unit_override(meta, override)
 
     # give the axis a friendly name
     if len(group_by_cols) == 1:
@@ -233,6 +246,38 @@ def horizontal_bar_chart(df: pd.DataFrame, total_col: str, group_by_cols: list[s
     return fig
 
 
+def _apply_unit_override(meta: RSFieldMeta, agg_data: pd.DataFrame, value_col: str):
+    """Temporarily switch value_col's display unit to a larger SI/imperial unit once its total exceeds a rule's threshold.
+
+    Looks up value_col in _UNIT_OVERRIDE_RULES (e.g. stream/channel length -> km/mile, segment_area -> hectare/acre).
+
+    Returns:
+        tuple[str, str | None, pint.Unit | None] | None: (value_col, layer_id, original_display_unit) if
+            an override was applied, otherwise None.
+    """
+    rule = next((r for r in _UNIT_OVERRIDE_RULES if value_col in r["columns"]), None)
+    if rule is None:
+        return None
+    total_qty = agg_data[value_col].sum()
+    base_unit = ureg.Unit(rule["base_unit"])
+    total_val = total_qty.to(base_unit).magnitude if isinstance(total_qty, pint.Quantity) else float(total_qty)
+    if total_val <= rule["threshold"]:
+        return None
+    layer_id = meta._resolve_layer_context(agg_data, None)  # noqa: SLF001 - reuse same layer resolution as bake_units
+    fm = meta.get_field_meta(value_col, layer_id)
+    original_display_unit = fm.display_unit if fm else None
+    meta.set_display_unit(value_col, rule["si_unit"] if meta.unit_system == "SI" else rule["imperial_unit"], layer_id=layer_id)
+    return (value_col, layer_id, original_display_unit)
+
+
+def _restore_unit_override(meta: RSFieldMeta, override) -> None:
+    """Undo an override applied by _apply_unit_override, if any."""
+    if override is None:
+        return
+    value_col, layer_id, original_display_unit = override
+    meta.set_display_unit(value_col, original_display_unit, layer_id=layer_id)
+
+
 def horizontal_split_bar_chart(
     df: pd.DataFrame,
     category_col: str,
@@ -266,8 +311,14 @@ def horizontal_split_bar_chart(
     agg_data = chart_subset_df.groupby([category_col, split_col], as_index=False, observed=False)[value_col].sum()
 
     meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(agg_data)
-    baked_agg_data, _baked_headers = meta.bake_units(agg_data)
+
+    # Large stream/channel length or area totals are easier to read in larger units (km/mile, hectare/acre)
+    override = _apply_unit_override(meta, agg_data, value_col)
+    try:
+        baked_header_lookup = meta.get_headers_dict(agg_data)
+        baked_agg_data, _baked_headers = meta.bake_units(agg_data)
+    finally:
+        _restore_unit_override(meta, override)
 
     if fig_params is None:
         fig_params = {}
@@ -336,8 +387,14 @@ def split_bar_chart_by_bins(
     agg_data = chart_subset_df.groupby(['bin', split_col], as_index=False, observed=False)[value_col].sum()
 
     meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(agg_data)
-    baked_agg_data, _baked_headers = meta.bake_units(agg_data)
+
+    # Large stream/channel length or area totals are easier to read in larger units (km/mile, hectare/acre)
+    override = _apply_unit_override(meta, agg_data, value_col)
+    try:
+        baked_header_lookup = meta.get_headers_dict(agg_data)
+        baked_agg_data, _baked_headers = meta.bake_units(agg_data)
+    finally:
+        _restore_unit_override(meta, override)
     baked_header_lookup['bin'] = meta.get_friendly_name(bin_col)
 
     if fig_params is None:
