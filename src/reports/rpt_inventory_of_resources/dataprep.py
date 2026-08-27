@@ -9,9 +9,7 @@ import pandas as pd
 
 from util.athena import aoi_query_to_local_parquet
 
-INVENTORY_FIELDS = (
-    "ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, waterbody_type, waterbody_extent, prim_channel_gradient, valleybottom_gradient, fcode, fcode_desc, confinement_ratio, constriction_ratio"
-)
+INVENTORY_FIELDS = "segment_area, centerline_length, watershed_id, ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, waterbody_type, waterbody_type_desc, waterbody_extent, prim_channel_gradient, valleybottom_gradient, fcode, fcode_desc, confinement_ratio, constriction_ratio, lf_riparian_prop, rme_project_id, rme_project_name"
 
 
 def data_for_aoi_to_parquet(aoi_gdf: gpd.GeoDataFrame, parquet_path: str) -> None:
@@ -23,7 +21,7 @@ def data_for_aoi_to_parquet(aoi_gdf: gpd.GeoDataFrame, parquet_path: str) -> Non
     """
     query = f"""
 SELECT {INVENTORY_FIELDS}
-FROM input_geom, rpt_rme_pq
+FROM input_geom, rs_rpt.rme_datamart_base_vw
 WHERE {{prefilter_condition}} AND {{intersects_condition}}
 """
     return aoi_query_to_local_parquet(
@@ -68,6 +66,11 @@ def build_report_summaries(data_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     Returns:
             Named report summary tables.
     """
+
+    # summary_df = data_df.copy()
+    # perennial = summary_df[summary_df["fcode"].isin([46006, 55800])]
+    # non_perennial = summary_df[~summary_df["fcode"].isin([46006, 55800])]
+    # perennial_row = [perennial["stream_length"].sum(), perennial[perennial['ownership']=='BLM']["stream_length"].sum()]
 
     return {
         "ownership": summarize_by_length(data_df, ["ownership_desc"]),

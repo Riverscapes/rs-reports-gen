@@ -13,6 +13,13 @@
   <ol class="toc-list">
     <li><a href="#map">Locator Map</a></li>
     <li><a href="#resource_inventory">Resource Inventory</a></li>
+    <li><a href="#characteristics">Characteristics of Hydrographic Features & Riparian-Wetland Areas</a>
+        <ol class="toc-list">
+            <li><a href="#streams_and_rivers">Streams and Rivers</a></li>
+            <li><a href="#riparian-wetland">Riparian-Wetland Areas</a></li>
+            <li><a href="#waterbodies">Waterbodies, Seeps, and Springs</a></li>
+        </ol>
+    </li>
     
   </ol>
 </section>
@@ -46,6 +53,7 @@
             </ul>
         </p>
     </div>
+
     <section id="streams_and_rivers">
         <h3>Streams and Rivers</h3>
 
@@ -100,8 +108,10 @@
             <p>Why this is useful: Riparian and wetland areas are the most productive habitats in arid landscapes. BLM is required
                 to manage these areas for Proper Functioning Condition (PFC) to protect biodiversity, water quality, and forage.
             </p>
+            <p><b>THIS IS A PLACEHOLDER AWAITING AVAILABILITY OF NWI DATA</b></p>
         </div>
-        <figure class="report-figure">{{ figures['riparian_by_type']|safe }}</figure>
+        <!-- <figure class="report-figure">{{ figures['riparian_by_type']|safe }}</figure> -->
+         <figure class="report-figure">{{ figures['prop_riparian']|safe }}</figure>
 
         <h4>Cowardin Riparian-Wetland Classes</h4>
         <div class="section-context">
@@ -109,25 +119,29 @@
                 critical for analysis as different classes (e.g., forested vs. emergent) have different ecological requirements and
                 management strategies.
             </p>
+            <p><b>THIS IS A PLACEHOLDER AWAITING AVAILABILITY OF NWI DATA</b></p>
         </div>
-        <figure class="report-figure">{{ figures['cowardin_riparian_wetland_classes']|safe }}</figure>
+        <!-- <figure class="report-figure">{{ figures['cowardin_riparian_wetland_classes']|safe }}</figure> -->
 
         <h4>NWI Water Regimes & Special Modifiers</h4>
         <div class="section-context">
             <p>Why this is useful: water regimes describe flooding duration/frequency. Specifial modifiers (like beaver activity)
                 identify key drivers of riverscape health.
             </p>
+            <p><b>THIS IS A PLACEHOLDER AWAITING AVAILABILITY OF NWI DATA</b></p>
         </div>
-        <figure class="report-figure">{{ figures['nwi_regimes_modifiers']|safe }}</figure>
+        <!-- <figure class="report-figure">{{ figures['nwi_regimes_modifiers']|safe }}</figure> -->
     </section>
 
     <section id="waterbodies">
         <h3>Waterbodies, Seeps, and Springs</h3>
 
-        <h4>Waterbodies, Seeps, and Springs</h4>
+        <h4>Waterbodies</h4>
 
         <figure class="report-figure">{{ figures['waterbodies']|safe }}</figure>
-        <figure class="report-figure">{{ figures['seeps_springs']|safe }}</figure>
+
+        <h4>Seeps and Springs</h4>
+        <!-- <figure class="report-figure">{{ figures['seeps_springs']|safe }}</figure> -->
     </section>
 </section>  
 

@@ -26,7 +26,7 @@ from reports.rpt_inventory_of_resources.dataprep import (
 )
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata
-from util.figures import horizontal_split_bar_chart, make_aoi_outline_map, project_id_list, split_bar_chart_by_bins
+from util.figures import bar_total_x_by_ybins, horizontal_split_bar_chart, make_aoi_outline_map, project_id_list, split_bar_chart_by_bins
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
 from util.pdf import make_pdf_from_html
@@ -80,23 +80,27 @@ def make_report(
     """
     log = Logger('make report')
 
-    data_df['ownership_binary'] = data_df['ownership_desc'].apply(lambda x: 'Bureau of Land Management' if x == 'Bureau of Land Management' else 'Non-BLM')
+    data_df['ownership_binary'] = data_df['ownership_desc'].apply(lambda x: 'BLM Managed' if x == 'Bureau of Land Management' else 'Non-BLM')
     data_df['fcode_binary'] = data_df['fcode'].apply(lambda x: 'Perennial' if x in (46006, 55800) else 'Non-Perennial')
     data_perennial = data_df[data_df['fcode_binary'] == 'Perennial']
     data_non_perennial = data_df[data_df['fcode_binary'] == 'Non-Perennial']
+    RSFieldMeta().add_field_meta(name='ownership_binary', friendly_name='Ownership (BLM vs Non-BLM)', description='Binary classification of ownership: BLM vs Non-BLM')
+    RSFieldMeta().add_field_meta(name='fcode_binary', friendly_name='Flow Type', description='Binary classification of stream type: Perennial vs Non-Perennial')
 
     summaries = build_report_summaries(data_df)
     figures = {
         "map": make_aoi_outline_map(aoi_gdf),
-        "streams_by_type": horizontal_split_bar_chart(data_df, "fcode_binary", "stream_length", "ownership_binary"),
-        "streams_by_order": horizontal_split_bar_chart(data_df, "stream_order", "stream_length", "ownership_binary"),
-        "channel_slope_perennial": split_bar_chart_by_bins(data_perennial, "channel_slope", "stream_length", "ownership_binary"),
-        "channel_slope_non_perennial": split_bar_chart_by_bins(data_non_perennial, "channel_slope", "stream_length", "ownership_binary"),
-        "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary"),
+        "streams_by_type": horizontal_split_bar_chart(data_df, "fcode_binary", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "streams_by_order": horizontal_split_bar_chart(data_df, "stream_order", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "channel_slope_perennial": split_bar_chart_by_bins(data_perennial, "prim_channel_gradient", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "channel_slope_non_perennial": split_bar_chart_by_bins(data_non_perennial, "prim_channel_gradient", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "waterbodies": horizontal_split_bar_chart(data_df, "waterbody_type_desc", "waterbody_extent", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "prop_riparian": bar_total_x_by_ybins(data_df, 'segment_area', ['lf_riparian_prop']),
     }
     tables = {name: _table_html(summary) for name, summary in summaries.items()}
     appendices = {
-        "project_ids": project_id_list(aoi_gdf),
+        "project_ids": project_id_list(data_df),
     }
 
     for name, summary in summaries.items():
@@ -218,8 +222,10 @@ def main() -> None:
     parser.add_argument("output_path", type=Path, help="Folder to store the report outputs")
     parser.add_argument("path_to_shape", type=str, help="Path to the AOI GeoJSON, shapefile, or other vector input")
     parser.add_argument("report_name", help="Name for the report area")
-    parser.add_argument("--csv", type=Path, default=None, help="Use a local inventory CSV instead of querying Athena")
     parser.add_argument("--include-pdf", action="store_true", help="Include static HTML and PDF outputs")
+    parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
+    parser.add_argument('--use-parquet', dest='parquet_path', type=Path, default=None, help='Use an existing Parquet file or directory instead of running the Athena AOI query')
+    parser.add_argument('--keep-parquet', action='store_true', help='Keep the downloaded AOI Parquet files instead of deleting the pq folder')
     args = dotenv.parse_args_env(parser)
 
     safe_makedirs(str(args.output_path))
@@ -228,7 +234,15 @@ def main() -> None:
     log.title("rs-rpt-inventory-of-resources")
     log.info(f"Report version: {report_version}")
     try:
-        make_report_orchestrator(args.report_name, args.output_path, args.path_to_shape, args.csv, args.include_pdf)
+        make_report_orchestrator(
+            report_name=args.report_name,
+            report_dir=args.output_path,
+            path_to_shape=args.path_to_shape,
+            include_pdf=args.include_pdf,
+            unit_system=args.unit_system,
+            parquet_override=args.parquet_path,
+            keep_parquet=args.keep_parquet,
+        )
     except Exception as exc:
         log.error(exc)
         traceback.print_exc(file=sys.stdout)
