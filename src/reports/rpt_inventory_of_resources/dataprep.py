@@ -9,7 +9,7 @@ import pandas as pd
 
 from util.athena import aoi_query_to_local_parquet
 
-INVENTORY_FIELDS = "segment_area, centerline_length, watershed_id, ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, waterbody_type, waterbody_type_desc, waterbody_extent, prim_channel_gradient, valleybottom_gradient, fcode, fcode_desc, confinement_ratio, constriction_ratio, lf_riparian_prop, rme_project_id, rme_project_name"
+INVENTORY_FIELDS = "segment_area, centerline_length, watershed_id, ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, waterbody_type, waterbody_type_desc, waterbody_extent, prim_channel_gradient, valleybottom_gradient, fcode, fcode_desc, confinement_ratio, constriction_ratio, lf_riparian, lf_riparian_prop, lf_agriculture, lf_developed, rme_project_id, rme_project_name"
 
 
 def data_for_aoi_to_parquet(aoi_gdf: gpd.GeoDataFrame, parquet_path: str) -> None:
@@ -67,18 +67,62 @@ def build_report_summaries(data_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
             Named report summary tables.
     """
 
-    # summary_df = data_df.copy()
-    # perennial = summary_df[summary_df["fcode"].isin([46006, 55800])]
-    # non_perennial = summary_df[~summary_df["fcode"].isin([46006, 55800])]
-    # perennial_row = [perennial["stream_length"].sum(), perennial[perennial['ownership']=='BLM']["stream_length"].sum()]
+    rows = []
+    summary_df = data_df.copy()
+    perennial = summary_df[summary_df["fcode"].isin([46006, 55800])]
+    non_perennial = summary_df[~summary_df["fcode"].isin([46006, 55800])]
+    streams = [
+        'Stream Network',
+        summary_df['stream_length'].sum(),
+        summary_df[summary_df['ownership'] == 'BLM']["stream_length"].sum(),
+        summary_df[summary_df['ownership'] == 'BLM']["stream_length"].sum() / summary_df['stream_length'].sum(),
+    ]
+    perennial_row = ['Perennial', perennial["stream_length"].sum(), perennial[perennial['ownership'] == 'BLM']["stream_length"].sum(), perennial[perennial['ownership'] == 'BLM']["stream_length"].sum() / perennial["stream_length"].sum()]
+    non_perennial_row = [
+        'Non-Perennial',
+        non_perennial["stream_length"].sum(),
+        non_perennial[non_perennial['ownership'] == 'BLM']["stream_length"].sum(),
+        non_perennial[non_perennial['ownership'] == 'BLM']["stream_length"].sum() / non_perennial["stream_length"].sum(),
+    ]
+    rip = [
+        'Riparian-Wetland',
+        summary_df['lf_riparian'].sum(),
+        summary_df[summary_df['ownership'] == 'BLM']['lf_riparian'].sum(),
+        summary_df[summary_df['ownership'] == 'BLM']['lf_riparian'].sum() / summary_df['lf_riparian'].sum(),
+    ]
+    waterbodies = [
+        'Waterbodies',
+        summary_df['waterbody_extent'].sum(),
+        summary_df[summary_df['ownership'] == 'BLM']['waterbody_extent'].sum(),
+        summary_df[summary_df['ownership'] == 'BLM']['waterbody_extent'].sum() / summary_df['waterbody_extent'].sum(),
+    ]
+    springs = ['Springs', None, None, None]
+    tot_area = ['Riverscape Area', summary_df['segment_area'].sum(), summary_df[summary_df['ownership'] == 'BLM']['segment_area'].sum(), summary_df[summary_df['ownership'] == 'BLM']['segment_area'].sum() / summary_df['segment_area'].sum()]
+    anthro = [
+        'Anthropogenic LULC',
+        summary_df['lf_agriculture'].sum() + summary_df['lf_developed'].sum(),
+        summary_df[summary_df['ownership'] == 'BLM']['lf_agriculture'].sum() + summary_df[summary_df['ownership'] == 'BLM']['lf_developed'].sum(),
+        (summary_df[summary_df['ownership'] == 'BLM']['lf_agriculture'].sum() + summary_df[summary_df['ownership'] == 'BLM']['lf_developed'].sum()) / (summary_df['lf_agriculture'].sum() + summary_df['lf_developed'].sum()),
+    ]
+    rows.append(streams)
+    rows.append(perennial_row)
+    rows.append(non_perennial_row)
+    rows.append(rip)
+    rows.append(waterbodies)
+    rows.append(springs)
+    rows.append(tot_area)
+    rows.append(anthro)
+    summary_df = pd.DataFrame(rows, columns=['Resource Category', 'Total Inventory', 'Total BLM', 'BLM Managment'])
 
-    return {
-        "ownership": summarize_by_length(data_df, ["ownership_desc"]),
-        "feature_type": summarize_by_length(data_df, ["fcode_desc"]),
-        "stream": summarize_by_length(data_df, ["stream_name", "stream_order"]),
-        "watershed": summarize_by_length(data_df, ["watershed_id"]),
-        "waterbody": summarize_by_length(data_df, ["waterbody_type"]),
-    }
+    # return {
+    #     "ownership": summarize_by_length(data_df, ["ownership_desc"]),
+    #     "feature_type": summarize_by_length(data_df, ["fcode_desc"]),
+    #     "stream": summarize_by_length(data_df, ["stream_name", "stream_order"]),
+    #     "watershed": summarize_by_length(data_df, ["watershed_id"]),
+    #     "waterbody": summarize_by_length(data_df, ["waterbody_type"]),
+    # }
+
+    return {"inventory": summary_df}
 
 
 def build_metric_cards(data_df: pd.DataFrame) -> dict[str, dict[str, str]]:

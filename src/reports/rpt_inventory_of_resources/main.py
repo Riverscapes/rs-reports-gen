@@ -28,7 +28,7 @@ from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata
 from util.figures import bar_total_x_by_ybins, horizontal_split_bar_chart, make_aoi_outline_map, project_id_list, split_bar_chart_by_bins
 from util.html import RSReport
-from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
+from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq, ureg
 from util.pdf import make_pdf_from_html
 
 
@@ -44,7 +44,28 @@ def _table_html(summary_df: pd.DataFrame, top_n: int = 20) -> str:
 
     Created by copilot.
     """
-    return summary_df.head(top_n).to_html(index=False, classes="dataframe", border=0)
+    display_df = summary_df.head(top_n).copy()
+    unit_system = RSFieldMeta().unit_system
+    length_unit = ureg.kilometer if unit_system == "SI" else ureg.mile
+    length_label = "km" if unit_system == "SI" else "mi"
+    area_unit = ureg.hectare if unit_system == "SI" else ureg.acre
+    area_label = "ha" if unit_system == "SI" else "acres"
+    length_categories = {"Stream Network", "Perennial", "Non-Perennial"}
+    area_categories = {"Waterbodies", "Riverscape Area", "Anthropogenic LULC", "Riparian-Wetland"}
+    display_df[["Total Inventory", "Total BLM", "BLM Managment"]] = display_df[["Total Inventory", "Total BLM", "BLM Managment"]].astype(object)
+
+    for row_index, category in display_df["Resource Category"].items():
+        target_unit = length_unit if category in length_categories else area_unit if category in area_categories else None
+        if target_unit is not None:
+            for column in ("Total Inventory", "Total BLM"):
+                value = display_df.at[row_index, column]
+                if hasattr(value, "to"):
+                    display_df.at[row_index, column] = f"{value.to(target_unit).magnitude:,.2f} {length_label if category in length_categories else area_label}"
+        ratio = display_df.at[row_index, "BLM Managment"]
+        if pd.notna(ratio):
+            display_df.at[row_index, "BLM Managment"] = f"{float(ratio) * 100:,.2f}%"
+
+    return display_df.to_html(index=False, classes="dataframe", border=0)
 
 
 def define_fields(unit_system: str = "SI"):
@@ -86,6 +107,8 @@ def make_report(
     data_non_perennial = data_df[data_df['fcode_binary'] == 'Non-Perennial']
     RSFieldMeta().add_field_meta(name='ownership_binary', friendly_name='Ownership (BLM vs Non-BLM)', description='Binary classification of ownership: BLM vs Non-BLM')
     RSFieldMeta().add_field_meta(name='fcode_binary', friendly_name='Flow Type', description='Binary classification of stream type: Perennial vs Non-Perennial')
+    RSFieldMeta().set_friendly_name('prim_channel_gradient', 'Channel Slope')
+    RSFieldMeta().add_field_meta(name='waterbody_type_desc', friendly_name='Waterbody Type', description='Type of waterbody within the riverscape')
 
     summaries = build_report_summaries(data_df)
     figures = {
