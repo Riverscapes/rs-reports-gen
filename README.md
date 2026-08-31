@@ -1,10 +1,12 @@
-# Riverscapes Report Generators Repository
+# Riverscapes Report Generators Repository ![logo](https://cdn.riverscapes.net/icons/products/reports/reports_64.png)
 
-This repository holds the code to generate reports based on Riverscapes Consortium data, largely maintained in AWS Athena.
+This repository holds the Python code to generate reports based on Riverscapes Consortium data, largely maintained in AWS Athena.
 
-It consists of a python project for each report generator, as well as scripts necessary to run the project with Fargate.
+These reports are executed via our web front end at [reports.riverscapes.net](https://reports.riverscapes.net). For more information see the [Reports docs page](https://docs.riverscapes.net/products/reports). 
 
-Code to maintain the web UI that allows users to trigger report generation with custom parameters is in another repository, [`rs-reports-monorepo`](https://github.com/Riverscapes/rs-reports-monorepo).
+Each report type generator is a separate python project. The repository also includes scripts necessary to run the project with Fargate.
+
+Code to maintain the web UI that allows users to trigger report generation with custom parameters is in another repository (private), [`rs-reports-monorepo`](https://github.com/Riverscapes/rs-reports-monorepo).
 
 ## Setting up & running your own instance
 
@@ -23,12 +25,12 @@ If you run the "📋 Report Launcher" task from the launch.json file you will be
 DATA_ROOT=/where/i/store/my/data/rs_reports
 SPATIALITE_PATH=/opt/homebrew/lib/mod_spatialite.8.dylib
 
-# OPTIONAL OVERRIES FOR "Rivers Need Space" REPORT
+# OPTIONAL OVERRIDES FOR "Rivers Need Space" REPORT
 # RNS_AOI_GEOJSON=/my/awesome/aoi.geojson
-# RNS_REPORT_NAME='Steve the report'
+# RNS_REPORT_NAME='Awesome Report'
 # RNS_CSV=
 
-# OPTIONAL OVERRIES FOR "IGO Project" REPORT
+# OPTIONAL OVERRIDES FOR "IGO Project" REPORT
 IGO_AOI_GEOJSON=/my/awesome/aoi.geojson 
 IGO_REPORT_NAME='Gary'
 ```
