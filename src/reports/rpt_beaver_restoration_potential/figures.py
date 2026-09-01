@@ -63,10 +63,14 @@ def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, g
     return figures
 
 
-def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
+def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame, actual_total_dam_count: int | None = None) -> dict[str, pint.Quantity]:
     """Calculate and return key statistics as a dictionary
     Args:
         df (DataFrame | GeoDataFrame): data_df input WITH UNITS APPLIED
+        actual_total_dam_count: count of surveyed beaver dam points (rs_rpt.qris_beaver_activity)
+            intersecting the AOI, used in place of the modeled dam_ct field for total_dams and
+            its derived realized/remaining capacity stats. Falls back to modeled dam_ct if None
+            (e.g. when the actual dam-point query could not be run).
 
     Returns:
         dict[str, pint.Quantity]: new summary statistics applicable to the whole dataframe
@@ -78,7 +82,7 @@ def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame) -> dict[str, pint.Quant
 
     historic_dam_capacity = perennial.apply(lambda row: row["brat_hist_capacity"] * row["centerline_length"], axis=1).sum()
     total_dam_capacity = perennial.apply(lambda row: row["brat_capacity"] * row["centerline_length"], axis=1).sum()
-    total_dams = perennial["dam_ct"].sum()
+    total_dams = actual_total_dam_count if actual_total_dam_count is not None else perennial["dam_ct"].sum()
     realized_capacity = ((total_dams / total_dam_capacity) * ureg.dimensionless).to("percent") if total_dam_capacity > 0 else 0 * ureg.percent
     remaining_capacity = total_dam_capacity - total_dams if total_dam_capacity > 0 else 0
 

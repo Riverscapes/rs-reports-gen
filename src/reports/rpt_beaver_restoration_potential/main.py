@@ -22,6 +22,7 @@ from reports.rpt_beaver_restoration_potential import __version__ as report_versi
 from reports.rpt_beaver_restoration_potential.dataprep import (
     RPT_RME_LAYER_ID,
     load_cached_beaver_data,
+    query_actual_dam_points_for_aoi,
     query_beaver_data_for_aoi,
     summarize_beaver_potential,
 )
@@ -67,7 +68,7 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
         registry_field_meta = load_meta_from_file(metadata_cachefile_path)
 
     if registry_field_meta is None:
-        registry_field_meta = get_field_metadata_lakehouse_ref(lakehouse_ref="rs_rpt.nasa_ba_rme_join")
+        registry_field_meta = get_field_metadata_lakehouse_ref(lakehouse_ref="rs_rpt.rme_datamart_base_vw")
         if metadata_cachefile_path:
             log.info(f"Saving metadata cache to {metadata_cachefile_path}")
             save_meta_to_file(registry_field_meta, metadata_cachefile_path)
@@ -77,7 +78,7 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
     field_meta = RSFieldMeta()
     field_meta.field_meta = registry_field_meta
     field_meta.unit_system = unit_system
-    field_meta.set_friendly_name("dam_ct", "Dam Count", RPT_RME_LAYER_ID)
+    # field_meta.set_friendly_name("dam_ct", "Dam Count", RPT_RME_LAYER_ID)
     field_meta.set_friendly_name("brat_risk", "Risk of Dam Building to Infrastructure", RPT_RME_LAYER_ID)
     field_meta.set_friendly_name("brat_limitation", "Factors Limiting Beaver Dam Building", RPT_RME_LAYER_ID)
     field_meta.set_display_unit("centerline_length", "kilometer", RPT_RME_LAYER_ID)
@@ -133,6 +134,7 @@ def make_report(
     report_name: str,
     *,
     include_pdf: bool = False,
+    actual_total_dam_count: int | None = None,
 ) -> None:
     """Render the Beaver Restoration Potential HTML report and optional PDF."""
     log = Logger("Make Report")
@@ -171,7 +173,7 @@ def make_report(
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
-    summary_stats = main_statistics(data_df)
+    summary_stats = main_statistics(data_df, actual_total_dam_count=actual_total_dam_count)
     # high_rp_stats = high_rp_statistics(data_df)
     # metrics_for_summary_cards = ["historic_dam_capacity", "total_dam_capacity", "total_dams", "realized_capacity", "remaining_capacity"]
     # metric_data_for_cards = {key: summary_stats[key] for key in metrics_for_summary_cards}
@@ -222,8 +224,14 @@ def orchestrate(
     if parquet_path:
         log.info(f"Using supplied parquet data at {parquet_path}")
         data_df = load_cached_beaver_data(parquet_path)
+        actual_dam_points_df = None
     else:
         data_df = query_beaver_data_for_aoi(query_gdf, staging_path)
+        try:
+            actual_dam_points_df = query_actual_dam_points_for_aoi(query_gdf)
+        except Exception as exc:
+            log.warning(f"Unable to query actual dam locations; falling back to modeled dam_ct: {exc}")
+            actual_dam_points_df = None
 
     if data_df.empty:
         log.warning("No AOI rows were returned. Rendering a stub report with no-data placeholders.")
@@ -234,7 +242,8 @@ def orchestrate(
         except Exception as exc:
             log.warning(f"Unable to apply units for all fields: {exc}")
 
-    summary_tables = summarize_beaver_potential(data_df)
+    actual_total_dam_count = len(actual_dam_points_df) if actual_dam_points_df is not None else None
+    summary_tables = summarize_beaver_potential(data_df, actual_dam_points_df)
     context = _build_report_context(data_df, report_name, path_to_shape)
     make_report(
         data_df,
@@ -244,6 +253,7 @@ def orchestrate(
         output_path,
         report_name,
         include_pdf=include_pdf,
+        actual_total_dam_count=actual_total_dam_count,
     )
 
     if not parquet_path and not keep_parquet and staging_path.exists():
