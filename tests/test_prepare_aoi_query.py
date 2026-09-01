@@ -45,6 +45,45 @@ def test_intersects_uses_input_geom_alias():
     assert "ST_Intersects(ST_GeomFromBinary(geom), input_geom.geom)" in result
 
 
+def test_default_intersection_measure_uses_area_guard():
+    """Default behavior keeps area-based non-zero overlap guard for polygons."""
+    query = "SELECT * FROM input_geom, t WHERE {prefilter_condition} AND {intersects_condition}"
+    result = prepare_aoi_query(query, "ST_GeomFromBinary(geom)", "geom_bbox", _simple_gdf())
+
+    assert "ST_Area(ST_Intersection(ST_GeomFromBinary(geom),input_geom.geom)) > 0" in result
+
+
+def test_line_intersection_measure_uses_length_guard():
+    """Line layers can request non-zero overlap based on intersection length."""
+    query = "SELECT * FROM input_geom, t WHERE {prefilter_condition} AND {intersects_condition}"
+    result = prepare_aoi_query(
+        query,
+        "ST_GeomFromBinary(geom)",
+        "geom_bbox",
+        _simple_gdf(),
+        intersection_measure="length",
+    )
+
+    assert "ST_Length(ST_Intersection(ST_GeomFromBinary(geom),input_geom.geom)) > 0" in result
+    assert "ST_Area(ST_Intersection(ST_GeomFromBinary(geom),input_geom.geom)) > 0" not in result
+
+
+def test_none_intersection_measure_uses_only_intersects():
+    """Callers can opt out of area/length guards and use plain ST_Intersects."""
+    query = "SELECT * FROM input_geom, t WHERE {prefilter_condition} AND {intersects_condition}"
+    result = prepare_aoi_query(
+        query,
+        "ST_GeomFromBinary(geom)",
+        "geom_bbox",
+        _simple_gdf(),
+        intersection_measure="none",
+    )
+
+    assert "ST_Intersects(ST_GeomFromBinary(geom), input_geom.geom)" in result
+    assert "ST_Area(ST_Intersection(" not in result
+    assert "ST_Length(ST_Intersection(" not in result
+
+
 # ---------- Placeholder substitution ----------
 
 
@@ -163,3 +202,15 @@ def test_prefilter_raises_when_bbox_columns_wrong_length():
         assert "geom_bbox_columns must contain exactly four items" in str(err)
     else:
         assert False, "Expected ValueError for invalid geom_bbox_columns length"
+
+
+def test_intersection_measure_raises_on_invalid_value():
+    """Only area, length, and none are accepted for intersection_measure."""
+    query = "SELECT * FROM input_geom, t WHERE {prefilter_condition} AND {intersects_condition}"
+
+    try:
+        prepare_aoi_query(query, "geom", None, _simple_gdf(), intersection_measure="volume")
+    except ValueError as err:
+        assert "intersection_measure must be one of" in str(err)
+    else:
+        assert False, "Expected ValueError for invalid intersection_measure"
