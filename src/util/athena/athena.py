@@ -190,6 +190,7 @@ def prepare_aoi_query(
     aoi_gdf: gpd.GeoDataFrame,
     *,
     geom_bbox_columns: tuple[str, str, str, str] | None = None,
+    intersection_measure: str = "area",
 ) -> str:
     """Build a complete, ready-to-execute Athena SQL string from a spatial query template.
 
@@ -201,8 +202,8 @@ def prepare_aoi_query(
 
     * ``{prefilter_condition}`` → bounding-box overlap expression against
       ``geom_bbox_field`` (fast row pre-filter, no geometry parsing required).
-    * ``{intersects_condition}`` → ``ST_Intersects(<geom_field_expression>, input_geom.geom)``
-      (precise polygon-level spatial filter).
+        * ``{intersects_condition}`` → ``ST_Intersects(<geom_field_expression>, input_geom.geom)``
+            plus an optional non-zero overlap guard based on ``intersection_measure``.
 
     The AOI geometry hex appears **exactly once** (in the CTE), so it counts against
     Athena's 262,144-byte query-size limit only once.  The size budget is computed
@@ -239,6 +240,14 @@ def prepare_aoi_query(
         geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
             order ``(xmin, ymin, xmax, ymax)``. Use this for Iceberg-style schemas
             with separate numeric columns.
+                intersection_measure: Controls non-zero overlap guard appended to
+                        ``ST_Intersects``. Allowed values:
+
+                        * ``"area"`` (default): add
+                            ``ST_Area(ST_Intersection(...)) > 0`` (best for polygon layers)
+                        * ``"length"``: add
+                            ``ST_Length(ST_Intersection(...)) > 0`` (best for line layers)
+                        * ``"none"``: no extra guard, use only ``ST_Intersects``
 
     Returns:
         str: Complete SQL string ready to pass to ``query_to_dataframe`` or
@@ -246,14 +255,27 @@ def prepare_aoi_query(
 
     Raises:
         ValueError: If the AOI geometry (even after the precise size budget is
-            applied) would push the query over Athena's 262,144-byte limit.
+            applied) would push the query over Athena's 262,144-byte limit, or
+            if ``intersection_measure`` is not one of ``area``, ``length``, ``none``.
     """
     log = Logger("Prepare AOI Query")
     prefilter_condition = _resolve_bbox_condition(aoi_gdf, geom_bbox_field, geom_bbox_columns)
 
+    measure_key = intersection_measure.strip().lower()
+    if measure_key == "area":
+        overlap_guard = f"ST_Area(ST_Intersection({geom_field_expression},input_geom.geom)) > 0"
+    elif measure_key == "length":
+        overlap_guard = f"ST_Length(ST_Intersection({geom_field_expression},input_geom.geom)) > 0"
+    elif measure_key == "none":
+        overlap_guard = ""
+    else:
+        raise ValueError("intersection_measure must be one of: area, length, none")
+
     # Size budget: the AOI hex appears exactly once (in the CTE).
     cte_wrapper = "WITH input_geom AS (SELECT  AS geom) "  # 46 chars of overhead
-    intersects_template = f"ST_Intersects({geom_field_expression}, input_geom.geom) AND ST_Area(ST_Intersection({geom_field_expression},input_geom.geom)) > 0"
+    intersects_template = f"ST_Intersects({geom_field_expression}, input_geom.geom)"
+    if overlap_guard:
+        intersects_template += f" AND {overlap_guard}"
     placeholder_chars = len("{prefilter_condition}") + len("{intersects_condition}")
     non_geom_overhead = len(cte_wrapper) + len(querystr) - placeholder_chars + len(prefilter_condition) + len(intersects_template)
     max_geom_size = 262144 - non_geom_overhead
@@ -264,7 +286,7 @@ def prepare_aoi_query(
 
     # using strictly greater than 0 for now but could filter out inconsequential slivers here. Either with an absolute size or relative to the size of the DGO geometry
     # Units would be square decimal degrees, divide by 9.5 x 10E9 for square meter approximation.
-    intersects_condition = f"ST_Intersects({geom_field_expression}, input_geom.geom) AND ST_Area(ST_Intersection({geom_field_expression},input_geom.geom)) > 0"
+    intersects_condition = intersects_template
     cte = f"WITH input_geom AS (SELECT {aoi_geom_str} AS geom) "
 
     prepared_query = cte + querystr.format(
@@ -503,6 +525,7 @@ def aoi_query_to_dataframe_result(
     aoi_gdf: gpd.GeoDataFrame,
     *,
     geom_bbox_columns: tuple[str, str, str, str] | None = None,
+    intersection_measure: str = "area",
 ) -> DataFrameQueryResult:
     """Execute a spatial AOI query and return structured status plus DataFrame payload.
 
@@ -515,6 +538,7 @@ def aoi_query_to_dataframe_result(
             geom_bbox_field,
             aoi_gdf,
             geom_bbox_columns=geom_bbox_columns,
+            intersection_measure=intersection_measure,
         )
     except Exception as e:
         return DataFrameQueryResult(status=QueryStatus.ERROR, message=str(e), error=e)
@@ -529,6 +553,7 @@ def aoi_query_to_dataframe(
     aoi_gdf: gpd.GeoDataFrame,
     *,
     geom_bbox_columns: tuple[str, str, str, str] | None = None,
+    intersection_measure: str = "area",
 ) -> pd.DataFrame:
     """Execute a spatial AOI query against Athena and return the results as a DataFrame.
 
@@ -561,6 +586,9 @@ def aoi_query_to_dataframe(
         aoi_gdf: GeoDataFrame representing the Area of Interest.
         geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
             order ``(xmin, ymin, xmax, ymax)``. If not provided, defaults bbox_xmin etc are assumed.
+        intersection_measure: Non-zero overlap guard for ``{intersects_condition}``.
+            Use ``"area"`` for polygons, ``"length"`` for lines, or ``"none"`` for
+            plain ``ST_Intersects``.
 
     Returns:
         pandas.DataFrame: Query results.  Returns an empty DataFrame if the query
@@ -572,6 +600,7 @@ def aoi_query_to_dataframe(
         geom_bbox_field,
         aoi_gdf,
         geom_bbox_columns=geom_bbox_columns,
+        intersection_measure=intersection_measure,
     )
     df = query_to_dataframe(prepared_query, 'aoi_query')
     return df
@@ -585,6 +614,7 @@ def aoi_query_to_local_parquet(
     local_path: Path,
     *,
     geom_bbox_columns: tuple[str, str, str, str] | None = None,
+    intersection_measure: str = "area",
 ) -> None:
     """Execute a spatial AOI query against Athena and save the results as Parquet files locally.
 
@@ -635,6 +665,9 @@ def aoi_query_to_local_parquet(
             Created automatically if it does not exist.
         geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
             order ``(xmin, ymin, xmax, ymax)``.
+        intersection_measure: Non-zero overlap guard for ``{intersects_condition}``.
+            Use ``"area"`` for polygons, ``"length"`` for lines, or ``"none"`` for
+            plain ``ST_Intersects``.
     """
     log = Logger("AOI Query to Local PQ")
 
@@ -644,6 +677,7 @@ def aoi_query_to_local_parquet(
         geom_bbox_field,
         aoi_gdf,
         geom_bbox_columns=geom_bbox_columns,
+        intersection_measure=intersection_measure,
     )
 
     # 4. Execute the unload to local Parquet files
