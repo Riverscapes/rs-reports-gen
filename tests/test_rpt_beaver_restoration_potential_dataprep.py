@@ -111,3 +111,54 @@ def test_summarize_by_watershed_groups_rows_and_computes_dam_capacity() -> None:
     assert "stream_name" not in result.columns
     assert pd.api.types.is_integer_dtype(result["dam_capacity"])
     assert result["dam_capacity"].tolist() == sorted(result["dam_capacity"].tolist(), reverse=True)
+
+
+def test_summarize_by_level_path_uses_actual_dam_counts_when_provided() -> None:
+    """When actual_dam_counts is supplied, dam_ct should reflect surveyed points, not modeled dam_ct."""
+    df = pd.DataFrame(
+        [
+            {"level_path": "100", "stream_name": "Alpha Creek", "dam_ct": 2, "brat_capacity": 1.5, "centerline_length": 10.0},
+            {"level_path": "200", "stream_name": "Beta Creek", "dam_ct": 4, "brat_capacity": 0.5, "centerline_length": 8.0},
+            {"level_path": "300", "stream_name": "Gamma Creek", "dam_ct": 1, "brat_capacity": 3.6, "centerline_length": 6.0},
+        ]
+    )
+    actual_dam_counts = pd.Series({"100": 5, "200": 0})
+
+    result = summarize_by_level_path(df, actual_dam_counts)
+
+    # level_path "300" has no actual dam points (missing from the series) and is dropped, since
+    # dam_ct <= 0 after mapping; "200" has actual count 0 so it is also dropped despite modeled dam_ct of 4.
+    assert result["level_path"].tolist() == ["100"]
+    assert result["dam_ct"].tolist() == [5]
+
+
+def test_summarize_beaver_potential_attributes_actual_dam_points_to_groups() -> None:
+    """summarize_beaver_potential should group actual_dam_points by level_path/huc10."""
+    df = pd.DataFrame(
+        [
+            {
+                "level_path": "100",
+                "huc10": "1701010101",
+                "stream_name": "Alpha Creek",
+                "dam_ct": 2,
+                "brat_capacity": 1.5,
+                "centerline_length": 10.0,
+                "segment_area": 3.0,
+                "brat_opportunity": "Encourage Beaver Expansion/Colonization",
+                "brat_limitation": "None",
+                "brat_risk": "Low",
+            }
+        ]
+    )
+    actual_dam_points = pd.DataFrame(
+        [
+            {"level_path": "100", "huc10": "1701010101"},
+            {"level_path": "100", "huc10": "1701010101"},
+            {"level_path": "100", "huc10": "1701010101"},
+        ]
+    )
+
+    summaries = summarize_beaver_potential(df, actual_dam_points)
+
+    assert summaries["level_paths"].loc[0, "dam_ct"] == 3
+    assert summaries["hucs"].loc[0, "dam_ct"] == 3
