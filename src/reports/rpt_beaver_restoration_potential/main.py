@@ -21,9 +21,11 @@ from rsxml import Logger
 from reports.rpt_beaver_restoration_potential import __version__ as report_version
 from reports.rpt_beaver_restoration_potential.dataprep import (
     RPT_RME_LAYER_ID,
+    load_cached_actual_dam_points,
     load_cached_beaver_data,
     query_actual_dam_points_for_aoi,
     query_beaver_data_for_aoi,
+    save_actual_dam_points,
     summarize_beaver_potential,
 )
 from reports.rpt_beaver_restoration_potential.figures import build_beaver_figures, main_statistics
@@ -33,6 +35,7 @@ from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
+from util.plotly.export_figure import export_figure
 from util.report_entrypoint import (
     add_parquet_cli_args,
     init_report_logging,
@@ -78,7 +81,7 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
     field_meta = RSFieldMeta()
     field_meta.field_meta = registry_field_meta
     field_meta.unit_system = unit_system
-    # field_meta.set_friendly_name("dam_ct", "Dam Count", RPT_RME_LAYER_ID)
+    field_meta.set_friendly_name("dam_ct", "Dam Count", RPT_RME_LAYER_ID)
     field_meta.set_friendly_name("brat_risk", "Risk of Dam Building to Infrastructure", RPT_RME_LAYER_ID)
     field_meta.set_friendly_name("brat_limitation", "Factors Limiting Beaver Dam Building", RPT_RME_LAYER_ID)
     field_meta.set_display_unit("centerline_length", "kilometer", RPT_RME_LAYER_ID)
@@ -134,7 +137,7 @@ def make_report(
     report_name: str,
     *,
     include_pdf: bool = False,
-    actual_total_dam_count: int | None = None,
+    actual_total_dam_pts: pd.DataFrame | None = None,
 ) -> None:
     """Render the Beaver Restoration Potential HTML report and optional PDF."""
     log = Logger("Make Report")
@@ -160,6 +163,8 @@ def make_report(
         "map": make_aoi_outline_map(aoi_df),
         **build_beaver_figures(summary_tables),
     }
+    for name, fig in figures.items():
+        export_figure(fig, figure_dir, name, mode="png", include_plotlyjs=False, report_dir=report_dir)
     summary_tables_html = {name: _summary_table_to_html(df) for name, df in summary_tables.items()}
 
     report = RSReport(
@@ -173,7 +178,7 @@ def make_report(
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
-    summary_stats = main_statistics(data_df, actual_total_dam_count=actual_total_dam_count)
+    summary_stats = main_statistics(data_df, actual_dam_points=actual_total_dam_pts)
     # high_rp_stats = high_rp_statistics(data_df)
     # metrics_for_summary_cards = ["historic_dam_capacity", "total_dam_capacity", "total_dams", "realized_capacity", "remaining_capacity"]
     # metric_data_for_cards = {key: summary_stats[key] for key in metrics_for_summary_cards}
@@ -224,11 +229,14 @@ def orchestrate(
     if parquet_path:
         log.info(f"Using supplied parquet data at {parquet_path}")
         data_df = load_cached_beaver_data(parquet_path)
-        actual_dam_points_df = None
+        actual_dam_points_df = load_cached_actual_dam_points(parquet_path)
+        if actual_dam_points_df is None:
+            log.warning(f"No cached actual dam points found at {parquet_path}; falling back to modeled dam_ct.")
     else:
         data_df = query_beaver_data_for_aoi(query_gdf, staging_path)
         try:
             actual_dam_points_df = query_actual_dam_points_for_aoi(query_gdf)
+            save_actual_dam_points(actual_dam_points_df, staging_path)
         except Exception as exc:
             log.warning(f"Unable to query actual dam locations; falling back to modeled dam_ct: {exc}")
             actual_dam_points_df = None
@@ -242,7 +250,6 @@ def orchestrate(
         except Exception as exc:
             log.warning(f"Unable to apply units for all fields: {exc}")
 
-    actual_total_dam_count = len(actual_dam_points_df) if actual_dam_points_df is not None else None
     summary_tables = summarize_beaver_potential(data_df, actual_dam_points_df)
     context = _build_report_context(data_df, report_name, path_to_shape)
     make_report(
@@ -253,7 +260,7 @@ def orchestrate(
         output_path,
         report_name,
         include_pdf=include_pdf,
-        actual_total_dam_count=actual_total_dam_count,
+        actual_total_dam_pts=actual_dam_points_df,
     )
 
     if not parquet_path and not keep_parquet and staging_path.exists():

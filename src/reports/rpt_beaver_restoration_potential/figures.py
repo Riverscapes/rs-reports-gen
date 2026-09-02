@@ -63,7 +63,7 @@ def build_beaver_figures(summary_tables: dict[str, pd.DataFrame]) -> dict[str, g
     return figures
 
 
-def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame, actual_total_dam_count: int | None = None) -> dict[str, pint.Quantity]:
+def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame, actual_dam_points: pd.DataFrame | None = None) -> dict[str, pint.Quantity]:
     """Calculate and return key statistics as a dictionary
     Args:
         df (DataFrame | GeoDataFrame): data_df input WITH UNITS APPLIED
@@ -78,16 +78,20 @@ def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame, actual_total_dam_count:
 
     subset_df = RSGeoDataFrame(df) if isinstance(df, gpd.GeoDataFrame) else pd.DataFrame(df)
     perennial = subset_df[subset_df["fcode"].isin([46006, 55800])]
-    high_rp = subset_df[subset_df["brat_opportunity"].isin(['Conservation/Appropriate for Translocation', 'Encourage Beaver Expansion/Colonization'])]
+    high_rp = perennial[perennial["brat_opportunity"].isin(['Conservation/Appropriate for Translocation', 'Encourage Beaver Expansion/Colonization'])]
 
     historic_dam_capacity = perennial.apply(lambda row: row["brat_hist_capacity"] * row["centerline_length"], axis=1).sum()
     total_dam_capacity = perennial.apply(lambda row: row["brat_capacity"] * row["centerline_length"], axis=1).sum()
-    total_dams = actual_total_dam_count if actual_total_dam_count is not None else perennial["dam_ct"].sum()
+    total_dams = len(actual_dam_points) if actual_dam_points is not None else None
     realized_capacity = ((total_dams / total_dam_capacity) * ureg.dimensionless).to("percent") if total_dam_capacity > 0 else 0 * ureg.percent
     remaining_capacity = total_dam_capacity - total_dams if total_dam_capacity > 0 else 0
 
     total_high_rp_capacity = high_rp.apply(lambda row: row["brat_capacity"] * row["centerline_length"], axis=1).sum()
-    total_high_rp_dams = high_rp["dam_ct"].sum()
+    total_high_rp_dams = (
+        len(actual_dam_points[actual_dam_points["fcode"].isin([46006, 55800]) & actual_dam_points["brat_opportunity"].isin(['Conservation/Appropriate for Translocation', 'Encourage Beaver Expansion/Colonization'])])
+        if actual_dam_points is not None
+        else None
+    )
     realized_high_rp_capacity = ((total_high_rp_dams / total_high_rp_capacity) * ureg.dimensionless).to("percent") if total_high_rp_capacity > 0 else 0 * ureg.percent
     remaining_high_rp_capacity = total_high_rp_capacity - total_high_rp_dams if total_high_rp_capacity > 0 else 0
 

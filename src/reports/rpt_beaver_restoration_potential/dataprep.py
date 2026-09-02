@@ -49,6 +49,7 @@ def load_cached_beaver_data(parquet_path: Path) -> pd.DataFrame:
     """Load cached parquet output from a previous AOI query."""
     df = load_gdf_from_pq(parquet_path)
     df.attrs["layer_id"] = RPT_RME_LAYER_ID
+
     return df
 
 
@@ -65,7 +66,7 @@ def query_actual_dam_points_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     log.info("Querying Athena for actual beaver dam locations intersecting AOI ...")
 
     query_template = (
-        "SELECT r.level_path AS level_path, r.huc10 AS huc10 "
+        "SELECT r.level_path AS level_path, r.huc10 AS huc10, r.fcode as fcode, r.brat_opportunity as brat_opportunity, q.geom_wkb AS geom_wkb "
         "FROM input_geom, rs_rpt.rme_datamart_base_vw r "
         f"JOIN {ACTUAL_DAM_TABLE} q ON ST_Intersects(ST_GeomFromBinary(q.geom_wkb), ST_GeomFromBinary(r.dgo_geom)) "
         "WHERE {prefilter_condition} AND {intersects_condition}"
@@ -78,6 +79,27 @@ def query_actual_dam_points_for_aoi(aoi_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
     )
     log.info(f"Found {len(df)} actual dam points intersecting AOI")
     return df
+
+
+# Cached in its own subdirectory so it isn't picked up by list_athena_unload_payload_files
+# when it falls back to listing every file alongside the RME unload's own parquet/manifest.
+ACTUAL_DAM_POINTS_CACHE_DIRNAME = "actual_dam_points"
+ACTUAL_DAM_POINTS_CACHE_FILENAME = "actual_dam_points.parquet"
+
+
+def save_actual_dam_points(df: pd.DataFrame, staging_path: Path) -> None:
+    """Cache actual dam points alongside RME staging data so cached/offline runs can reuse them."""
+    cache_dir = staging_path / ACTUAL_DAM_POINTS_CACHE_DIRNAME
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(cache_dir / ACTUAL_DAM_POINTS_CACHE_FILENAME, index=False)
+
+
+def load_cached_actual_dam_points(parquet_path: Path) -> gpd.GeoDataFrame | None:
+    """Load actual dam points cached by save_actual_dam_points, or None if no cache is present."""
+    cache_file = parquet_path / ACTUAL_DAM_POINTS_CACHE_DIRNAME / ACTUAL_DAM_POINTS_CACHE_FILENAME
+    if not cache_file.exists():
+        return None
+    return load_gdf_from_pq(cache_file, geometry_col="geom_wkb")
 
 
 def _summarize_by_group(df: pd.DataFrame, group_field: str, actual_dam_counts: pd.Series | None = None, *, include_name_field: bool = True) -> pd.DataFrame:
@@ -107,7 +129,7 @@ def _summarize_by_group(df: pd.DataFrame, group_field: str, actual_dam_counts: p
     if missing_columns:
         raise KeyError(f"Missing required columns for {group_field} summary: {sorted(missing_columns)}")
 
-    summary_df = df[list(required_columns)].copy()
+    summary_df = df[df['fcode'].isin([46006, 55800])].copy()  # Only perennial streams
     summary_df = summary_df.dropna(subset=[group_field])
     summary_df["dam_capacity"] = summary_df["brat_capacity"] * summary_df["centerline_length"]
 
