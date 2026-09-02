@@ -35,7 +35,6 @@ from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
-from util.plotly.export_figure import export_figure
 from util.report_entrypoint import (
     add_parquet_cli_args,
     init_report_logging,
@@ -81,7 +80,7 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
     field_meta = RSFieldMeta()
     field_meta.field_meta = registry_field_meta
     field_meta.unit_system = unit_system
-    field_meta.set_friendly_name("dam_ct", "Dam Count", RPT_RME_LAYER_ID)
+    # field_meta.set_friendly_name("dam_ct", "Dam Count")
     field_meta.set_friendly_name("brat_risk", "Risk of Dam Building to Infrastructure", RPT_RME_LAYER_ID)
     field_meta.set_friendly_name("brat_limitation", "Factors Limiting Beaver Dam Building", RPT_RME_LAYER_ID)
     field_meta.set_display_unit("centerline_length", "kilometer", RPT_RME_LAYER_ID)
@@ -163,8 +162,7 @@ def make_report(
         "map": make_aoi_outline_map(aoi_df),
         **build_beaver_figures(summary_tables),
     }
-    for name, fig in figures.items():
-        export_figure(fig, figure_dir, name, mode="png", include_plotlyjs=False, report_dir=report_dir)
+
     summary_tables_html = {name: _summary_table_to_html(df) for name, df in summary_tables.items()}
 
     report = RSReport(
