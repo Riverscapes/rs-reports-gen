@@ -201,36 +201,42 @@ def summarize_beaver_potential(df: pd.DataFrame, actual_dam_points: pd.DataFrame
         level_path_dam_counts = None
         huc10_dam_counts = None
 
-    return {
-        "level_paths": summarize_by_level_path(df, level_path_dam_counts),
-        "hucs": summarize_by_watershed(df, huc10_dam_counts),
-        "capacity": summarize_metric_by_binned_numeric(
-            df,
-            value_field="brat_capacity",
-            bin_lookup="brat_capacity",
-            metric_field=SUMMARY_TOTAL_FIELD,
-            count_field=SUMMARY_COUNT_FIELD,
-            layer_id=RPT_RME_LAYER_ID,
-        ),
-        "opportunity": summarize_metric_by_group(
-            df,
-            group_field="brat_opportunity",
-            metric_field=SUMMARY_TOTAL_FIELD,
-            count_field=SUMMARY_COUNT_FIELD,
-            layer_id=RPT_RME_LAYER_ID,
-        ),
-        "limitation": summarize_metric_by_group(
-            df,
-            group_field="brat_limitation",
-            metric_field=SUMMARY_TOTAL_FIELD,
-            count_field=SUMMARY_COUNT_FIELD,
-            layer_id=RPT_RME_LAYER_ID,
-        ),
-        "risk": summarize_metric_by_group(
-            df,
-            group_field="brat_risk",
-            metric_field=SUMMARY_TOTAL_FIELD,
-            count_field=SUMMARY_COUNT_FIELD,
-            layer_id=RPT_RME_LAYER_ID,
-        ),
-    }
+    summaries: dict[str, pd.DataFrame] = {}
+    if actual_dam_points is not None and len(actual_dam_points) > 0:
+        summaries["level_paths"] = summarize_by_level_path(df, level_path_dam_counts)
+        summaries["hucs"] = summarize_by_watershed(df, huc10_dam_counts)
+
+    summaries.update(
+        {
+            "capacity": summarize_metric_by_binned_numeric(
+                df,
+                value_field="brat_capacity",
+                bin_lookup="brat_capacity",
+                metric_field=SUMMARY_TOTAL_FIELD,
+                count_field=SUMMARY_COUNT_FIELD,
+                layer_id=RPT_RME_LAYER_ID,
+            ),
+            "opportunity": summarize_metric_by_group(
+                df,
+                group_field="brat_opportunity",
+                metric_field=SUMMARY_TOTAL_FIELD,
+                count_field=SUMMARY_COUNT_FIELD,
+                layer_id=RPT_RME_LAYER_ID,
+            ),
+            "limitation": summarize_metric_by_group(
+                df,
+                group_field="brat_limitation",
+                metric_field=SUMMARY_TOTAL_FIELD,
+                count_field=SUMMARY_COUNT_FIELD,
+                layer_id=RPT_RME_LAYER_ID,
+            ),
+            "risk": summarize_metric_by_group(
+                df,
+                group_field="brat_risk",
+                metric_field=SUMMARY_TOTAL_FIELD,
+                count_field=SUMMARY_COUNT_FIELD,
+                layer_id=RPT_RME_LAYER_ID,
+            ),
+        }
+    )
+    return summaries

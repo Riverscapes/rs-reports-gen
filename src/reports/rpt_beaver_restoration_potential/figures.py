@@ -67,14 +67,15 @@ def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame, actual_dam_points: pd.D
     """Calculate and return key statistics as a dictionary
     Args:
         df (DataFrame | GeoDataFrame): data_df input WITH UNITS APPLIED
-        actual_total_dam_count: count of surveyed beaver dam points (rs_rpt.qris_beaver_activity)
-            intersecting the AOI, used in place of the modeled dam_ct field for total_dams and
-            its derived realized/remaining capacity stats. Falls back to modeled dam_ct if None
-            (e.g. when the actual dam-point query could not be run).
+        actual_dam_points: surveyed beaver dam points (rs_rpt.qris_beaver_activity) intersecting
+            the AOI, used for total_dams and its derived realized/remaining capacity stats. If
+            None or empty (e.g. the actual dam-point query could not be run, or no dam points
+            were found), those stats are reported as "N/A" rather than 0.
 
     Returns:
         dict[str, pint.Quantity]: new summary statistics applicable to the whole dataframe
     """
+    no_data = "N/A"
 
     subset_df = RSGeoDataFrame(df) if isinstance(df, gpd.GeoDataFrame) else pd.DataFrame(df)
     perennial = subset_df[subset_df["fcode"].isin([46006, 55800])]
@@ -82,23 +83,29 @@ def main_statistics(df: pd.DataFrame | gpd.GeoDataFrame, actual_dam_points: pd.D
 
     historic_dam_capacity = perennial.apply(lambda row: row["brat_hist_capacity"] * row["centerline_length"], axis=1).sum()
     total_dam_capacity = perennial.apply(lambda row: row["brat_capacity"] * row["centerline_length"], axis=1).sum()
-    total_dams = len(actual_dam_points) if actual_dam_points is not None else None
-    realized_capacity = ((total_dams / total_dam_capacity) * ureg.dimensionless).to("percent") if total_dam_capacity > 0 else 0 * ureg.percent
-    remaining_capacity = total_dam_capacity - total_dams if total_dam_capacity > 0 else 0
+    has_dam_points = actual_dam_points is not None and not actual_dam_points.empty
+    total_dams = len(actual_dam_points) if has_dam_points else None
+    if not has_dam_points:
+        realized_capacity = no_data
+        remaining_capacity = no_data
+    else:
+        realized_capacity = ((total_dams / total_dam_capacity) * ureg.dimensionless).to("percent") if total_dam_capacity > 0 else 0 * ureg.percent
+        remaining_capacity = total_dam_capacity - total_dams if total_dam_capacity > 0 else 0
 
     total_high_rp_capacity = high_rp.apply(lambda row: row["brat_capacity"] * row["centerline_length"], axis=1).sum()
-    total_high_rp_dams = (
-        len(actual_dam_points[actual_dam_points["fcode"].isin([46006, 55800]) & actual_dam_points["brat_opportunity"].isin(['Conservation/Appropriate for Translocation', 'Encourage Beaver Expansion/Colonization'])])
-        if actual_dam_points is not None
-        else None
-    )
-    realized_high_rp_capacity = ((total_high_rp_dams / total_high_rp_capacity) * ureg.dimensionless).to("percent") if total_high_rp_capacity > 0 else 0 * ureg.percent
-    remaining_high_rp_capacity = total_high_rp_capacity - total_high_rp_dams if total_high_rp_capacity > 0 else 0
+    if not has_dam_points:
+        total_high_rp_dams = no_data
+        realized_high_rp_capacity = no_data
+        remaining_high_rp_capacity = no_data
+    else:
+        total_high_rp_dams = len(actual_dam_points[actual_dam_points["fcode"].isin([46006, 55800]) & actual_dam_points["brat_opportunity"].isin(['Conservation/Appropriate for Translocation', 'Encourage Beaver Expansion/Colonization'])])
+        realized_high_rp_capacity = ((total_high_rp_dams / total_high_rp_capacity) * ureg.dimensionless).to("percent") if total_high_rp_capacity > 0 else 0 * ureg.percent
+        remaining_high_rp_capacity = total_high_rp_capacity - total_high_rp_dams if total_high_rp_capacity > 0 else 0
 
     stats = {
         'historic_dam_capacity': historic_dam_capacity,
         'total_dam_capacity': total_dam_capacity,
-        'total_dams': total_dams,
+        'total_dams': total_dams if has_dam_points else no_data,
         'realized_capacity': realized_capacity,
         'remaining_capacity': remaining_capacity,
         'total_dam_capacity_(actionable_opportunity)': total_high_rp_capacity,
