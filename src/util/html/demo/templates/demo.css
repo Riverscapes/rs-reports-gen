@@ -13,7 +13,7 @@
   background: #f5f8ff;
   border: 1px solid #d5deeb;
   border-radius: 6px;
-  font-family: var(--header-font-family);
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   color: #24304a;
   white-space: pre-wrap;

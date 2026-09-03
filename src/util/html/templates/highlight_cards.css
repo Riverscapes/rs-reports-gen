@@ -94,13 +94,14 @@ Load this stylesheet only in reports that render render_highlight_cards.
 
 #highlight-cards .highlight-card__primary {
 	color: var(--card-accent);
-	font-family: var(--body-font-family);
+	font-family: var(--font-display);
 	font-size: clamp(2.15rem, 3.15vw, 3.65rem);
 	font-weight: 700;
 	letter-spacing: 0.004em;
 	line-height: 1.03;
 	margin: 0.08rem 0 0.3rem;
 	overflow-wrap: anywhere;
+	font-variant-numeric: tabular-nums;
 }
 
 #highlight-cards .highlight-card__secondary {
@@ -132,10 +133,12 @@ Load this stylesheet only in reports that render render_highlight_cards.
 
 #highlight-cards .highlight-card__footer-metric {
 	color: var(--card-accent);
+	font-family: var(--font-display);
 	font-size: 2.12rem;
 	font-weight: 700;
 	letter-spacing: -0.01em;
 	line-height: 1;
+	font-variant-numeric: tabular-nums;
 }
 
 #highlight-cards .highlight-card__footer-label {

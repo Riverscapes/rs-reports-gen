@@ -52,7 +52,7 @@ COLORWAY: tuple[str, ...] = (
 )
 
 # ── Typography (from base.css) ───────────────────────────────────────────────
-#: --header-font-family (reports' headings; used for chart titles)
-HEADER_FONT_FAMILY = '"JetBrains Mono", "Courier New", Courier, monospace'
-#: --body-font-family (body copy; used for all other chart text)
+#: --font-display (reports' headings; used for chart titles)
+HEADER_FONT_FAMILY = '"Karla", "Segoe UI", "Helvetica Neue", Arial, sans-serif'
+#: --font-body (body copy; used for all other chart text)
 BODY_FONT_FAMILY = '"Roboto", Arial, sans-serif'

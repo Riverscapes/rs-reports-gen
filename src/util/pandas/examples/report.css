@@ -7,8 +7,9 @@
 }
 
 :root {
-  --header-font-family: "JetBrains Mono", "Courier New", Courier, "Lucida Sans Typewriter", "Lucida Typewriter", monospace;
-  --body-font-family: "Roboto", Arial, sans-serif;
+  --font-display: "Karla", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Roboto", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --page-width: 66rem;
   --page-gutter: clamp(1.25rem, 2vw + 1rem, 2.5rem);
   --header-color: #003166;
@@ -35,7 +36,7 @@ html {
 
   h1,
   h2{
-    font-family: var(--header-font-family);
+    font-family: var(--font-display);
     color: var( --header-color);
     clear: both;
     line-height: 1.25;
@@ -46,7 +47,7 @@ html {
   h3,
   h4,
   h5{
-    font-family: var(--header-font-family);
+    font-family: var(--font-display);
     color: var( --accent-color);
     clear: both;
     line-height: 1.25;
@@ -253,7 +254,8 @@ a:focus {
 }
 
 .metric dt {
-  font-size: 1.05rem !important;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
   line-height: var(--metric-title-line-height);
   min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
   display: flex; 
@@ -262,12 +264,20 @@ a:focus {
   color: var(--accent-color);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  font-size: 0.85rem;
+}
+
+.metric .metric-number {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--metric-number);
+  line-height: 1.15;
+  margin-top: 0.45rem;
 }
 
 .metric dd {
   line-height: var(--metric-title-line-height);
-  min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
   display: flex; 
   align-items: flex-start; 
   font-size: 1.25rem;
@@ -280,7 +290,7 @@ a:focus {
 table {
   border-collapse: collapse;
   width: 100%;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.9rem;
   color: #004793;
   border: 1px solid #1c5faa; /* outer frame */
@@ -404,7 +414,7 @@ canvas {
 .footer-logo img { width: 100%; height: auto; display: block; }
 
 .footer-heading {
-  font-family: var(--header-font-family);
+  font-family: var(--font-display);
   color: #fff;
   font-weight: 600;
   margin: 0 0 .5rem;
@@ -423,7 +433,7 @@ canvas {
 .footer-links a {
   color: #fff;
   text-decoration: none;
-  font-family: var(--body-font-family);
+  font-family: var(--font-body);
   font-size: clamp(.8rem, .4vw + .75rem, 1rem);
 }
 .footer-links a:hover,
@@ -470,7 +480,7 @@ canvas {
     background: #fff !important;
     color: #000;
     font-size: 12pt;
-    font-family: var(--body-font-family) !important;
+    font-family: var(--font-body) !important;
   }
 
   a { color: inherit; text-decoration: underline; }
@@ -543,7 +553,7 @@ canvas {
    3) Section Typography (headings, text)
    ========================================= */
   h1, h2{
-    font-family: var(--header-font-family);
+    font-family: var(--font-display);
     color: var(--header-color);
     clear: both;
     line-height: 1.25;
@@ -552,7 +562,7 @@ canvas {
     border-bottom: 1px solid var(--border-bg);
   }
   h3, h4, h5{
-    font-family: var(--header-font-family);
+    font-family: var(--font-display);
     color: var(--accent-color);
     clear: both;
     line-height: 1.25;
