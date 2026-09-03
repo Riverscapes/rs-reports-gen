@@ -24,6 +24,7 @@ from util.figures import (
     bar_group_x_by_y,
     bar_total_x_by_ybins,
     dens_road_rail,
+    horizontal_bar_chart,
     make_map_with_aoi,
     make_rs_area_by_featcode,
     make_rs_area_by_owner,
@@ -96,6 +97,9 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
         "prop_ag_dev_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_agriculture_prop', 'lf_developed_prop']),
         "dens_road_rail": dens_road_rail(gdf),
         "dens_road_rail_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['road_dens', 'rail_dens'], {"orientation": 'h'}),
+        "beaver_dam_capacity_historical_bar": horizontal_bar_chart(gdf, "centerline_length", ["brat_hist_capacity"]),
+        "beaver_dam_capacity_current_bar": horizontal_bar_chart(gdf, "centerline_length", ["brat_capacity"]),
+        "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, "segment_area", ["riparian_condition"]),
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
