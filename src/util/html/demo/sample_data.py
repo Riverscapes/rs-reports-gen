@@ -205,31 +205,37 @@ def sample_metric_cards() -> dict[str, dict[str, str]]:
         "total_area": {
             "title": "Total Riverscape Area",
             "value": "42.0 km²",
+            "value_full_format": "42.0 square kilometer",
             "details": "Sum of DGO polygon areas",
         },
         "total_centerline": {
             "title": "Total Centerline Length",
             "value": "40.5 km",
+            "value_full_format": "40.5 kilometer",
             "details": "Valley bottom centerline",
         },
         "valley_width": {
             "title": "Integrated Valley Bottom Width",
             "value": "516 m",
+            "value_full_format": "516 meter",
             "details": "",
         },
         "channel_length": {
             "title": "Total Channel Length",
             "value": "72.6 km",
+            "value_full_format": "72.6 kilometer",
             "details": "All channels within the valley bottom",
         },
         "stem_length": {
             "title": "Main Stem Length",
             "value": "38.1 km",
+            "value_full_format": "38.1 kilometer",
             "details": "",
         },
         "fragmentation": {
             "title": "Fragmentation Index",
             "value": "23.4%",
+            "value_full_format": "23.4 percent",
             "details": "Share of riverscape cut by roads or rail",
         },
     }

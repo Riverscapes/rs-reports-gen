@@ -67,7 +67,10 @@
   <div class="section-context">
     <p>The small stat tiles. Cards come from a dict like
       <code>{'title': ..., 'value': ..., 'details': ...}</code>.
-      Pass all or a key subset.</p>
+      Pass all or a key subset. An optional
+      <code>value_full_format</code> (full unit names, e.g.
+      <code>'42.0 square kilometer'</code>) renders as a native tooltip on the
+      value.</p>
   </div>
   {{ render_metric_grid(cards) }}
   <pre class="demo-snippet"><code>{% raw %}{% from 'macros.html' import render_metric_grid %}
@@ -181,6 +184,133 @@ for name, fig in figures.items():
     {{ tables['with_footer'] | safe }}
     <figcaption>Flow type summary with footer totals.</figcaption>
   </figure>
+</section>
+
+<!-- GRIDS ================================================================ -->
+<section id="grids">
+  <h2>Grids: Side-by-Side Content</h2>
+  <div class="section-context">
+    <p>Pico's <code>.grid</code> puts its direct children next to each other in equal
+      columns on screens ≥768px and stacks them below that. It is the default way to
+      place two blocks side by side — figure next to text, table next to prose, card
+      next to card — with no report-specific CSS.</p>
+  </div>
+
+  <h3>Equal columns</h3>
+  <div class="grid">
+    <div>
+      <p>Each direct child of <code>.grid</code> becomes one equal column
+        (<code>1fr</code> each, so they always fill the content width). Columns are
+        equal height — the shorter one stretches to match the longer one.</p>
+    </div>
+    <div>
+      <p>Grid children can be any block: paragraphs, lists, metric cards, tables or
+        figures. This column holds a metric card:</p>
+      {{ render_metric_grid(cards, ['total_area']) }}
+    </div>
+  </div>
+  <pre class="demo-snippet"><code>{% raw %}&lt;div class="grid"&gt;
+  &lt;div&gt;…left block…&lt;/div&gt;
+  &lt;div&gt;…right block…&lt;/div&gt;
+&lt;/div&gt;{% endraw %}</code></pre>
+
+  <h3>Figure next to text</h3>
+  <div class="grid">
+    <div>
+      <p>The typical "diagram next to explanation" layout: a figure in one column and
+        its narrative in the other. The figure keeps its caption and
+        <code>report-figure</code> styling inside the column.</p>
+      <p>Interactive mode embeds the live chart; static/PDF builds swap in the SVG
+        automatically — the grid doesn't care which mode is being rendered.</p>
+    </div>
+    <figure class="report-figure">
+      {{ figures['flow_type_bar'] | safe }}
+      <figcaption>Area by flow type (sample data) — grid column.</figcaption>
+    </figure>
+  </div>
+  <pre class="demo-snippet"><code>{% raw %}&lt;div class="grid"&gt;
+  &lt;div&gt;…text…&lt;/div&gt;
+  &lt;figure class="report-figure"&gt;
+    {{ figures['bar'] | safe }}
+    &lt;figcaption&gt;…&lt;/figcaption&gt;
+  &lt;/figure&gt;
+&lt;/div&gt;{% endraw %}</code></pre>
+
+  <h3>Unequal columns (proportions)</h3>
+  <div class="section-context">
+    <p>Pico intentionally ships no column-width utilities: to make columns unequal,
+      override <code>grid-template-columns</code> on the grid. Use an inline
+      <code>style</code> for a one-off ratio or the shared
+      <code>.grid-2-1</code> / <code>.grid-1-2</code> / <code>.grid-3-1</code>
+      classes in <code>base.css</code>. <code>2fr 1fr</code> means the first column
+      is twice the second.</p>
+  </div>
+  <div class="grid grid-2-1">
+    <div>
+      <p>A layout where the narrative takes <code>2fr</code> and a compact table
+        takes <code>1fr</code>. The same markup works with any block children.</p>
+      <p>Add <code>class="grid"</code> plus a proportion class; the proportion class
+        only changes the column template, it never breaks Pico's stacking below
+        768px.</p>
+    </div>
+    <figure class="report-figure">
+      {{ tables['ownership'] | safe }}
+      <figcaption>Ownership summary (sample data) — 1fr column.</figcaption>
+    </figure>
+  </div>
+  <pre class="demo-snippet"><code>{% raw %}&lt;div class="grid grid-2-1"&gt;  &lt;!-- or style="grid-template-columns: 2fr 1fr;" --&gt;
+  &lt;div&gt;…wider text column…&lt;/div&gt;
+  &lt;figure class="report-figure"&gt;…&lt;/figure&gt;
+&lt;/div&gt;{% endraw %}</code></pre>
+</section>
+
+<!-- FLOATS =============================================================== -->
+<section id="floats">
+  <h2>Floats: Text Wrapping Around Figures</h2>
+  <div class="section-context">
+    <p>Pico has no float utilities, so <code>base.css</code> provides
+      <code>.float-left</code> and <code>.float-right</code>. Add one to a
+      <code>&lt;figure class="report-figure"&gt;</code> (or any block element) and the
+      prose that follows flows around it instead of below it. Headings clear floats
+      automatically; when the next block must start below the float, follow it with
+      <code>&lt;div class="clearfix"&gt;&lt;/div&gt;</code>.</p>
+  </div>
+
+  <h3>Figure floated right</h3>
+  <figure class="report-figure float-right">
+    {{ figures['ownership_pie'] | safe }}
+    <figcaption>Ownership share (sample data) — floated right.</figcaption>
+  </figure>
+  <p>Floated figures are sized at 42% of the content width by <code>base.css</code>,
+    so the text has room to wrap. This paragraph and the next two are the body copy
+    of the example: they flow up and around the right-floated figure, leaving a clean
+    gutter on the figure's inner edge.</p>
+  <p>Note the caption comes along for the ride — it lives inside the
+    <code>&lt;figure&gt;</code>, so it floats with the diagram instead of sliding
+    underneath it. Floats work identically with tables, images and cards; nothing
+    about them is figure-specific.</p>
+  <p>In print (PDF) the same float is kept at a bounded 40% width so
+    WeasyPrint wraps the text the same way the browser does.</p>
+  <div class="clearfix"></div>
+
+  <h3>Table floated left</h3>
+  <figure class="report-figure float-left">
+    {{ tables['ownership'] | safe }}
+    <figcaption>Ownership summary (sample data) — floated left.</figcaption>
+  </figure>
+  <p>Floating left mirrors the pattern: the block hugs the left edge and the text
+    wraps along its right side. Tables are a common float target in reports — a
+    compact summary table can sit beside the paragraph that discusses it.</p>
+  <p>Only the outer block needs the class: everything inside it — the table, its
+    header styling, the caption — behaves exactly as it would unfloated.</p>
+  <div class="clearfix"></div>
+
+  <pre class="demo-snippet"><code>{% raw %}&lt;figure class="report-figure float-right"&gt;
+  {{ figures['ownership_pie'] | safe }}
+  &lt;figcaption&gt;Figure 5: Ownership share.&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;…body copy that wraps around the float…&lt;/p&gt;
+&lt;div class="clearfix"&gt;&lt;/div&gt;{% endraw %}</code></pre>
 </section>
 
 <!-- ERROR MESSAGES ======================================================= -->

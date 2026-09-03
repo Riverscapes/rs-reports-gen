@@ -74,6 +74,24 @@ def test_static_demo_exports_map_as_static_image(monkeypatch, tmp_path):
     assert "choroplethmap" not in html
 
 
+def test_interactive_demo_has_grid_and_float_sections(tmp_path):
+    """The Grids & Floats sections exist and are TOC-visible (id + h2)."""
+    outputs = build_demo(tmp_path, html_only=True)
+    html = Path(outputs[0]).read_text(encoding="utf-8")
+
+    for section_id, heading in (("grids", "Grids: Side-by-Side Content"), ("floats", "Floats: Text Wrapping Around Figures")):
+        assert f'id="{section_id}"' in html
+        assert f"<h2>{heading}</h2>" in html
+        assert f'href="#{section_id}"' in html
+
+    # Grid uses Pico's .grid class; floats use the base.css utilities.
+    assert 'class="grid"' in html
+    assert 'class="grid grid-2-1"' in html
+    assert 'class="report-figure float-right"' in html
+    assert 'class="report-figure float-left"' in html
+    assert 'class="clearfix"' in html
+
+
 def test_sample_figures_includes_aoi_map():
     figures = sample_figures()
     assert "aoi_map" in figures

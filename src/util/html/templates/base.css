@@ -60,6 +60,8 @@
   --muted-border: #d5deeb;
   --metric-number: #4a5764;
   --metric-description: #6e7889;
+  --metric-accent: #1f5ca5;
+  --metric-divider: #dbe3ee;
   --metric-title-line-height: 1.3;
   --metric-title-min-lines: 2;
   --table-bg: #f5f9ff;
@@ -202,6 +204,52 @@ text.legendtitletext {
   margin: 0;
   font-size: var(--text-md);
   font-weight: 500;
+}
+
+/* ── Layout: grid & float utilities ───────────────────────────────────────
+   Pico's `.grid` puts its direct children side-by-side in equal columns at
+   ≥768px and stacks them below that (see template.html, pico.min.css). It is
+   the default way to place two blocks next to each other:
+
+       <div class="grid">
+         <div>…left…</div>
+         <div>…right…</div>
+       </div>
+
+   Pico intentionally ships no column-width utilities. For asymmetric layouts
+   override `grid-template-columns` on the grid itself (inline style or the
+   shared proportion classes below).
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Column-proportion presets, applied in addition to `.grid`. */
+.grid-2-1 { grid-template-columns: 2fr 1fr; }
+.grid-1-2 { grid-template-columns: 1fr 2fr; }
+.grid-3-1 { grid-template-columns: 3fr 1fr; }
+
+@media (max-width: 767px) {
+  /* Match Pico's stacking behaviour below its grid breakpoint. */
+  .grid-2-1, .grid-1-2, .grid-3-1 { grid-template-columns: 1fr; }
+}
+
+/* Float utilities — Pico ships none, these are the shared ones. Add a class
+   to a figure (or any block) and following text wraps around it. Headings
+   already `clear: both`; use `.clearfix` to force the *next block* below a
+   float when it isn't a heading. */
+.float-left  { float: left;  margin: 0 var(--space-5) var(--space-4) 0; }
+.float-right { float: right; margin: 0 0 var(--space-4) var(--space-5); }
+
+/* Floated figures/diagrams get a bounded width so text has room to wrap. */
+figure.float-left, figure.float-right,
+.report-figure.float-left, .report-figure.float-right {
+  width: 42%;
+  max-width: 42%;
+  margin-top: 0.25rem;
+}
+
+.clearfix::after {
+  content: "";
+  display: table;
+  clear: both;
 }
 
 /* ── Header bar ─────────────────────────────────────────────────────────── */
@@ -367,11 +415,15 @@ text.legendtitletext {
   margin-right: var(--space-1);
 }
 
-/* ── Metrics grid (KPI tiles) ───────────────────────────────────────────── */
+/* ── Metrics grid (KPI tiles) ─────────────────────────────────────────────
+   Small stat tiles; quiet siblings of the highlight cards. White card over a
+   subtle gradient, accent rule on top, uppercase accent label, hero number,
+   and details pinned to the card foot behind a hairline divider so cards in a
+   row always resolve to the same structure. */
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-4);
   margin: var(--space-6) 0;
   padding: 0;
 }
@@ -380,13 +432,19 @@ text.legendtitletext {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--muted-bg);
+  margin: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fafd 100%);
   border: 1px solid var(--muted-border);
-  padding: var(--space-5) var(--space-4);
-  font-size: var(--text-sm);
-  border-radius: var(--radius);
-  box-shadow: var(--elev-1);
-  transition: box-shadow 0.3s ease;
+  border-top: 4px solid var(--metric-accent);
+  border-radius: 14px;
+  box-shadow: 0 3px 12px rgba(0, 26, 58, 0.10);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.metric:hover {
+  box-shadow: var(--elev-6);
+  transform: translateY(-2px);
 }
 
 .metric dt,
@@ -402,30 +460,31 @@ text.legendtitletext {
   min-height: calc(var(--metric-title-min-lines) * 1em * var(--metric-title-line-height));
   display: flex;
   align-items: flex-start;
-  color: var(--header-color);
+  color: var(--metric-accent);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.metric .metric-number,
-.metric .metric-details {
-  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
 }
 
 .metric .metric-number {
-  color: var(--accent-color);
+  color: var(--header-color);
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-size: clamp(1.6rem, 1.15rem + 1.5vw, 2.15rem);
   font-weight: 700;
-  line-height: 1.15;
-  margin-top: var(--space-2);
+  line-height: 1.12;
+  letter-spacing: -0.012em;
+  margin: var(--space-2) 0 var(--space-2);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
 .metric .metric-details {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--metric-divider);
   color: var(--metric-description);
   font-size: var(--text-xs);
-  line-height: 1.4;
-  margin-top: var(--space-1);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Tables ─────────────────────────────────────────────────────────────── */
@@ -816,16 +875,23 @@ article.report-meta {
     flex: 1 1 23%;
     max-width: 23%;
     min-width: 150px;
-    min-height: 230px;
-    padding: 0.18in;
+    min-height: 2.1in;
+    margin: 0;
+    padding: 0.16in 0.18in 0.14in;
+    background: #ffffff;
+    border: 1px solid var(--muted-border);
+    border-top: 3px solid var(--metric-accent);
+    border-radius: 10px;
+    box-shadow: none;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   .metric dt {
     line-height: 1.25;
-    font-size: 0.7rem;
-    min-height: 60px;
+    font-size: 0.68rem;
+    min-height: 0.62in;
+    letter-spacing: 0.04em;
   }
 
   .metric dd {
@@ -834,8 +900,15 @@ article.report-meta {
     font-size: 9pt;
   }
 
+  .metric .metric-number {
+    font-size: 1.3rem;
+    margin: 0.04in 0 0.06in;
+  }
+
   .metric .metric-details {
-    margin-top: 0.05in;
+    margin-top: 0.04in;
+    padding-top: 0.04in;
+    border-top: 1px solid var(--metric-divider);
   }
 
   /* Tables -------------------------------------------------------------- */
@@ -877,6 +950,34 @@ article.report-meta {
     margin-top: var(--space-2);
     font-size: var(--text-sm);
     color: var(--metric-number);
+  }
+
+  /* Floated figures keep a sensible size in print: the global figure rule
+     above centers at 75%, which would defeat the float. */
+  figure.float-left, figure.float-right,
+  .report-figure.float-left, .report-figure.float-right {
+    width: 40% !important;
+    max-width: 40% !important;
+    margin-top: 0.1in;
+    margin-bottom: var(--space-4);
+    text-align: left;
+  }
+
+  figure.float-left, .report-figure.float-left {
+    margin-right: var(--space-5) !important;
+    margin-left: 0 !important;
+  }
+
+  figure.float-right, .report-figure.float-right {
+    margin-left: var(--space-5) !important;
+    margin-right: 0 !important;
+  }
+
+  .report-figure.float-left img, .report-figure.float-left svg,
+  .report-figure.float-right img, .report-figure.float-right svg {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
   }
 
   /* Footer -------------------------------------------------------------- */
