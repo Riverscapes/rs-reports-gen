@@ -26,6 +26,7 @@ from shapely.geometry import MultiPolygon, Polygon
 from util.binning import get_bins_info as _get_bins_info
 from util.color import DEFAULT_FCODE_COLOR_MAP, DEFAULT_OWNER_COLOR_MAP
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
+from util.plotly.riverscapes import apply_riverscapes_theme  # noqa: F401  # side effect: registers brand template as default (see util.plotly.riverscapes)
 
 
 def get_bins_info(key: str):

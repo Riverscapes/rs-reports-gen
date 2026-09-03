@@ -1,8 +1,13 @@
-"""Utility helpers shared across rs_reports."""
+"""Utility helpers shared across rs_reports.
+
+Importing this package also registers the Riverscapes brand Plotly template and
+sets it as the default (see util.plotly.riverscapes).
+"""
 
 from .attains_assessment import query_attains_assessments
 from .csvhelper import est_rows_for_csv_file
 from .math_functions import round_down, round_up
+from .plotly import riverscapes as _riverscapes_brand  # noqa: F401  # side effect: brand template as plotly default
 from .report_entrypoint import (
     build_common_launch_args,
     build_output_path,

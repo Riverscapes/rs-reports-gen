@@ -34,10 +34,11 @@ from util.html.RSReport import RSReport
 # on machines without the pango/gobject native libs installed.
 try:  # pragma: no cover - environment-dependent
     from util.pdf.create_pdf import make_pdf_from_html
-except OSError:  # missing native lib (e.g. libgobject-2.0-0)
+except (OSError, ImportError):  # missing native libs / weasyprint not installed
     make_pdf_from_html = None
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
+DEMO_BODY = TEMPLATE_DIR / "body.html"
 DEMO_CSS = TEMPLATE_DIR / "demo.css"
 DEMO_VERSION = "0.1.0"
 
