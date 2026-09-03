@@ -1,6 +1,7 @@
 """Smoke tests for the DEMO style-guide report (maps section)."""
 
 import importlib
+import re
 from pathlib import Path
 
 from util.html.demo.build_demo import DEMO_BODY, DEMO_CSS, build_demo
@@ -95,3 +96,52 @@ def test_interactive_demo_has_grid_and_float_sections(tmp_path):
 def test_sample_figures_includes_aoi_map():
     figures = sample_figures()
     assert "aoi_map" in figures
+
+
+def test_reused_figures_get_unique_plot_div_ids(tmp_path):
+    """A figure embedded more than once must render each copy, not just the first.
+
+    pio.to_html derives the container id from a hash of the figure, so reusing
+    one exported fragment (e.g. the bar chart in the Figures section AND the
+    "Figure next to text" grid) collided: both scripts targeted the first div
+    and the later embeds rendered empty. render_figure stamps a fresh id per
+    embed; the rendered demo must therefore have one unique div id per embed.
+    """
+    outputs = build_demo(tmp_path, html_only=True)
+    html = Path(outputs[0]).read_text(encoding="utf-8")
+
+    ids = re.findall(r'<div id="([^"]+)" class="plotly-graph-div"', html)
+    # 3 figures in the Figures section + bar reused in Grids + pie reused in
+    # Floats + the map = 6 embeds, all with distinct ids.
+    assert len(ids) == 6
+    assert len(set(ids)) == len(ids), f"duplicate plotly div ids: {ids}"
+
+    # Each embed's script must target its own div (not a shared first one).
+    targets = re.findall(r'Plotly\.newPlot\(\s*"([^"]+)"', html)
+    assert len(targets) == 6
+    assert len(set(targets)) == len(targets)
+    assert set(targets) == set(ids)
+
+
+def test_unique_plot_fragment_rewrites_id_and_passes_static_through():
+    from util.plotly.export_figure import unique_plot_fragment
+
+    # Real plotly container ids are 36-char uuids; the rewriter is strict about
+    # that shape so it never rewrites unrelated ids from the figure json.
+    old_id = "39a98783-ddad-48af-95f4-40bb0fbdddd6"
+    fragment = f'<div id="{old_id}" class="plotly-graph-div"></div><script>if (document.getElementById("{old_id}")) {{ Plotly.newPlot("{old_id}", []) }}</script>'
+    out = unique_plot_fragment(fragment)
+    assert old_id not in out
+    new_id = re.search(r'<div id="([^"]+)" class="plotly-graph-div"', out).group(1)
+    # Id, getElementById and newPlot references all point at the new id.
+    assert out.count(f'"{new_id}"') == 3
+    # Two rewrites of the same source never collide.
+    assert unique_plot_fragment(fragment) != out
+
+    # Static export fragments (SVG/PNG <img>) pass through untouched.
+    static = '<img src="bar.svg">'
+    assert unique_plot_fragment(static) == static
+
+    # A non-plotly fragment is left alone too.
+    plain = '<p>hello</p>'
+    assert unique_plot_fragment(plain) == plain

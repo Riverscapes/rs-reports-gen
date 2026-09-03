@@ -38,6 +38,8 @@ WATCH_FILES = [
     UTIL_TEMPLATES / "macros.html",
     UTIL_TEMPLATES / "template.html",
     UTIL_TEMPLATES / "highlight_cards.css",
+    UTIL_TEMPLATES / "table.css",
+    HERE.parent / "table.py",
     DEMO_TEMPLATES / "body.html",
     DEMO_TEMPLATES / "demo.css",
     HERE / "sample_data.py",

@@ -71,6 +71,40 @@ Example Usage:
 </ul>
 {%- endmacro %}
 
+{#
+Macro: render_figure(key, caption=None, figure_class=None)
+
+Renders a Plotly figure from the report `figures` dict, wrapped in
+`<figure class="report-figure">` with an optional `<figcaption>`.
+
+Every invocation rewrites the embedded plotly div id to a fresh uuid, so the
+same figure key can be safely embedded multiple times in one page — without
+this, two embeds of the same figure share a single div id and only the first
+renders (the later copy shows just its caption). Static/SVG embeds pass
+through unchanged.
+
+Requires:
+    * the `unique_plot` jinja global (RSReport.render registers it), and
+    * importing with context so the macro sees the `figures` dict:
+
+        {% from 'macros.html' import render_figure with context %}
+
+Arguments:
+    key (str): index into `figures`, e.g. 'flow_type_bar'.
+    caption (str | None): optional figcaption text shown under the chart.
+    figure_class (str | None): extra classes for the <figure>, e.g. 'float-right'.
+
+Example Usage:
+    {{ render_figure('flow_type_bar', 'Figure 2: Area by flow type (sample data).') }}
+    {{ render_figure('ownership_pie', 'Ownership share — floated right.', 'float-right') }}
+#}
+{% macro render_figure(key, caption=None, figure_class=None) -%}
+<figure class="report-figure{% if figure_class %} {{ figure_class }}{% endif %}">
+    {{ unique_plot(figures[key]) }}
+    {% if caption %}<figcaption>{{ caption }}</figcaption>{% endif %}
+</figure>
+{%- endmacro %}
+
 {% macro render_metric_grid(cards, keys=None) -%}
 {% set keys = keys if keys is not none else cards.keys() %}
 <dl class="metric-grid">
@@ -87,4 +121,219 @@ Example Usage:
     {% endif %}
     {% endfor %}
 </dl>
+{%- endmacro %}
+
+{#
+Macro: render_data_table(columns, rows, caption=None, footer=None, table_id=None, copy_button=True)
+
+Renders a styled, branded table — the single canonical table renderer for
+Riverscapes reports. Use it from Python via `util.html.table.render_table`
+(which builds this model from a DataFrame: friendly headers, units, numeric
+alignment, footer rows), or call it directly from a body template with a
+prepared model.
+
+Args:
+    columns (list[dict]): One entry per column, in display order:
+        - label (str): header text (pre-escape HTML yourself).
+        - classes (str): space-separated cell classes, e.g. "numeric decimal"
+          for right-aligned numbers or "numeric integer".
+    rows (list[list[str]]): Body rows; one cell string per column
+        (pre-escape HTML yourself).
+    caption (str | None): Optional table caption text (pre-escape yourself).
+    footer (list[list[str]] | None): Optional footer rows, rendered in a
+        <tfoot> (repeated on every PDF page). One cell string per column.
+    table_id (str | None): Optional id applied to the wrapper div.
+    copy_button (bool): When True (default), a floating copy button appears
+        on hover and copies the table to the clipboard as CSV (plus a styled
+        HTML variant for rich pastes).
+
+Example Usage (from Python — preferred):
+    from util.html.table import render_table
+    tables = {"summary": render_table(df, caption="Ownership", footer=totals)}
+
+Example Usage (directly in a body template):
+    {% from 'macros.html' import render_data_table %}
+    {{ render_data_table(columns, rows, caption='Summary', footer=footer_rows) }}
+#}
+{% macro render_data_table(columns, rows, caption=None, footer=None, table_id=None, copy_button=True) -%}
+<style>
+{%- include 'table.css' -%}
+</style>
+<div class="rs-table-wrap"{% if table_id %} id="{{ table_id }}"{% endif %}>
+  <table class="dataframe rs-table">
+    {% if caption %}<caption>{{ caption }}</caption>{% endif %}
+    <thead>
+      <tr>
+        {% for col in columns %}
+        <th scope="col"{% if col.classes %} class="{{ col.classes }}"{% endif %}>{{ col.label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        {% for cell in row %}
+        {% set col = columns[loop.index0] %}
+        <td{% if col.classes %} class="{{ col.classes }}"{% endif %}>{{ cell }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% if footer %}
+    <tfoot>
+      {% for row in footer %}
+      <tr>
+        {% for cell in row %}
+        {% set col = columns[loop.index0] %}
+        <td class="footer{% if col.classes %} {{ col.classes }}{% endif %}">{{ cell }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tfoot>
+    {% endif %}
+  </table>
+  {% if copy_button %}
+  <button type="button" class="rs-table-copy pdf-hide" title="Copy table as CSV" aria-label="Copy table as CSV">
+    <span class="material-icons" aria-hidden="true">content_copy</span>
+  </button>
+  {% endif %}
+</div>
+{% if copy_button %}
+<script class="rs-table-copy-script">
+(function () {
+  if (window.__rsTableCopyInit) { return; }
+  window.__rsTableCopyInit = true;
+
+  var COPY_LABEL = 'Copy table as CSV';
+  var COPIED_LABEL = 'Copied';
+
+  function cellText(el) {
+    return (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function csvCell(v) {
+    var s = String(v == null ? '' : v).replace(/\r?\n/g, ' ');
+    if (/[",\n\r]/.test(s)) { s = '"' + s.replace(/"/g, '""') + '"'; }
+    return s;
+  }
+
+  function rowCells(tr) {
+    return Array.prototype.map.call(tr.querySelectorAll('td,th'), cellText);
+  }
+
+  function collectCsv(table) {
+    var rows = [];
+    var heads = table.querySelectorAll('thead th');
+    if (heads.length) { rows.push(Array.prototype.map.call(heads, cellText)); }
+    var bodies = table.querySelectorAll('tbody tr');
+    for (var i = 0; i < bodies.length; i += 1) { rows.push(rowCells(bodies[i])); }
+    var foots = table.querySelectorAll('tfoot tr');
+    for (var j = 0; j < foots.length; j += 1) { rows.push(rowCells(foots[j])); }
+    return rows;
+  }
+
+  function toCsv(rows) {
+    var out = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i];
+      for (var j = 0; j < row.length; j += 1) { row[j] = csvCell(row[j]); }
+      out.push(row.join(','));
+    }
+    return out.join('\r\n');
+  }
+
+  // Serialize the table with computed styles inlined, so rich-text pastes
+  // (email, Confluence, Google Docs) keep the branded look.
+  var INLINE_PROPS = ['width', 'fontFamily', 'fontSize', 'fontWeight', 'color', 'backgroundColor', 'textAlign', 'padding', 'fontVariantNumeric'];
+
+  function inlineStyles(source, target) {
+    var cs = window.getComputedStyle(source);
+    for (var i = 0; i < INLINE_PROPS.length; i += 1) {
+      var p = INLINE_PROPS[i];
+      var v = cs[p];
+      if (v) { target.style[p] = v; }
+    }
+    var borderColor = cs.borderTopColor;
+    if (borderColor && borderColor !== 'transparent') {
+      target.style.border = cs.borderTopWidth + ' ' + cs.borderTopStyle + ' ' + borderColor;
+    }
+  }
+
+  function buildRichHtml(table) {
+    var clone = table.cloneNode(true);
+    function pair(sel) {
+      var a = table.querySelectorAll(sel);
+      var b = clone.querySelectorAll(sel);
+      var n = Math.min(a.length, b.length);
+      for (var i = 0; i < n; i += 1) { inlineStyles(a[i], b[i]); }
+    }
+    inlineStyles(table, clone);
+    pair('caption');
+    pair('thead tr');
+    pair('tbody tr');
+    pair('tfoot tr');
+    pair('th');
+    pair('td');
+    return '<div>' + clone.outerHTML + '</div>';
+  }
+
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-99999px';
+    ta.style.top = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    if (ta.setSelectionRange) { ta.setSelectionRange(0, text.length); }
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  document.addEventListener('click', function (e) {
+    var target = e.target;
+    var btn = target && target.closest ? target.closest('.rs-table-copy') : null;
+    if (!btn) { return; }
+    var wrap = btn.closest('.rs-table-wrap');
+    if (!wrap) { return; }
+    var table = wrap.querySelector('table.rs-table');
+    if (!table) { return; }
+
+    var csv = toCsv(collectCsv(table));
+    var html = buildRichHtml(table);
+
+    function feedback(ok) {
+      var icon = btn.querySelector('.material-icons');
+      if (icon) {
+        icon.textContent = ok ? 'check' : 'error';
+        btn.setAttribute('aria-label', ok ? COPIED_LABEL : 'Copy failed');
+        window.setTimeout(function () {
+          icon.textContent = 'content_copy';
+          btn.setAttribute('aria-label', COPY_LABEL);
+        }, 1600);
+      }
+    }
+
+    function done(ok) { feedback(ok); }
+
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      try {
+        var item = new ClipboardItem({
+          'text/plain': new Blob([csv], { type: 'text/plain' }),
+          'text/html': new Blob([html], { type: 'text/html' })
+        });
+        navigator.clipboard.write([item]).then(function () { done(true); },
+          function () { done(legacyCopy(csv)); });
+        return;
+      } catch (err) { /* fall through to legacy */ }
+    }
+    done(legacyCopy(csv));
+  });
+})();
+</script>
+{% endif %}
 {%- endmacro %}

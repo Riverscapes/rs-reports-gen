@@ -415,6 +415,32 @@ figure.float-left, figure.float-right,
   margin-right: var(--space-1);
 }
 
+/* Pico renders data-tooltip bubbles as always-laid-out, nowrap, absolutely
+   positioned boxes centered on their element. In this right-aligned bar the
+   last button sits flush with the viewport edge, so its (invisible until
+   hover) bubble hangs off the right side and stretches the whole page — a
+   horizontal scrollbar appears on every report below the layout width.
+   Anchor the bubble to the button's right edge so it opens INTO the page
+   (overflow to the left is harmless: LTR scrollable overflow only extends
+   right), let it wrap instead of forcing nowrap, and use width:max-content
+   so the containing block (the small button) does not cap its size. The
+   caret stays centered on the button. */
+#report-nav .report-formats a[data-tooltip]::before {
+  left: auto;
+  right: 0;
+  width: max-content;
+  max-width: min(60vw, 22rem);
+  white-space: normal;
+  text-overflow: clip;
+  transform: translateY(-0.25rem);
+  --pico-tooltip-slide-to: translateY(-0.25rem);
+}
+
+#report-nav .report-formats a[data-tooltip]:hover::before,
+#report-nav .report-formats a[data-tooltip]:focus::before {
+  transform: translateY(0.75rem);
+}
+
 /* ── Metrics grid (KPI tiles) ─────────────────────────────────────────────
    Small stat tiles; quiet siblings of the highlight cards. White card over a
    subtle gradient, accent rule on top, uppercase accent label, hero number,
