@@ -76,6 +76,8 @@ Either way, that's the whole loop — there is nothing else to build.
 | Figures (pie/bar/line) | `report.add_figure()` → `figures['name']` | *Figures* |
 | Maps (Plotly, like Rivers Need Space) | `make_map_with_aoi` (`util/figures.py`) → `figures['name']` | *Maps* |
 | Tables | `RSGeoDataFrame.to_html()` / pandas `to_html()` | *Tables* |
+| Grids (side-by-side content) | Pico `.grid` + `.grid-2-1`/`.grid-1-2`/`.grid-3-1` (in `base.css`) | *Grids* |
+| Floats (text wrapping) | `.float-left` / `.float-right` + `.clearfix` (in `base.css`) | *Floats* |
 | Error messages | `.error-message` in `base.css` | *Error Messages* |
 | Page breaks | `.page-break*`, `@page` print rules in `base.css` | *Page Breaks* |
 | Table of contents | `{{ toc }}` placeholder (see below) | top of every demo page |
