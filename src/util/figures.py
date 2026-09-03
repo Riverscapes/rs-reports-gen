@@ -27,14 +27,18 @@ from util.basemaps import DEFAULT_BASEMAP, BasemapStyle
 from util.binning import get_bins_info as _get_bins_info
 from util.color import DEFAULT_FCODE_COLOR_MAP, DEFAULT_OWNER_COLOR_MAP
 from util.html.table import render_table
-from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
+from util.pandas import (  # Custom DataFrame accessor for metadata
+    RSFieldMeta,
+    RSGeoDataFrame,
+    ureg,  # Custom DataFrame accessor for metadata
+)
 from util.plotly.riverscapes import apply_riverscapes_theme  # noqa: F401  # side effect: registers brand template as default (see util.plotly.riverscapes)
 
 # Rules for switching a value column's display unit once its aggregated total gets large.
 # Each rule applies to a set of columns, above a total threshold (in base_unit), to an SI/imperial display unit.
 _UNIT_OVERRIDE_RULES = [
     {"columns": {"stream_length", "centerline_length"}, "base_unit": "meter", "threshold": 10_000, "si_unit": "kilometer", "imperial_unit": "mile"},
-    {"columns": {"segment_area", "waterbody_extent"}, "base_unit": "meter ** 2", "threshold": 100_000, "si_unit": "hectare", "imperial_unit": "acre"},
+    {"columns": {"segment_area", "waterbody_extent", "ag_segment_area", "dev_segment_area"}, "base_unit": "meter ** 2", "threshold": 100_000, "si_unit": "hectare", "imperial_unit": "acre"},
 ]
 
 
@@ -549,8 +553,12 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
     chart_data = total_x_by_y(df, total_col, group_by_cols, False)
 
     meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(chart_data, layer_id=layer_id)
-    baked_chart_data, _baked_headers = RSFieldMeta().bake_units(chart_data)
+    override = _apply_unit_override(meta, chart_data, total_col)
+    try:
+        baked_header_lookup = meta.get_headers_dict(chart_data, layer_id=layer_id)
+        baked_chart_data, _baked_headers = meta.bake_units(chart_data)
+    finally:
+        _restore_unit_override(meta, override)
 
     # set parameters
     if fig_params is None:
@@ -1112,8 +1120,13 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     field_meta.duplicate_meta('segment_area', 'ag_segment_area', new_friendly='Riverscapes Area')
     field_meta.duplicate_meta('segment_area', 'dev_segment_area', new_friendly='Riverscapes Area')
 
-    baked_header_lookup = field_meta.get_headers_dict(agg_data)
-    baked_agg_data, _baked_headers = field_meta.bake_units(agg_data)  # Plot bar chart
+    overrides = [_apply_unit_override(field_meta, agg_data, value_col) for value_col in ['ag_segment_area', 'dev_segment_area']]
+    try:
+        baked_header_lookup = field_meta.get_headers_dict(agg_data)
+        baked_agg_data, _baked_headers = field_meta.bake_units(agg_data)  # Plot bar chart
+    finally:
+        for override in overrides:
+            _restore_unit_override(field_meta, override)
 
     baked_header_lookup['bin'] = 'Land Use Intensity'
 
