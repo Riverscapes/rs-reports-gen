@@ -6,6 +6,11 @@
   --pico-text-selection-color: rgb(255, 251, 0);
 }
 
+* {
+  /* 
+  */
+}
+
 :root {
   --header-font-family: "JetBrains Mono", "Courier New", Courier, "Lucida Sans Typewriter", "Lucida Typewriter", monospace;
   --body-font-family: "Roboto", Arial, sans-serif;

@@ -16,3 +16,6 @@ wheels/
 # Exclude localonly folders - containing exploration notebooks and data from source
 localonly/
 
+
+# Demo harness output
+demo_output/
