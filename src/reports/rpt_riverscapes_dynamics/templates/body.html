@@ -16,18 +16,8 @@
 {% endif %}
 
 {% if not error_message %}
-<section id='toc'>
-  <h2>Table of Contents</h2>
-  <ol class="toc-list">
-    <li><a href="#key-indicators">Key Indicators</a></li>
-    <li><a href="#map-of-polygons">Report Area of Interest</a></li>
-    <li><a href="#longitudinal_profile">Longitudinal Profile</a></li>
-    <li><a href="#histogram">30-year Epoch Histograph</a></li>
-    <li><a href="#area">Area Changes over Time</a></li>
-    <li><a href="#width">Width Changes over Time</a></li>
-    <li><a href="#appendices">Appendices</a></li>
-  </ol>
-</section>
+<!-- Table of Contents: generated automatically from section headings. -->
+{{ toc }}
 <section id="key-indicators">
   <h2>Key Indicators</h2>
   {{ render_metric_grid(cards, ['count_dgos', 'total_segment_area', 'total_centerline_length',

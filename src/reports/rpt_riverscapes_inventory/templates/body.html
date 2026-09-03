@@ -11,37 +11,8 @@
       is to provide a broad overview of the riverscape and the landscape context in which it resides.</p>
   </div>
 </section>
-<section id='toc'>
-  <h2>Table of Contents</h2>
-  <ol class="toc-list">
-    <li><a href="#key-indicators">Key Indicators</a></li>
-    <li><a href="#map-of-polygons">Report Area of Interest</a></li>
-    <li><a href="#hypsometry">Hypsometry</a></li>
-    <li><a href="#ownership-and-flowtypes">Ownership and Flow Types</a></li>
-    <li><a href="#flow-types">Flow Types</a></li>
-    <li><a href="#stream-names">Stream Names and Lengths</a></li>
-    <li><a href="#condition">Condition</a></li>
-    <li><a href="#biophysical-settings">Biophysical Settings</a>
-      <ol>
-        <li><a href="#hydro-geomorphic">Hydro Geomorphic</a>
-          <ol>
-            <li><a href="#confinement">Confinement</a></li>
-            <li><a href="#stream-order">Stream Order</a></li>
-          </ol>
-        </li>
-        <li><a href="#ecological">Ecological</a>
-          <ol>
-            <li><a href="#beaver">Beaver</a></li>
-            <li><a href="#riparian-conditions">Riparian Conditions</a></li>
-          </ol>
-        </li>
-      </ol>
-    </li>
-    <li><a href="#nid">National Inventory of Dams</a></li>
-    <li><a href="#climateengine">Climate Engine Vegetation Timeseries</a></li>
-    <li><a href="#appendices">Appendices</a></li>
-  </ol>
-</section>
+<!-- Table of Contents: entries registered in main.py via report.add_toc_item() -->
+{{ toc }}
 <section id="key-indicators">
   <h2>Key Indicators</h2>
   {{ render_metric_grid(cards, ['total_segment_area', 'total_centerline_length', 'total_stream_length',
