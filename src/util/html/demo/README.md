@@ -75,7 +75,7 @@ Either way, that's the whole loop — there is nothing else to build.
 | Highlight cards | `render_highlight_cards` (`macros.html`, pico + `highlight_cards.css`) | *Highlight Cards* |
 | Figures (pie/bar/line) | `report.add_figure()` → `figures['name']` | *Figures* |
 | Maps (Plotly, like Rivers Need Space) | `make_map_with_aoi` (`util/figures.py`) → `figures['name']` | *Maps* |
-| Tables | `RSGeoDataFrame.to_html()` / pandas `to_html()` | *Tables* |
+| Tables | `render_table()` (`util/html/table.py`) via the `render_data_table` macro in `macros.html` — captions, numeric alignment, footer totals, hover copy button | *Tables* |
 | Grids (side-by-side content) | Pico `.grid` + `.grid-2-1`/`.grid-1-2`/`.grid-3-1` (in `base.css`) | *Grids* |
 | Floats (text wrapping) | `.float-left` / `.float-right` + `.clearfix` (in `base.css`) | *Floats* |
 | Error messages | `.error-message` in `base.css` | *Error Messages* |

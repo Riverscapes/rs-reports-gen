@@ -5,7 +5,7 @@
   Keep it in jinja (macros, hard breaks) so writers learn in the same medium
   they write in.
 -->
-{% from 'macros.html' import render_metric_grid, render_highlight_cards %}
+{% from 'macros.html' import render_metric_grid, render_highlight_cards, render_figure with context %}
 
 <section>
   <div class="section-context">
@@ -99,29 +99,23 @@
 <section id="figures">
   <h2>Figures</h2>
   <div class="section-context">
-    <p>Plotly figures added with <code>report.add_figure(name, fig)</code> and dropped
-      in with <code>{{ '{{' }} figures['name'] | safe {{ '}}' }}</code>. Interactive mode
-      embeds live charts; static mode swaps in SVG/PNG. Always wrap in
-      <code>&lt;figure class="report-figure"&gt;</code> and give a caption.</p>
+    <p>Plotly figures added with <code>report.add_figure(name, fig)</code>. Drop
+      them in with the shared <code>render_figure(key, caption)</code> macro,
+      which wraps the chart in the branded figure/caption styling (import it with
+      <code>{% raw %}{% from 'macros.html' import render_figure with context %}{% endraw %}</code>).
+      Interactive mode embeds live charts; static mode swaps in SVG/PNG — the same
+      call works in every mode. <code>render_figure</code> also gives each embed a
+      unique div id, so reusing one figure in several sections is safe.</p>
   </div>
 
   <h3>Pie</h3>
-  <figure class="report-figure">
-    {{ figures['ownership_pie'] | safe }}
-    <figcaption>Figure 1: Ownership share (sample data).</figcaption>
-  </figure>
+  {{ render_figure('ownership_pie', 'Figure 1: Ownership share (sample data).') }}
 
   <h3>Bar</h3>
-  <figure class="report-figure">
-    {{ figures['flow_type_bar'] | safe }}
-    <figcaption>Figure 2: Area by flow type (sample data).</figcaption>
-  </figure>
+  {{ render_figure('flow_type_bar', 'Figure 2: Area by flow type (sample data).') }}
 
   <h3>Line</h3>
-  <figure class="report-figure">
-    {{ figures['longitudinal_line'] | safe }}
-    <figcaption>Figure 3: Longitudinal metric across epochs (sample data).</figcaption>
-  </figure>
+  {{ render_figure('longitudinal_line', 'Figure 3: Longitudinal metric across epochs (sample data).') }}
 </section>
 
 <div class="page-break-before" aria-hidden="true"></div>
@@ -167,23 +161,36 @@ for name, fig in figures.items():
 <section id="tables">
   <h2>Tables</h2>
   <div class="section-context">
-    <p>Tables are HTML fragments added with
-      <code>report.add_html_elements('tables', {...})</code>. The friendly-name /
-      unit-aware variant uses <code>RSGeoDataFrame.to_html()</code>; plain pandas
-      <code>to_html(index=False)</code> works too.</p>
+    <p>Tables are HTML fragments rendered with
+      <code>render_table()</code> from <code>util/html/table.py</code> — the single
+      canonical table renderer. It is metadata-aware (friendly names + units,
+      right-aligned numbers), supports captions and footer (<code>&lt;tfoot&gt;</code>)
+      rows, and adds a floating <em>copy as CSV</em> button that appears when you
+      hover the table. Inject fragments with
+      <code>report.add_html_elements('tables', {...})</code> and render with
+      <code>{{ '{{' }} tables['name'] | safe {{ '}}' }}</code>.</p>
   </div>
 
-  <h3>Simple table</h3>
-  <figure class="report-figure">
-    {{ tables['ownership'] | safe }}
-    <figcaption>Ownership summary (sample data).</figcaption>
-  </figure>
+  {{ tables['ownership'] | safe }}
+
+  <pre class="demo-snippet"><code>{% raw %}# python — render_table() prepares the model and renders the shared macro
+from util.html.table import render_table
+
+tables = {"ownership": render_table(df, caption="Ownership summary")}
+report.add_html_elements("tables", tables)
+
+# body.html — the fragment includes its own &lt;style&gt;, so just inject it
+{{ tables['ownership'] | safe }}{% endraw %}</code></pre>
 
   <h3>Table with footer totals</h3>
-  <figure class="report-figure">
-    {{ tables['with_footer'] | safe }}
-    <figcaption>Flow type summary with footer totals.</figcaption>
-  </figure>
+  <p>A footer DataFrame renders in a <code>&lt;tfoot&gt;</code>: formatted with the
+    same rules as the body, styled as a totals block, and repeated on every PDF
+    page.</p>
+
+  {{ tables['with_footer'] | safe }}
+
+  <pre class="demo-snippet"><code>{% raw %}totals = pd.DataFrame({"Flow Type": ["Total"], "Area (km²)": [sum], "Percent": [100.0]})
+render_table(df, caption="Flow type summary", footer=totals){% endraw %}</code></pre>
 </section>
 
 <!-- GRIDS ================================================================ -->
@@ -223,10 +230,7 @@ for name, fig in figures.items():
       <p>Interactive mode embeds the live chart; static/PDF builds swap in the SVG
         automatically — the grid doesn't care which mode is being rendered.</p>
     </div>
-    <figure class="report-figure">
-      {{ figures['flow_type_bar'] | safe }}
-      <figcaption>Area by flow type (sample data) — grid column.</figcaption>
-    </figure>
+    {{ render_figure('flow_type_bar', 'Area by flow type (sample data) — grid column.') }}
   </div>
   <pre class="demo-snippet"><code>{% raw %}&lt;div class="grid"&gt;
   &lt;div&gt;…text…&lt;/div&gt;
@@ -255,7 +259,6 @@ for name, fig in figures.items():
     </div>
     <figure class="report-figure">
       {{ tables['ownership'] | safe }}
-      <figcaption>Ownership summary (sample data) — 1fr column.</figcaption>
     </figure>
   </div>
   <pre class="demo-snippet"><code>{% raw %}&lt;div class="grid grid-2-1"&gt;  &lt;!-- or style="grid-template-columns: 2fr 1fr;" --&gt;
@@ -277,10 +280,7 @@ for name, fig in figures.items():
   </div>
 
   <h3>Figure floated right</h3>
-  <figure class="report-figure float-right">
-    {{ figures['ownership_pie'] | safe }}
-    <figcaption>Ownership share (sample data) — floated right.</figcaption>
-  </figure>
+  {{ render_figure('ownership_pie', 'Ownership share (sample data) — floated right.', 'float-right') }}
   <p>Floated figures are sized at 42% of the content width by <code>base.css</code>,
     so the text has room to wrap. This paragraph and the next two are the body copy
     of the example: they flow up and around the right-floated figure, leaving a clean
@@ -296,7 +296,6 @@ for name, fig in figures.items():
   <h3>Table floated left</h3>
   <figure class="report-figure float-left">
     {{ tables['ownership'] | safe }}
-    <figcaption>Ownership summary (sample data) — floated left.</figcaption>
   </figure>
   <p>Floating left mirrors the pattern: the block hugs the left edge and the text
     wraps along its right side. Tables are a common float target in reports — a

@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from jinja2 import Environment, FileSystemLoader
 from rsxml import Logger
 
-from util.plotly.export_figure import export_figure
+from util.plotly.export_figure import export_figure, unique_plot_fragment
 
 #: Placeholder substituted with the generated table of contents after the body
 #: template renders. Writers put ``{{ toc }}`` in their body template where the
@@ -331,6 +331,10 @@ class RSReport:
                 search_paths.insert(0, body_template_dir)  # priority to report dir
 
         env = Environment(loader=FileSystemLoader(search_paths))
+        # Figures are exported once per fig but templates may embed the same
+        # figure in several places; unique_plot gives each embed its own div id
+        # (see unique_plot_fragment on the export side).
+        env.globals['unique_plot'] = unique_plot_fragment
 
         body = ""
         if self.body_template_path:

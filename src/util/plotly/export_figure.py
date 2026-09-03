@@ -1,12 +1,40 @@
 # import psutil  # for debugging
 import multiprocessing as mp
 import os
+import re
+import uuid
 from pathlib import Path
 
 import plotly.graph_objects as go
 import plotly.io as pio
 from kaleido._kaleido_tab import KaleidoError
 from rsxml import Logger
+
+#: Matches the plotly container pio.to_html(full_html=False) emits:
+#: ``<div id="<uuid>" class="plotly-graph-div" ...>``. The id is a hash of the
+#: figure contents, so the SAME exported fragment embedded twice in one page
+#: collides (both scripts target the first div and later embeds render empty).
+_PLOT_DIV_ID_RE = re.compile(r'<div id="([0-9a-fA-F-]{36})" class="plotly-graph-div"')
+
+
+def unique_plot_fragment(fragment: str) -> str:
+    """Rewrite the plotly div id in an exported interactive fragment to a fresh uuid.
+
+    ``pio.to_html`` derives the container id from a hash of the figure, so the
+    same exported fragment embedded twice (e.g. one figure reused in two
+    sections) shares one div id: both ``Plotly.newPlot`` scripts target the
+    first div and the later copy renders empty. Applying this on *every*
+    embed guarantees a unique id per usage. Static (``<img>``) fragments pass
+    through unchanged.
+
+    Registered as the ``unique_plot`` Jinja global (``RSReport.render``) for
+    the ``render_figure`` macro; call it on each embed, not once per figure.
+    """
+    match = _PLOT_DIV_ID_RE.search(fragment)
+    if match is None:
+        return fragment
+    new_id = "fig-" + uuid.uuid4().hex
+    return fragment.replace(match.group(1), new_id)
 
 
 def _write_image_worker(fig_json: str, img_path: Path, q):

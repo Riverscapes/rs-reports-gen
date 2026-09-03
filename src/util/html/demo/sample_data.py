@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from shapely.geometry import Polygon
 
+from util.html.table import render_table
 from util.pandas import RSFieldMeta
 
 # ---------------------------------------------------------------------------
@@ -147,7 +148,7 @@ def sample_figures() -> dict[str, go.Figure]:
 
 
 # ---------------------------------------------------------------------------
-# Tables (HTML fragments, as produced by DataFrame.to_html)
+# Tables (rendered through the shared render_table / render_data_table macro)
 # ---------------------------------------------------------------------------
 
 
@@ -159,7 +160,7 @@ def _simple_table() -> str:
             "Percent": [61.4, 22.8, 12.1, 3.7],
         }
     )
-    return df.to_html(index=False)
+    return render_table(df, caption="Ownership summary (sample data)", use_friendly=False, include_units=False)
 
 
 def _footer_table() -> str:
@@ -170,22 +171,20 @@ def _footer_table() -> str:
             "Percent": [69.4, 25.8, 4.8],
         }
     )
-    try:
-        from util.pandas.RSGeoDataFrame import RSGeoDataFrame
-
-        rsdf = RSGeoDataFrame(df)
-        rsdf.set_footer(
-            pd.DataFrame(
-                {
-                    "Flow Type": ["Total"],
-                    "Area (km²)": [round(df["Area (km²)"].sum(), 1)],
-                    "Percent": [100.0],
-                }
-            )
-        )
-        return rsdf.to_html(index=False, escape=False)
-    except Exception:  # pragma: no cover - fall back to plain pandas
-        return df.to_html(index=False)
+    totals = pd.DataFrame(
+        {
+            "Flow Type": ["Total"],
+            "Area (km²)": [round(df["Area (km²)"].sum(), 1)],
+            "Percent": [100.0],
+        }
+    )
+    return render_table(
+        df,
+        caption="Flow type summary with footer totals (sample data)",
+        footer=totals,
+        use_friendly=False,
+        include_units=False,
+    )
 
 
 def sample_tables() -> dict[str, str]:

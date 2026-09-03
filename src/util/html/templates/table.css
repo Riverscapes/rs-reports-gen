@@ -1,0 +1,109 @@
+/*
+Data tables rendered through the render_data_table macro (util/html/table.py).
+These are the *only* table styles every report shares: the macro includes this
+stylesheet itself, so no report needs to load it separately.
+
+Reuses the base.css `table.dataframe` rules (branded header, zebra rows,
+right-aligned .numeric cells) and adds caption, <tfoot> footer and copy-button
+styling on top.
+*/
+
+/* ── Wrapper ─────────────────────────────────────────────────────────────── 
+   position: relative anchors the floating copy button to the table corner. */
+.rs-table-wrap {
+  position: relative;
+  margin: 0 0 var(--space-5);
+}
+
+.rs-table-wrap table {
+  margin: 0;
+}
+
+/* Tables already wrapped in a .report-figure get their spacing from the figure. */
+.report-figure .rs-table-wrap {
+  margin-bottom: 0;
+}
+
+/* ── Caption ─────────────────────────────────────────────────────────────── */
+table.dataframe caption {
+  caption-side: top;
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--header-color);
+  padding: 0 0 var(--space-2);
+}
+
+/* ── Numeric alignment ─────────────────────────────────────────────────────
+   Cells are right-aligned by base.css (table.dataframe td.numeric); headers
+   above numeric columns line up with them. */
+table.dataframe th.numeric {
+  text-align: right;
+}
+
+/* ── Footer (tfoot) ────────────────────────────────────────────────────────
+   Footer rows render in <tfoot> so base.css print rules repeat them on every
+   PDF page. Bold + top rule mark them as totals; override zebra striping so
+   a multi-row footer reads as one block. */
+table.dataframe tfoot td {
+  border-top: 2px solid var(--border-bg);
+  background-color: var(--muted-bg);
+  color: #000;
+  font-weight: 600;
+}
+
+/* ── Empty table message ─────────────────────────────────────────────────── */
+.table-empty {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-bg);
+  border-radius: 6px;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--metric-description);
+}
+
+/* ── Floating "copy as CSV" button ─────────────────────────────────────────
+   Hidden by default; revealed only while the table is hovered (or the button
+   receives keyboard focus). Hidden from print via the pdf-hide class. */
+.rs-table-copy {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-bg);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent-color);
+  box-shadow: var(--elev-1);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.rs-table-copy .material-icons {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.rs-table-wrap:hover .rs-table-copy,
+.rs-table-wrap:focus-within .rs-table-copy,
+.rs-table-copy:focus-visible {
+  opacity: 1;
+}
+
+.rs-table-copy:hover {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.rs-table-copy:active {
+  transform: scale(0.95);
+}
