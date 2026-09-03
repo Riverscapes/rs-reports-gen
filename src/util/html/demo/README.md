@@ -2,7 +2,7 @@
 
 The demo is the **style sandbox** for Riverscapes reports. It renders a
 catalog of every shared visual pattern (metric cards, highlight cards,
-figures, tables, error messages, page breaks) through the exact same
+figures, tables, maps, error messages, page breaks) through the exact same
 `RSReport` pipeline the production reports use — but with deterministic
 sample data, so it runs in seconds with **no Athena access and no AWS
 credentials**.
@@ -32,7 +32,7 @@ uv run rs-report-demo --output-dir /tmp/rs-demo
 
 Outputs (written to the output dir):
 
-- `report.html` — interactive (live Plotly charts)
+- `report.html` — interactive (live Plotly charts + map)
 - `report_static.html` — static (SVG figures swapped in; needs `kaleido` + Chrome)
 - `report_static.pdf` — PDF from the static HTML (needs `weasyprint`)
 
@@ -74,6 +74,7 @@ Either way, that's the whole loop — there is nothing else to build.
 | Metric cards | `render_metric_grid` (`macros.html`) | *Metric Cards* |
 | Highlight cards | `render_highlight_cards` (`macros.html`, pico + `highlight_cards.css`) | *Highlight Cards* |
 | Figures (pie/bar/line) | `report.add_figure()` → `figures['name']` | *Figures* |
+| Maps (Plotly, like Rivers Need Space) | `make_map_with_aoi` (`util/figures.py`) → `figures['name']` | *Maps* |
 | Tables | `RSGeoDataFrame.to_html()` / pandas `to_html()` | *Tables* |
 | Error messages | `.error-message` in `base.css` | *Error Messages* |
 | Page breaks | `.page-break*`, `@page` print rules in `base.css` | *Page Breaks* |
@@ -149,6 +150,31 @@ minimal complete example of the pipeline in the repo.
 4. Re-run `rs-report-demo --html-only` (or watch it reload via
    `rs-report-demo-live`) and confirm it looks right in HTML **and** in the
    PDF before using it in a real report.
+
+## Maps
+
+The demo map uses the same shared helper as the Rivers Need Space report —
+`make_map_with_aoi` in `util/figures.py` — so it inherits the brand Plotly
+template and, being a normal Plotly figure, renders in **every** mode
+(interactive HTML plus static SVG/PNG via kaleido for the PDF). No extra
+work is needed in `body.html`; just `report.add_figure('map', fig)`.
+
+The map needs field metadata for its columns first (real reports load it with
+`define_fields()` from Athena; the demo registers a tiny stand-in and restores
+the shared `RSFieldMeta` state afterwards so it never pollutes anything).
+
+```python
+from util.figures import make_map_with_aoi
+
+fig = make_map_with_aoi(gdf, aoi_gdf)   # DGOs colored by fcode + red AOI outline
+report.add_figure('map', fig)
+```
+
+Other shared map helpers in `util/figures.py`: `make_aoi_outline_map` (fast
+fallback for huge datasets) and `make_point_map_with_aoi` (point features).
+If a report needs a Leaflet map instead, the `util/folium/riverscapes`
+helpers apply the same brand defaults to `folium.Map()` — but unlike Plotly
+figures those are interactive-only and would need a static fallback.
 
 ## Troubleshooting
 

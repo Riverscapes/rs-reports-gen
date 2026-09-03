@@ -121,6 +121,45 @@
   </figure>
 </section>
 
+<div class="page-break-before" aria-hidden="true"></div>
+
+<!-- MAPS ================================================================ -->
+<section id="maps">
+  <h2>Maps</h2>
+  <div class="section-context">
+    <p>Report maps use the shared Plotly map helpers in
+      <code>util/figures.py</code> — the exact <code>make_map_with_aoi</code> that
+      Rivers Need Space uses. DGO polygons are colored by a class field and the
+      AOI is outlined in red. Because the map is just a Plotly figure, it works
+      in interactive HTML <em>and</em> in static SVG/PDF export with no extra
+      work — add it with <code>report.add_figure('map', fig)</code> like any
+      other figure.</p>
+  </div>
+
+  <h3>AOI map (Plotly choropleth, like Rivers Need Space)</h3>
+  <figure class="report-figure">
+    {{ figures['aoi_map'] | safe }}
+    <figcaption>Figure 4: Sample DGOs colored by flow type with the AOI outlined (built with make_map_with_aoi).</figcaption>
+  </figure>
+  <pre class="demo-snippet"><code>{% raw %}# figures.py — this is all it takes, exactly like rpt_rivers_need_space
+from util.figures import make_map_with_aoi
+
+def build_map(gdf, aoi_gdf):
+    # gdf needs a geometry column named dgo_polygon_geom plus the columns
+    # fcode_desc, ownership_desc and segment_area (metadata via define_fields)
+    return make_map_with_aoi(gdf, aoi_gdf)
+
+# main.py — maps are normal figures, so interactive &amp; static/PDF both work
+figures = {"map": make_map_with_aoi(gdf, aoi_gdf)}
+for name, fig in figures.items():
+    report.add_figure(name, fig){% endraw %}</code></pre>
+  <p>Other shared map helpers: <code>make_aoi_outline_map</code> (fast fallback
+    when the data is too large to embed) and <code>make_point_map_with_aoi</code>
+    (point features). For Leaflet maps, the
+    <code>util.folium.riverscapes</code> helpers apply the same brand defaults
+    to <code>folium.Map()</code>.</p>
+</section>
+
 <!-- TABLES =============================================================== -->
 <section id="tables">
   <h2>Tables</h2>
