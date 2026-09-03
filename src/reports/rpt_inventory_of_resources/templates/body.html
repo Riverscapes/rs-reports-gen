@@ -30,13 +30,29 @@
 </section>
 
 <section id="resource_inventory">
-    <h2>Resource Inventory & Management Control</h2>
+    <h2>Aquatic Resource Inventory & Management Control</h2>
 	<div class="section-context">
 		<p>A unified, high-density overview of watershed resources and the extent of BLM's management influence. This context is
             critical for prioritizing management actions across the landscape
         </p>
 	</div>
     <figure class="report-figure">{{ tables['inventory']|safe }}</figure>
+</section>
+
+<section id="watershed_info">
+    <h2>Watershed Information</h2>
+    <section id="hypsometry">
+        <h3>Hypsometry</h3>
+        <div class="section-context">
+            <p><i>Why this is useful</i>: Hypsometry describes the distribution of elevations within a watershed. Elevation influences climatic controls on watersheds,
+                for example temperature, precipitation, and snowpack. These controls determine the hydrologic regime and vegetation types present in watersheds.
+            </p>
+        </div>
+        <p>Elevations within the watersheds intersecting the report area range from _ to _. The average elevation is _,
+            the maximum is _, and the minimum is _. 
+        </p>
+        <figure class="report-figure">{{ figures['hypsometry_fig']|safe }}</figure>
+    </section>
 </section>
 
 <section id="characteristics">

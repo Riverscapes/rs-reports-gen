@@ -24,8 +24,9 @@ from reports.rpt_inventory_of_resources.dataprep import (
     build_report_summaries,
     data_for_aoi_to_parquet,
 )
+from reports.rpt_inventory_of_resources.figures import hypsometry_fig
 from util import prepare_gdf_for_athena
-from util.athena import get_field_metadata
+from util.athena import athena_unload_to_dataframe, get_field_metadata
 from util.figures import bar_total_x_by_ybins, horizontal_split_bar_chart, make_aoi_outline_map, project_id_list, split_bar_chart_by_bins
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq, ureg
@@ -83,6 +84,7 @@ def define_fields(unit_system: str = "SI"):
 def make_report(
     data_df: pd.DataFrame,
     aoi_gdf: gpd.GeoDataFrame,
+    huc_df: pd.DataFrame,
     report_dir: Path,
     report_name: str,
     include_static: bool = True,
@@ -120,6 +122,7 @@ def make_report(
         "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         "waterbodies": horizontal_split_bar_chart(data_df, "waterbody_type_desc", "waterbody_extent", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         "prop_riparian": bar_total_x_by_ybins(data_df, 'segment_area', ['lf_riparian_prop']),
+        "hypsometry_fig": hypsometry_fig(huc_df),
     }
     tables = {name: _table_html(summary) for name, summary in summaries.items()}
     appendices = {
@@ -157,6 +160,31 @@ def make_report(
         if include_pdf:
             pdf_path = make_pdf_from_html(static_path)
             log.info(f"Generated PDF report at '{pdf_path}'.")
+
+
+def load_huc_data(hucs: list[str]) -> pd.DataFrame:
+    """Queries rscontext_huc10 for all the huc10 watersheds that intersect the aoi
+    * this could be a spatial query but we already have the huc12 from data_gdf so this is much faster
+    * FUTURE ENHANCEMENT - take the aoi and join with huc geometries to produce some statistics about the amount of intersection between them
+    * FUTURE ENHANCEMENT: check if we got data for all the hucs we were looking for
+    """
+    log = Logger("Load HUC data")
+
+    if not hucs or len(hucs) == 0:
+        log.error("No hucs provided to load_huc_data")
+        return pd.DataFrame()  # return empty dataframe
+
+    # Basic input sanitation: ensure all hucs are strings, length 10, digits only, and unique
+    clean_hucs = {h for h in hucs if isinstance(h, str) and len(h) == 10 and h.isdigit()}
+    if not clean_hucs or (len(clean_hucs) != len(hucs)):
+        log.error("No hucs, duplicate huc or unexpected value in huc list")
+
+    # Prepare SQL-safe quoted list
+    huc_sql = "(" + ",".join([f"'{h}'" for h in clean_hucs]) + ")"
+    sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
+
+    df = athena_unload_to_dataframe(sql_str)
+    return df
 
 
 def make_report_orchestrator(
@@ -225,7 +253,10 @@ def make_report_orchestrator(
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
 
-    make_report(data_gdf, aoi_gdf, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)
+    unique_huc10 = data_gdf['watershed_id'].astype(str).unique().tolist()
+    huc_data_df = load_huc_data(unique_huc10)
+
+    make_report(data_gdf, aoi_gdf, huc_data_df, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)
 
     if not keep_parquet:
         try:
