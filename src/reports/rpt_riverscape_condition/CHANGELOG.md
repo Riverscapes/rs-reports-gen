@@ -1,0 +1,38 @@
+# Changelog for Rivers Need Space report
+
+## Version 0
+
+Internal use only
+
+### 0.3.0
+
+* Changed focus of content to characterize size of selected riverscapes and potential fragmentation from human land use (to align with VBET manuscript).
+
+### 0.2.3
+
+* Changes to metadata retrieval from Athena view `layer_definitions_latest` to support ver schema 0.8
+
+### 0.2.2 2026-January
+
+* switch to using parquet as data transfer format consistent with other reports
+* use improved map zoom
+
+### 0.2.1 2025-December
+
+* gets metadata from newer layer definitions in Athena
+
+### 0.2.0 2025-11-26
+
+* better handling of large/complex input areas of interest
+
+### 0.1.1 In progress 2025 Oct 09
+
+Changes:
+
+* [x] Add units to calculated columns
+* [ ] Additional graphics
+* [ ] More complete use of units and friendly names from meta table
+
+### 0.1.0
+
+Version that works with staging.reports.riverscapes.net infrastructure.
