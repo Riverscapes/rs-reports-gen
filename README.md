@@ -8,6 +8,7 @@ Code to maintain the web UI that allows users to trigger report generation with 
 ## Architecture Notes
 
 - Metadata and units architecture (legacy + target patterns, with code examples): [docs/metadata-architecture.md](docs/metadata-architecture.md)
+- Style-guide workflow (how to iterate on templates/CSS without touching data): [src/util/html/demo/README.md](src/util/html/demo/README.md)
 
 ## Setting up & running your own instance
 

@@ -43,6 +43,8 @@ rpt-rivers-need-space = "reports.rpt_rivers_need_space.main:main"
 rpt-data-mart = "reports.rpt_data_mart.main:main"
 rpt-downstream-geomorphic = "reports.rpt_downstream_geomorphic.main:main"
 rpt-beaver-restoration-potential = "reports.rpt_beaver_restoration_potential.main:main"
+rs-report-demo = "util.html.demo.build_demo:main"
+rs-report-demo-live = "util.html.demo.live_server:main"
 
 # Install these using uv by typing: "uv pip install ".[dev]"
 [project.optional-dependencies]
@@ -58,8 +60,10 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Templates must ship with every report package, not just rivers_need_space.
+# The wildcard keeps this from silently breaking again as new reports are added.
 [tool.setuptools.package-data]
-"reports.rivers_need_space" = [
+"*" = [
     "templates/*.html",
     "templates/*.css",
     "example_inputs/*.geojson",

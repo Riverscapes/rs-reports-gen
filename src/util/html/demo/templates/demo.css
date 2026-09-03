@@ -1,0 +1,21 @@
+/* Demo-only styles.
+ *
+ * This file demonstrates the css_paths hook on RSReport: per-template CSS that is
+ * appended after base.css. Real reports use it for overrides the same way.
+ * Nothing in here should ever be needed by a production report - if a style is
+ * generally useful, promote it to base.css.
+ */
+
+/* Compact code/pattern snippets shown inside each demo section. */
+.demo-snippet {
+  margin: 0.25rem 0 1rem;
+  padding: 0.55rem 0.75rem;
+  background: #f5f8ff;
+  border: 1px solid #d5deeb;
+  border-radius: 6px;
+  font-family: var(--header-font-family);
+  font-size: 0.8rem;
+  color: #24304a;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
