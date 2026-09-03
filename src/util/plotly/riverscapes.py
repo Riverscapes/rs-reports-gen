@@ -2,7 +2,7 @@
 
 Registers ``pio.templates["riverscapes"]`` — brand colors (from
 :mod:`util.brand`, which mirrors ``base.css`` / the PBI Riverscapes theme),
-Roboto/JetBrains Mono type, soft grid lines, white background, and report-friendly
+Karla (display) / Roboto type, soft grid lines, white background, and report-friendly
 margins — and makes it the default template for every new figure.
 
 Importing this module (or anything under :mod:`util.plotly`, which imports it)
