@@ -125,8 +125,28 @@ from util import round_down, round_up
 BUFFER_CENTROID_TO_BB_DD = 0.47  # DEPRECATED - USE BOUNDING BOX STRUCT instead
 S3_ATHENA_BUCKET = "riverscapes-athena-output"
 ATHENA_WORKGROUP = "primary"
+# The Athena output bucket (and the Athena workgroup/queries that reference it) lives in us-west-2.
+# awswrangler and bare boto3.client() calls otherwise fall back to the shell/SSO session's region
+# (often us-east-1), which makes Athena reject the S3 output location with:
+#   "The S3 location provided to save your query results is invalid ... is in the same region"
+# NEVER let this drift: every Athena/S3 call in this module must go through get_boto3_session().
 AWS_REGION = "us-west-2"
 DEFAULT_FLAT_BBOX_COLUMNS = ("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax")
+
+_boto3_session: boto3.Session | None = None
+
+
+def get_boto3_session() -> boto3.Session:
+    """Return a lazily-created boto3 Session pinned to AWS_REGION (us-west-2).
+
+    Credentials are still resolved lazily from the default credential chain (e.g. SSO cache),
+    so this works whether or not ``aws sso login`` ran before or after import. Only the region
+    is forced, so the Athena output bucket is always in the same region as the Athena endpoint.
+    """
+    global _boto3_session
+    if _boto3_session is None:
+        _boto3_session = boto3.Session(region_name=AWS_REGION)
+    return _boto3_session
 
 
 class QueryStatus(StrEnum):
@@ -392,13 +412,19 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
 
     log.info(f"Executing UNLOAD to {s3_output}...")
     # This runs the query and saves the output to a new "folder" in S3
-    wr.athena.unload(sql=query, path=s3_output, file_format="parquet", database="default")
+    wr.athena.unload(
+        sql=query,
+        path=s3_output,
+        file_format="parquet",
+        database="default",
+        boto3_session=get_boto3_session(),
+    )
 
     log.info(f"Downloading Parquet files from {s3_output} to {local_path}...")
     local_path.mkdir(parents=True, exist_ok=True)
 
     # List all the files in the S3 output folder
-    s3_files = wr.s3.list_objects(path=s3_output)
+    s3_files = wr.s3.list_objects(path=s3_output, boto3_session=get_boto3_session())
 
     # Download each file one by one
     for s3_file in s3_files:
@@ -407,7 +433,11 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
         # Create the full local destination path
         local_file_path = local_path / file_name
         # Download the file
-        wr.s3.download(path=s3_file, local_file=str(local_file_path))
+        wr.s3.download(
+            path=s3_file,
+            local_file=str(local_file_path),
+            boto3_session=get_boto3_session(),
+        )
 
     log.info(f"Download complete. Files are in {local_path}")
 
@@ -436,6 +466,7 @@ def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQuer
             ctas_approach=False,
             unload_approach=True,  # only PARQUET format is supported with this option
             s3_output=s3_output,
+            boto3_session=get_boto3_session(),
         )
         log.debug(f"Query {querylabel} to dataframe completed.")
         if df.empty:
@@ -679,7 +710,7 @@ def _run_athena_query(s3_output_path: str, query: str, max_wait: int = 600) -> t
         log.debug(f"Query starts with: {query[:1900]}")
         log.debug(f"Query ends with: {repr(query[-100:])}")
 
-    athena = boto3.client('athena', region_name=AWS_REGION)
+    athena = get_boto3_session().client('athena')
 
     # s3_output should be a full s3://bucket/prefix or s3://bucket/file.csv
     # and this has to be empty for unload queries
@@ -764,7 +795,7 @@ def download_file_from_s3(s3_uri: str, local_path: str) -> None:
     s3_bucket, s3_key = parts
 
     log.info(f"Downloading {s3_key} from bucket {s3_bucket} to {local_path}")
-    s3 = boto3.client('s3')
+    s3 = get_boto3_session().client('s3')
     response = s3.head_object(Bucket=s3_bucket, Key=s3_key)
     size_bytes = response['ContentLength']
     log.info(f"ContentType: {response['ContentType']}\t File size: {size_bytes} bytes")
@@ -810,7 +841,7 @@ def _parse_json_from_s3_prefix(s3_prefix: str) -> list[dict]:
     """
 
     log = Logger('Parse JSON from S3 prefix')
-    s3 = boto3.client('s3')
+    s3 = get_boto3_session().client('s3')
     parsed = urlparse(s3_prefix)
     bucket = parsed.netloc
     prefix = parsed.path.lstrip('/')
