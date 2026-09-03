@@ -77,7 +77,37 @@ Either way, that's the whole loop — there is nothing else to build.
 | Tables | `RSGeoDataFrame.to_html()` / pandas `to_html()` | *Tables* |
 | Error messages | `.error-message` in `base.css` | *Error Messages* |
 | Page breaks | `.page-break*`, `@page` print rules in `base.css` | *Page Breaks* |
+| Table of contents | `{{ toc }}` placeholder (see below) | top of every demo page |
 | Per-template CSS hook | `css_paths=[...]` on `RSReport` | `demo.css` in this package |
+
+## Table of contents (auto-generated)
+
+Never hand-write a TOC. Put the placeholder where you want it in your
+`body.html`:
+
+```html
+{{ toc }}
+```
+
+`RSReport.render()` replaces it with a `<section id="toc">` built from every
+`<section id="...">` whose first heading is an `h1`/`h2` — so the TOC can never
+drift from the actual sections. Sections without an id, without a top-level
+heading, or inside HTML comments are skipped.
+
+For custom labels or nested TOCs, register entries in Python instead:
+
+```python
+report.add_toc_item("key-indicators", "Key Indicators")
+report.add_toc_item("biophysical-settings", "Biophysical Settings", children=[
+    ("hydro-geomorphic", "Hydro Geomorphic", [
+        ("confinement", "Confinement"),
+        ("stream-order", "Stream Order"),
+    ]),
+])
+```
+
+As soon as any item is registered, registration wins over auto-extraction
+(see `rpt_riverscapes_inventory/main.py` for a working example).
 
 ## How the pieces fit
 
@@ -113,10 +143,12 @@ minimal complete example of the pipeline in the repo.
 ## Adding a new shared pattern
 
 1. Add the CSS to `demo.css` (or `base.css` if it should be global).
-2. Add a section for it in `templates/body.html`.
+2. Add a section for it in `templates/body.html`. Give the `<section>` an
+   `id` and an `h2` heading and it appears in the demo TOC automatically.
 3. If it is a macro, add it to `macros.html` and reference it here.
-4. Re-run `rs-report-demo --html-only` and confirm it looks right in HTML
-   **and** in the PDF before using it in a real report.
+4. Re-run `rs-report-demo --html-only` (or watch it reload via
+   `rs-report-demo-live`) and confirm it looks right in HTML **and** in the
+   PDF before using it in a real report.
 
 ## Troubleshooting
 
