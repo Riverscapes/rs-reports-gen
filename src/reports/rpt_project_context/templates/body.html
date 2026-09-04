@@ -1,0 +1,119 @@
+<!-- This is simply everything that exists inside the report's body 
+ 
+  refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
+-->
+{% from 'macros.html' import render_metric_grid %}
+<section>
+  <div class="section-context">
+    <p>This report provides information to characterize and assess the conditions of a selected reach of riverscape.
+    </p>
+  </div>
+</section>
+
+<section id='toc'>
+  <h2>Table of Contents</h2>
+  <ol class="toc-list">
+    <li><a href="#map-of-polygons">Report Area Map</a></li>
+    <li><a href="#key-indicators">Riverscape Inventory</a></li>
+    <li><a href="#characteristics">Riverscape Characteristics</a></li>
+    <li><a href="#condition">Riversape Condition</a></li>
+    <li><a href="#supporting_info">Supporting Information</a></li>
+    <li><a href="#appendices">Appendices</a></li>
+  </ol>
+</section>
+
+<div class="page-break-before"></div>
+
+<section id="map-of-polygons">
+  <h2>Report Area Map</h2>
+  <div class="section-context">
+    <p>This map shows the riverscape segments/reaches (DGOs) that were selected for this report. The information in 
+      this report provides insights into these riverscapes, including intrinsic characteristics useful for assessing
+      expected form and behavior, and metrics related to condition.</p>
+  </div>
+  <figure class="report-figure map">
+    {{ figures['map']|safe }}
+    <!-- <figcaption>Interactive map of identified polygons.</figcaption> -->
+  </figure>
+</section>
+
+<section id="inventory">
+    <h2>Riverscape Inventory</h2>
+    <div class="section-context">
+        <p>Riverscapes occupy {{ cards['total_segment_area']['value'] }} of land in the selected area. The riverscape network (valley bottom 
+            centerline) is {{ cards['total_centerline_length']['value'] }} long, with an average valley bottom width of 
+            {{ cards['integrated_valley_bottom_width']['value'] }}. The riverscape contains {{ cards['total_stream_length']['value'] }} 
+            of streams. The average area per length of riverscape is {{ cards['integrated_valley_bottom_area_per_length']['value'] }}, 
+            with minimum value of {{ cards['min_size']['value']}} and a maximum of {{ cards['max_size']['value']}}. The majority of the riverscape
+            ({{ cards['owner_area']['value'] }}) is owned/administered by {{ cards['ownership_desc']['value'] }}. The flow is predominantly classified as 
+            {{ cards['perennial_classification']['value'] }}.
+        </p>
+    </div>
+    {{ render_metric_grid(cards, []) }}
+</section>
+
+<section id="characteristics">
+    <h2>Riverscape Characteristics</h2>
+    <div class="section-context">
+        <p>Within the selected area, {{ cards['stream_name']['value'] }} has an upstream contributing drainage area of {{ cards['drainage_area']['value'] }},
+            and is classified as a {{ cards['stream_order']['value'] }} order stream.
+            Channel gradient in the riverscape ranges from {{ cards['min_gradient']['value'] }} to {{ cards['max_gradient']['value'] }}, with an average of 
+            {{ cards['prim_channel_gradient']['value'] }}.
+            Channel sinuosity for the reach is {{ cards['planform_sinuosity']['value'] }}, and the confinement ratio is {{ cards['confinement_ratio']['value'] }}.
+            SOMETHING ABOUT VEG..?
+        </p>
+    </div>
+    {{ render_metric_grid(cards, []) }}
+</section>
+
+<section id="condition">
+    <h2>Riverscape Condition</h2>
+    <div class="section-context">
+        <p>Based on VBET outputs (driven by 10 m resolution DEMs), {{ cards['low_lying_ratio']['value'] }} of the riverscape is classified as low-lying (a proxy for 
+            active riverscape and more likely to flood regularly), while {{ cards['elevated_ratio']['value'] }} is classified as elevated (a proxy for inactive).
+            Anthropogenic land cover (agriculture and developed) makes up {{ cards['anthro_lulc']['value'] }} of the riverscape, and 
+            {{ cards['inaccessible_fldplan_ratio']['value'] }} of the riverscape is inaccessible to the channel due to fragmentation by transportation infrastructure.
+            Modeled historical land cover estimates that {{ cards['hist_riparian']['value'] }} of the riverscape had riparian vegetation cover, while currently 
+            {{ cards['ex_riparian']['value'] }} is classified as riparian vegetation. Historically, the riverscape could support 
+            {{ cards['hist_brat_cap']['value'] }} beaver dams, and currently it could support {{ cards['ex_brat_cap']['value'] }} beaver dams. 
+
+        </p>
+    </div>
+    {{ render_metric_grid(cards, []) }}
+</section>
+
+<section id="supporting_info">
+    <h2>Supporting Information</h2>
+    <div class="section-context">
+        <p>Additional information is provided in the appendices, including a list of the riverscape segments/reaches (DGOs) that were selected for this report, 
+            and a list of the metrics that were used to assess riverscape conditions.
+        </p>
+    </div>
+</section>
+
+<section id="appendices" class="appendix">
+  <h1>Appendices</h1>
+  <h2>Appendix 1 - Source Riverscapes Data Exchange Projects</h2>
+  <!-- This is a list in the form: <li>Project Name - <a href="Project URL">Project URL</a></li> -->
+  <ul>
+    {% for project in appendices['project_ids'] %}
+    <li><a href="{{ project[1] }}"><strong>{{ project[0] }}</strong> - &lt;{{ project[1] }}&gt;</a></li>
+    {% endfor %}
+  </ul>
+  <h2>Appendix 2 - Source Data</h2>
+  <div class="section-context">
+    <p>This report was generated using data from the <a href="https://data.riverscapes.net">Riverscapes Data
+        Exchange</a>. Free, publicly accessible data were processed through a series of models by the Riverscapes
+      Consortium, culminating with the Riverscapes Metric Engine (RME) that synthesizes metrics together for all the
+      preceding models. These RME data are based on polygons that span the valley bottom and are segmented at a
+      distance that varies with drainage area. These polygons, or Discrete Geographic Objects (DGOs) possess over 100
+      <a href="https://tools.riverscapes.net/rme/data#output-attributes">metrics</a> spanning a variety of topics pertaining to riverscapes health.</p>
+    <p>The model runs in question were all part of an initiative to produce a continuous riverscapes dataset for the <a
+        href="https://docs.riverscapes.net/initiatives/CONUS-runs">Conterminous United States in 2025</a>.</p>
+  </div>
+  <h2>Appendix 3 - Questions</h2>
+  <div class="section-context">
+    <p>Contact the Riverscapes Consortium at support@riverscapes.freshdesk.com with any questions regarding this report.
+    </p>
+  </div>
+</section>

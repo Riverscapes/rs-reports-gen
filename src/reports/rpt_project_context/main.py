@@ -14,9 +14,9 @@ import pint
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from reports.rpt_riverscape_condition import __version__ as report_version
-from reports.rpt_riverscape_condition.dataprep import add_calculated_cols, get_parquet_data
-from reports.rpt_riverscape_condition.figures import statistics
+from reports.rpt_project_context import __version__ as report_version
+from reports.rpt_project_context.dataprep import get_parquet_data
+from reports.rpt_project_context.figures import statistics
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata
 from util.color import DEFAULT_FCODE_COLOR_MAP
@@ -92,14 +92,14 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
         "elevated_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['elevated_ratio']),
         "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),
         "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access']),
-        "land_use_intensity_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['land_use_intens']),
+        # "land_use_intensity_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['land_use_intens']),
         "prop_ag_dev": prop_ag_dev(gdf),
         "prop_ag_dev_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_agriculture_prop', 'lf_developed_prop']),
         "dens_road_rail": dens_road_rail(gdf),
         "dens_road_rail_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['road_dens', 'rail_dens'], {"orientation": 'h'}),
         "beaver_dam_capacity_historical_bar": horizontal_bar_chart(gdf, "centerline_length", ["brat_hist_capacity"]),
         "beaver_dam_capacity_current_bar": horizontal_bar_chart(gdf, "centerline_length", ["brat_capacity"]),
-        "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, "segment_area", ["riparian_condition"]),
+        # "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, "segment_area", ["riparian_condition"]),
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
@@ -221,7 +221,7 @@ def make_report_orchestrator(
 
     data_gdf, _ = RSFieldMeta().apply_units(data_gdf)  # this is still a geodataframe but we will need to be more explicity about it for type checking
 
-    data_gdf = add_calculated_cols(data_gdf)
+    # data_gdf = add_calculated_cols(data_gdf)
 
     # Export the data to Excel
     RSGeoDataFrame(data_gdf).export_excel(report_dir / 'data' / 'data.xlsx')
