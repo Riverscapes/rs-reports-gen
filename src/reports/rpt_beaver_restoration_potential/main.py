@@ -30,7 +30,8 @@ from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata_lakehouse_ref
 from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
-from util.pandas import RSFieldMeta, RSGeoDataFrame, load_meta_from_file, save_meta_to_file
+from util.html.table import render_table
+from util.pandas import RSFieldMeta, load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
 from util.report_entrypoint import (
     add_parquet_cli_args,
@@ -108,18 +109,9 @@ def _build_report_context(df: pd.DataFrame, report_name: str, path_to_shape: Pat
 
 def _summary_table_to_html(summary_df: pd.DataFrame) -> str:
     """Convert a summary dataframe into an HTML table for Jinja rendering."""
-    if summary_df.empty:
-        return "<p>No rows were available for this summary.</p>"
-    rs_df = RSGeoDataFrame(summary_df.copy())
-    layer_id = summary_df.attrs.get("layer_id") if hasattr(summary_df, "attrs") else None
-    return rs_df.to_html(
-        index=False,
-        classes="table table-striped",
-        border=0,
-        include_units=True,
-        use_friendly=True,
-        layer_id=layer_id,
-    )
+    # render_table resolves layer_id from df.attrs and renders a styled table
+    # (or the empty_message when the frame has no rows).
+    return render_table(summary_df, empty_message="No rows were available for this summary.")
 
 
 def make_report(

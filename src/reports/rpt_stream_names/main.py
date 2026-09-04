@@ -23,6 +23,7 @@ from util.figures import (
     metric_cards,
 )
 from util.html import RSReport
+from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 from util.summary import summarize_top_n_rollups
@@ -187,7 +188,7 @@ def build_top_names_by_path_count_table(full_df: pd.DataFrame, named_df: pd.Data
     # Reorder columns for display
     display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "level_path_count", "pct_of_paths", "total_riverscape_length"]])
     display_df.set_footer(rollups[["rank", "stream_name", "level_path_count", "pct_of_paths", "total_riverscape_length"]])
-    return display_df.to_html(index=False, escape=False)
+    return render_table(display_df, footer=display_df._footer)
 
 
 def build_top_names_by_riverscape_length_table(full_df: pd.DataFrame, named_df: pd.DataFrame, top_n: int = 10) -> str:
@@ -236,7 +237,7 @@ def build_top_names_by_riverscape_length_table(full_df: pd.DataFrame, named_df: 
 
     display_df = RSGeoDataFrame(ranked[["rank", "stream_name", "total_riverscape_length", "pct_of_length", "total_channel_length", "level_path_count"]])
     display_df.set_footer(rollups[["rank", "stream_name", "total_riverscape_length", "pct_of_length", "total_channel_length", "level_path_count"]])
-    return display_df.to_html(index=False, escape=False)
+    return render_table(display_df, footer=display_df._footer)
 
 
 def sort_dataframe_for_deterministic_output(df: pd.DataFrame) -> pd.DataFrame:

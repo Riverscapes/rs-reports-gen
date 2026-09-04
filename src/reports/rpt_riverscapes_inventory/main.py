@@ -57,6 +57,7 @@ from util.figures import (
     total_x_by_y,
 )
 from util.html import RSReport
+from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq
 from util.pdf import make_pdf_from_html
 
@@ -192,7 +193,7 @@ def make_report(
     if len(river_names_df) > top_n:
         river_names_df = RSGeoDataFrame(river_names_df.head(top_n))  # remember head changes the class back to df
         messages["river_names-caption"] = f"Filtered to top {top_n} records. " + messages["river_names-caption"]
-    tables["river_names"] = river_names_df.to_html(index=False, escape=False)
+    tables["river_names"] = render_table(river_names_df)
     if nid_gdf is None:
         messages["nid_dams_error"] = "Unable to retrieve data from NID. Check log for details."
     else:
@@ -208,13 +209,8 @@ def make_report(
             if len(nid_display_df) > top_n:
                 nid_display_df = nid_display_df.head(top_n)
                 messages["nid_dams-caption"] = f"Filtered to top {top_n} records. " + messages["nid_dams-caption"]
-            # Use RSGeoDataFrame to get friendly column names for display
-            tables["nid_dams"] = RSGeoDataFrame(nid_display_df).to_html(
-                classes="table table-striped",
-                index=False,
-                escape=False,
-                layer_id="NID",
-            )
+            # Use render_table to get friendly column names + units for display
+            tables["nid_dams"] = render_table(nid_display_df, escape=False, layer_id="NID")
         else:
             messages["nid_dams-caption"] = "<p>No dams found in the area of interest.</p>"
     if ce_veg_df is None:

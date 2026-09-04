@@ -190,3 +190,53 @@ Load this stylesheet only in reports that render render_highlight_cards.
 		font-size: 0.95rem;
 	}
 }
+
+/* ── PDF / print ───────────────────────────────────────────────────────────
+   WeasyPrint's CSS-grid support (added in v66) does not handle two things
+   these cards rely on:
+
+     1. `.highlight-card-grid` uses ``repeat(auto-fit, minmax(320px, 1fr))``
+        — WeasyPrint lays each card out on its OWN row instead of side by
+        side, so PDFs show three stacked full-width cards.
+     2. `.highlight-card` places its children with explicit
+        ``grid-column``/``grid-row`` rules (``1``, ``2``, ``1 / -1``) over
+        ``grid-template-rows: auto auto`` — WeasyPrint collapses those into
+        one narrow column, wrapping icon, header and footer together.
+
+   WeasyPrint DOES support table layout, floats and flex. For print we switch
+   the card row to a fixed table (one full-width row, equal cells whatever
+   the card count) and the inner card to the classic float layout (icon
+   floated left, header beside it, footer cleared below). Screen rendering
+   (real browser grid) is untouched.
+
+   Note: WeasyPrint defaults to media type "print", so these rules fire for
+   the PDF build and for browser Ctrl+P, but never on screen.
+*/
+@media print {
+	#highlight-cards .highlight-card-grid {
+		display: table;
+		table-layout: fixed;
+		width: 100%;
+		border-spacing: 1.25rem 0;
+		margin: 0.6rem 0 1.6rem;
+	}
+
+	#highlight-cards .highlight-card {
+		display: table-cell;
+		vertical-align: top;
+	}
+
+	#highlight-cards .highlight-card__icon {
+		float: left;
+		width: 6.6rem;
+	}
+
+	/* Clear the floated icon: header sits beside it, footer below. */
+	#highlight-cards .highlight-card__header {
+		margin-left: 7.6rem; /* 6.6rem icon + column-gap */
+	}
+
+	#highlight-cards .highlight-card__footer {
+		clear: both;
+	}
+}
