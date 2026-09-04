@@ -11,6 +11,13 @@ import pandas as pd
 import plotly.graph_objects as go
 from shapely.geometry import Polygon
 
+from util.html.progress import (
+    ProgressCard,
+    ProgressGroup,
+    ProgressRow,
+    render_progress_card,
+    render_progress_rows,
+)
 from util.html.table import render_table
 from util.pandas import RSFieldMeta
 
@@ -192,6 +199,75 @@ def sample_tables() -> dict[str, str]:
         "ownership": _simple_table(),
         "with_footer": _footer_table(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Percentage bars & extended metric cards (util/html/progress.py)
+# ---------------------------------------------------------------------------
+
+
+def sample_progress_groups() -> dict[str, str]:
+    """Grouped percentage-bar lists, keyed for ``| safe`` injection."""
+    return {
+        # A primary row plus two subcomponent rows in one group.
+        "stream_miles": render_progress_rows(
+            [
+                ProgressRow("555", "MI", pct=68, color="blue"),
+                ProgressRow("85", "mi", pct=68, color="#5a92e5"),
+                ProgressRow("470", "mi", pct=68, color="#4d565e"),
+            ]
+        ),
+        # A single-value group (no subdividers) renders just as cleanly.
+        "area_acres": render_progress_rows(
+            [
+                ProgressRow("950", "AC", pct=62, color="green"),
+            ]
+        ),
+        # details-second line + explicit percentage.
+        "structures": render_progress_rows(
+            [
+                ProgressRow("29", "QTY", pct=45, color="indigo", details="130 BLM ACRES"),
+            ]
+        ),
+        # A raw CSS color exercises the inline-override path above ("#5a92e5"
+    # sibling row); an unknown named color would do the same.
+        "fragmentation": render_progress_rows(
+            [
+                ProgressRow("535", "AC", pct=15, color="#e63247"),
+            ]
+        ),
+    }
+
+
+def sample_progress_cards() -> dict[str, str]:
+    """Extended metric cards (title + total + one bar per group)."""
+    cards = [
+        ProgressCard(
+            "Reservoirs",
+            total="12 count (180 ac)",
+            groups=[
+                ProgressGroup("BLM", "4 / 60 AC", numerator=60, denominator=180, color="indigo"),
+                ProgressGroup("NON-BLM", "8 / 120 AC", numerator=120, denominator=180, color="gray"),
+            ],
+        ),
+        ProgressCard(
+            "Natural Lakes",
+            total="5 count (65 ac)",
+            groups=[
+                ProgressGroup("BLM", "3 / 40 AC", numerator=40, denominator=65, color="indigo"),
+                ProgressGroup("NON-BLM", "2 / 25 AC", numerator=25, denominator=65, color="gray"),
+            ],
+        ),
+        ProgressCard(
+            "Ponds",
+            total="34 count (45 ac)",
+            groups=[
+                ProgressGroup("BLM", "22 / 30 AC", numerator=30, denominator=45, color="indigo"),
+                ProgressGroup("NON-BLM", "12 / 15 AC", numerator=15, denominator=45, color="gray"),
+            ],
+        ),
+    ]
+    return {card.title.lower(): render_progress_card(card) for card in cards}
 
 
 # ---------------------------------------------------------------------------

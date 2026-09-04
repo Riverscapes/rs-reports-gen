@@ -26,6 +26,8 @@ from util.html.demo.sample_data import (
     sample_figures,
     sample_highlight_cards,
     sample_metric_cards,
+    sample_progress_cards,
+    sample_progress_groups,
     sample_tables,
 )
 from util.html.RSReport import RSReport
@@ -62,6 +64,8 @@ def build_demo(output_dir: Path, html_only: bool = False) -> list[str]:
     report.add_html_elements("tables", sample_tables())
     report.add_html_elements("cards", sample_metric_cards())
     report.add_html_elements("highlight_cards", sample_highlight_cards())
+    report.add_html_elements("progress_groups", sample_progress_groups())
+    report.add_html_elements("progress_cards", sample_progress_cards())
 
     outputs: list[str] = []
 

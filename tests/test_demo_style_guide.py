@@ -52,7 +52,13 @@ def test_static_demo_exports_map_as_static_image(monkeypatch, tmp_path):
     # Avoid kaleido/Chrome for this test: only the figure -> export mapping matters.
     monkeypatch.setattr(RSReport_module, "export_figure", fake_export)
 
-    from util.html.demo.sample_data import sample_highlight_cards, sample_metric_cards, sample_tables
+    from util.html.demo.sample_data import (
+        sample_highlight_cards,
+        sample_metric_cards,
+        sample_progress_cards,
+        sample_progress_groups,
+        sample_tables,
+    )
 
     report = RSReport(
         report_name="Static branch check",
@@ -66,6 +72,8 @@ def test_static_demo_exports_map_as_static_image(monkeypatch, tmp_path):
     report.add_html_elements("tables", sample_tables())
     report.add_html_elements("cards", sample_metric_cards())
     report.add_html_elements("highlight_cards", sample_highlight_cards())
+    report.add_html_elements("progress_groups", sample_progress_groups())
+    report.add_html_elements("progress_cards", sample_progress_cards())
 
     out = report.render(fig_mode="svg", suffix="_static")
     html = Path(out).read_text(encoding="utf-8")
