@@ -1,0 +1,171 @@
+/* ==========================================================================
+   Percentage bars & extended metric cards (Pico <progress>)
+   -------------------------------------------------------------------------
+   Styles for util/html/progress.py and the render_progress_rows /
+   render_progress_card macros. Inspired by the sorted-list / card comparison
+   patterns; built on Pico's native <progress> element, colored via the
+   --progress-color token (theme classes below, or an inline override).
+   ========================================================================== */
+
+/* ── Color themes (named classes; keep in COLOR_THEMES in progress.py) ──── */
+.progress-blue { --progress-color: #1f6feb; --pico-progress-color: #1f6feb; }
+.progress-blue-light { --progress-color: #5a92e5; --pico-progress-color: #5a92e5; }
+.progress-indigo { --progress-color: #4f56e3; --pico-progress-color: #4f56e3; }
+.progress-green { --progress-color: #1b9e6b; --pico-progress-color: #1b9e6b; }
+.progress-orange { --progress-color: #e8840c; --pico-progress-color: #e8840c; }
+.progress-red { --progress-color: #e63247; --pico-progress-color: #e63247; }
+.progress-slate { --progress-color: #37424c; --pico-progress-color: #37424c; }
+.progress-gray { --progress-color: #9aa5b1; --pico-progress-color: #9aa5b1; }
+.progress-violet { --progress-color: #8b5cf6; --pico-progress-color: #8b5cf6; }
+
+/* Feed the color token into every vendor progress pseudo-element. A plain
+   background-color fallback keeps bars colored even in quirky engines. */
+.rs-progress-group progress,
+.rs-progress-card progress {
+  color: var(--progress-color, var(--metric-accent));
+  background-color: var(--muted-border);
+}
+.rs-progress-group progress::-webkit-progress-value,
+.rs-progress-card progress::-webkit-progress-value {
+  background-color: var(--progress-color, var(--metric-accent));
+}
+.rs-progress-group progress::-moz-progress-bar,
+.rs-progress-card progress::-moz-progress-bar {
+  background-color: var(--progress-color, var(--metric-accent));
+}
+
+/* ── Grouped percentage bars (value → bar → percent) ───────────────────── */
+.rs-progress-group {
+  list-style: none;
+  margin: 0 0 var(--space-5);
+  padding: 0 0 var(--space-5);
+  border-bottom: 1px solid var(--muted-border);
+}
+
+.rs-progress-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-2) 0;
+  margin: 0;
+}
+
+.rs-progress-row__value {
+  flex: 0 0 7.5rem;
+  text-align: right;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--header-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-progress-row__value small {
+  font-size: 0.55em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.rs-progress-row__details {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--metric-description);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.rs-progress-row progress {
+  flex: 1 1 auto;
+  margin: 0;
+  height: 0.6rem;
+}
+
+.rs-progress-row__pct {
+  flex: 0 0 4rem;
+  text-align: right;
+  font-weight: 600;
+  color: var(--metric-number);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Extended metric card (title + total + one bar per group) ───────────── */
+.rs-progress-card {
+  background: var(--muted-bg);
+  border: 1px solid var(--muted-border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  margin: 0 0 var(--space-5);
+}
+
+.rs-progress-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.rs-progress-card__head h3 {
+  margin: 0;
+  font-weight: 700;
+}
+
+.rs-progress-card__total {
+  font-weight: 700;
+  color: var(--header-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-progress-card__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4) var(--space-5);
+}
+
+.rs-progress-card__group {
+  min-width: 0;
+}
+
+.rs-progress-group__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.rs-progress-group__label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--metric-description);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rs-progress-group__value {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--metric-number);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-progress-row__pct small {
+  font-size: 0.6em;
+  opacity: 0.75;
+}
+
+.rs-progress-card__group progress {
+  width: 100%;
+  margin: var(--space-1) 0 0;
+}
+
+@media print {
+  /* WeasyPrint does not style <progress> pseudo-elements, so let the inline
+     background on the element itself carry through; the percent text on the
+     right (grouped rows) and the meta line (cards) preserve the numbers. */
+  .rs-progress-row progress,
+  .rs-progress-card__group progress {
+    break-inside: avoid;
+  }
+}

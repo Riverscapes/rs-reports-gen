@@ -235,7 +235,7 @@ text.legendtitletext {
    to a figure (or any block) and following text wraps around it. Headings
    already `clear: both`; use `.clearfix` to force the *next block* below a
    float when it isn't a heading. */
-.float-left  { float: left;  margin: 0 var(--space-5) var(--space-4) 0; }
+.float-left  { float: left;  margin: 0 var(--space-5) var(--space-4) 0; padding: 0 var(--space-4)  0 0; }
 .float-right { float: right; margin: 0 0 var(--space-4) var(--space-5); }
 
 /* Floated figures/diagrams get a bounded width so text has room to wrap. */

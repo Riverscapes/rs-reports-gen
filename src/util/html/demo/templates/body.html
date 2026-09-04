@@ -93,6 +93,63 @@
 {{ render_highlight_cards(highlight_cards) }}{% endraw %}</code></pre>
 </section>
 
+<!-- PERCENTAGE BARS ======================================================= -->
+<section id="progress-bars">
+  <h2>Percentage Bars &amp; Progress Cards</h2>
+  <div class="section-context">
+    <p>Colorized percentage bars built on Pico's
+      <code>&lt;progress&gt;</code> element — no JavaScript, print-friendly.
+      Build them in Python with <code>util/html/progress.py</code> (same
+      normalize-then-render pattern as <code>render_table()</code>):
+      <code>ProgressRow</code> for a labeled bar, <code>ProgressGroup</code>
+      inside a <code>ProgressCard</code> for the extended metric card.
+      Percentages are explicit (<code>pct=68</code>) or computed from a
+      <code>numerator</code>/<code>denominator</code> pair; colors are named
+      themes (<code>indigo</code>, <code>green</code>, <code>slate</code>…)
+      or any CSS color (emitted inline).</p>
+  </div>
+
+  <h3 id="progress-groups">Grouped percentage bars</h3>
+  <p>One call renders one group; groups stack with hairline dividers. This is
+    the sorted-list pattern: value unit on the left, bar, percent on the right.</p>
+  {{ progress_groups['stream_miles'] | safe }}
+  {{ progress_groups['area_acres'] | safe }}
+  {{ progress_groups['structures'] | safe }}
+  {{ progress_groups['fragmentation'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.progress import ProgressRow, render_progress_rows
+
+rows = [
+    ProgressRow("555", "MI", pct=68, color="blue"),
+    ProgressRow("85", "mi", pct=68, color="#5a92e5"),
+    ProgressRow("470", "mi", pct=68, color="#4d565e"),
+]
+groups = {"stream_miles": render_progress_rows(rows)}
+report.add_html_elements("progress_groups", groups)
+
+# body.html — the fragment carries its own &lt;style&gt;, inject it raw:
+{{ progress_groups['stream_miles'] | safe }}{% endraw %}</code></pre>
+
+  <h3 id="progress-card">Extended metric card</h3>
+  <p>An auto-fitting grid of comparison bars (e.g. BLM vs NON-BLM) under a
+    headline total. Percentages computed in Python from the numbers you
+    already have.</p>
+  {{ progress_cards['reservoirs'] | safe }}
+  {{ progress_cards['natural lakes'] | safe }}
+  {{ progress_cards['ponds'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.progress import ProgressGroup, ProgressCard, render_progress_cards
+
+cards = [
+    ProgressCard("Reservoirs", total="12 count (180 ac)", groups=[
+        ProgressGroup("BLM", "4 / 60 AC", numerator=60, denominator=180, color="indigo"),
+        ProgressGroup("NON-BLM", "8 / 120 AC", numerator=120, denominator=180, color="gray"),
+    ]),
+]
+report.add_html_elements("progress_cards", {"waterbodies": render_progress_cards(cards)})
+
+# body.html
+{{ progress_cards['waterbodies'] | safe }}{% endraw %}</code></pre>
+</section>
+
 <div class="page-break-before" aria-hidden="true"></div>
 
 <!-- FIGURES ============================================================== -->
