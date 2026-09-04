@@ -82,7 +82,7 @@ def main() -> list[str] | None:
     # ── Report name ───────────────────────────────────────────────────
     report_name = os.environ.get("RNS_REPORT_NAME")
     if not report_name:
-        report_name = geojson_file.stem.replace(' ', '_') + " - Riverscape Condition"
+        report_name = geojson_file.stem.replace(' ', '_') + " - Project Context"
 
     # ── Include PDF ───────────────────────────────────────────────────
     # Ask for whether or not to include PDF. Default to NO
@@ -114,7 +114,7 @@ def main() -> list[str] | None:
 
     # ── Build args ────────────────────────────────────────────────────
     args = [
-        Path(data_root / "rpt-riverscape-condition" / report_name.replace(" ", "_")),
+        Path(data_root / "rpt-project-context" / report_name.replace(" ", "_")),
         geojson_file,
         report_name,
         "--unit_system",

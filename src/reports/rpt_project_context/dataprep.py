@@ -9,8 +9,13 @@ from util.pandas import RSFieldMeta
 
 def get_parquet_data(query_gdf, parquet_data_source):
 
-    fields_we_need = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity, brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name, dgo_geom AS dgo_polygon_geom"
-    query_str = f"SELECT {fields_we_need} FROM input_geom, rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+    fields_we_need = (
+        "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, perennial_classification, longitude, latitude, ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, prim_channel_gradient, elevation, "
+        "acres_vb_per_mile, hect_vb_per_km, integrated_width, low_lying_ratio, lowlying_area, elevated_ratio, elevated_area, lf_agriculture, lf_agriculture_prop, lf_developed, lf_developed_prop, lf_riparian, lf_riparian_prop, lf_hist_riparian, lf_hist_riparian_prop, ex_riparian, hist_riparian, road_len, "
+        "road_dens, rail_len, rail_dens, access_fldpln_extent, fldpln_access, confinement_ratio, planform_sinuosity, "
+        "brat_capacity, brat_hist_capacity, rme_project_id, rme_project_name, dgo_geom AS dgo_polygon_geom"
+    )
+    query_str = f"SELECT {fields_we_need} FROM input_geom, rs_rpt.rme_datamart_base_vw WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
     aoi_query_to_local_parquet(query_str, geometry_field_expression='ST_GeomFromBinary(dgo_geom)', geom_bbox_field='dgo_geom_bbox', aoi_gdf=query_gdf, local_path=parquet_data_source)
 
