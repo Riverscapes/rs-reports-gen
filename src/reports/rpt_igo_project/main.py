@@ -19,6 +19,7 @@ from rsxml.util import safe_makedirs
 from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
 from util.html import RSReport
+from util.html.table import render_table
 from util.pdf import make_pdf_from_html
 
 from .__version__ import __version__
@@ -170,7 +171,15 @@ def generate_igo_report(
         }
     )
 
-    tables = {'source_projects': html_source_table.to_html(index=False, escape=False) if not html_source_table.empty else '<p>No contributing source projects were found in the AOI dataset.</p>'}
+    tables = {
+        'source_projects': render_table(
+            html_source_table,
+            escape=False,  # open_project column carries a pre-rendered <a> link
+            use_friendly=False,  # column names are already display-ready
+            include_units=False,
+            empty_message='No contributing source projects were found in the AOI dataset.',
+        )
+    }
     if len(source_projects_df) <= html_row_limit:
         footer_message = f'Showing all {len(source_projects_df)} projects.'
     else:

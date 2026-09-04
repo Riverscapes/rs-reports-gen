@@ -5,6 +5,7 @@ import pint
 import pint_pandas
 from rsxml import Logger
 
+from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 
 # 1. Define a mapping of "Row Label" -> (Area Column, Count Column)
@@ -319,7 +320,7 @@ def hydrography_table(df: pd.DataFrame) -> str:
         footer_rdf, _ = meta.apply_units(footer_rdf)
         body_rdf.set_footer(footer_rdf)
 
-    table_html = body_rdf.to_html(index=False, escape=False)
+    table_html = render_table(body_rdf, footer=body_rdf._footer)
     if not footnote:
         return table_html
 
@@ -339,10 +340,9 @@ def waterbody_summary_table(df: pd.DataFrame) -> str:
         footer_rdf, _ = meta.apply_units(footer_rdf)
         body_rdf.set_footer(footer_rdf)
 
-    return body_rdf.to_html(index=False, escape=False)
+    return render_table(body_rdf, footer=body_rdf._footer)
 
 
 def ownership_summary_table(df: pd.DataFrame) -> str:
     """make html table for ownership"""
-    newrdf = RSGeoDataFrame(df)
-    return newrdf.to_html(index=False, escape=False)
+    return render_table(df)

@@ -25,6 +25,7 @@ from shapely.geometry import MultiPolygon, Polygon
 
 from util.binning import get_bins_info as _get_bins_info
 from util.color import DEFAULT_FCODE_COLOR_MAP, DEFAULT_OWNER_COLOR_MAP
+from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame  # Custom DataFrame accessor for metadata
 from util.plotly.riverscapes import apply_riverscapes_theme  # noqa: F401  # side effect: registers brand template as default (see util.plotly.riverscapes)
 
@@ -326,9 +327,10 @@ def table_total_x_by_y(
     top_n: int | None = None,
 ) -> str:
     """return html table fragment for grouped-by with total (and optional percent) table"""
-    # this gets back as RSGeoDataFrame that has the methods for better to_html'ing
+    # this gets back as RSGeoDataFrame that has the methods for better table'ing
     rsdf = total_x_by_y(df, total_col, group_by_cols, with_percent, with_footer, sort_by_cols, sort_ascending, top_n)
-    return rsdf.to_html(index=False, escape=False)
+    footer = rsdf._footer if not rsdf._footer.empty else None
+    return render_table(rsdf, footer=footer)
 
 
 def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:
