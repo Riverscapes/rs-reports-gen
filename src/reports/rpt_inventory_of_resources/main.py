@@ -24,7 +24,6 @@ from reports.rpt_inventory_of_resources.dataprep import (
     build_report_summaries,
     data_for_aoi_to_parquet,
 )
-from reports.rpt_inventory_of_resources.figures import hypsometry_fig
 from util import prepare_gdf_for_athena
 from util.athena import athena_unload_to_dataframe, get_field_metadata
 from util.figures import bar_total_x_by_ybins, horizontal_split_bar_chart, make_aoi_outline_map, project_id_list, split_bar_chart_by_bins
@@ -122,7 +121,6 @@ def make_report(
         "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         "waterbodies": horizontal_split_bar_chart(data_df, "waterbody_type_desc", "waterbody_extent", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         "prop_riparian": bar_total_x_by_ybins(data_df, 'segment_area', ['lf_riparian_prop']),
-        "hypsometry_fig": hypsometry_fig(huc_df),
     }
     tables = {name: _table_html(summary) for name, summary in summaries.items()}
     appendices = {
