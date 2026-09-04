@@ -70,11 +70,11 @@ def statistics(gdf: gpd.GeoDataFrame, tot_area: pint.Quantity) -> dict[str, pint
     total_segment_area = common_stats["total_segment_area"]
     total_centerline_length = common_stats["total_centerline_length"]
     proportion_riverscape = total_segment_area / tot_area if tot_area != 0 else float('nan') * total_segment_area.units / tot_area.units
-    elevated_ratio = sum(df["elevated_ratio"] * (df["segment_area"] / 1000)) / total_segment_area if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    low_lying_ratio = sum(df["low_lying_ratio"] * (df["segment_area"] / 1000)) / total_segment_area if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    lf_agriculture_ratio = (df["lf_agriculture"].sum() / 1000) / total_segment_area if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    lf_developed_ratio = (df["lf_developed"].sum() / 1000) / total_segment_area if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    inaccessible_fldpln_ratio = 1 - ((df["access_fldpln_extent"].sum() / 1000) / total_segment_area) if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    elevated_ratio = sum(df["elevated_ratio"] * df["segment_area"]) / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    low_lying_ratio = sum(df["low_lying_ratio"] * df["segment_area"]) / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    lf_agriculture_ratio = df["lf_agriculture"].sum() / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    lf_developed_ratio = df["lf_developed"].sum() / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    inaccessible_fldpln_ratio = 1 - (df["access_fldpln_extent"].sum() / total_segment_area.to('m ** 2')) if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
 
     if total_centerline_length != 0:
         integrated_valley_bottom_area_per_length = total_segment_area / total_centerline_length
