@@ -58,6 +58,7 @@ def test_static_demo_exports_map_as_static_image(monkeypatch, tmp_path):
         sample_progress_cards,
         sample_progress_groups,
         sample_tables,
+        sample_widgets,
     )
 
     report = RSReport(
@@ -74,6 +75,7 @@ def test_static_demo_exports_map_as_static_image(monkeypatch, tmp_path):
     report.add_html_elements("highlight_cards", sample_highlight_cards())
     report.add_html_elements("progress_groups", sample_progress_groups())
     report.add_html_elements("progress_cards", sample_progress_cards())
+    report.add_html_elements("widgets", sample_widgets())
 
     out = report.render(fig_mode="svg", suffix="_static")
     html = Path(out).read_text(encoding="utf-8")
@@ -120,13 +122,13 @@ def test_reused_figures_get_unique_plot_div_ids(tmp_path):
 
     ids = re.findall(r'<div id="([^"]+)" class="plotly-graph-div"', html)
     # 3 figures in the Figures section + bar reused in Grids + pie reused in
-    # Floats + the map = 6 embeds, all with distinct ids.
-    assert len(ids) == 6
+    # Floats + the map + the widgets histogram = 7 embeds, all with distinct ids.
+    assert len(ids) == 7
     assert len(set(ids)) == len(ids), f"duplicate plotly div ids: {ids}"
 
     # Each embed's script must target its own div (not a shared first one).
     targets = re.findall(r'Plotly\.newPlot\(\s*"([^"]+)"', html)
-    assert len(targets) == 6
+    assert len(targets) == 7
     assert len(set(targets)) == len(targets)
     assert set(targets) == set(ids)
 

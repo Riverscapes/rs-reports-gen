@@ -19,7 +19,26 @@ from util.html.progress import (
     render_progress_rows,
 )
 from util.html.table import render_table
+from util.html.widgets import (
+    Badge,
+    Callout,
+    Citation,
+    Meter,
+    Step,
+    Term,
+    render_badges,
+    render_callout,
+    render_citation_block,
+    render_citations,
+    render_flag_banner,
+    render_gauge,
+    render_glossary,
+    render_key_figure,
+    render_meter,
+    render_steps,
+)
 from util.pandas import RSFieldMeta
+from util.plotly.histograms import Threshold, make_histogram_with_thresholds
 
 # ---------------------------------------------------------------------------
 # Figures
@@ -143,6 +162,26 @@ def make_sample_aoi_map() -> go.Figure:
         meta._unit_system = saved_unit_system
 
 
+def make_gradient_histogram() -> go.Figure:
+    """DGO gradient distribution with anadromous + step-pool thresholds."""
+    values = [
+        0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 1.2, 1.5, 1.7, 1.9, 2.2, 2.4, 2.8,
+        3.1, 3.4, 3.7, 4.1, 4.6, 5.2, 5.8, 6.3, 7.0, 7.6, 8.4, 9.1, 10.2,
+        11.5, 12.4,
+    ]
+    return make_histogram_with_thresholds(
+        values,
+        thresholds=[
+            Threshold(4.0, "Anadromous cutoff", color="#1b9e6b"),
+            Threshold(10.0, "Step-pool transition", color="#e8840c", dashed=True),
+        ],
+        title="Reach gradient across DGOs",
+        x_title="Gradient (%)",
+        y_title="DGOs",
+        bin_size=1.5,
+    )
+
+
 def sample_figures() -> dict[str, go.Figure]:
     """Figures keyed the way real reports key them."""
     return {
@@ -150,6 +189,7 @@ def sample_figures() -> dict[str, go.Figure]:
         "flow_type_bar": make_flow_type_bar(),
         "longitudinal_line": make_longitudinal_line(),
         "aoi_map": make_sample_aoi_map(),
+        "gradient_histogram": make_gradient_histogram(),
     }
 
 
@@ -273,6 +313,125 @@ def sample_progress_cards() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 # Metric cards & highlight cards (same dict shapes the macros consume)
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Widgets (util/html/widgets.py)
+# ---------------------------------------------------------------------------
+
+
+def sample_widgets() -> dict[str, str]:
+    """One fragment per widget kind, keyed for ``| safe`` injection."""
+    callouts = [
+        Callout(
+            "Ephemeral flows are seasonally estimated; the drying cycle on these "
+            "reaches can exceed 30 days.",
+            kind="note",
+            title="Method note",
+        ),
+        Callout(
+            "Three reaches lacked NHD flow-permanence classifiers; percentages "
+            "were interpolated from adjacent DGOs.",
+            kind="warning",
+            title="Data gap",
+        ),
+        Callout(
+            "Post-restoration survey completed September 2026; valley-bottom "
+            "mapping is field verified.",
+            kind="success",
+            title="Field verified",
+        ),
+        Callout(
+            "The NID dams query returned no rows; this section was rendered "
+            "with an empty table.",
+            kind="error",
+            title="Query failed",
+        ),
+    ]
+    return {
+        "badges": render_badges(
+            [
+                Badge("Perennial", color="blue"),
+                Badge("Intermittent", color="orange"),
+                Badge("Ephemeral", color="red"),
+                Badge("BLM", color="indigo"),
+                Badge("NON-BLM", color="gray"),
+                Badge("TMDL Listed", color="violet"),
+            ]
+        ),
+        "steps": render_steps(
+            [
+                Step("Query", "done"),
+                Step("Bin", "done"),
+                Step("Classify", "active"),
+                Step("Score", "pending"),
+                Step("Report", "pending"),
+            ]
+        ),
+        "callouts": "".join(render_callout(c) for c in callouts),
+        "meter": render_meter(
+            Meter(
+                "Flood stage (share of bankfull)",
+                value=0.62,
+                minimum=0,
+                maximum=1,
+                low=0.3,
+                high=0.9,
+                optimum=0.9,
+                unit="Q/Qbf",
+            )
+        ),
+        "gauge": render_gauge("Sinuosity percentile", pct=78, color="green")
+        + render_gauge("Fragmentation index", pct=23, color="orange"),
+        "glossary": render_glossary(
+            [
+                Term("DGO", "Discrete geomorphic output — the smallest reach unit in a riverscape."),
+                Term("HUC", "Hydrologic unit code; USGS watershed hierarchy (HUC-8 → HUC-12)."),
+                Term("TMDL", "Total maximum daily load; the Clean Water Act pollutant budget."),
+                Term("VBET", "Valley bottom extraction tool; delineates the valley bottom from DEMs."),
+                Term("BRAT", "Beaver restoration assessment tool; scores beaver dam capacity."),
+                Term("Q/Qbf", "Discharge normalized by bankfull flow; the flood-stage ratio."),
+            ]
+        ),
+        "citations": render_citations(
+            [
+                Citation(
+                    "National Hydrography Dataset (NHDPlus HR)",
+                    url="https://www.usgs.gov/national-hydrography/national-hydrography-dataset",
+                    url_label="usgs.gov/nhd",
+                ),
+                Citation(
+                    "National Inventory of Dams",
+                    url="https://nid.sec.usace.army.mil",
+                    url_label="nid.sec.usace.army.mil",
+                    icon="dam",
+                ),
+                Citation(
+                    "BLM Assessment, Inventory & Monitoring (AIM)",
+                    url="https://doi.org/10.5066/P9FFRG2X",
+                    url_label="doi.org/10.5066/P9FFRG2X",
+                    icon="link",
+                ),
+            ]
+        ),
+        "flag_banners": "".join(
+            [
+                render_flag_banner("Draft — not for distribution", "draft"),
+                " ",
+                render_flag_banner("Field verified", "verified"),
+                " ",
+                render_flag_banner("Estimated", "estimated"),
+            ]
+        ),
+        "key_figure": render_key_figure(
+            "23.4% of the riverscape is fragmented by roads or rail; "
+            "restoration here returns the largest connectivity gain."
+        ),
+        "citation_block": render_citation_block(
+            "Riverscapes Consortium (2026). DEMO Style Guide, Riverscapes "
+            "Report Generator v0.1. https://reports.riverscapes.net"
+        ),
+    }
 
 
 def sample_metric_cards() -> dict[str, dict[str, str]]:
