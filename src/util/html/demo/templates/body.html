@@ -150,6 +150,151 @@ report.add_html_elements("progress_cards", {"waterbodies": render_progress_cards
 {{ progress_cards['waterbodies'] | safe }}{% endraw %}</code></pre>
 </section>
 
+<!-- WIDGETS ================================================================ -->
+<section id="widgets">
+  <h2>Widgets</h2>
+  <div class="section-context">
+    <p>Small narrative blocks: badges, steps, callouts, threshold meters, gauges,
+      glossaries, citations and the key-figure box. All come from
+      <code>util/html/widgets.py</code> — each renders a self-contained fragment
+      (its own <code>&lt;style&gt;</code>) that you hand to
+      <code>report.add_html_elements('widgets', {...})</code> and inject with
+      <code>{{ widgets['key'] | safe }}</code>. Colors reuse the progress
+      palette (named themes or any CSS color).</p>
+  </div>
+
+  <h3 id="badges">Badges &amp; pills</h3>
+  <p>Categorical chips — flow regime, ownership, TMDL status.</p>
+  {{ widgets['badges'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import Badge, render_badges
+
+widgets = {"badges": render_badges([
+    Badge("Perennial", color="blue"),
+    Badge("Intermittent", color="orange"),
+    Badge("TMDL Listed", color="violet"),
+])}
+report.add_html_elements("widgets", widgets)
+
+# body.html
+{{ widgets['badges'] | safe }}{% endraw %}</code></pre>
+
+  <h3 id="steps">Step / pipeline indicator</h3>
+  <p>Numbered process steps with <code>done</code> / <code>active</code> /
+    <code>pending</code> states.</p>
+  {{ widgets['steps'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import Step, render_steps
+
+widgets = {"steps": render_steps([
+    Step("Query", "done"), Step("Bin", "done"),
+    Step("Classify", "active"), Step("Score", "pending"),
+])}{% endraw %}</code></pre>
+
+  <h3 id="callouts">Callouts &amp; admonitions</h3>
+  <p>Generalizes <code>.error-message</code> to <code>note</code>, <code>info</code>,
+    <code>success</code>, <code>warning</code>, <code>error</code> with icons.
+    Data-confidence and methodology annotation next to figures.</p>
+  {{ widgets['callouts'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import Callout, render_callout
+
+widgets = {"callouts": "".join(render_callout(c) for c in [
+    Callout("Ephemeral flows are seasonally estimated.", kind="note", title="Method note"),
+    Callout("Three reaches lacked classifiers; interpolated.", kind="warning", title="Data gap"),
+    Callout("Field survey complete; mapping verified.", kind="success", title="Field verified"),
+])}{% endraw %}</code></pre>
+
+  <h3 id="meter">Threshold meter (flood stage)</h3>
+  <p>A native <code>&lt;meter&gt;</code> with low/high/optimum zones — the browser
+    paints green/yellow/red bands. Good for flood-stage share of bankfull or
+    TMDL status. No JavaScript; prints cleanly.</p>
+  {{ widgets['meter'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import Meter, render_meter
+
+widgets = {"meter": render_meter(Meter(
+    "Flood stage (share of bankfull)", value=0.62, minimum=0, maximum=1,
+    low=0.3, high=0.9, optimum=0.9, unit="Q/Qbf"))}{% endraw %}</code></pre>
+
+  <h3 id="gauge">Gauge / dial</h3>
+  <p>A semicircle percentile dial as inline SVG — no JS, prints cleanly,
+    colors from the shared palette. Great for "this reach sits in the Nth
+    percentile" standings.</p>
+  {{ widgets['gauge'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import render_gauge
+
+widgets = {"gauge": render_gauge("Sinuosity percentile", pct=78, color="green")
+                  + render_gauge("Fragmentation", value=23.4, color="orange")}{% endraw %}</code></pre>
+
+  <h3 id="glossary">Glossary / definitions</h3>
+  <p>Properly styled <code>&lt;dl&gt;</code> for the acronym block. List goes into an
+    auto-fitting grid automatically.</p>
+  {{ widgets['glossary'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import Term, render_glossary
+
+widgets = {"glossary": render_glossary([
+    Term("DGO", "Discrete geomorphic output — the smallest reach unit."),
+    Term("HUC", "Hydrologic unit code; USGS watershed hierarchy."),
+    Term("TMDL", "Total maximum daily load; the pollutant budget."),
+])}{% endraw %}</code></pre>
+
+  <h3 id="citations">Citation chips &amp; DOI cards</h3>
+  <p>Structured attribution for datasets — NHD, NID, BLM AIM etc. — with
+    DOI or dataset-page links.</p>
+  {{ widgets['citations'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import Citation, render_citations
+
+widgets = {"citations": render_citations([
+    Citation("National Hydrography Dataset",
+             url="https://usgs.gov/nhd", url_label="usgs.gov/nhd"),
+    Citation("BLM AIM", url="https://doi.org/10.5066/P9FFRG2X"),
+])}{% endraw %}</code></pre>
+
+  <h3 id="flag-banners">Flag banners</h3>
+  <p>Ribbon banners — <code>draft</code> (red), <code>verified</code> (green),
+    <code>estimated</code> (accent blue). Drop them before a card or figure to
+    flag data confidence.</p>
+  {{ widgets['flag_banners'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import render_flag_banner
+
+widgets = {"flag": render_flag_banner("Draft — not for distribution", "draft")}{% endraw %}</code></pre>
+
+  <h3 id="key-figure">Key-figure box</h3>
+  <p>The full-width "bottom line" callout. Put the one number the reader
+    must remember here.</p>
+  {{ widgets['key_figure'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import render_key_figure
+
+widgets = {"key_figure": render_key_figure(
+    "23.4% of the riverscape is fragmented by roads or rail.")}{% endraw %}</code></pre>
+
+  <h3 id="citation-block">Copyable citation block</h3>
+  <p>A "how to cite this report" block whose copy button writes the citation
+    text to the clipboard (same UX as the table copy button). The button hides
+    in PDF.</p>
+  {{ widgets['citation_block'] | safe }}
+  <pre class="demo-snippet"><code>{% raw %}from util.html.widgets import render_citation_block
+
+widgets = {"cite": render_citation_block(
+    "Riverscapes Consortium (2026). Rivers Need Space Report. "
+    "https://reports.riverscapes.net")}{% endraw %}</code></pre>
+
+  <h3 id="threshold-histogram">Histogram with threshold lines (Plotly)</h3>
+  <p><code>util/plotly/histograms.py</code> builds a branded histogram with
+    vertical analytic thresholds — TMDL limits, return-period events,
+    anadromous cutoffs. Because it is a normal Plotly figure it exports to
+    static SVG/PNG through <code>report.add_figure</code> like everything else.</p>
+  {{ render_figure('gradient_histogram', 'DGO gradient histogram with thresholds (sample data).') }}
+  <pre class="demo-snippet"><code>{% raw %}from util.plotly.histograms import Threshold, make_histogram_with_thresholds
+
+fig = make_histogram_with_thresholds(
+    gradients,
+    thresholds=[
+        Threshold(4.0, "Anadromous cutoff", color="#1b9e6b"),
+        Threshold(10.0, "Step-pool transition", color="#e8840c", dashed=True),
+    ],
+    x_title="Gradient (%)", y_title="DGOs", bin_size=1.5,
+)
+report.add_figure("gradient_histogram", fig){% endraw %}</code></pre>
+</section>
+
 <div class="page-break-before" aria-hidden="true"></div>
 
 <!-- FIGURES ============================================================== -->
