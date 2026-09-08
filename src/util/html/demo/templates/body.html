@@ -51,14 +51,29 @@
   <h4>Material icons</h4>
   <p>Available anywhere via the Google Fonts CDN:
     <span class="material-icons">face</span>
+    <span class="material-icons">eco</span>
     <span class="material-icons">water</span>
     <span class="material-icons">check_circle</span>
     <span class="material-icons">warning</span>
     See <a href="https://fonts.google.com/icons" target="_blank" rel="noopener">fonts.google.com/icons</a>
     for the full list.</p>
 
+  <pre class="demo-snippet"><code>{% filter e %}{% raw %}
+    <span class="material-icons">face</span>
+    <span class="material-icons">water</span>
+    <span class="material-icons">check_circle</span>
+    <span class="material-icons">warning</span>{% endraw %}{% endfilter %}
+  </code></pre>    
+
   <h4>Code snippet styling</h4>
-  <pre class="demo-snippet"><code>…</code></pre>
+  <p>Anything inside the <code>{{ '{%' }} filter e {{ '%}' }}{{ '{%' }} raw {{ '%}' }}…{{ '{%' }} endraw {{ '%}' }}{{ '{%' }} endfilter {{ '%}' }}</code>
+    trio is shown verbatim as source instead of being rendered — convenient when the
+    demonstration <em>is</em> the code:</p>
+  <pre class="demo-snippet"><code>{% filter e %}{% raw %}
+    def example_function():
+        pass
+  {% endraw %}{% endfilter %}
+  </code></pre>
 </section>
 
 <!-- METRIC CARDS ========================================================= -->
@@ -135,7 +150,7 @@ report.add_html_elements("progress_groups", groups)
     already have.</p>
   {{ progress_cards['reservoirs'] | safe }}
   {{ progress_cards['natural lakes'] | safe }}
-  {{ progress_cards['ponds'] | safe }}
+  {{ progress_cards['ponds'] | safe }}  
   <pre class="demo-snippet"><code>{% raw %}from util.html.progress import ProgressGroup, ProgressCard, render_progress_cards
 
 cards = [
@@ -406,7 +421,7 @@ render_table(df, caption="Flow type summary", footer=totals){% endraw %}</code><
   </div>
 
   <h3>Equal columns</h3>
-  <div class="grid">
+  <div class="grid dev">
     <div>
       <p>Each direct child of <code>.grid</code> becomes one equal column
         (<code>1fr</code> each, so they always fill the content width). Columns are
@@ -418,6 +433,20 @@ render_table(df, caption="Flow type summary", footer=totals){% endraw %}</code><
       {{ render_metric_grid(cards, ['total_area']) }}
     </div>
   </div>
+
+  <div class="grid dev-gridshow-outer">
+    <div class="dev-gridshow-inner">
+      <p>Each direct child of <code>.grid</code> becomes one equal column
+        (<code>1fr</code> each, so they always fill the content width). Columns are
+        equal height — the shorter one stretches to match the longer one.</p>
+    </div>
+    <div class="dev-gridshow-inner">
+      <p>Grid children can be any block: paragraphs, lists, metric cards, tables or
+        figures. This column holds a metric card:</p>
+      {{ render_metric_grid(cards, ['total_area']) }}
+    </div>
+  </div>
+
   <pre class="demo-snippet"><code>{% raw %}&lt;div class="grid"&gt;
   &lt;div&gt;…left block…&lt;/div&gt;
   &lt;div&gt;…right block…&lt;/div&gt;
@@ -460,6 +489,18 @@ render_table(df, caption="Flow type summary", footer=totals){% endraw %}</code><
         768px.</p>
     </div>
     <figure class="report-figure">
+      {{ tables['ownership'] | safe }}
+    </figure>
+  </div>
+  <div class="grid grid-2-1 dev-gridshow-outer">
+    <div class="dev-gridshow-inner">
+      <p>A layout where the narrative takes <code>2fr</code> and a compact table
+        takes <code>1fr</code>. The same markup works with any block children.</p>
+      <p>Add <code>class="grid"</code> plus a proportion class; the proportion class
+        only changes the column template, it never breaks Pico's stacking below
+        768px.</p>
+    </div>
+    <figure class="report-figure dev-gridshow-inner">
       {{ tables['ownership'] | safe }}
     </figure>
   </div>

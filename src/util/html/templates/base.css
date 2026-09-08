@@ -1074,3 +1074,39 @@ article.report-meta {
     font-size: var(--text-sm);
   }
 }
+
+/* DEV Classes for demonstrating things */
+.dev-gridshow-outer {
+  border: 1px dashed red;
+  position: relative;
+}
+.dev-gridshow-outer::before {
+  background: red;
+  padding: 0 10px;
+    color: white;
+  position: absolute;
+  top: -12px;
+  z-index: 1 !important;
+  left: 0;
+  font-size: 10px;
+  content: "OUTER";
+  display: block;
+  font-weight: bold;
+}
+.dev-gridshow-inner {
+  border: 1px dashed blue;
+  position: relative;
+}
+.dev-gridshow-inner::before {
+  z-index: 1 !important;
+  padding: 0 10px;
+  background: blue;
+  color: white;
+  position: absolute;
+  top: 0px;
+  left: 0;
+  font-size: 10px;
+  content: "INNER";
+  display: block;
+  font-weight: bold;
+}

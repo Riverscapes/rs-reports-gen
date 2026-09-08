@@ -304,6 +304,7 @@ def sample_progress_cards() -> dict[str, str]:
             groups=[
                 ProgressGroup("BLM", "22 / 30 AC", numerator=30, denominator=45, color="indigo"),
                 ProgressGroup("NON-BLM", "12 / 15 AC", numerator=15, denominator=45, color="gray"),
+                ProgressGroup("OTHER", "2 / 5 AC", numerator=2, denominator=5, color="green"),
             ],
         ),
     ]
@@ -382,7 +383,10 @@ def sample_widgets() -> dict[str, str]:
             )
         ),
         "gauge": render_gauge("Sinuosity percentile", pct=78, color="green")
-        + render_gauge("Fragmentation index", pct=23, color="orange"),
+        + render_gauge("Fragmentation index", pct=23, color="orange") 
+        + render_gauge("Connectivity index", pct=45, color="blue")
+        + render_gauge("Full", pct=100, color="green")
+        + render_gauge("Empty", pct=0, color="red"),
         "glossary": render_glossary(
             [
                 Term("DGO", "Discrete geomorphic output — the smallest reach unit in a riverscape."),
