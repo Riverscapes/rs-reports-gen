@@ -103,9 +103,28 @@ def test_interactive_demo_has_grid_and_float_sections(tmp_path):
     assert 'class="clearfix"' in html
 
 
+def test_interactive_demo_has_custom_colorset_chart(tmp_path):
+    """The custom-colorset bar renders with its chosen palette alongside the docs."""
+    figures = sample_figures()
+    assert "custom_colorway_bar" in figures
+
+    outputs = build_demo(tmp_path, html_only=True)
+    html = Path(outputs[0]).read_text(encoding="utf-8")
+
+    # The custom palette is baked into the embedded figure JSON.
+    assert "#2a9d8f" in html
+    assert "#e9c46a" in html
+    assert "#e76f51" in html
+    # The demo explains the marker_color / colorway override recipes.
+    assert "custom colorset" in html
+    assert "marker_color" in html
+    assert "colorway" in html
+
+
 def test_sample_figures_includes_aoi_map():
     figures = sample_figures()
     assert "aoi_map" in figures
+    assert "custom_colorway_bar" in figures
 
 
 def test_reused_figures_get_unique_plot_div_ids(tmp_path):
@@ -121,14 +140,15 @@ def test_reused_figures_get_unique_plot_div_ids(tmp_path):
     html = Path(outputs[0]).read_text(encoding="utf-8")
 
     ids = re.findall(r'<div id="([^"]+)" class="plotly-graph-div"', html)
-    # 3 figures in the Figures section + bar reused in Grids + pie reused in
-    # Floats + the map + the widgets histogram = 7 embeds, all with distinct ids.
-    assert len(ids) == 7
+    # 4 figures in the Figures section (pie, bar, custom-colorset bar, line)
+    # + bar reused in Grids + pie reused in Floats + the map + the widgets
+    # histogram = 8 embeds, all with distinct ids.
+    assert len(ids) == 8
     assert len(set(ids)) == len(ids), f"duplicate plotly div ids: {ids}"
 
     # Each embed's script must target its own div (not a shared first one).
     targets = re.findall(r'Plotly\.newPlot\(\s*"([^"]+)"', html)
-    assert len(targets) == 7
+    assert len(targets) == 8
     assert len(set(targets)) == len(targets)
     assert set(targets) == set(ids)
 
