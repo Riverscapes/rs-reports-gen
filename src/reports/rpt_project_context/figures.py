@@ -139,7 +139,7 @@ def statistics(gdf: gpd.GeoDataFrame, tot_area: pint.Quantity) -> dict[str, pint
         preferred_format='{:.1%}',
     )
 
-    for ratio_field in ['elevated_ratio', 'low_lying_ratio', 'lf_agriculture_prop', 'lf_developed_prop']:
+    for ratio_field in ['elevated_ratio', 'low_lying_ratio', 'lf_agriculture_prop', 'lf_developed_prop', 'hist_riparian', 'ex_riparian']:
         try:
             RSFieldMeta().set_preferred_format(ratio_field, '{:.1%}')
         except Exception:
