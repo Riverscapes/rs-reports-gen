@@ -2,7 +2,9 @@
  
   refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
 -->
+
 {% from 'macros.html' import render_metric_grid %}
+
 <section>
   <div class="section-context">
     <p>This report provides information to characterize and assess the conditions of a selected reach of riverscape.
@@ -16,7 +18,7 @@
     <li><a href="#map-of-polygons">Report Area Map</a></li>
     <li><a href="#key-indicators">Riverscape Inventory</a></li>
     <li><a href="#characteristics">Riverscape Characteristics</a></li>
-    <li><a href="#condition">Riversape Condition</a></li>
+    <li><a href="#condition">Riverscape Condition</a></li>
     <li><a href="#supporting_info">Supporting Information</a></li>
     <li><a href="#appendices">Appendices</a></li>
   </ol>
@@ -72,7 +74,7 @@
         <p>Based on VBET outputs (driven by 10 m resolution DEMs), {{ cards['low_lying_ratio']['value'] }} of the riverscape is classified as low-lying (a proxy for 
             active riverscape and more likely to flood regularly), while {{ cards['elevated_ratio']['value'] }} is classified as elevated (a proxy for inactive).
             Anthropogenic land cover (agriculture and developed) makes up {{ cards['anthro_lulc']['value'] }} of the riverscape, and 
-            {{ cards['inaccessible_fldplan_ratio']['value'] }} of the riverscape is inaccessible to the channel due to fragmentation by transportation infrastructure.
+            {{ cards['inaccessible_fldpln_ratio']['value'] }} of the riverscape is inaccessible to the channel due to fragmentation by transportation infrastructure.
             Modeled historical land cover estimates that {{ cards['hist_riparian']['value'] }} of the riverscape had riparian vegetation cover, while currently 
             {{ cards['ex_riparian']['value'] }} is classified as riparian vegetation. Historically, the riverscape could support 
             {{ cards['hist_brat_cap']['value'] }} beaver dams, and currently it could support {{ cards['ex_brat_cap']['value'] }} beaver dams. 
