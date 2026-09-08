@@ -276,6 +276,15 @@ def sample_progress_groups() -> dict[str, str]:
                 ProgressRow("535", "AC", pct=15, color="#e63247"),
             ]
         ),
+        # right_label replaces the percent on the right with any string — the
+        # bar still encodes the numeric pct, only the visible text changes.
+        "priorities": render_progress_rows(
+            [
+                ProgressRow("18", "MI", pct=88, color="green", right_label="HIGH"),
+                ProgressRow("12", "MI", pct=57, color="orange", right_label="MED"),
+                ProgressRow("5", "MI", pct=12, color="red", right_label="LOW"),
+            ]
+        ),
     }
 
 
