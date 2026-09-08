@@ -57,6 +57,26 @@ def make_flow_type_bar() -> go.Figure:
     return go.Figure(data=[go.Bar(x=categories, y=areas)])
 
 
+def make_custom_colorway_bar() -> go.Figure:
+    """Same flow-type data as :func:`make_flow_type_bar`, but colored with a
+    report-chosen colorset instead of the brand colorway.
+
+    Demonstrates the two knobs Plotly gives you to override the template's
+    default colors for a single chart:
+
+    * Per-category colors on a categorical trace: ``marker_color=[...]``
+      (shown here). Pies use ``marker_colors=[...]`` the same way; areas and
+      boxes use the same keyword.
+    * A whole-chart colorset for multi-trace figures:
+      ``fig.update_layout(colorway=[...])`` swaps every trace at once while
+      the riverscapes template keeps styling fonts, grids and margins.
+    """
+    categories = ["Perennial", "Intermittent", "Ephemeral"]
+    areas = [542.3, 201.8, 38.2]
+    custom_colors = ["#2a9d8f", "#e9c46a", "#e76f51"]
+    return go.Figure(data=[go.Bar(x=categories, y=areas, marker_color=custom_colors)])
+
+
 def make_longitudinal_line() -> go.Figure:
     xs = list(range(0, 21, 2))
     latest = [2.1, 2.4, 3.3, 4.7, 5.1, 5.8, 6.2, 6.9, 7.4, 8.1, 8.3]
@@ -190,6 +210,7 @@ def sample_figures() -> dict[str, go.Figure]:
         "longitudinal_line": make_longitudinal_line(),
         "aoi_map": make_sample_aoi_map(),
         "gradient_histogram": make_gradient_histogram(),
+        "custom_colorway_bar": make_custom_colorway_bar(),
     }
 
 

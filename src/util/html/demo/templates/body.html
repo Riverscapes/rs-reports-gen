@@ -350,6 +350,27 @@ report.add_figure("gradient_histogram", fig){% endraw %}</code></pre>
   <h3>Bar</h3>
   {{ render_figure('flow_type_bar', 'Figure 2: Area by flow type (sample data).') }}
 
+  <h3>Bar — custom colorset</h3>
+  <p>Same data as the bar above, colored by a report-chosen colorset instead
+    of the brand colorway. <code>marker_color=[...]</code> colors categories
+    on a categorical trace (pies use <code>marker_colors</code>); for
+    multi-trace charts, <code>fig.update_layout(colorway=[...])</code> swaps
+    the whole colorset in one call. The riverscapes template still styles
+    everything else — fonts, grid, margins — your colors just win over the
+    default sequence.</p>
+  {{ render_figure('custom_colorway_bar', 'Area by flow type with a custom colorset (sample data).') }}
+  <pre class="demo-snippet"><code>{% raw %}from plotly.graph_objects import go
+
+# figures.py — same data as the bar above, colored by your colorset
+colors = ["#2a9d8f", "#e9c46a", "#e76f51"]
+fig = go.Figure(data=[go.Bar(
+    x=["Perennial", "Intermittent", "Ephemeral"],
+    y=[542.3, 201.8, 38.2],
+    marker_color=colors,   # per-category colors (pie: marker_colors)
+)])
+# Multi-trace charts swap the whole colorset in one call instead:
+# fig.update_layout(colorway=colors){% endraw %}</code></pre>
+
   <h3>Line</h3>
   {{ render_figure('longitudinal_line', 'Figure 3: Longitudinal metric across epochs (sample data).') }}
 </section>
