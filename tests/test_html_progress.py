@@ -71,6 +71,33 @@ def test_progress_row_details_and_unstyled_row():
     assert "style=" not in plain
 
 
+def test_progress_row_right_label_replaces_percent_text():
+    html = render_progress_rows([ProgressRow("18", "MI", pct=88, color="green", right_label="HIGH")])
+    markup = html.split("</style>")[1]
+    # The right-hand column shows the custom label, not the percentage.
+    assert 'class="rs-progress-row__pct rs-progress-row__pct--label">HIGH<' in markup
+    assert "88%" not in markup
+    # The bar itself still encodes the numeric percentage.
+    assert 'value="88" max="100"' in html
+    assert 'aria-label="18 MI: HIGH"' in html
+
+
+def test_progress_row_right_label_is_escaped_and_other_rows_keep_pct():
+    html = render_progress_rows(
+        [
+            ProgressRow("28", "QTY", pct=50, right_label="<b>Priority</b>"),
+            ProgressRow("30", "QTY", pct=50),
+        ]
+    )
+    markup = html.split("</style>")[1]
+    assert "&lt;b&gt;Priority&lt;/b&gt;" in markup
+    # The labeled row and the plain row both have a right-hand column.
+    assert markup.count('class="rs-progress-row__pct"') == 1
+    assert markup.count("rs-progress-row__pct--label") == 1
+    # The unlabeled row falls back to the percent display.
+    assert markup.count("<small>%</small>") == 1
+
+
 def test_progress_snippet_escapes_html_and_drops_blank_items():
     html = render_progress_rows([{"value": "<b>x</b>", "pct": 50}, {"value": "", "label": None}])
     markup = html.split("</style>")[1]
@@ -148,3 +175,6 @@ def test_demo_renders_progress_section(tmp_path):
     # Raw CSS color rows use the inline custom-property override.
     assert "--progress-color: #e63247" in html
     assert "--progress-color: #5a92e5" in html
+    # The right_label demo replaces the percent column with a category band.
+    assert 'rs-progress-row__pct--label">HIGH<' in html
+    assert 'right_label="HIGH"' in html

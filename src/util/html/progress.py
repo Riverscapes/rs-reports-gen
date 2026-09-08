@@ -10,7 +10,8 @@ place and every report renders identically.
 Two components:
 
 * :func:`render_progress_rows` — a stacked group of percentage bars; each row
-  is value+unit on the left, the bar, and the percent on the right. Groups
+  is value+unit on the left, the bar, and the percent on the right (or a
+  ``right_label`` override when the caller supplies one). Groups
   stack with hairline dividers, so pass one group per call and inject several
   fragments in sequence.
 * :func:`render_progress_card` — an "extended metric card": a title and total
@@ -94,6 +95,9 @@ class ProgressRow:
         color: Named theme (see :data:`COLOR_THEMES`) or a raw CSS color.
         details: Optional second line under the value (muted, e.g.
             ``"130 BLM ACRES"``).
+        right_label: Optional right-hand label shown instead of the percent,
+            e.g. ``"HIGH"`` or ``"< 1%"``. The bar still encodes the numeric
+            percentage; only the displayed text changes.
     """
 
     value: str
@@ -103,6 +107,7 @@ class ProgressRow:
     denominator: float | None = None
     color: str | None = None
     details: str | None = None
+    right_label: str | None = None
 
 
 @dataclass
@@ -196,6 +201,8 @@ def _normalize_row(row: ProgressRow | ProgressGroup | dict[str, Any]) -> dict[st
     unit = data.get("unit")
     label = data.get("label")
     details = data.get("details")
+    right_label_raw = data.get("right_label")
+    right_label = str(right_label_raw) if right_label_raw else None
     aria_text = value + (f" {unit}" if unit else "")
     return {
         # Rows use 'value'/'unit'; groups use 'label'/'value'. Either is fine.
@@ -203,12 +210,13 @@ def _normalize_row(row: ProgressRow | ProgressGroup | dict[str, Any]) -> dict[st
         "value": escape(value),
         "unit": escape(str(unit)) if unit else None,
         "details": escape(str(details)) if details else None,
+        "right_label": escape(right_label) if right_label else None,
         "pct": f"{round(pct, 4):g}",
         "pct_text": _pct_text(pct),
         "pct_html": _pct_html(pct),
         "color_class": color_class,
         "color_style": color_style,
-        "aria": f"{aria_text}: {_pct_text(pct)}",
+        "aria": f"{aria_text}: {escape(right_label) if right_label else _pct_text(pct)}",
     }
 
 

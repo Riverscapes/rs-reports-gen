@@ -89,6 +89,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* right_label rows: the custom text can be wider than the numeric column, so
+   let it grow beyond the baseline 4rem while keeping the right edge aligned. */
+.rs-progress-row__pct--label {
+  flex: 0 1 auto;
+  min-width: 4rem;
+  color: var(--header-color);
+}
+
 /* ── Extended metric card (title + total + one bar per group) ───────────── */
 .rs-progress-card {
   background: var(--muted-bg);

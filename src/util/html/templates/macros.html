@@ -113,6 +113,8 @@ element. Prefer the Python helpers in util/html/progress.py
 (render_progress_rows) which normalize the model; the macro consumes the
 normalized dict shape directly:
     - label / value / unit / details : pre-escaped display strings
+    - right_label                    : optional pre-escaped right-hand text
+                                     that replaces the percent column
     - pct / pct_text                 : resolved percentage + display text
     - color_class / color_style      : theme class or inline color override
     - aria                           : accessible bar label
@@ -131,8 +133,8 @@ Example Usage:
         <span class="rs-progress-row__value">{{ row.value }}{% if row.unit %} <small>{{ row.unit }}</small>{% endif %}{% if row.details %}<span class="rs-progress-row__details">{{ row.details }}</span>{% endif %}</span>
         <progress class="{{ row.color_class if row.color_class else '' }}"
             {% if row.color_style %} style="{{ row.color_style }}"{% endif %}
-            value="{{ row.pct }}" max="100" aria-label="{{ row.aria }}">{{ row.pct_text }}</progress>
-        <span class="rs-progress-row__pct">{{ row.pct_html }}</span>
+            value="{{ row.pct }}" max="100" aria-label="{{ row.aria }}">{{ row.right_label if row.right_label else row.pct_text }}</progress>
+        <span class="rs-progress-row__pct{% if row.right_label %} rs-progress-row__pct--label{% endif %}">{{ row.right_label if row.right_label else row.pct_html }}</span>
     </li>
     {% endfor %}
 </ul>

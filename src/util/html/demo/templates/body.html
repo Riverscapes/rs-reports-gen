@@ -121,7 +121,9 @@
       Percentages are explicit (<code>pct=68</code>) or computed from a
       <code>numerator</code>/<code>denominator</code> pair; colors are named
       themes (<code>indigo</code>, <code>green</code>, <code>slate</code>…)
-      or any CSS color (emitted inline).</p>
+      or any CSS color (emitted inline). An optional
+      <code>right_label</code> replaces the percent on the right with any
+      string.</p>
   </div>
 
   <h3 id="progress-groups">Grouped percentage bars</h3>
@@ -131,6 +133,10 @@
   {{ progress_groups['area_acres'] | safe }}
   {{ progress_groups['structures'] | safe }}
   {{ progress_groups['fragmentation'] | safe }}
+  <p><code>right_label</code> swaps the percent on the right for any string —
+    useful when a category band (e.g. priority) matters more than the exact
+    number, which stays encoded in the bar itself.</p>
+  {{ progress_groups['priorities'] | safe }}
   <pre class="demo-snippet"><code>{% raw %}from util.html.progress import ProgressRow, render_progress_rows
 
 rows = [
@@ -143,6 +149,19 @@ report.add_html_elements("progress_groups", groups)
 
 # body.html — the fragment carries its own &lt;style&gt;, inject it raw:
 {{ progress_groups['stream_miles'] | safe }}{% endraw %}</code></pre>
+  <pre class="demo-snippet"><code>{% raw %}from util.html.progress import ProgressRow, render_progress_rows
+
+# right_label swaps the percent on the right for any string:
+rows = [
+    ProgressRow("18", "MI", pct=88, color="green", right_label="HIGH"),
+    ProgressRow("12", "MI", pct=57, color="orange", right_label="MED"),
+    ProgressRow("5", "MI", pct=12, color="red", right_label="LOW"),
+]
+groups = {"priorities": render_progress_rows(rows)}
+report.add_html_elements("progress_groups", groups)
+
+# body.html
+{{ progress_groups['priorities'] | safe }}{% endraw %}</code></pre>
 
   <h3 id="progress-card">Extended metric card</h3>
   <p>An auto-fitting grid of comparison bars (e.g. BLM vs NON-BLM) under a
