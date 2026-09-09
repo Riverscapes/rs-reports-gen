@@ -4,6 +4,7 @@
 -->
 
 {% from 'macros.html' import render_metric_grid %}
+{% from 'macros.html' import render_figure with context %}
 
 <section>
   <div class="section-context">
@@ -12,17 +13,7 @@
   </div>
 </section>
 
-<section id='toc'>
-  <h2>Table of Contents</h2>
-  <ol class="toc-list">
-    <li><a href="#map-of-polygons">Report Area Map</a></li>
-    <li><a href="#key-indicators">Riverscape Inventory</a></li>
-    <li><a href="#characteristics">Riverscape Characteristics</a></li>
-    <li><a href="#condition">Riverscape Condition</a></li>
-    <li><a href="#supporting_info">Supporting Information</a></li>
-    <li><a href="#appendices">Appendices</a></li>
-  </ol>
-</section>
+{{ toc }}
 
 <div class="page-break-before"></div>
 
@@ -35,7 +26,7 @@
   </div>
   <figure class="report-figure map">
     {{ figures['map']|safe }}
-    <!-- <figcaption>Interactive map of identified polygons.</figcaption> -->
+    <figcaption>Interactive map of identified polygons.</figcaption>
   </figure>
 </section>
 
@@ -58,7 +49,7 @@
     <h2>Riverscape Characteristics</h2>
     <div class="section-context">
         <p>Within the selected area, {{ cards['stream_name']['value'] }} has an upstream contributing drainage area of {{ cards['drainage_area']['value'] }},
-            and is classified as a {{ cards['stream_order']['value'] }} order stream.
+            and has a Strahler stream order of {{ cards['stream_order']['value'] }}.
             Channel gradient in the riverscape ranges from {{ cards['min_gradient']['value'] }} to {{ cards['max_gradient']['value'] }}, with an average of 
             {{ cards['prim_channel_gradient']['value'] }}.
             Channel sinuosity for the reach is {{ cards['planform_sinuosity']['value'] }}, and the confinement ratio is {{ cards['confinement_ratio']['value'] }}.
@@ -91,6 +82,17 @@
             and a list of the metrics that were used to assess riverscape conditions.
         </p>
     </div>
+    <h3>Riverscapes Inventory</h3>
+    {{ render_metric_grid(cards, ['total_segment_area', 'total_centerline_length', 'integrated_valley_bottom_width', 'total_stream_length', 'integrated_valley_bottom_area_per_length']) }}
+    <figure>
+        {{ figures['owner_pie']|safe }}
+    </figure>
+    <table>
+    {{ tables['owners']|safe}}
+    </table>
+    <figure>
+        {{ figures['flow_bar']|safe }}
+    </figure>
 </section>
 
 <section id="appendices" class="appendix">
