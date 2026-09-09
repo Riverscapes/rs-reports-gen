@@ -10,7 +10,6 @@ from pathlib import Path
 
 # 3rd party imports
 import geopandas as gpd
-import pint
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
@@ -19,7 +18,6 @@ from reports.rpt_project_context.dataprep import get_parquet_data
 from reports.rpt_project_context.figures import statistics
 from util import prepare_gdf_for_athena
 from util.athena import get_field_metadata
-from util.color import DEFAULT_FCODE_COLOR_MAP
 from util.figures import (
     bar_group_x_by_y,
     bar_total_x_by_ybins,
@@ -79,14 +77,14 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
     log = Logger('make report')
     log.info(f"Generating report in {report_dir} with name '{report_name}'")
 
-    target_crs = aoi_df.estimate_utm_crs()
-    aoi_area = pint.Quantity(aoi_df.to_crs(target_crs).area.sum(), 'm**2')
+    # target_crs = aoi_df.estimate_utm_crs()
+    # aoi_area = pint.Quantity(aoi_df.to_crs(target_crs).area.sum(), 'm**2')
 
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
         "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "owner_pie": make_rs_area_by_owner(gdf),
-        "flow_bar": bar_group_x_by_y(gdf, 'segment_area', ['fcode_desc'], fig_params={"color": "fcode_desc", "color_discrete_map": DEFAULT_FCODE_COLOR_MAP}),
+        "flow_bar": bar_group_x_by_y(gdf, 'stream_length', ['perennial_classification']),  # , fig_params={"color": "fcode_desc", "color_discrete_map": DEFAULT_FCODE_COLOR_MAP}),
         "pie": make_rs_area_by_featcode(gdf),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
         "elevated_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['elevated_ratio']),
@@ -103,7 +101,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
     }
     tables = {
         "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
-        "owners": table_total_x_by_y(gdf, 'stream_length', ['ownership', 'ownership_desc']),
+        "owners": table_total_x_by_y(gdf, 'segment_area', ['ownership', 'ownership_desc']),
         "flow_type": table_total_x_by_y(gdf, 'stream_length', ['fcode_desc']),
     }
     appendices = {
@@ -112,7 +110,7 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
     figure_dir = report_dir / 'figures'
     safe_makedirs(str(figure_dir))
 
-    cards = metric_cards(statistics(gdf, aoi_area))
+    cards = metric_cards(statistics(gdf))
 
     report = RSReport(
         report_name="Rivers Need Space",

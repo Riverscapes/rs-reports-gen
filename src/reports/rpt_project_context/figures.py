@@ -52,11 +52,10 @@ def format_hover(df: pd.DataFrame, nice_headers: list[str]) -> str:
     return hover
 
 
-def statistics(gdf: gpd.GeoDataFrame, tot_area: pint.Quantity) -> dict[str, pint.Quantity]:
+def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     """Calculate and return key statistics as a dictionary
     Args:
         gdf (GeoDataFrame): data_gdf input WITH UNITS APPLIED
-        tot_area (pint.Quantity): total area of the area of interest
 
     Returns:
         dict[str, pint.Quantity]: new summary statistics applicable to the whole dataframe
@@ -66,33 +65,37 @@ def statistics(gdf: gpd.GeoDataFrame, tot_area: pint.Quantity) -> dict[str, pint
     common_stats = common_statistics(df)
     # any statistics needed for this report specifically go here
 
-    # Calculate totals
-    total_segment_area = common_stats["total_segment_area"]
-    total_centerline_length = common_stats["total_centerline_length"]
-    proportion_riverscape = total_segment_area / tot_area if tot_area != 0 else float('nan') * total_segment_area.units / tot_area.units
-    elevated_ratio = sum(df["elevated_ratio"] * df["segment_area"]) / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    low_lying_ratio = sum(df["low_lying_ratio"] * df["segment_area"]) / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    lf_agriculture_ratio = df["lf_agriculture"].sum() / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    lf_developed_ratio = df["lf_developed"].sum() / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
-    inaccessible_fldpln_ratio = 1 - (df["access_fldpln_extent"].sum() / total_segment_area.to('m ** 2')) if total_segment_area != 0 else float('nan') * total_segment_area.units / total_segment_area.units
+    if RSFieldMeta().unit_system == 'imperial':
+        total_segment_area = common_stats["total_segment_area"].to('ft ** 2')
+        total_centerline_length = common_stats["total_centerline_length"].to('ft')
+        total_stream_length = common_stats["total_stream_length"].to('ft')
+        valley_width = common_stats["integrated_valley_bottom_width"].to('ft')
+    else:
+        total_segment_area = common_stats["total_segment_area"].to('m ** 2')
+        total_centerline_length = common_stats["total_centerline_length"].to('m')
+        total_stream_length = common_stats["total_stream_length"].to('m')
+        valley_width = common_stats["integrated_valley_bottom_width"].to('m')
+
+    elevated_ratio = sum(df["elevated_area"]) / total_segment_area if total_segment_area != 0 else float('nan')
+    low_lying_ratio = sum(df["lowlying_area"]) / total_segment_area if total_segment_area != 0 else float('nan')
+    lf_agriculture_ratio = df["lf_agriculture"].sum() / total_segment_area if total_segment_area != 0 else float('nan')
+    lf_developed_ratio = df["lf_developed"].sum() / total_segment_area if total_segment_area != 0 else float('nan')
+    inaccessible_fldpln_ratio = 1 - (df["access_fldpln_extent"].sum() / total_segment_area) if total_segment_area != 0 else float('nan')
+    confinement_ratio = (df["confinement_ratio"] * (df["segment_area"] / total_segment_area)).sum() if total_segment_area != 0 else float('nan')
 
     if total_centerline_length != 0:
-        integrated_valley_bottom_area_per_length = total_segment_area / total_centerline_length
-        min_size = min(df["segment_area"] / df["centerline_length"])
-        max_size = max(df["segment_area"] / df["centerline_length"])
+        if RSFieldMeta().unit_system == 'imperial':
+            integrated_valley_bottom_area_per_length = (total_segment_area / total_centerline_length).to('acre / mile')
+            min_size = min(df["segment_area"] / df["centerline_length"]).to('acre / mile')
+            max_size = max(df["segment_area"] / df["centerline_length"]).to('acre / mile')
+        else:
+            integrated_valley_bottom_area_per_length = (total_segment_area / total_centerline_length).to('hectare / kilometer')
+            min_size = min(df["segment_area"] / df["centerline_length"]).to('hectare / kilometer')
+            max_size = max(df["segment_area"] / df["centerline_length"]).to('hectare / kilometer')
     else:
-        integrated_valley_bottom_area_per_length = float('nan') * total_segment_area.units / total_centerline_length.units
-        min_size = float('nan') * total_segment_area.units / total_centerline_length.units
-        max_size = float('nan') * total_segment_area.units / total_centerline_length.units
-
-    RSFieldMeta().add_field_meta(
-        name='proportion_riverscape',
-        friendly_name='Proportion of Selected Area in Riverscape',
-        data_unit='',
-        dtype='REAL',
-        description='Proportion of the selected area that is in the riverscape.',
-        preferred_format='{:.1%}',
-    )
+        integrated_valley_bottom_area_per_length = float('nan')
+        min_size = float('nan')
+        max_size = float('nan')
 
     RSFieldMeta().add_field_meta(
         name='integrated_valley_bottom_area_per_length',
@@ -151,13 +154,38 @@ def statistics(gdf: gpd.GeoDataFrame, tot_area: pint.Quantity) -> dict[str, pint
                 preferred_format='{:.1%}',
             )
 
+    for ratio_field in ['planform_sinuosity', 'confinement_ratio']:
+        try:
+            RSFieldMeta().set_preferred_format(ratio_field, '{:.2f}')
+        except Exception:
+            # Some schemas may omit a field; add a minimal metadata row so cards still format correctly.
+            RSFieldMeta().add_field_meta(
+                name=ratio_field,
+                data_unit='',
+                dtype='REAL',
+                preferred_format='{:.2f}',
+            )
+
+    for gradient_field in ['prim_channel_gradient', 'min_gradient', 'max_gradient']:
+        try:
+            RSFieldMeta().set_preferred_format(gradient_field, '{:.2f}')
+        except Exception:
+            RSFieldMeta().add_field_meta(
+                name=gradient_field,
+                data_unit='',
+                dtype='REAL',
+                preferred_format='{:.2%}',
+            )
+
     # Compose result dictionary
     stats = {
-        **common_stats,
-        'proportion_riverscape': proportion_riverscape,
-        'integrated_valley_bottom_area_per_length': integrated_valley_bottom_area_per_length.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
-        'min_size': min_size.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
-        'max_size': max_size.to('acre / mile' if RSFieldMeta().unit_system == 'imperial' else 'hectare / kilometer'),
+        'total_segment_area': total_segment_area,
+        'total_centerline_length': total_centerline_length,
+        'total_stream_length': total_stream_length,
+        'integrated_valley_bottom_width': valley_width,
+        'integrated_valley_bottom_area_per_length': integrated_valley_bottom_area_per_length,
+        'min_size': min_size,
+        'max_size': max_size,
         'elevated_ratio': elevated_ratio,
         'low_lying_ratio': low_lying_ratio,
         'lf_agriculture_prop': lf_agriculture_ratio,
@@ -170,17 +198,13 @@ def statistics(gdf: gpd.GeoDataFrame, tot_area: pint.Quantity) -> dict[str, pint
         'stream_name': df.groupby("stream_name")["segment_area"].sum().idxmax(),
         'drainage_area': df['drainage_area'].max(),
         'stream_order': df['stream_order'].max(),
-        'min_gradient': df['prim_channel_gradient'].min(),
-        'max_gradient': df['prim_channel_gradient'].max(),
-        'prim_channel_gradient': (df['elevation'].max() - df['elevation'].min()) / common_stats['total_stream_length'].to('m')
-        if common_stats['total_stream_length'] != 0
-        else float('nan') * df['elevation'].max().units / common_stats['total_stream_length'].units,
-        'planform_sinuosity': common_stats['total_stream_length'] / common_stats['total_centerline_length']
-        if common_stats['total_centerline_length'] != 0
-        else float('nan') * common_stats['total_stream_length'].units / common_stats['total_centerline_length'].units,
-        'confinement_ratio': sum(df['confinement_ratio'] * (df['segment_area'] / total_segment_area.to('m ** 2'))) if total_segment_area != 0 else float('nan') * df['confinement_ratio'].max().units,
-        'hist_riparian': df['lf_hist_riparian'].sum() / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * df['lf_hist_riparian'].max().units / total_segment_area.units,
-        'ex_riparian': df['lf_riparian'].sum() / total_segment_area.to('m ** 2') if total_segment_area != 0 else float('nan') * df['lf_riparian'].max().units / total_segment_area.units,
+        'min_gradient': (df['prim_channel_gradient'].min() * 100).to('dimensionless') if not df['prim_channel_gradient'].empty else float('nan'),
+        'max_gradient': (df['prim_channel_gradient'].max() * 100).to('dimensionless') if not df['prim_channel_gradient'].empty else float('nan'),
+        'prim_channel_gradient': (df['elevation'].max() - df['elevation'].min()) / total_stream_length if total_stream_length != 0 else float('nan'),
+        'planform_sinuosity': total_stream_length / total_centerline_length if total_centerline_length != 0 else float('nan') * total_stream_length.units / total_centerline_length.units,
+        'confinement_ratio': confinement_ratio,
+        'hist_riparian': df['lf_hist_riparian'].sum() / total_segment_area if total_segment_area != 0 else float('nan'),
+        'ex_riparian': df['lf_riparian'].sum() / total_segment_area if total_segment_area != 0 else float('nan'),
         'hist_brat_cap': sum(df['brat_hist_capacity'] * df['centerline_length']),
         'ex_brat_cap': sum(df['brat_capacity'] * df['centerline_length']),
     }
