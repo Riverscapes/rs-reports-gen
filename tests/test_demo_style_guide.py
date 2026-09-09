@@ -15,13 +15,15 @@ RSReport_module = importlib.import_module("util.html.RSReport")
 
 def test_make_sample_aoi_map_is_plotly_map_like_rivers_need_space():
     """The demo map goes through util.figures.make_map_with_aoi (same as RNS)."""
+    from util.basemaps import BasemapStyle
     from util.html.demo.sample_data import make_sample_aoi_map
 
     fig = make_sample_aoi_map()
     trace_types = [t.type for t in fig.data]
     assert "choroplethmap" in trace_types  # DGO polygons colored by flow type
     assert "scattermap" in trace_types  # AOI outline trace
-    assert fig.layout.map.style == "open-street-map"
+    # The demo opts into the shared Riverscapes topo basemap (a URL string).
+    assert str(fig.layout.map.style) == BasemapStyle.TOPO
     # Brand template attached (navy colorway baked into the figure).
     assert "#003166" in fig.to_json()
 
@@ -36,10 +38,13 @@ def test_interactive_demo_embeds_plotly_map(tmp_path):
     assert 'href="#maps"' in html
 
     # The map is a normal Plotly figure embed (choroplethmap + scattermap),
-    # with brand navy baked in — not a folium iframe.
+    # with brand navy baked in — not a folium iframe. The basemap is the
+    # shared Riverscapes topo style, referenced by URL (not embedded).
+    # (plotly escapes "/" as \u002f inside the embedded figure JSON.)
     assert "choroplethmap" in html
     assert "scattermap" in html
-    assert "open-street-map" in html
+    assert "tiles.riverscapes.net/mapStyles/topo.json" in html.replace(r"\u002f", "/")
+    assert "open-street-map" not in html.replace(r"\u002f", "/")
     assert "#003166" in html
     assert "leaflet" not in html
     assert "map-static-art" not in html
