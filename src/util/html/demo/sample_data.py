@@ -161,12 +161,15 @@ def make_sample_aoi_map() -> go.Figure:
     Uses ``util.figures.make_map_with_aoi`` — the exact function the
     rivers_need_space report uses — so the demo map is branded (Riverscapes
     Plotly template) and exports to interactive HTML *and* static SVG/PNG
-    through the normal ``RSReport.add_figure`` pipeline.
+    through the normal ``RSReport.add_figure`` pipeline. The basemap comes
+    from the shared :class:`util.basemaps.BasemapStyle` enumeration — the
+    browser fetches the style JSON from tiles.riverscapes.net at render time.
 
     Field metadata is registered for the sample columns and then restored, so
     this function never pollutes the shared ``RSFieldMeta`` Borg singleton
     (which real reports own during their run).
     """
+    from util.basemaps import BasemapStyle
     from util.figures import make_map_with_aoi
 
     meta = RSFieldMeta()
@@ -175,7 +178,8 @@ def make_sample_aoi_map() -> go.Figure:
     try:
         _register_sample_field_meta()
         dgo, aoi = _sample_aoi_map_data()
-        return make_map_with_aoi(dgo, aoi)
+        # Riverscapes topo basemap, loaded from the shared enumeration.
+        return make_map_with_aoi(dgo, aoi, basemap=BasemapStyle.TOPO)
     finally:
         # Restore whatever the caller had loaded, leaving no trace behind.
         meta._field_meta = saved_field_meta

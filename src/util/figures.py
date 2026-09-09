@@ -23,6 +23,7 @@ import plotly.graph_objects as go
 from rsxml import Logger
 from shapely.geometry import MultiPolygon, Polygon
 
+from util.basemaps import DEFAULT_BASEMAP, BasemapStyle
 from util.binning import get_bins_info as _get_bins_info
 from util.color import DEFAULT_FCODE_COLOR_MAP, DEFAULT_OWNER_COLOR_MAP
 from util.html.table import render_table
@@ -493,12 +494,18 @@ def get_aoi_outline_trace(aoi_gdf, color='red', width=3, name='AOI'):
     return go.Scattermap(lon=lons, lat=lats, mode='lines', line={'color': color, 'width': width}, name=name, showlegend=True)
 
 
-def make_aoi_outline_map(aoi_gdf):
-    """Create a map with only the AOI outline."""
+def make_aoi_outline_map(aoi_gdf, *, basemap: BasemapStyle | str | dict = DEFAULT_BASEMAP):
+    """Create a map with only the AOI outline.
+
+    Args:
+        aoi_gdf: AOI GeoDataFrame with a ``geometry`` column.
+        basemap: Riverscapes basemap style (see :mod:`util.basemaps`); defaults
+            to Plotly's ``open-street-map`` preset.
+    """
     trace = get_aoi_outline_trace(aoi_gdf)
     zoom, center = get_zoom_and_center(aoi_gdf, "geometry")
     fig = go.Figure(trace)
-    fig.update_maps(style="open-street-map", center=center, zoom=zoom)
+    fig.update_maps(style=basemap, center=center, zoom=zoom)
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
     return fig
 
@@ -507,12 +514,18 @@ def make_map_with_aoi(
     gdf: gpd.GeoDataFrame,
     aoi_gdf: gpd.GeoDataFrame,
     color_discrete_map: dict[str, str] | None = None,
+    *,
+    basemap: BasemapStyle | str | dict = DEFAULT_BASEMAP,
 ):
     """make a map with the data and the AOI outlined
 
     Args:
         gdf (GeoDataFrame): containing DGO polygons and attributes
         aoi_gdf (GeoDataFrame): containing area of interest polygon
+        color_discrete_map (dict): optional explicit color map for the trace
+        basemap (BasemapStyle | str | dict): Riverscapes basemap style (see
+            :mod:`util.basemaps`); defaults to Plotly's ``open-street-map``
+            preset.
 
     Returns:
         plotly Figure: figure with dgos and aoi
@@ -545,7 +558,7 @@ def make_map_with_aoi(
     num_polygons = len(plot_gdf)
     if num_polygons > MAX_POLYGONS:
         log.warning(f"Too many polygons ({num_polygons} exceeds {MAX_POLYGONS}); falling back to AOI outline map.")
-        return make_aoi_outline_map(aoi_gdf)
+        return make_aoi_outline_map(aoi_gdf, basemap=basemap)
     # Check GeoJSON size
 
     geojson = plot_gdf.set_geometry("dgo_polygon_geom").__geo_interface__
@@ -553,7 +566,7 @@ def make_map_with_aoi(
 
     if geojson_bytes > MAX_GEOJSON_SIZE:
         log.warning(f"GeoJSON too large ({geojson_bytes} bytes exceeds {MAX_GEOJSON_SIZE}); falling back to AOI outline map.")
-        return make_aoi_outline_map(aoi_gdf)
+        return make_aoi_outline_map(aoi_gdf, basemap=basemap)
 
     # Calculate zoom and center
     # Use AOI for context if available, as it likely bounds the data
@@ -602,7 +615,7 @@ def make_map_with_aoi(
             lats.extend(list(y) + [None])
     fig.add_trace(go.Scattermap(lon=lons, lat=lats, mode='lines', line={'color': 'red', 'width': 3}, name='AOI', showlegend=True))
 
-    fig.update_maps(style="open-street-map")
+    fig.update_maps(style=basemap)
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=500)
 
     fig.update_layout(
@@ -654,16 +667,19 @@ def make_point_map_with_aoi(
     point_color: str = "#1f77b4",
     point_size: int = 8,
     opacity: float = 0.8,
+    basemap: BasemapStyle | str | dict = DEFAULT_BASEMAP,
 ) -> go.Figure:
     """Create a map with AOI outline and point markers from lat/lon columns.
     Inputs:
     point_gdf - geodataframe with point geometry
+    basemap - Riverscapes basemap style (see :mod:`util.basemaps`); defaults
+        to Plotly's ``open-street-map`` preset.
     """
     log = Logger("Make point map with AOI")
 
     if point_gdf.empty:
         log.warning("No point rows available; falling back to AOI outline map.")
-        return make_aoi_outline_map(aoi_gdf)
+        return make_aoi_outline_map(aoi_gdf, basemap=basemap)
 
     if point_gdf.geometry is None or point_gdf.geometry.name not in point_gdf.columns:
         raise ValueError("point_gdf must include an active geometry column.")
@@ -671,7 +687,7 @@ def make_point_map_with_aoi(
     points_wgs84 = point_gdf if point_gdf.crs and point_gdf.crs.to_epsg() == 4326 else point_gdf.to_crs(epsg=4326)
     if points_wgs84.empty:
         log.warning("No valid point geometries available after CRS handling; falling back to AOI outline map.")
-        return make_aoi_outline_map(aoi_gdf)
+        return make_aoi_outline_map(aoi_gdf, basemap=basemap)
 
     if aoi_gdf.crs is None:
         aoi_wgs84 = aoi_gdf.set_crs(epsg=4326)
@@ -713,7 +729,7 @@ def make_point_map_with_aoi(
     if not aoi_wgs84.empty:
         fig.add_trace(get_aoi_outline_trace(aoi_wgs84))
 
-    fig.update_maps(style="open-street-map", center=center, zoom=zoom)
+    fig.update_maps(style=basemap, center=center, zoom=zoom)
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         height=500,

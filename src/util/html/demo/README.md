@@ -50,7 +50,8 @@ uv run rs-report-demo-live
 This renders the demo, starts a local server (default
 <http://localhost:8877>), opens your browser, and **watches every shared
 input** — `base.css`, `macros.html`, `template.html`, `highlight_cards.css`,
-plus the demo's own `body.html` / `demo.css` / `sample_data.py`. Save a file
+plus the demo's own `body.html` / `demo.css` / `sample_data.py`, and the
+shared `util/basemaps.py` (the basemap enumeration the map uses). Save a file
 and the browser reloads itself within ~1 second. If a template error sneaks
 in, the traceback prints to the terminal and the server keeps serving the
 last good render.
@@ -171,6 +172,41 @@ from util.figures import make_map_with_aoi
 fig = make_map_with_aoi(gdf, aoi_gdf)   # DGOs colored by fcode + red AOI outline
 report.add_figure('map', fig)
 ```
+
+### Choosing a basemap
+
+Every shared map helper accepts a `basemap=` argument backed by the shared
+`BasemapStyle` enumeration in `util/basemaps.py` (`from util import
+BasemapStyle`). The values are URLs hosted on `tiles.riverscapes.net`, which
+Plotly's MapLibre subplot fetches at render time — no style JSON is embedded
+in the report:
+
+```python
+from util import BasemapStyle
+from util.figures import make_map_with_aoi
+
+# The DEMO uses topo; roads and satellite are one keyword away:
+fig = make_map_with_aoi(gdf, aoi_gdf, basemap=BasemapStyle.TOPO)
+# fig = make_map_with_aoi(gdf, aoi_gdf, basemap=BasemapStyle.ROADS)
+# fig = make_map_with_aoi(gdf, aoi_gdf, basemap=BasemapStyle.SATELLITE)
+```
+
+The three hosted styles:
+
+| Enum member | URL | Look |
+| --- | --- | --- |
+| `BasemapStyle.TOPO` | `/mapStyles/topo.json` | Hillshaded terrain, landcover, roads, labels |
+| `BasemapStyle.ROADS` | `/mapStyles/roads.json` | Road-focused with labels |
+| `BasemapStyle.SATELLITE` | `/mapStyles/satellite.json` | Aerial imagery |
+
+Because the styles are fetched by the browser (and by kaleido during static
+/PDF export) they need network access at view time. Map tiles, glyphs and
+sprites are also served from `tiles.riverscapes.net`, so this matches how the
+tiles already work. Editing a style on the server updates every report that
+uses it without a re-export.
+
+Reports that don't pass `basemap=` keep Plotly's `open-street-map` preset
+(unchanged behavior), so adopting the enumeration is purely opt-in.
 
 Other shared map helpers in `util/figures.py`: `make_aoi_outline_map` (fast
 fallback for huge datasets) and `make_point_map_with_aoi` (point features).

@@ -388,6 +388,11 @@ fig = go.Figure(data=[go.Bar(
       in interactive HTML <em>and</em> in static SVG/PDF export with no extra
       work — add it with <code>report.add_figure('map', fig)</code> like any
       other figure.</p>
+    <p>Every map helper takes a <code>basemap=</code> argument backed by the
+      shared <code>BasemapStyle</code> enumeration
+      (<code>from util import BasemapStyle</code>). Styles are fetched by
+      URL from tiles.riverscapes.net at render time; this map uses
+      <code>BasemapStyle.TOPO</code>.</p>
   </div>
 
   <h3>AOI map (Plotly choropleth, like Rivers Need Space)</h3>
@@ -396,22 +401,27 @@ fig = go.Figure(data=[go.Bar(
     <figcaption>Figure 4: Sample DGOs colored by flow type with the AOI outlined (built with make_map_with_aoi).</figcaption>
   </figure>
   <pre class="demo-snippet"><code>{% raw %}# figures.py — this is all it takes, exactly like rpt_rivers_need_space
+from util import BasemapStyle
 from util.figures import make_map_with_aoi
 
 def build_map(gdf, aoi_gdf):
     # gdf needs a geometry column named dgo_polygon_geom plus the columns
     # fcode_desc, ownership_desc and segment_area (metadata via define_fields)
-    return make_map_with_aoi(gdf, aoi_gdf)
+    return make_map_with_aoi(gdf, aoi_gdf, basemap=BasemapStyle.TOPO)
+
+# style choice is one keyword: TOPO (this demo) | ROADS | SATELLITE
+# make_map_with_aoi(gdf, aoi_gdf, basemap=BasemapStyle.ROADS)
+# make_map_with_aoi(gdf, aoi_gdf, basemap=BasemapStyle.SATELLITE)
 
 # main.py — maps are normal figures, so interactive &amp; static/PDF both work
-figures = {"map": make_map_with_aoi(gdf, aoi_gdf)}
+figures = {"map": make_map_with_aoi(gdf, aoi_gdf, basemap=BasemapStyle.TOPO)}
 for name, fig in figures.items():
     report.add_figure(name, fig){% endraw %}</code></pre>
   <p>Other shared map helpers: <code>make_aoi_outline_map</code> (fast fallback
     when the data is too large to embed) and <code>make_point_map_with_aoi</code>
-    (point features). For Leaflet maps, the
-    <code>util.folium.riverscapes</code> helpers apply the same brand defaults
-    to <code>folium.Map()</code>.</p>
+    (point features) — both accept the same <code>basemap=</code> argument. For
+    Leaflet maps, the <code>util.folium.riverscapes</code> helpers apply the
+    same brand defaults to <code>folium.Map()</code>.</p>
 </section>
 
 <!-- TABLES =============================================================== -->

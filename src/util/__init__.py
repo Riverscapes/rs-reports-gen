@@ -5,6 +5,7 @@ sets it as the default (see util.plotly.riverscapes).
 """
 
 from .attains_assessment import query_attains_assessments
+from .basemaps import BasemapStyle
 from .csvhelper import est_rows_for_csv_file
 from .math_functions import round_down, round_up
 from .plotly import riverscapes as _riverscapes_brand  # noqa: F401  # side effect: brand template as plotly default
@@ -25,6 +26,7 @@ from .rs_geo_helpers import (
 )
 
 __all__ = [
+    "BasemapStyle",
     "build_common_launch_args",
     "build_output_path",
     "build_report_parser",
