@@ -174,7 +174,7 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
                 name=gradient_field,
                 data_unit='',
                 dtype='REAL',
-                preferred_format='{:.2%}',
+                preferred_format='{:.2f}',
             )
 
     # Compose result dictionary
@@ -198,8 +198,8 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
         'stream_name': df.groupby("stream_name")["segment_area"].sum().idxmax(),
         'drainage_area': df['drainage_area'].max(),
         'stream_order': df['stream_order'].max(),
-        'min_gradient': (df['prim_channel_gradient'].min() * 100).to('dimensionless') if not df['prim_channel_gradient'].empty else float('nan'),
-        'max_gradient': (df['prim_channel_gradient'].max() * 100).to('dimensionless') if not df['prim_channel_gradient'].empty else float('nan'),
+        'min_gradient': df['prim_channel_gradient'].min() if not df['prim_channel_gradient'].empty else float('nan'),
+        'max_gradient': df['prim_channel_gradient'].max() if not df['prim_channel_gradient'].empty else float('nan'),
         'prim_channel_gradient': (df['elevation'].max() - df['elevation'].min()) / total_stream_length if total_stream_length != 0 else float('nan'),
         'planform_sinuosity': total_stream_length / total_centerline_length if total_centerline_length != 0 else float('nan') * total_stream_length.units / total_centerline_length.units,
         'confinement_ratio': confinement_ratio,
