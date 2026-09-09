@@ -24,7 +24,6 @@ from util.figures import (
     dens_road_rail,
     horizontal_bar_chart,
     make_map_with_aoi,
-    make_rs_area_by_featcode,
     make_rs_area_by_owner,
     metric_cards,
     project_id_list,
@@ -82,10 +81,10 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
 
     figures = {
         "map": make_map_with_aoi(gdf, aoi_df),
-        "owner_bar": bar_group_x_by_y(gdf, 'segment_area', ['ownership_desc', 'fcode_desc']),
         "owner_pie": make_rs_area_by_owner(gdf),
         "flow_bar": bar_group_x_by_y(gdf, 'stream_length', ['perennial_classification']),  # , fig_params={"color": "fcode_desc", "color_discrete_map": DEFAULT_FCODE_COLOR_MAP}),
-        "pie": make_rs_area_by_featcode(gdf),
+        "slope_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['prim_channel_gradient']),
+        "confinement_ratio_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['confinement_ratio']),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio']),
         "elevated_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['elevated_ratio']),
         "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop']),

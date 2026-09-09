@@ -30,33 +30,23 @@
   </figure>
 </section>
 
-<section id="inventory">
-    <h2>Riverscape Inventory</h2>
+<section id="characteristics">
+    <h2>Riverscape Characteristics</h2>
     <div class="section-context">
-        <p>Riverscapes occupy {{ cards['total_segment_area']['value'] }} of land in the selected area. The riverscape network (valley bottom 
+        <p>Total riverscape area for the reach is {{ cards['total_segment_area']['value'] }}. The riverscape network (valley bottom 
             centerline) is {{ cards['total_centerline_length']['value'] }} long, with an average valley bottom width of 
             {{ cards['integrated_valley_bottom_width']['value'] }}. The riverscape contains {{ cards['total_stream_length']['value'] }} 
             of streams. The average area per length of riverscape is {{ cards['integrated_valley_bottom_area_per_length']['value'] }}, 
             with minimum value of {{ cards['min_size']['value']}} and a maximum of {{ cards['max_size']['value']}}. The majority of the riverscape
-            ({{ cards['owner_area']['value'] }}) is owned/administered by {{ cards['ownership_desc']['value'] }}. The flow is predominantly classified as 
+            ({{ cards['owner_area']['value'] }}) is owned/administered by {{ cards['ownership_desc']['value'] }}. The flow is 
             {{ cards['perennial_classification']['value'] }}.
-        </p>
-    </div>
-    {{ render_metric_grid(cards, []) }}
-</section>
-
-<section id="characteristics">
-    <h2>Riverscape Characteristics</h2>
-    <div class="section-context">
-        <p>Within the selected area, {{ cards['stream_name']['value'] }} has an upstream contributing drainage area of {{ cards['drainage_area']['value'] }},
+            Within the selected area, {{ cards['stream_name']['value'] }} has an upstream contributing drainage area of {{ cards['drainage_area']['value'] }},
             and has a Strahler stream order of {{ cards['stream_order']['value'] }}.
             Channel gradient in the riverscape ranges from {{ cards['min_gradient']['value'] }} to {{ cards['max_gradient']['value'] }}, with an average of 
             {{ cards['prim_channel_gradient']['value'] }}.
             Channel sinuosity for the reach is {{ cards['planform_sinuosity']['value'] }}, and the confinement ratio is {{ cards['confinement_ratio']['value'] }}.
-            SOMETHING ABOUT VEG..?
         </p>
     </div>
-    {{ render_metric_grid(cards, []) }}
 </section>
 
 <section id="condition">
@@ -72,7 +62,6 @@
 
         </p>
     </div>
-    {{ render_metric_grid(cards, []) }}
 </section>
 
 <section id="supporting_info">
@@ -82,16 +71,47 @@
             and a list of the metrics that were used to assess riverscape conditions.
         </p>
     </div>
-    <h3>Riverscapes Inventory</h3>
+    <h3>Riverscapes Characteristics</h3>
     {{ render_metric_grid(cards, ['total_segment_area', 'total_centerline_length', 'integrated_valley_bottom_width', 'total_stream_length', 'integrated_valley_bottom_area_per_length']) }}
     <figure>
         {{ figures['owner_pie']|safe }}
     </figure>
     <table>
-    {{ tables['owners']|safe}}
+        {{ tables['owners']|safe}}
     </table>
     <figure>
         {{ figures['flow_bar']|safe }}
+    </figure>
+    <figure>
+        {{ figures['slope_bar']|safe }}
+    </figure>
+    <figure>
+        {{ figures['confinement_ratio_bar']|safe }}
+    </figure>
+    <h4>Condition</h4>
+    <figure>
+        {{ figures['low_lying_bin_bar']|safe }}
+    </figure>
+    <figure>
+        {{ figures['elevated_bin_bar']|safe }}
+    </figure>
+    <figure>
+        {{ figures['prop_riparian_bin_bar']|safe }}
+    </figure>
+    <figure>
+        {{ figures['floodplain_access_bar']|safe }}
+    </figure>
+    <figure>
+        {{ figures['prop_ag_dev']|safe }}
+    </figure>
+    <figure>
+        {{ figures['dens_road_rail']|safe }}
+    </figure>
+    <figure>
+        {{ figures['beaver_dam_capacity_historical_bar']|safe }}
+    </figure>
+    <figure>
+        {{ figures['beaver_dam_capacity_current_bar']|safe }}
     </figure>
 </section>
 
