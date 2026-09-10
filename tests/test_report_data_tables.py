@@ -329,6 +329,74 @@ def test_stream_names_tables_render_via_shared_macro():
         _restore_meta(saved_meta, saved_sys)
 
 
+def test_stream_names_rank_column_renders_without_decimals_or_nan_footer_text():
+    from reports.rpt_stream_names.main import build_top_names_by_path_count_table, define_fields
+
+    saved_meta, saved_sys = _snapshot_meta()
+    try:
+        meta = RSFieldMeta()
+        meta.clear()
+        define_fields("SI")
+        full_df = pd.DataFrame(
+            {
+                "stream_name": ["Bear", "Bear", "Fork", "Fork", "<Unnamed>", "<Unnamed>"],
+                "level_path_count": [1, 1, 1, 1, 1, 1],
+                "total_riverscape_length": [10.0, 5.0, 3.0, 7.0, 4.0, 1.0],
+                "total_channel_length": [20.0, 10.0, 6.0, 14.0, 8.0, 2.0],
+            }
+        )
+        named_df = full_df[full_df["stream_name"] != "<Unnamed>"]
+
+        out = build_top_names_by_path_count_table(full_df, named_df, top_n=2)
+        tbl = _table_html(out)
+
+        assert ">Rank</th>" in tbl
+        assert ">1</td>" in tbl
+        assert ">2</td>" in tbl
+        assert "1.00" not in tbl
+
+        footer_html = tbl.split("<tfoot>")[1].split("</tfoot>")[0]
+        assert "nan" not in footer_html.lower()
+    finally:
+        _restore_meta(saved_meta, saved_sys)
+
+
+def test_stream_names_imperial_footer_totals_match_body_display_units():
+    from reports.rpt_stream_names.main import build_top_names_by_path_count_table, define_fields
+
+    saved_meta, saved_sys = _snapshot_meta()
+    try:
+        meta = RSFieldMeta()
+        meta.clear()
+        define_fields("imperial")
+        full_df = pd.DataFrame(
+            {
+                "stream_name": ["Bear", "Bear", "Fork", "Fork", "<Unnamed>", "<Unnamed>"],
+                "level_path_count": [1, 1, 1, 1, 1, 1],
+                "total_riverscape_length": [1609.344, 804.672, 482.8032, 1126.5408, 321.8688, 160.9344],
+                "total_channel_length": [1609.344, 804.672, 482.8032, 1126.5408, 321.8688, 160.9344],
+            }
+        )
+        named_df = full_df[full_df["stream_name"] != "<Unnamed>"]
+
+        out = build_top_names_by_path_count_table(full_df, named_df, top_n=2)
+        tbl = _table_html(out)
+
+        body_html = tbl.split("<tbody>")[1].split("</tbody>")[0]
+        footer_html = tbl.split("<tfoot>")[1].split("</tfoot>")[0]
+
+        body_rows = [re.findall(r"<td[^>]*>(.*?)</td>", row, flags=re.S) for row in re.findall(r"<tr>(.*?)</tr>", body_html, flags=re.S)]
+        footer_rows = [re.findall(r"<td[^>]*>(.*?)</td>", row, flags=re.S) for row in re.findall(r"<tr>(.*?)</tr>", footer_html, flags=re.S)]
+
+        body_total = sum(float(cells[-1].replace(",", "")) for cells in body_rows if cells)
+        top_n_footer_total = float(footer_rows[0][-1].replace(",", ""))
+
+        assert "(mi)" in tbl
+        assert abs(top_n_footer_total - body_total) < 0.05
+    finally:
+        _restore_meta(saved_meta, saved_sys)
+
+
 def test_no_report_module_calls_df_to_html():
     """Scan report sources: the ad-hoc renderer must not be imported anymore."""
     import pathlib

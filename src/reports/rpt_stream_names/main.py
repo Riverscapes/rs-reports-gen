@@ -85,6 +85,9 @@ def define_fields(unit_system: str = "SI") -> None:
     # Set km display; RSFieldMeta will auto-convert to miles when unit_system is imperial
     meta.set_display_unit("total_riverscape_length", "kilometer")
     meta.set_display_unit("total_channel_length", "kilometer")
+    # Pin imperial display explicitly to avoid ambiguity in downstream formatters.
+    meta.set_display_unit_imperial("total_riverscape_length", "mile")
+    meta.set_display_unit_imperial("total_channel_length", "mile")
 
     meta.add_field_meta(
         name="level_path_count",

@@ -185,8 +185,7 @@ def prepare_table_data(
         display_df = display_df.drop(columns=exclude_columns, errors="ignore")
 
     # Merge footer rows into the frame before applying units so body and footer
-    # rows run through the exact same unit-conversion and formatting pipeline.
-    # Pre-formatted row-lists skip this step.
+    # share one conversion pipeline and therefore one display-unit choice.
     footer_df = _align_footer(footer, df_columns=list(display_df.columns), dtypes=display_df.dtypes)
     preformatted_footer: list[list[str]] | None = None
     if footer_df is None and isinstance(footer, (list, tuple)):
@@ -257,14 +256,28 @@ def prepare_table_data(
                     class_tokens.append(dim_name)
 
         # Always convert to magnitudes for dtype checks (Pint dtypes hide the
-        # real numeric kind).
-        col_magnitude = display_all[column].apply(_to_magnitude)
+        # real numeric kind). Probe body rows first so footer placeholders do
+        # not change column formatting. Use metadata dtype hints when present.
+        col_magnitude_all = display_all[column].apply(_to_magnitude)
+        if footer_start > 0:
+            col_magnitude_probe = col_magnitude_all.iloc[:footer_start]
+            if col_magnitude_probe.isna().all():
+                col_magnitude_probe = col_magnitude_all
+        else:
+            col_magnitude_probe = col_magnitude_all
 
-        is_integer_type = pd.api.types.is_integer_dtype(col_magnitude)
-        is_decimal_type = pd.api.types.is_float_dtype(col_magnitude)
-        is_bool_type = pd.api.types.is_bool_dtype(col_magnitude)
-        is_datetime_type = pd.api.types.is_datetime64_any_dtype(col_magnitude)
-        is_all_nan = col_magnitude.isna().all()
+        field_meta = meta.get_field_meta(column, layer_id)
+        dtype_hint = str(getattr(field_meta, "dtype", "") or "").upper()
+        is_integer_hint = dtype_hint in {"INT", "INTEGER", "SMALLINT", "BIGINT", "MEDIUMINT", "TINYINT"}
+        is_decimal_hint = dtype_hint in {"FLOAT", "DOUBLE", "DECIMAL", "REAL", "NUMERIC", "NUMBER"}
+        is_bool_hint = dtype_hint in {"BOOLEAN", "BOOL"}
+        is_datetime_hint = dtype_hint in {"DATE", "DATETIME", "TIMESTAMP"}
+
+        is_integer_type = is_integer_hint or pd.api.types.is_integer_dtype(col_magnitude_probe)
+        is_decimal_type = is_decimal_hint or (not is_integer_type and pd.api.types.is_float_dtype(col_magnitude_probe))
+        is_bool_type = is_bool_hint or pd.api.types.is_bool_dtype(col_magnitude_probe)
+        is_datetime_type = is_datetime_hint or pd.api.types.is_datetime64_any_dtype(col_magnitude_probe)
+        is_all_nan = col_magnitude_all.isna().all()
 
         if is_all_nan:
             formatters[column] = lambda x: na_rep
@@ -276,10 +289,18 @@ def prepare_table_data(
             formatters[column] = _format_datetime
         elif is_integer_type or is_decimal_type:
             class_tokens.append("numeric")
-            display_all[column] = col_magnitude  # drop Pint wrappers for formatting
+            display_all[column] = col_magnitude_all  # drop Pint wrappers for formatting
 
             def _get_scalar_formatter(col_name: str, decimals: int) -> Callable[[Any], str]:
-                return lambda x: meta.format_scalar(col_name, x, layer_id=layer_id, include_units=False, decimals=decimals)
+                def _fmt(value: Any) -> str:
+                    try:
+                        if pd.isna(value):
+                            return na_rep
+                    except Exception:  # noqa: BLE001 - non-scalar/unsupported missing checks
+                        pass
+                    return meta.format_scalar(col_name, value, layer_id=layer_id, include_units=False, decimals=decimals)
+
+                return _fmt
 
             if is_integer_type:
                 class_tokens.append("integer")
