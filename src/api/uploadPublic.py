@@ -27,7 +27,7 @@ def upload_outputs(
     outputs_dir: str | Path | None = None,
     index_json: str | Path | None = None,
     report_id: str | None = None,
-):
+) -> str:
     """Upload a public project report to the API.
 
     Args:
@@ -35,6 +35,10 @@ def upload_outputs(
         outputs_dir (str, optional): Path to the directory containing output files. Defaults to None.
         index_json (str, optional): Path to the index JSON file. Defaults to None.
         report_id (str, optional): ID of the report to upload files to. Defaults to None.
+
+    Returns:
+        str: The report ID the outputs were uploaded to (created via the API
+            when ``report_id`` is not supplied).
     """
 
     log = Logger("Upload Outputs")
@@ -42,7 +46,12 @@ def upload_outputs(
 
     if not report_id:
         log.info("No report ID supplied")
-        create_new = questionary.confirm(message='Create a new report?', default=True).ask()
+        if index_json:
+            # An index JSON was supplied, which can only mean "create a new
+            # report" — skip the interactive question entirely (automation).
+            create_new = True
+        else:
+            create_new = questionary.confirm(message='Create a new report?', default=True).ask()
         if not create_new:
             report_id = questionary.text(message="Enter the report ID").ask()
             if not report_id:
@@ -130,6 +139,7 @@ def upload_outputs(
     if not start_res or "errors" in start_res:
         raise RuntimeError(f"API StartUpload mutation failed: {start_res}")
     log.info("API StartUpload mutation successful")
+    return report_id
 
 
 def main() -> None:

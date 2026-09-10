@@ -49,7 +49,7 @@
   --page-width: 66rem;
   --page-gutter: clamp(1.25rem, 2vw + 1rem, 2.5rem);
   --radius: 8px;
-  --body-font-size-print: 11pt;
+  --body-font-size-print: 11pt;  /* kept for backwards-compat; unused by print rules. */
 
   /* Color */
   --header-color: #003166;
@@ -754,7 +754,12 @@ article.report-meta {
 }
 
 /* ==========================================================================
-   PRINT (WeasyPrint → PDF)
+   PRINT (Chrome print-to-PDF / WeasyPrint fallback)
+   --------------------------------------------------------------------------
+   Print-specific rules shared by every RS report. The PDF now renders via a
+   real browser engine, so these rules only control pagination and ink-savings
+   (breaks, table header repetition); visuals come from the screen rules so
+   the PDF matches the HTML.
    ========================================================================== */
 @media print {
 
@@ -768,32 +773,22 @@ article.report-meta {
     margin: 0.5in 0;
   }
 
-  :root {
-    --page-width: 66rem;
-    --page-gutter: 0;
-  }
-
   body {
     background: #fff !important;
-    color: #000;
-    font-size: var(--body-font-size-print);
-    font-family: var(--font-body) !important;
-    line-height: 1.6;
+    color: var(--text-color);
   }
 
   .report-inner {
-    padding: 0.35in;
     box-shadow: none;
   }
 
-  a {
-    color: inherit;
-    text-decoration: underline;
-  }
-
-  a[href^="http"]::after {
-    content: " (" attr(href) ")";
-    font-size: 0.85em;
+  /* Pico's `.grid` only becomes multi-column at `min-width: 768px`. In print
+     the page area (Letter minus margins) is ~720px, so that breakpoint never
+     fires and every `.grid` would stack. A PDF page is always "wide", so pin
+     the desktop column behavior unconditionally:
+     (mirrors Pico's own >=768px rule). */
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
   }
 
   .pdf-hide {
@@ -847,103 +842,14 @@ article.report-meta {
     page-break-inside: avoid;
   }
 
-  /* Heading sizes for print (compact) ----------------------------------- */
-  h1 { font-size: 1.4rem; }
-  h2 { font-size: 1.15rem; }
-  h3 { font-size: 1rem; }
-  h4, h5, h6 { font-size: 0.9rem; }
-
-  h1, h2 {
-    border-bottom: 1px solid var(--border-bg);
-    margin-bottom: var(--space-3);
-  }
-
-  /* Header bar ---------------------------------------------------------- */
-  .header-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 650px;
-    gap: 1.55rem;
-    flex-wrap: nowrap;
-  }
-
-  .meta-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin: 0;
-    white-space: nowrap;
-  }
-
-  .meta-label {
-    font-weight: 700;
-  }
-
-  .meta-item time {
-    font-weight: 500;
-  }
-
-  /* Metrics (four tiles per row) ---------------------------------------- */
-  .metric-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    align-items: stretch;
-    gap: 0.2in;
-    margin: 0.15in 0 0.35in 0;
-    padding: 0;
-  }
-
+  /* Metrics keep the screen responsive grid (auto-fit), so the PDF matches
+     the HTML; only forbid tiles splitting across pages. */
   .metric-grid > .metric {
-    flex: 1 1 23%;
-    max-width: 23%;
-    min-width: 150px;
-    min-height: 2.1in;
-    margin: 0;
-    padding: 0.16in 0.18in 0.14in;
-    background: #ffffff;
-    border: 1px solid var(--muted-border);
-    border-top: 3px solid var(--metric-accent);
-    border-radius: 10px;
-    box-shadow: none;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  .metric dt {
-    line-height: 1.25;
-    font-size: 0.68rem;
-    min-height: 0.62in;
-    letter-spacing: 0.04em;
-  }
-
-  .metric dd {
-    margin: 0;
-    line-height: 1.35;
-    font-size: 9pt;
-  }
-
-  .metric .metric-number {
-    font-size: 1.3rem;
-    margin: 0.04in 0 0.06in;
-  }
-
-  .metric .metric-details {
-    margin-top: 0.04in;
-    padding-top: 0.04in;
-    border-top: 1px solid var(--metric-divider);
-  }
-
   /* Tables -------------------------------------------------------------- */
-  table,
-  th,
-  td {
-    line-height: 1.2 !important;
-  }
-
   table,
   table.dataframe {
     break-inside: avoid;
@@ -958,52 +864,11 @@ article.report-meta {
     page-break-inside: avoid;
   }
 
-  .report-figure {
-    width: 100%;
-    text-align: center;
-  }
-
-  .report-figure,
-  .report-figure img,
-  .report-figure svg {
-    width: 75% !important;
-    max-width: 75% !important;
-    margin: 0 auto;
-    height: auto;
-  }
-
-  .report-figure figcaption {
-    margin-top: var(--space-2);
-    font-size: var(--text-sm);
-    color: var(--metric-number);
-  }
-
-  /* Floated figures keep a sensible size in print: the global figure rule
-     above centers at 75%, which would defeat the float. */
+  /* Figures keep their natural (screen) size in print; only the figure rows
+     float utilities carry their own print sizing. */
   figure.float-left, figure.float-right,
   .report-figure.float-left, .report-figure.float-right {
-    width: 40% !important;
-    max-width: 40% !important;
     margin-top: 0.1in;
-    margin-bottom: var(--space-4);
-    text-align: left;
-  }
-
-  figure.float-left, .report-figure.float-left {
-    margin-right: var(--space-5) !important;
-    margin-left: 0 !important;
-  }
-
-  figure.float-right, .report-figure.float-right {
-    margin-left: var(--space-5) !important;
-    margin-right: 0 !important;
-  }
-
-  .report-figure.float-left img, .report-figure.float-left svg,
-  .report-figure.float-right img, .report-figure.float-right svg {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
   }
 
   /* Footer -------------------------------------------------------------- */

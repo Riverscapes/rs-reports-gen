@@ -582,8 +582,8 @@ render_table(df, caption="Flow type summary", footer=totals){% endraw %}</code><
     <code>&lt;figure&gt;</code>, so it floats with the diagram instead of sliding
     underneath it. Floats work identically with tables, images and cards; nothing
     about them is figure-specific.</p>
-  <p>In print (PDF) the same float is kept at a bounded 40% width so
-    WeasyPrint wraps the text the same way the browser does.</p>
+  <p>In print (PDF) floats behave exactly as in the browser — the shared
+    <code>base.css</code> rules apply unchanged.</p>
   <div class="clearfix"></div>
 
   <h3>Table floated left</h3>

@@ -23,7 +23,7 @@ uv run rs-report-demo
 # or the repo-local wrapper
 scripts/build_demo.sh
 
-# fast iteration while tweaking CSS (skips kaleido/Chrome and WeasyPrint)
+# fast iteration while tweaking CSS (skips kaleido/Chrome and the PDF)
 uv run rs-report-demo --html-only
 
 # choose where the output lands (default: ./demo_output)
@@ -34,10 +34,51 @@ Outputs (written to the output dir):
 
 - `report.html` — interactive (live Plotly charts + map)
 - `report_static.html` — static (SVG figures swapped in; needs `kaleido` + Chrome)
-- `report_static.pdf` — PDF from the static HTML (needs `weasyprint`)
+- `report_static.pdf` — PDF from the static HTML
 
 Open `report.html` in a browser to inspect layout; open `report_static.pdf`
 to check pagination and print styles.
+
+## How the PDF is made (Chrome engine)
+
+The PDF is rendered from `report_static.html` by **headless Chrome/Chromium
+print-to-PDF** (`util/pdf/create_pdf.py`) — the same CSS engine the browser
+uses on screen. That is what keeps the PDF identical to the HTML for every
+section and control: CSS Grid (Pico's `.grid`, the metric cards), Flexbox,
+custom properties, webfonts and `@media print` all behave exactly as in the
+browser.
+
+The browser binary is found, in order: the `CHROME_PATH` (or `BROWSER_PATH`)
+env var → `chrome`/`chromium`/`msedge` on `PATH` → standard macOS app paths
+→ Linux/Windows install dirs → Playwright-managed Chromium. Set
+`CHROME_PATH` to pin a specific binary (e.g. `chrome-headless-shell` in CI).
+
+If no browser is found the build **falls back to WeasyPrint** and logs a
+warning. WeasyPrint does not implement CSS Grid, so grid-based layouts stack
+vertically in the PDF instead of matching the HTML — the fallback exists
+only so PDF generation never hard-fails.
+
+Useful env vars:
+
+- `CHROME_PATH` — pin the browser executable.
+- `CHROME_NO_SANDBOX=1` — add `--no-sandbox` for restricted sandboxes/
+  containers (also applied automatically when running as root, e.g. inside
+  Docker, or when `/.dockerenv`/`/run/.containerenv` exists).
+- `engine="weasyprint"` on `make_pdf_from_html(...)` forces the old engine.
+
+### Docker / headless Linux
+
+Works out of the box on headless Linux images (like the cybercastor QGIS
+container): `google-chrome-stable` is found on `PATH`, and the engine
+auto-adds `--no-sandbox` (root + container detection) plus
+`--disable-dev-shm-usage` (Docker's default 64 MB `/dev/shm` crashes Chrome
+renderers on large reports). No Dockerfile changes are required — the same
+Chrome binary the image already uses for kaleido figure export is reused
+here. If a `docker run` still shows renderer trouble, pass `--shm-size=1g`
+to `docker run` as belt-and-belt. Fonts (Karla/Roboto) are fetched from
+Google Fonts at render time, so the box needs egress to
+`fonts.googleapis.com` during a build — the same network the basemap tiles
+already use.
 
 ## The iteration loop
 
@@ -214,13 +255,51 @@ If a report needs a Leaflet map instead, the `util/folium/riverscapes`
 helpers apply the same brand defaults to `folium.Map()` — but unlike Plotly
 figures those are interactive-only and would need a static fallback.
 
+## Uploading the demo as a public report
+
+Once a build looks right, you can publish it to the Riverscapes data
+exchange as a **public** report (created under the `GLOBAL` user, so anyone
+can view it):
+
+```bash
+uv run python scripts/upload_demo.py                     # build + upload to STAGING
+uv run python scripts/upload_demo.py --stage PRODUCTION  # publish to the live site
+```
+
+The script builds the demo fresh, writes the tiny `index.json` the API needs
+(`name` / `description` / `reportTypeId`), calls `src/api/uploadPublic.py`'s
+`upload_outputs` in-process, and prints the public URL when done. It
+authenticates via a browser tab (Auth0) — finish the login in the tab it opens
+(pass `--api-key` for machine auth instead).
+
+Useful flags (all also overridable as env vars, see the script header):
+
+- `--skip-build` — reuse the existing `demo_output/` instead of re-rendering
+- `--html-only` — build only `report.html` (fast; no static/PDF)
+- `--report-id UUID` — upload to an *existing* report instead of creating one
+- `--report-type-id ID` — the API report type to create under (must be
+  registered on the target stage; defaults to `custom-rs-metrics`)
+- `--dry-run` — render + write `index.json` and print the upload plan
+  without hitting the API
+
+Example: publish to the live site without rebuilding:
+
+```bash
+uv run python scripts/upload_demo.py --stage PRODUCTION --skip-build
+```
+
 ## Troubleshooting
 
 - **`Static render failed (need kaleido + Chrome)`** — the SVG/PNG export of
   figures needs Chrome. Run once: `uv run kaleido get_chrome`.
-- **`WeasyPrint could not import some external libraries`** — you need the
-  native `pango` + `gobject` libs. Install with `brew install pango` and
-  re-run. (The demo handles this gracefully and skips just the PDF output.)
-- **PDF fonts look wrong** — WeasyPrint needs local fonts; the Google Fonts
-  fetch happens at render time. Run with a network connection once so fonts
-  cache locally.
+- **PDF rendered with WeasyPrint engine (warning log)** — no Chrome binary was
+  found; grid layouts will stack. Install Chrome, or point `CHROME_PATH` at
+  any Chromium-family executable (`google-chrome`, `chromium`, `msedge`, …).
+- **Chrome PDF hangs / `sandbox initialization failed`** — the print-to-PDF
+  runs in a restricted sandbox or container. Set `CHROME_NO_SANDBOX=1`.
+- **`WeasyPrint could not import some external libraries`** — only relevant when
+  the WeasyPrint fallback runs; it needs the native `pango` + `gobject` libs
+  (`brew install pango`). With a Chrome binary installed this path is unused.
+- **PDF fonts look wrong** — the webfonts (Karla/Roboto/JetBrains Mono) are
+  fetched from Google Fonts at render time. Run once with a network
+  connection so the browser caches them locally.
