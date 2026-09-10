@@ -1109,7 +1109,7 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
         'total_segment_area': total_segment_area.to('kilometer ** 2'),  # acres and hectares will be interchangeable based on unit system
         'total_centerline_length': total_centerline_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
         'total_stream_length': total_stream_length.to('kilometer'),  # miles and km will be interchangeable based on unit system
-        # Here we specify yards (because yards converts to meters but meters converts to feet and we want yards for the imperial system)
+        # We've had issues here because yards converts to meters but meters converts to feet and we wanted yards for the imperial system
         'integrated_valley_bottom_width': integrated_valley_bottom_width.to('m'),
     }
     return stats
