@@ -91,17 +91,13 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
         "floodplain_access_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['fldpln_access'], show_legend=False),
         # "land_use_intensity_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['land_use_intens']),
         "prop_ag_dev": prop_ag_dev(gdf),
-        "prop_ag_dev_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_agriculture_prop', 'lf_developed_prop']),
         "dens_road_rail": dens_road_rail(gdf),
-        "dens_road_rail_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['road_dens', 'rail_dens'], {"orientation": 'h'}),
         "beaver_dam_capacity_historical_bar": horizontal_bar_chart(gdf, "centerline_length", ["brat_hist_capacity"]),
         "beaver_dam_capacity_current_bar": horizontal_bar_chart(gdf, "centerline_length", ["brat_capacity"]),
         # "riparian_condition_bin_bar": bar_total_x_by_ybins(gdf, "segment_area", ["riparian_condition"]),
     }
     tables = {
-        "river_names": table_total_x_by_y(gdf, 'stream_length', ['stream_name']),
         "owners": table_total_x_by_y(gdf, 'segment_area', ['ownership', 'ownership_desc']),
-        "flow_type": table_total_x_by_y(gdf, 'stream_length', ['fcode_desc']),
     }
     appendices = {
         "project_ids": project_id_list(gdf),
