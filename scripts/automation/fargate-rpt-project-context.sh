@@ -53,7 +53,7 @@ try() {
   fi
 
   echo "======================  Running rpt-rivers-need-space ======================="
-  python -m reports.rpt_rivers_project_context.main \
+  python -m reports.rpt_project_context.main \
     "$OUTPUTS_DIR" \
     "$INPUTS_DIR/input.geojson" \
     "$REPORT_NAME" \
