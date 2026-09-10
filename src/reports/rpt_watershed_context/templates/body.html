@@ -1,0 +1,90 @@
+<!-- This is simply everything that exists inside the report's body 
+ 
+  refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
+-->
+{% from 'macros.html' import render_metric_grid %}
+
+<section>
+  <div class="section-context">
+    <p>The Watershed Report summarizes key characteristics and metrics of the watershed within a specific area of
+      interest.</p>
+  </div>
+  {% if error_message %}
+  <div class="error-message">
+    <p>{{ error_message.text }}</p>
+  </div>
+  {% endif %}
+</section>
+
+{% if not error_message %}
+<section id="watershed">
+  <h1>Watershed Context</h1>
+</section>
+
+<section id="map-of-polygons">
+  <h2>Report Area of Interest</h2>
+  <div class="section-context">
+    <p>The following map shows the area of interest for which the report was generated.</p>
+  </div>
+  <figure class="report-figure map">
+    <div>{{ figures['map']|safe }}</div>
+  </figure>
+</section>
+
+<section id="metrics">
+  {{ render_metric_grid(cards, ["sum_hucareasqkm","countdistinct_huc"]) }}
+
+  <h3>States</h3>
+  The selected watersheds are found within:
+  <ul>
+    {% for state in states %}
+    <li>{{ state }}</li>
+    {% endfor %}
+  </ul>
+
+</section>
+
+<section id="HUC">
+  <h2>Ownership</h2>
+  <figure class="report-figure">
+    {{ tables['ownership'] | safe }}
+  </figure>
+</section>
+
+<section id="hydrography">
+  <h2>Hydrographic Network</h2>
+  <figure class="report-figure">
+    {{ tables['hydrography'] | safe }}
+  </figure>
+  {{ render_metric_grid(cards, ["sum_flowlinefeaturecount", "avg_segment_length"]) }}
+</section>
+
+<section id="waterbodies">
+  <h2>Waterbodies</h2>
+  <figure class="report-figure">
+    {{tables['waterbodies']|safe}}
+  </figure>
+</section>
+
+<section id="climate">
+  <h2>Climate - PRISM Mean Annual Precipitation</h2>
+  <p>Data are derived from <a href="https://prism.oregonstate.edu/normals/">PRISM 30 year normal precipitation</a>
+    raster dataset with 800 meter spatial resolution. These statistics
+    illustrate the range of average annual precipitation values over the spatial extent of the subject area of interest.
+  </p>
+  {{ render_metric_grid(cards, ["mean_precip_cell_value", "min_precipminimum", "max_precipmaximum"]) }}
+</section>
+
+<section id="morphometrics">
+  <h2>Morphometric Analyses</h2>
+  <h3>Basin Elevation</h3>
+  {{ render_metric_grid(cards, ["min_demminimum", "max_demmaximum", "total_relief", "mean_elevation"]) }}
+  <h3>Slope Analyses</h3>
+  {{ render_metric_grid(cards, ["mean_slope", "min_slopeminimum", "max_slopemaximum"]) }}
+  <h3>Drainage Densities</h3>
+  {{ render_metric_grid(cards, ["drainage_density_perennial", "drainage_density_non_perennial", "drainage_density_all"])
+  }}
+  <h3>Morphometrics</h3>
+  {{ render_metric_grid(cards, ["circularityratio","elongationratio","formfactor","reliefratio"]) }}
+</section>
+{% endif %}
