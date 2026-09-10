@@ -72,7 +72,11 @@ Subtle, secondary emphasis so it does not compete with primary result cards.
 	clear: both;
 }
 
-@media (min-width: 980px) {
+/* The wide (float-right) layout applies from 700px up. The Letter page
+   content area is ~797px, below this old 980px breakpoint, so the PDF fell
+   into the stacked "mobile" layout; 700px keeps print on the desktop
+   treatment while phones (<700px) still stack. */
+@media (min-width: 700px) {
 	#user-guess {
 		float: right;
 		width: min(34ch, 34%);
@@ -80,7 +84,7 @@ Subtle, secondary emphasis so it does not compete with primary result cards.
 	}
 }
 
-@media (max-width: 979px) {
+@media (max-width: 699px) {
 	#user-guess {
 		float: none;
 		width: auto;

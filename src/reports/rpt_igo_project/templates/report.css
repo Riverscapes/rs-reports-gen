@@ -30,7 +30,10 @@
   margin: 0;
 }
 
-@media (max-width: 1024px) {
+/* 2-column treatment only for narrow viewports. The Letter page content
+   area is ~797px, so the old 1024px breakpoint wrongly stacked the download
+   grid in the PDF; 760px keeps print on the 4-column desktop layout. */
+@media (max-width: 760px) {
   #download-contents .download-contents-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

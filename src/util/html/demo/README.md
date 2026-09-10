@@ -58,6 +58,22 @@ warning. WeasyPrint does not implement CSS Grid, so grid-based layouts stack
 vertically in the PDF instead of matching the HTML — the fallback exists
 only so PDF generation never hard-fails.
 
+**Proportional print scaling.** A Letter page only has ~797px of content
+width, but the web design is 66rem (1056px) wide. Laid out at full font
+size in that narrower column, the PDF would wrap differently and look
+"zoomed" compared to the HTML. Instead, `base.css`'s `@media print` drops
+the root font size to `12.07px` (16px × 796.8/1056 ≈ 0.7545). Because the
+whole design is rem/token-driven, that single change scales every shared
+component — type, spacing, cards, `ch` units — uniformly, so the PDF is a
+proportionally identical miniature of the browser view (same line wraps,
+same card proportions). Grid `minmax()` minimums in the shared CSS are
+specified in `rem` (not `px`) so they scale too. If you change the page
+size or margins, recompute that ratio.
+
+Report-specific responsive breakpoints must stay **below the print content
+width (~797px)** or the PDF falls into the mobile layout (e.g.
+`rpt_stream_names` floats its callout from 700px up, not 980px).
+
 Useful env vars:
 
 - `CHROME_PATH` — pin the browser executable.

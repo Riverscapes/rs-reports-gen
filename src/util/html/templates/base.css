@@ -448,7 +448,7 @@ figure.float-left, figure.float-right,
    row always resolve to the same structure. */
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(13.125rem, 1fr));
   gap: var(--space-4);
   margin: var(--space-6) 0;
   padding: 0;
@@ -778,15 +778,30 @@ article.report-meta {
     color: var(--text-color);
   }
 
+  /* Uniform print scale — the PDF is a miniature of the browser view.
+     The web design is 66rem (1056px) wide; the Letter page content area is
+     612pt − 2×0.1in margins = 597.6pt = 796.8px. Ratio 796.8/1056 ≈ 0.7545,
+     so the 16px root font becomes 12.07px. Every rem-based token (type,
+     spacing, cards, ch units) scales uniformly and lines wrap at the same
+     em-per-line ratio as the web column:
+       web: (1056 − 2·37.5) / 16   ≈ 61.3 em/line
+       pdf: (796.8 − 2·31.9) / 12.07 ≈ 60.7 em/line
+     (The old print CSS instead re-skin'd individual properties; the uniform
+     scale keeps every section and control proportionally identical.) */
+  html {
+    font-size: 12.07px;
+  }
+
   .report-inner {
     box-shadow: none;
   }
 
-  /* Pico's `.grid` only becomes multi-column at `min-width: 768px`. In print
-     the page area (Letter minus margins) is ~720px, so that breakpoint never
-     fires and every `.grid` would stack. A PDF page is always "wide", so pin
-     the desktop column behavior unconditionally:
-     (mirrors Pico's own >=768px rule). */
+  /* Pico's `.grid` only becomes multi-column at `min-width: 768px`. The print
+     page area hovers right around that breakpoint (797px with the default
+     0.1in margins, 720px with wider margins), so the width can dip below it
+     depending on `page_margin`. A PDF page is always "wide", so pin the
+     desktop column behavior unconditionally (mirrors Pico's own >=768px
+     rule). */
   .grid {
     grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
   }
