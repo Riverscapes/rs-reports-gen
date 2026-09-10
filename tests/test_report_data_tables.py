@@ -76,6 +76,45 @@ def test_table_total_x_by_y_without_footer_has_no_tfoot():
         _restore_meta(saved_meta, saved_sys)
 
 
+def test_bar_total_x_by_ybins_can_hide_legend():
+    from util.figures import bar_total_x_by_ybins
+
+    meta = RSFieldMeta()
+    meta.clear()
+    meta.add_field_meta(name="low_lying_ratio", data_unit="percent", dtype="REAL")
+    meta.add_field_meta(name="segment_area", data_unit="meter ** 2", dtype="REAL")
+
+    df = pd.DataFrame(
+        {
+            "low_lying_ratio": [0.1, 0.4, 0.7, 0.9],
+            "segment_area": [10.0, 20.0, 30.0, 40.0],
+        }
+    )
+    fig = bar_total_x_by_ybins(df, "segment_area", ["low_lying_ratio"], show_legend=False)
+    assert fig.layout.showlegend is False
+
+
+def test_table_total_x_by_y_uses_large_value_unit_override():
+    from util.figures import table_total_x_by_y
+
+    saved_meta, saved_sys = _snapshot_meta()
+    try:
+        meta = RSFieldMeta()
+        meta.clear()
+        meta.add_field_meta(name="centerline_length", data_unit="meter", display_unit="kilometer", dtype="REAL")
+        df = pd.DataFrame(
+            {
+                "ownership": ["Private", "State", "Private", "State"],
+                "centerline_length": [12000.0, 5000.0, 8000.0, 15000.0],
+            }
+        )
+        out = table_total_x_by_y(df, "centerline_length", ["ownership"], with_footer=True)
+        tbl = _table_html(out)
+        assert "(km)" in tbl
+    finally:
+        _restore_meta(saved_meta, saved_sys)
+
+
 # ---------------------------------------------------------------------------
 # rpt_watershed_summary: hydrography / waterbodies / ownership tables
 # ---------------------------------------------------------------------------

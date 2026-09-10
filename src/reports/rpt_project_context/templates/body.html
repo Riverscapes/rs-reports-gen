@@ -66,53 +66,168 @@
 
 <section id="supporting_info">
     <h2>Supporting Information</h2>
+
+    <h3>Riverscapes Characteristics</h3>
     <div class="section-context">
-        <p>Additional information is provided in the appendices, including a list of the riverscape segments/reaches (DGOs) that were selected for this report, 
-            and a list of the metrics that were used to assess riverscape conditions.
+        <p>The following figures present the data used to for the information on riverscape characteristics, 
+            with a brief description of how each metric is calculated.
         </p>
     </div>
-    <h3>Riverscapes Characteristics</h3>
+    <div class="metric-grid">
     {{ render_metric_grid(cards, ['total_segment_area', 'total_centerline_length', 'integrated_valley_bottom_width', 'total_stream_length', 'integrated_valley_bottom_area_per_length']) }}
-    <figure>
-        {{ figures['owner_pie']|safe }}
-    </figure>
-    <table>
-        {{ tables['owners']|safe}}
-    </table>
+    </div>
+
+    <div class="grid">
+        <div>The DGO polygons are intersected with land ownership polygons. Which ever ownership category makes up the majority
+            of the area within the DGO is attributed to that polygon. This chart and table present the fraction of the total riverscape area 
+            that each ownership category makes up following this methodology.
+        </div>
+        <figure class="report-figure">
+            {{ figures['owner_pie']|safe }}
+        </figure>
+    </div>
+
+    <div class="report-figure">
+        <table>
+            {{ tables['owners']|safe}}
+        </table>
+    </div>
+
+    <div class="grid">
+    <div>
+        For each NHD segment of the primary stream that intersects the DGO polygon, the length and FCode classification are recorded.
+        The FCode classification with the longest associated length as assigned to the DGO (typically there is only one, as most of the
+        time streams don't alternate between perennial and intermittent over short distances).
+    </div>
     <figure>
         {{ figures['flow_bar']|safe }}
     </figure>
+    </div>
+
+    <div class="section-context">
+    <p>
+        Slope within each DGO is calculated by extracting the elevation at which the channel (NHD flowline) intersects the DGO
+        at the upstream end and the downstream end from a 10 m DEM, and dividing the difference in elevation by the channel length.
+        The average slope for the reach (all DGOs) is calculated by taking the minimum elevation within the upstream-most DGO, 
+        subtracting the minimum elevation within the downstream-most DGO and dividing by the channel length summed up across all DGOs.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['slope_bar']|safe }}
     </figure>
+    </div>
+
+    <div class="grid">
+    <div>
+        The confinement ratio is calculated within each DGO by intersecting a buffered channel with the DGO polygons, which represent
+        the valley bottom extent. Where these layers overlap indicates a confinging margin, and the length of confining margins is 
+        summed up and divided by the total channel length within the DGO.
+    </div>
     <figure>
         {{ figures['confinement_ratio_bar']|safe }}
     </figure>
+    </div>
+
     <h4>Condition</h4>
+    <div class="section-context">
+        <p>The following figures present the data used to inform the information on riverscape condition, 
+            with a brief description of how each metric is calculated.
+        </p>
+    </div>
+    <div class="section-context">
+    <p>
+        Low-lying valley bottom areas are estimated in VBET based on the topographic evidence raster, in which cells represent the 
+        relative likelihood of being valley bottom (0-1). These values are a function of both slope, and height above the channel.
+        For low-lying valley bottom, this raster is thresholded at a higher value than the overall valley bottom, so this layer 
+        represents the areas that are lower relative to the channel, flatter, and adjacent to the channel, and therefore more likely
+        to experience regular flooding.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['low_lying_bin_bar']|safe }}
     </figure>
+    </div>
+    <div class="section-context">
+    <p>
+        Elevated valley bottom areas are estimated in VBET based on the topographic evidence raster, in which cells represent the 
+        relative likelihood of being valley bottom (0-1). These values are a function of both slope, and height above the channel.
+        Elevated valley bottom areas are the areas that are part of the valley bottom but are topographically higher relative to the 
+        channel than the low-lying areas, not immediately adjacent to the channel, and therefore less likely to be active for flood
+        regularly.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['elevated_bin_bar']|safe }}
     </figure>
+    </div>
+    <div class="section-context">
+    <p>
+        The proportion of riparian area within the valley bottom is calculated by summing up the area of pixels classified as 
+        riparian in the Landfire Existing Vegetation Type (EVT) dataset and dividing by the area of the DGO.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['prop_riparian_bin_bar']|safe }}
     </figure>
+    </div>
+    <div class="section-context">
+    <p>
+        Floodplain accessibility represents the proportion of the valley bottom that a stream could theoretically access via
+        geomorphic (e.g., channel migration) or hydrologic (e.g., overbank flows) processes. It is calculated by taking each 
+        pixel in a DEM within the area classified as valley bottom and tracing flow directions downstream. If an infrastructure 
+        layer (road, railroad, canal) is intersected prior to reaching the channel, all pixels along that path are classified as
+        inaccessible and given a value of 0. If the path reaches the channel withough intersecting an infrastructure layer,
+        all pixels along that path are classified as accessible and given a value of 1. The average of the 0s and 1s is calculated
+        within each DGO to determine the overall floodplain accessibility.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['floodplain_access_bar']|safe }}
     </figure>
+    </div>
+    <div class="section-context">
+    <p>
+        The proportion of agricultural and developed land within the valley bottom is calculated by summing up the area of pixels classified as 
+        agricultural or developed in the Landfire Existing Vegetation Type (EVT) dataset and dividing by the area of the DGO.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['prop_ag_dev']|safe }}
     </figure>
+    </div>
+    <div class="section-context">
+    <p> 
+        Road and railroad density within the valley bottom is calculated by summing the length of roads and railroads 
+        and dividing by the centerline length of the DGO. Values greater than 1, therefore, indicate the length of 
+        the infrastructure is greater than the length of riverscape.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['dens_road_rail']|safe }}
     </figure>
+    </div>
+    <div class="section-context">
+    <p>
+        Beaver dam capacity is estimated using the BRAT model. BRAT estimates capacity as a function of the suitiabiliy of 
+        streamside vegetation as dam building material, stream power at base flow and typical flood flows, and channel 
+        slope.
+    </p>
+    </div>
+    <div class="report-figure">
     <figure>
         {{ figures['beaver_dam_capacity_historical_bar']|safe }}
     </figure>
     <figure>
         {{ figures['beaver_dam_capacity_current_bar']|safe }}
     </figure>
+    </div>
 </section>
 
 <section id="appendices" class="appendix">
