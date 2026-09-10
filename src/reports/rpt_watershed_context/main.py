@@ -1,68 +1,78 @@
-"""Main module for Watershed Context report"""
+"""Watershed Summary Report main entry point"""
 
-# System imports
+import argparse
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import geopandas as gpd
+
+# 3rd party imports
 import pandas as pd
-from rsxml import Logger
+import plotly.graph_objects as go
+
+# rsxml imports
+from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-from reports.rpt_watershed_context.version import report_version
-from util import prepare_gdf_for_athena
-from util.figures import metric_cards
+# Report type imports
+from reports.rpt_watershed_summary import __version__ as report_version
+from reports.rpt_watershed_summary.dataprep import define_fields, get_aggregated_data, get_ownership_data, get_states, register_context_fields
+from reports.rpt_watershed_summary.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
+from reports.rpt_watershed_summary.figures import hydrography_table, ownership_summary_table, statistics, waterbody_summary_table
+
+# Repo imports
+from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
-from util.pandas import RSFieldMeta
+from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 
 
-def define_fields(unit_system: str = 'SI') -> None:
-    """Register field metadata and configure unit system for this report.
-
-    Args:
-        unit_system (str): The unit system to use ('SI' or 'Imperial').
-
-    Returns:
-        None
+def make_report(
+    aoi_gdf: gpd.GeoDataFrame,
+    aggregate_data_df: pd.DataFrame,
+    ownership_df: gpd.GeoDataFrame,
+    geology_df: gpd.GeoDataFrame,
+    states_df: pd.DataFrame,
+    report_dir: Path,
+    report_name: str,
+    stats: dict | None = None,
+    include_static: bool = True,
+    include_pdf: bool = True,
+    error_message: str | None = None,
+):
     """
-    meta = RSFieldMeta()
-    meta.unit_system = unit_system
-
-    # Here's where we can set any preferred units that differ from the data unit
-
-
-def make_report(df: pd.DataFrame, report_dir: Path, report_name: str, aoi_gdf: gpd.GeoDataFrame, include_static: bool = True, include_pdf: bool = True, unit_system: str = 'SI'):
-    """Generate the Watershed Context report.
-
+    Generates HTML report(s) in report_dir.
     Args:
-        df (pd.DataFrame): The main data frame containing watershed data.
+        aggregate_data_df: The main data dataframe for the report.
+        ownership_df: Ownership summary dataframe.
+        states_df: States dataframe.
         report_dir (Path): The directory where the report will be saved.
-        report_name (str): The name of the report file.
-        aoi_gdf (gpd.GeoDataFrame): The area of interest as a GeoDataFrame.
-        include_static (bool, optional): Whether to include static content. Defaults to True.
-        include_pdf (bool, optional): Whether to generate a PDF version of the report. Defaults to True.
-        unit_system (str, optional): The unit system to use ('SI' or 'Imperial'). Defaults to 'SI'.
-
-    Note: define_fields() must be called before this function to configure units.
+        report_name (str): The name of the report.
+        stats: Pre-computed statistics dict from figures.statistics().  If None,
+            statistics() is called internally (display-unit df path, legacy behaviour).
+        include_static (bool, optional): Whether to include a static version of the report. Defaults to True.
+        include_pdf (bool, optional): Whether to include a PDF version of the report. Defaults to True.
+        error_message: display to user *instead* of any figures
     """
     log = Logger('make report')
 
-    log.info(f"Generating report in {report_dir}")
+    figures: dict[str, go.Figure] = {}
+    figures['map'] = make_aoi_outline_map(aoi_gdf)  # Assuming you have a function to generate the map of polygons
+    tables: dict[str, str] = {}
 
-    figures = {}
-
-    figure_dir = report_dir / "figures"
-    safe_makedirs(str(figure_dir))
-
-    tables = {}
-
-    stats = {}
+    if error_message is None:
+        tables = {
+            "waterbodies": waterbody_summary_table(aggregate_data_df),
+            "ownership": ownership_summary_table(ownership_df),
+            "hydrography": hydrography_table(aggregate_data_df),
+        }
 
     report = RSReport(
-        report_name="",
-        report_subtitle=report_name,
-        report_type="Watershed Context",
+        report_name=report_name,
+        report_type="Watershed Summary",
         report_dir=report_dir,
+        figure_dir=report_dir / 'figures',
         report_version=report_version,
         body_template_path=Path(__file__).parent / 'templates' / 'body.html',
         css_paths=[Path(__file__).parent / 'templates' / 'report.css'],
@@ -70,8 +80,15 @@ def make_report(df: pd.DataFrame, report_dir: Path, report_name: str, aoi_gdf: g
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
-    report.add_html_elements("tables", tables)
-    report.add_html_elements("cards", metric_cards(stats))
+    if error_message:
+        report.add_html_elements('error_message', {'text': error_message})
+
+    else:
+        report.add_html_elements('tables', tables)
+        report.add_html_elements('states', states_df['state_name'].tolist())
+        effective_stats: dict[str, object] = stats if stats is not None else statistics(aggregate_data_df)  # type: ignore[assignment]
+        cards = metric_cards(effective_stats)
+        report.add_html_elements('cards', cards)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
@@ -83,47 +100,129 @@ def make_report(df: pd.DataFrame, report_dir: Path, report_name: str, aoi_gdf: g
             log.info(f'PDF report built from static at {pdf_path}')
 
     log.title('Report Generation Complete')
-    log.info(f'Interactive report available at {interactive_path}')
+    log.info(f'Interactive: {interactive_path}')
     if static_path:
-        log.info(f'Static report available at {static_path}')
+        log.info(f'Static: {static_path}')
     if pdf_path:
-        log.info(f'PDF report available at {pdf_path}')
+        log.info(f'PDF: {pdf_path}')
 
 
-def make_report_orchestrator(report_name: str, report_dir: Path, path_to_shape: str, include_pdf: bool = True, unit_system: str = 'SI', parquet_override: Path | None = None, keep_parquet: bool = False):
-    """Orchestrates the report generation process
+def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, include_pdf: bool = True, unit_system: str = "SI"):
+    """Orcestratest the report generation process:
+    * get the data
+    * make the report
 
-    Args:
-        report_name (str): The name of the report.
-        report_dir (Path): The directory where the report will be saved.
-        path_to_shape (str): The path to the shapefile for the area of interest.
-        include_pdf (bool, optional): Whether to generate a PDF version of the report. Defaults to True.
-        unit_system (str, optional): The unit system to use ('SI' or 'Imperial'). Defaults to 'SI'.
-        parquet_override (Path | None, optional): Path to an existing parquet file to use instead of generating a new one. Defaults to None.
-        keep_parquet (bool, optional): Whether to keep the generated parquet file. Defaults to False.
     """
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
+    meta = RSFieldMeta()
+    huc_condition = parse_hucs(hucs, 'huc', 10)
+    log.debug(f"huc condition: {huc_condition}")
 
     define_fields(unit_system)
+    df_aggregatedata = get_aggregated_data(huc_condition)
 
-    aoi_gdf = gpd.read_file(path_to_shape)
-
-    if parquet_override:
-        parquet_data_source = Path(parquet_override)
-        if not parquet_data_source.exists():
-            raise FileNotFoundError(f"Parquet override file not found: {parquet_data_source}")
-        log.info(f"Using parquet override file: {parquet_data_source}")
+    if df_aggregatedata.empty:
+        # we send 3 empty dataframes and error_message
+        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, error_message="No results found for selection.")
     else:
-        parquet_data_source = report_dir / 'pq'
-        # use shape to query Athena
-        query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
-        if not simplification_results.success:
-            raise RuntimeError("Failed to simplify the geometry for Athena query.")
-        if simplification_results.simplified:
-            log.warning(
-                f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database.
-                                If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
-            )
+        # although it doesn't make much difference with these quick queries, parallelizing is good practice
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_owners = executor.submit(get_ownership_data, huc_condition)
+            future_states = executor.submit(get_states, huc_condition)
+            df_owners = future_owners.result()
+            df_states = future_states.result()
 
-        log.info("Querying athena for data for AOI")
+        # apply_units must run first so statistics() receives Pint-typed columns.
+        # build_named_values then converts derived stats back to SI data_unit for Excel.
+        df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
+        stats = statistics(df_aggregatedata)
+        df_owners, _ = meta.apply_units(df_owners)
+
+        register_context_fields()
+
+        # Build string values for the registered fields
+        state_abbrevs = ', '.join(sorted(df_states['state_abbrev'].dropna().str.strip().unique()))
+        huc_list = [h.strip() for h in hucs.split(',') if h.strip()]
+        huc_codes_str = ', '.join(sorted(huc_list))
+        extra_named_values: dict[str, NamedValue] = {
+            'state_abbreviations': NamedValue(value=state_abbrevs),
+            'huc_codes': NamedValue(value=huc_codes_str),
+        }
+        named_values = build_named_values(df_aggregatedata, stats, extra=extra_named_values)
+
+        make_report(df_aggregatedata, df_owners, df_states, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
+        safe_makedirs(str(report_dir / 'data'))
+        # Export the data to Excel (simple dumb export)
+        RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')
+        # rebuild template one time or when data schema changes (e.g. new column added to query)
+        # make_template(named_values)
+        # Inject the data into smart Excel template (SI units; stats include derived metrics)
+        render_excel(named_values, df_owners, report_dir / 'report.xlsx')
+
+
+def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> str:
+    """
+    Build a SQL condition for a list of HUC codes (2/4/6/8/10/12 digits).
+    Handles both huc10 and huc12 fields.
+    Raises ValueError for mixed lengths or invalid codes.
+
+    Arguments:
+    * hucs (str): comma-separated list of HUC codes, all of the same length
+    * field_identifier: the name of the field that we ware searching
+    * field_length: what the field_identifier contains (e.g. huc10 has 10, huc12 has 12)
+
+    Returns condition that can be added to a where clause e.g.
+        "HUC10 IN ('1234567890')"
+        "substr(HUC10,1,8) IN ('12345678','87654321')"
+
+    See test_parse_hucs for more examples.
+    This is similar to `get_huc_sql_filter` in cybercastor_scripts scripts/add_batch_athena.py
+    """
+    huc_list = [h.strip() for h in hucs.split(',') if h.strip()]
+    if not huc_list:
+        raise ValueError("No HUCs provided.")
+
+    lengths = set(len(huc) for huc in huc_list)
+    if len(lengths) > 1:
+        raise NotImplementedError("All HUCs must have the same length.")
+
+    huc_len = lengths.pop()
+    if not all(huc.isdigit() for huc in huc_list):
+        raise ValueError("All HUCs must be numeric.")
+
+    if huc_len > field_length:
+        raise ValueError(f"HUC length must be <= {field_length} for field {field_identifier}.")
+
+    if huc_len == field_length:
+        condition = f"{field_identifier} IN ({','.join(repr(huc) for huc in huc_list)})"
+    else:
+        condition = f"substr({field_identifier},1,{huc_len}) IN ({','.join(repr(huc) for huc in huc_list)})"
+    return condition
+
+
+def main():
+    """Main function to parse arguments and generate the report"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
+    parser.add_argument('huc_list', help='comma separated list of huc codes', type=str)
+    parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
+    parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
+    parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
+
+    args = dotenv.parse_args_env(parser)
+    # Set up some reasonable folders to store things
+    output_path = Path(args.output_path)
+    # new version of safe_makedirs will take a Path but for now all Paths are converted to string for this function
+    safe_makedirs(str(output_path))
+
+    log = Logger('Setup')
+    log_path = output_path / 'report.log'
+    log.setup(log_path=log_path, log_level=logging.DEBUG)
+    log.title('rs-rpt-watershed-summary')
+
+    make_report_orchestrator(args.report_name, output_path, args.huc_list, args.include_pdf, args.unit_system)
+
+
+if __name__ == "__main__":
+    main()
