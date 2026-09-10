@@ -12,7 +12,7 @@ Load this stylesheet only in reports that render render_highlight_cards.
 	margin: 0;
 	padding: 0;
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
 	gap: 1rem 1.25rem;
 }
 

@@ -238,7 +238,7 @@
 /* ── Glossary / definitions ─────────────────────────────────────────────── */
 .rs-glossary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(14.375rem, 1fr));
   gap: var(--space-4) var(--space-6);
   margin: 0 0 var(--space-5);
 }
@@ -262,7 +262,7 @@
 /* ── Citations / DOI cards ──────────────────────────────────────────────── */
 .rs-citations {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(16.25rem, 1fr));
   gap: var(--space-4);
   margin: 0 0 var(--space-5);
 }
