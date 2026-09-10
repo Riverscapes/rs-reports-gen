@@ -168,13 +168,13 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
 
     for gradient_field in ['prim_channel_gradient', 'min_gradient', 'max_gradient']:
         try:
-            RSFieldMeta().set_preferred_format(gradient_field, '{:.2f}')
+            RSFieldMeta().set_preferred_format(gradient_field, '{:.2%}')
         except Exception:
             RSFieldMeta().add_field_meta(
                 name=gradient_field,
                 data_unit='',
                 dtype='REAL',
-                preferred_format='{:.2f}',
+                preferred_format='{:.2%}',
             )
 
     # Compose result dictionary
