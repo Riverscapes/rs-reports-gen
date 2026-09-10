@@ -62,7 +62,14 @@ def log_unit_status(df, label: str):
         log.info(f"[{label}] Sample value from {pint_cols[0]}: {df[pint_cols[0]].iloc[0]}")
 
 
-def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Path, report_name: str, include_static: bool = True, include_pdf: bool = True):
+def make_report(
+    gdf: gpd.GeoDataFrame,
+    aoi_df: gpd.GeoDataFrame,
+    report_dir: Path,
+    report_name: str,
+    include_static: bool = True,
+    include_pdf: bool = True,
+):
     """
     Generates HTML report(s) in report_dir.
     Args:
@@ -108,9 +115,9 @@ def make_report(gdf: gpd.GeoDataFrame, aoi_df: gpd.GeoDataFrame, report_dir: Pat
     cards = metric_cards(statistics(gdf))
 
     report = RSReport(
-        report_name="Rivers Need Space",
-        report_subtitle=report_name,
-        report_type="Rivers Need Space",
+        report_name=report_name,
+        report_subtitle="Important context for the riverscape in a project area",
+        report_type="Project Context",
         report_dir=report_dir,
         figure_dir=figure_dir,
         report_version=report_version,
@@ -257,7 +264,7 @@ def main():
     log = Logger('Setup')
     log_path = output_path / 'report.log'
     log.setup(log_path=log_path, log_level=logging.DEBUG)
-    log.title('rs-rpt-riverscape-condition')
+    log.title('rs-rpt-project-context')
     log.info(f"Output path: {output_path}")
     path_to_shape = Path(args.path_to_shape)
     log.info(f"AOI shape: {path_to_shape}")
