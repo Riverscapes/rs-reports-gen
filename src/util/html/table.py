@@ -39,6 +39,7 @@ from util.pandas.RSFieldMeta import RSFieldMeta
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 _LOG = Logger("util.html.table")
+_UREG = pint.get_application_registry()
 
 # The shared Jinja environment used to call the render_data_table macro.
 # Built lazily and cached: identical markup everywhere, zero per-call overhead.
@@ -183,20 +184,9 @@ def prepare_table_data(
     if exclude_columns is not None:
         display_df = display_df.drop(columns=exclude_columns, errors="ignore")
 
-    # Units + friendly headers (identical machinery to RSGeoDataFrame.to_html).
-    applied_units: dict[str, Any] = {}
-    if include_units:
-        try:
-            display_df, applied_units = meta.apply_units(display_df, layer_id=layer_id)
-        except RuntimeError:
-            _LOG.warning("No field metadata registered; rendering table without units.")
-            applied_units = {}
-
-    headers = meta.get_headers(display_df, include_units=include_units, layer_id=layer_id) if use_friendly else list(display_df.columns)
-
-    # Merge footer rows into the frame *before* formatting so they go through
-    # the exact same converters/formatting as the body (mirrors
-    # RSGeoDataFrame.to_html). Pre-formatted row-lists skip this step.
+    # Merge footer rows into the frame before applying units so body and footer
+    # rows run through the exact same unit-conversion and formatting pipeline.
+    # Pre-formatted row-lists skip this step.
     footer_df = _align_footer(footer, df_columns=list(display_df.columns), dtypes=display_df.dtypes)
     preformatted_footer: list[list[str]] | None = None
     if footer_df is None and isinstance(footer, (list, tuple)):
@@ -208,6 +198,17 @@ def prepare_table_data(
     else:
         display_all = display_df
         footer_start = len(display_df)  # sentinel: no footer rows
+
+    # Units + friendly headers (identical machinery to RSGeoDataFrame.to_html).
+    applied_units: dict[str, Any] = {}
+    if include_units:
+        try:
+            display_all, applied_units = meta.apply_units(display_all, layer_id=layer_id)
+        except RuntimeError:
+            _LOG.warning("No field metadata registered; rendering table without units.")
+            applied_units = {}
+
+    headers = meta.get_headers(display_all, include_units=include_units, layer_id=layer_id) if use_friendly else list(display_all.columns)
 
     # ------------------------------------------------------------------ #
     # Per-column classification + formatters (same classes/semantics as
@@ -348,7 +349,32 @@ def _align_footer(footer: Any, *, df_columns: list[str], dtypes: pd.Series) -> p
             continue
         if "pint" in str(main_dtype):
             try:
-                footer_df[col] = pd.to_numeric(footer_df[col]).astype(main_dtype)
+                dtype_units = getattr(main_dtype, "units", None)
+                if dtype_units is not None:
+                    target_unit = dtype_units
+                else:
+                    unit_text = str(main_dtype)
+                    if unit_text.startswith("pint[") and "][" in unit_text:
+                        unit_text = unit_text.split("][", 1)[0][5:]
+                    target_unit = _UREG.Unit(unit_text)
+
+                def _coerce_footer_pint_value(value, target_unit=target_unit):
+                    if hasattr(value, "magnitude"):
+                        try:
+                            return value.to(target_unit).magnitude
+                        except Exception:  # noqa: BLE001 - fallback to raw magnitude
+                            return value.magnitude
+                    if value is None:
+                        return pd.NA
+                    try:
+                        if pd.isna(value):
+                            return pd.NA
+                    except Exception:  # noqa: BLE001 - non-scalar/unsupported missing checks
+                        pass
+                    return value
+
+                footer_df[col] = footer_df[col].map(_coerce_footer_pint_value)
+                footer_df[col] = pd.to_numeric(footer_df[col], errors="coerce").astype(main_dtype)
             except Exception:  # noqa: BLE001 - leave as-is; classification falls back to text
                 _LOG.warning(f"Could not cast footer column '{col}' to {main_dtype}; rendering as-is.")
     return footer_df

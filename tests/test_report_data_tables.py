@@ -115,6 +115,36 @@ def test_table_total_x_by_y_uses_large_value_unit_override():
         _restore_meta(saved_meta, saved_sys)
 
 
+def test_render_table_footer_with_quantity_value_does_not_crash():
+    saved_meta, saved_sys = _snapshot_meta()
+    try:
+        meta = RSFieldMeta()
+        meta.clear()
+        meta.add_field_meta(name="ownership", dtype="TEXT")
+        meta.add_field_meta(name="segment_area", data_unit="meter ** 2", dtype="REAL")
+
+        body = pd.DataFrame(
+            {
+                "ownership": ["Private", "State"],
+                "segment_area": pd.Series([1000.0, 2000.0], dtype="pint[meter ** 2]"),
+            }
+        )
+        footer = pd.DataFrame(
+            {
+                "ownership": ["Total"],
+                "segment_area": [3000.0 * ureg("meter ** 2")],
+            }
+        )
+
+        out = render_table(body, footer=footer)
+        tbl = _table_html(out)
+        assert "<tfoot>" in tbl
+        assert "Total" in tbl
+        assert "(m" in tbl
+    finally:
+        _restore_meta(saved_meta, saved_sys)
+
+
 # ---------------------------------------------------------------------------
 # rpt_watershed_summary: hydrography / waterbodies / ownership tables
 # ---------------------------------------------------------------------------
