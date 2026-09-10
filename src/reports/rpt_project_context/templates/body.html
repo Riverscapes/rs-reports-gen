@@ -3,8 +3,7 @@
   refer to src/util/html/templates/template.html for the rest of the HTML boilerplate
 -->
 
-{% from 'macros.html' import render_metric_grid %}
-{% from 'macros.html' import render_figure with context %}
+{% from 'macros.html' import render_metric_grid, render_figure with context %}
 
 <section>
   <div class="section-context">
@@ -94,28 +93,26 @@
     </div>
 
     <div class="grid">
-    <div>
-        For each NHD segment of the primary stream that intersects the DGO polygon, the length and FCode classification are recorded.
-        The FCode classification with the longest associated length as assigned to the DGO (typically there is only one, as most of the
-        time streams don't alternate between perennial and intermittent over short distances).
-    </div>
-    <figure>
-        {{ figures['flow_bar']|safe }}
-    </figure>
+        <div>
+            For each NHD segment of the primary stream that intersects the DGO polygon, the length and FCode classification are recorded.
+            The FCode classification with the longest associated length as assigned to the DGO (typically there is only one, as most of the
+            time streams don't alternate between perennial and intermittent over short distances).
+        </div>
+            {{ render_figure ('flow_bar', 'Flow Type') }}
     </div>
 
     <div class="section-context">
-    <p>
-        Slope within each DGO is calculated by extracting the elevation at which the channel (NHD flowline) intersects the DGO
-        at the upstream end and the downstream end from a 10 m DEM, and dividing the difference in elevation by the channel length.
-        The average slope for the reach (all DGOs) is calculated by taking the minimum elevation within the upstream-most DGO, 
-        subtracting the minimum elevation within the downstream-most DGO and dividing by the channel length summed up across all DGOs.
-    </p>
+        <p>
+            Slope within each DGO is calculated by extracting the elevation at which the channel (NHD flowline) intersects the DGO
+            at the upstream end and the downstream end from a 10 m DEM, and dividing the difference in elevation by the channel length.
+            The average slope for the reach (all DGOs) is calculated by taking the minimum elevation within the upstream-most DGO, 
+            subtracting the minimum elevation within the downstream-most DGO and dividing by the channel length summed up across all DGOs.
+        </p>
     </div>
     <div class="report-figure">
-    <figure>
-        {{ figures['slope_bar']|safe }}
-    </figure>
+        <figure>
+            {{ figures['slope_bar']|safe }}
+        </figure>
     </div>
 
     <div class="grid">
