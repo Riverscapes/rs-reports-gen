@@ -81,6 +81,7 @@ def bar_total_x_by_ybins(
     group_by_cols: list[str],
     color_discrete_map: dict[str, str] | None = None,
     fig_params: dict | None = None,
+    show_legend: bool = True,
 ) -> go.Figure:
     """
     Uses bins.json to lookup the bins
@@ -90,6 +91,7 @@ def bar_total_x_by_ybins(
         df (pdf.DataFrame): dataframe containing all the data needed
         x_col (_type_): _description_
         y_col (_type_): _description_
+        show_legend (bool): whether to render a legend for the color dimension
 
     Returns:
         go.Figure:
@@ -140,6 +142,7 @@ def bar_total_x_by_ybins(
     if fig_params is None:
         fig_params = {}
 
+    show_legend = fig_params.pop("showlegend", show_legend)
     if "title" not in fig_params:
         group_names = [meta.get_friendly_name(col) for col in group_by_cols]
         fig_params["title"] = f"Total {meta.get_friendly_name(total_col)} by {', '.join(group_names)} Bins"
@@ -169,7 +172,7 @@ def bar_total_x_by_ybins(
     if len(group_by_cols) >= 2:
         fig.update_layout(barmode='stack')
 
-    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, showlegend=show_legend)
     return fig
 
 
@@ -262,15 +265,26 @@ def _apply_unit_override(meta: RSFieldMeta, agg_data: pd.DataFrame, value_col: s
     rule = next((r for r in _UNIT_OVERRIDE_RULES if value_col in r["columns"]), None)
     if rule is None:
         return None
+
+    if value_col not in agg_data.columns:
+        return None
+
     total_qty = agg_data[value_col].sum()
     base_unit = ureg.Unit(rule["base_unit"])
     total_val = total_qty.to(base_unit).magnitude if isinstance(total_qty, pint.Quantity) else float(total_qty)
     if total_val <= rule["threshold"]:
         return None
+
     layer_id = meta._resolve_layer_context(agg_data, None)  # noqa: SLF001 - reuse same layer resolution as bake_units
     fm = meta.get_field_meta(value_col, layer_id)
+    if fm is None:
+        return None
+
     original_display_unit = fm.display_unit if fm else None
-    meta.set_display_unit(value_col, rule["si_unit"] if meta.unit_system == "SI" else rule["imperial_unit"], layer_id=layer_id)
+    try:
+        meta.set_display_unit(value_col, rule["si_unit"] if meta.unit_system == "SI" else rule["imperial_unit"], layer_id=layer_id)
+    except (RuntimeError, ValueError):
+        return None
     return (value_col, layer_id, original_display_unit)
 
 
@@ -529,7 +543,13 @@ def table_total_x_by_y(
     # this gets back as RSGeoDataFrame that has the methods for better table'ing
     rsdf = total_x_by_y(df, total_col, group_by_cols, with_percent, with_footer, sort_by_cols, sort_ascending, top_n)
     footer = rsdf._footer if not rsdf._footer.empty else None
-    return render_table(rsdf, footer=footer)
+
+    meta = RSFieldMeta()
+    override = _apply_unit_override(meta, rsdf, total_col)
+    try:
+        return render_table(rsdf, footer=footer)
+    finally:
+        _restore_unit_override(meta, override)
 
 
 def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str], fig_params: dict | None = None) -> go.Figure:
