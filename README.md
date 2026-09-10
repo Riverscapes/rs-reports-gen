@@ -14,7 +14,12 @@ Code to maintain the web UI that allows users to trigger report generation with 
 
 Use `uv sync`. If you're going to make any changes, there are additional libraries used for development. Run `uv sync --extra dev` instead.
 
-You may need to [install WeasyPrint following these instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation).
+PDFs are rendered from the static HTML with **headless Chrome** (print-to-PDF)
+so they match the on-screen layout exactly (CSS Grid, Flexbox, webfonts); the
+browser binary is auto-detected (`CHROME_PATH` env var to pin one). When no
+browser is found the build falls back to WeasyPrint (still a dependency
+above, and needs the native `pango`/`gobject` libs — see the
+[WeasyPrint install instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation)).
 
 ## Running the "📋 Report Launcher" Task
 
