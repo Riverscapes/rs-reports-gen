@@ -1,4 +1,4 @@
-"""Rivers Need Space report implementation."""
+"""Project Context report implementation."""
 
 from .__version__ import __version__
 
