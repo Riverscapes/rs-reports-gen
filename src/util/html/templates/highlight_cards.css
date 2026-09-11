@@ -150,52 +150,12 @@ Load this stylesheet only in reports that render render_highlight_cards.
 	font-weight: 500;
 }
 
-@media (max-width: 760px) {
-	#highlight-cards .highlight-card-grid {
-		grid-template-columns: 1fr;
-	}
-
+@media print {
 	#highlight-cards .highlight-card {
-		grid-template-columns: 4.35rem minmax(0, 1fr);
-		padding: 0.95rem 1rem;
-		column-gap: 0.72rem;
+		page-break-inside: avoid;
+    box-shadow: none;
 	}
-
-	#highlight-cards .highlight-card__header {
-		grid-column: 2;
-	}
-
-	#highlight-cards .highlight-card__icon {
-		justify-content: flex-start;
-	}
-
-	#highlight-cards .highlight-card__icon .material-icons {
-		width: 52px;
-		height: 52px;
-		font-size: 1.55rem;
-	}
-
-	#highlight-cards .highlight-card__primary {
-		font-size: clamp(1.8rem, 9vw, 2.45rem);
-		font-size: clamp(1.8rem, 12cqw, 2.45rem);
-	}
-
-	#highlight-cards .highlight-card__secondary {
-		font-size: 0.9rem;
-	}
-
-	#highlight-cards .highlight-card__footer-metric {
-		font-size: 1.8rem;
-		text-align: left;
-	}
-
-	#highlight-cards .highlight-card__footer-label {
-		font-size: 0.95rem;
-	}
+  #highlight-cards .highlight-card__icon .material-icons { 
+    box-shadow: none;
+  }
 }
-
-/* ── PDF / print ───────────────────────────────────────────────────────────
-   Chrome renders the CSS grid in print exactly as on screen, so the
-   highlight-card grid needs no special print rules — it is already
-   identical to the browser view.
-*/

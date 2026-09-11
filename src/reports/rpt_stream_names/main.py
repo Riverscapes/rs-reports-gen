@@ -24,6 +24,7 @@ from util.figures import (
 )
 from util.html import RSReport
 from util.html.table import render_table
+from util.html.widgets import Callout, render_callout
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 from util.summary import summarize_top_n_rollups
@@ -356,7 +357,24 @@ def make_report(
     report.set_header_svg(header_svg)
     report.add_html_elements("tables", tables)
     report.add_html_elements("highlight_cards", highlight_cards)
-    report.add_html_elements("user_guess", normalize_guessed_name(guessed_name))
+
+    normalized_guess = normalize_guessed_name(guessed_name)
+    report.add_html_elements(
+        "user_guess",
+        render_callout(
+            Callout(
+                kind="info",
+                title=f"Your guess: {normalized_guess}" if normalized_guess else None,
+                content=(
+                    "Before you ran this report, that was your pick for the most common stream or river "
+                    "name. Was your guess one of the winners? Do you see it in the rankings or word clouds?"
+                    if normalized_guess
+                    else "With these results, are you surprised by which stream or river names are most "
+                    "common?"
+                ),
+            )
+        ),
+    )
     report.add_html_elements("cards", metric_cards(stats))
 
     interactive_path = report.render(fig_mode="interactive", suffix="")

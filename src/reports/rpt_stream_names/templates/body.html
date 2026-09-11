@@ -5,17 +5,7 @@
 {% from 'macros.html' import render_metric_grid, render_highlight_cards %}
 <section>
   <aside id="user-guess">
-    <div class="sidebar">
-      {% if user_guess %}
-      <p>Before you ran this report, you guessed that the most common stream or river name would be:</p>
-      <div class="user-guess">
-        {{ user_guess }}
-      </div>
-      <p>Was your guess one of the winners? Do you see it in the rankings or word clouds?</p>
-      {% else %}
-      <p>With these results, are you surprised by which stream or river names are most common?</p>
-      {% endif %}
-    </div>
+    {{ user_guess | safe }}
   </aside>
   <div class="section-context">
     <p>Every landscape has its own vocabulary of rivers, creeks, brooks, branches, forks, washes, and other waterways.
