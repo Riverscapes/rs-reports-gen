@@ -127,3 +127,120 @@ class TestWriteImageWithTimeout:
         out = tmp_path / "ok.svg"
         write_image_with_timeout(_tiny_fig(), out, timeout_s=60)
         assert out.exists()
+
+
+class TestMapGeoFallback:
+    """The WebGL/tile-free `geo` subplot fallback for MapLibre figures."""
+
+    def _map_fig(self):
+        import plotly.graph_objects as go
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Choroplethmap(
+                geojson={
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"id": 1},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [[[-117.0, 44.0], [-111.0, 44.0], [-111.0, 47.0], [-117.0, 47.0], [-117.0, 44.0]]],
+                            },
+                        }
+                    ],
+                },
+                locations=[1],
+                z=[1],
+                colorscale=[[0, "#2171a8"], [1, "#2171a8"]],
+                featureidkey="properties.id",
+            )
+        )
+        fig.add_trace(
+            go.Scattermap(
+                lon=[-116.5, -114.0, -116.5, None],
+                lat=[44.5, 46.5, 46.5, None],
+                mode="lines",
+                line={"color": "red", "width": 3},
+                name="AOI",
+            )
+        )
+        return fig
+
+    def test_is_map_figure_detects_maplibre_traces(self):
+        assert EXPORT_MODULE._is_map_figure(self._map_fig())
+        assert not EXPORT_MODULE._is_map_figure(_tiny_fig())
+
+    def test_map_traces_to_geo_returns_equivalent_geo_figure(self):
+        geo = EXPORT_MODULE._map_traces_to_geo(self._map_fig())
+        assert geo is not None
+        types = [t.type for t in geo.data]
+        assert "choropleth" in types
+        assert "scattergeo" in types
+        # All map traces converted — no MapLibre trace survives.
+        assert not any(t in types for t in ("choroplethmap", "scattermap"))
+        # The geo layout is set up with land/ocean + a fitted bbox.
+        assert geo.layout.geo.showland
+        # bbox padded around the AOI (lat ~44-47, lon ~-117..-111)
+        assert geo.layout.geo.lataxis.range[0] < 44
+        assert geo.layout.geo.lataxis.range[1] > 47
+        assert geo.layout.geo.lonaxis.range[0] < -117
+        assert geo.layout.geo.lonaxis.range[1] > -111
+        assert geo.layout.height == 500
+
+    def test_non_map_figure_returns_none(self):
+        assert EXPORT_MODULE._map_traces_to_geo(_tiny_fig()) is None
+
+    def test_geo_fallback_writes_file_on_success(self, monkeypatch, tmp_path):
+        def fake_write(fig, img_path, timeout_s=120):  # noqa: ARG001
+            img_path.write_text("geo svg", encoding="utf-8")
+
+        monkeypatch.setattr(EXPORT_MODULE, "write_image_with_timeout", fake_write)
+        out = tmp_path / "map.svg"
+        ok = EXPORT_MODULE._write_map_geo_fallback(self._map_fig(), out)
+        assert ok
+        assert out.read_text(encoding="utf-8") == "geo svg"
+
+    def test_geo_fallback_returns_false_on_failure(self, monkeypatch, tmp_path):
+        def fail_write(fig, img_path, timeout_s=120):  # noqa: ARG001
+            raise KaleidoError(0, "Map error.")
+
+        monkeypatch.setattr(EXPORT_MODULE, "write_image_with_timeout", fail_write)
+        assert not EXPORT_MODULE._write_map_geo_fallback(self._map_fig(), tmp_path / "map.svg")
+
+    def test_geo_fallback_false_for_non_map(self, tmp_path):
+        assert not EXPORT_MODULE._write_map_geo_fallback(_tiny_fig(), tmp_path / "map.svg")
+
+    def test_export_figure_uses_geo_fallback_after_retries(self, monkeypatch, tmp_path):
+        """After kaleido fails on a map figure, the geo fallback snapshot is used
+        instead of the gray placeholder, and the report still builds."""
+        calls = {"n": 0}
+
+        def fail_then_fallback(fig, img_path, timeout_s=120):  # noqa: ARG001
+            calls["n"] += 1
+            if calls["n"] <= 3:
+                raise KaleidoError(0, "Map error.")
+            # the 4th call is the geo fallback render
+            img_path.write_text("geo fallback", encoding="utf-8")
+
+        monkeypatch.setattr(EXPORT_MODULE, "write_image_with_timeout", fail_then_fallback)
+        monkeypatch.setattr(EXPORT_MODULE.time, "sleep", lambda _s: None)
+
+        frag = export_figure(self._map_fig(), tmp_path, "map", "svg", report_dir=tmp_path)
+        assert frag == '<img src="map.svg">'
+        out = (tmp_path / "map.svg").read_text(encoding="utf-8")
+        assert out == "geo fallback"
+        assert calls["n"] == 4
+
+    def test_export_figure_placeholder_when_even_geo_fallback_fails(self, monkeypatch, tmp_path):
+        def always_fail(fig, img_path, timeout_s=120):  # noqa: ARG001
+            raise KaleidoError(0, "Map error.")
+
+        monkeypatch.setattr(EXPORT_MODULE, "write_image_with_timeout", always_fail)
+        monkeypatch.setattr(EXPORT_MODULE.time, "sleep", lambda _s: None)
+
+        frag = export_figure(self._map_fig(), tmp_path, "map", "svg", report_dir=tmp_path)
+        assert frag == '<img src="map.svg">'
+        out = (tmp_path / "map.svg").read_text(encoding="utf-8")
+        assert "Figure unavailable" in out  # degraded to placeholder

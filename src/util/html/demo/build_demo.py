@@ -32,13 +32,7 @@ from util.html.demo.sample_data import (
     sample_widgets,
 )
 from util.html.RSReport import RSReport
-
-# WeasyPrint is an optional render path here. Import lazily so --html-only works
-# on machines without the pango/gobject native libs installed.
-try:  # pragma: no cover - environment-dependent
-    from util.pdf.create_pdf import make_pdf_from_html
-except (OSError, ImportError):  # missing native libs / weasyprint not installed
-    make_pdf_from_html = None
+from util.pdf.create_pdf import make_pdf_from_html
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 DEMO_BODY = TEMPLATE_DIR / "body.html"
@@ -46,7 +40,7 @@ DEMO_CSS = TEMPLATE_DIR / "demo.css"
 DEMO_VERSION = "0.1.0"
 
 
-def build_demo(output_dir: Path, html_only: bool = False) -> list[str]:
+def build_demo(output_dir: Path, html_only: bool = False, pdf_timeout: int | None = None, pdf_debug: bool = False) -> list[str]:
     """Render the demo report. Returns the list of generated artifact paths."""
     log = Logger("demo builder")
 
@@ -83,18 +77,13 @@ def build_demo(output_dir: Path, html_only: bool = False) -> list[str]:
         static_path = report.render(fig_mode="svg", suffix="_static")
         outputs.append(static_path)
         log.info(f"Static DEMO report: {static_path}")
-        if make_pdf_from_html is not None:
-            try:
-                pdf_path = make_pdf_from_html(static_path)
-                outputs.append(pdf_path)
-                log.info(f"PDF DEMO report: {pdf_path}")
-            except Exception as err:  # noqa: BLE001
-                log.warning(f"PDF generation failed (need weasyprint + fonts?): {err}")
-        else:
-            log.warning(
-                "PDF skipped: WeasyPrint's native libraries are not available. "
-                "Install pango (brew install pango) and retry."
-            )
+        try:
+            pdf_path = make_pdf_from_html(static_path, timeout_s=pdf_timeout, debug=pdf_debug)
+            outputs.append(pdf_path)
+            log.info(f"PDF DEMO report: {pdf_path}")
+        except Exception as err:  # noqa: BLE001
+            log.error(f"PDF generation failed: {err}")
+            log.error("Re-run with --pdf-debug (or RS_PDF_DEBUG=1) to keep Chrome's log + the injected HTML source for diagnosis.")
     except Exception as err:  # noqa: BLE001
         log.warning(f"Static render failed (need kaleido + Chrome?): {err}")
 
@@ -104,10 +93,12 @@ def build_demo(output_dir: Path, html_only: bool = False) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output-dir", type=Path, default=Path("demo_output"), help="Where the demo report will be written (default: ./demo_output)")
-    parser.add_argument("--html-only", action="store_true", help="Build only the interactive HTML variant (fast; skips kaleido/Chrome and weasyprint)")
+    parser.add_argument("--html-only", action="store_true", help="Build only the interactive HTML variant (fast; skips kaleido/Chrome and the PDF)")
+    parser.add_argument("--pdf-timeout", type=int, default=None, help="Wall-clock seconds before Chrome print-to-PDF aborts (default: 120 or $RS_PDF_TIMEOUT_S)")
+    parser.add_argument("--pdf-debug", action="store_true", help="Keep Chrome's verbose log + injected HTML source next to the PDF for diagnosing hangs (same as $RS_PDF_DEBUG=1)")
     args = parser.parse_args()
 
-    outputs = build_demo(args.output_dir, html_only=args.html_only)
+    outputs = build_demo(args.output_dir, html_only=args.html_only, pdf_timeout=args.pdf_timeout, pdf_debug=args.pdf_debug)
     for path in outputs:
         print(f"  ✔ {path}")
 

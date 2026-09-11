@@ -904,7 +904,7 @@ article.report-meta {
 }
 
 /* ==========================================================================
-   PRINT (Chrome print-to-PDF / WeasyPrint fallback)
+   PRINT (Chrome print-to-PDF)
    --------------------------------------------------------------------------
    Print-specific rules shared by every RS report. The PDF now renders via a
    real browser engine, so these rules only control pagination and ink-savings

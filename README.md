@@ -16,10 +16,8 @@ Use `uv sync`. If you're going to make any changes, there are additional librari
 
 PDFs are rendered from the static HTML with **headless Chrome** (print-to-PDF)
 so they match the on-screen layout exactly (CSS Grid, Flexbox, webfonts); the
-browser binary is auto-detected (`CHROME_PATH` env var to pin one). When no
-browser is found the build falls back to WeasyPrint (still a dependency
-above, and needs the native `pango`/`gobject` libs — see the
-[WeasyPrint install instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation)).
+browser binary is auto-detected (`CHROME_PATH` env var to pin one). Chrome is
+the **only** supported PDF engine — no browser binary means PDF export fails.
 
 ## Running the "📋 Report Launcher" Task
 
