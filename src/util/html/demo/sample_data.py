@@ -535,7 +535,7 @@ def sample_highlight_cards() -> list[dict]:
             "theme": "teal",
             "icon": "warning",
             "header": "Most Fragmented Reach",
-            "primary_value": "South Runn",
+            "primary_value": "Long Name River",
             "secondary_stat": {"icon": "straighten", "text": "2.1 km reached"},
             "footer": {"metric": "0.3 km²", "label": "smallest riverscape"},
         },

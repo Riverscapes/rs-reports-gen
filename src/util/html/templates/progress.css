@@ -169,9 +169,9 @@
 }
 
 @media print {
-  /* WeasyPrint does not style <progress> pseudo-elements, so let the inline
-     background on the element itself carry through; the percent text on the
-     right (grouped rows) and the meta line (cards) preserve the numbers. */
+  /* Keep progress bars from being split across a page break in print; the
+     percent text on the right (grouped rows) and the meta line (cards)
+     preserve the numbers. */
   .rs-progress-row progress,
   .rs-progress-card__group progress {
     break-inside: avoid;
