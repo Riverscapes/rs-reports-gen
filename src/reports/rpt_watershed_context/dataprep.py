@@ -76,11 +76,16 @@ def register_context_fields() -> None:
 def get_ownership_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Query and return ownership summary data (unnested from the ownership field)."""
     log = Logger("Get ownership data")
+
+    aoi_sql_geom = get_aoi_geom_sql_expression(aoi_gdf)
+    if aoi_sql_geom is None:
+        raise ValueError("AOI geometry exceeds Athena query size limit. Simplify the AOI and try again.")
+
     query_str = f"""
-SELECT lu_blm_o.edomvd AS ownership_desc, ST_AsBinary(ST_GeomFromBinary(geom_wkb)) AS geom
+SELECT lu_blm_o.edomvd AS ownership_desc, ST_AsBinary(ST_GeomFromBinary(ext_rpt.us_blm_sma_ownership.geom_wkb)) AS geom
 FROM ext_rpt.us_blm_sma_ownership
          LEFT JOIN lu_blm_ownership lu_blm_o ON upper(ext_rpt.us_blm_sma_ownership.admin_agency_code) = upper(lu_blm_o.edomv)
-WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {get_aoi_geom_sql_expression(aoi_gdf)})
+WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
 """
     df = query_to_dataframe(query_str, "ownership")
     if df.empty:
@@ -133,7 +138,7 @@ def get_ecoregion_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     query_str = f"""
 SELECT us_l4name AS ecoregion_iv, us_l3name AS ecoregion_iii, ST_AsBinary(ST_GeomFromBinary(geom_wkb)) AS geom
-FROM ext_rpt.us_ecoregions
+FROM ext_rpt.us_epa_ecoregions_l4
 WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
 """
     df = query_to_dataframe(query_str, "ecoregions")
