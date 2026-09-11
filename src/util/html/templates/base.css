@@ -755,7 +755,7 @@ canvas {
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 .footer-col {
-  margin-left: auto !important;
+  margin-left: 100px !important;
   display: flex;
   flex-direction: column;
   flex: 1 1 260px;
@@ -809,7 +809,7 @@ canvas {
 
 @media (min-width: 600px) {
   .footer-inner .grid {
-    grid-template-columns: auto 1fr 1fr; /* logo + columns */
+    grid-template-columns: 1fr 9fr; /* logo + columns */
   }
 }
 
