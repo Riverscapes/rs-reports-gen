@@ -164,7 +164,7 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
     mean_precip_cell_value = rpt_stats['sum_precipsum'] / rpt_stats['sum_precipcount']
     meta.add_field_meta(
         name='mean_precip_cell_value',
-        friendly_name='Mean Average Precipitation',
+        friendly_name='Mean Annual Precipitation',
         description='Mean of the 30-year Average Annual Precipitation across the selected area',
         layer_id=layer_id,
         data_unit=mean_precip_cell_value.units,
@@ -346,11 +346,6 @@ def waterbody_summary_table(df: pd.DataFrame) -> str:
     return render_table(body_rdf, footer=body_rdf._footer)
 
 
-def ownership_summary_table(df: pd.DataFrame) -> str:
-    """make html table for ownership"""
-    return render_table(df)
-
-
 def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
     """
     Aggregate dem_bins from all rows, summing cell_count for each bin.
@@ -413,15 +408,68 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
 
 def geology_table(geology_df: gpd.GeoDataFrame) -> pd.DataFrame:
     """make data frame for displaying geology information in a table"""
+    layer_id = 'geology_summary'  # For metadata namespacing
 
     dissolved_gdf = geology_df.dissolve(by='unit_name', aggfunc='first')
     dissolved_gdf = dissolved_gdf.to_crs(geology_df.estimate_utm_crs())
 
-    return pd.DataFrame({'unit_name': dissolved_gdf.index, 'rock_type': dissolved_gdf['rock_type'], 'area': dissolved_gdf.geometry.area})
+    geo_df = RSGeoDataFrame(pd.DataFrame({'unit_name': dissolved_gdf.index, 'primary_rock_type': dissolved_gdf['rock_type'], 'area': dissolved_gdf.geometry.area}))
+
+    # geometry.area (after projecting to a UTM CRS) is in square meters
+    meta = RSFieldMeta()
+    meta.add_field_meta(name='area', layer_id=layer_id, friendly_name='Area', data_unit='m**2', display_unit='kilometer ** 2')
+    geo_df['area'] = ensure_pint_column(geo_df, 'area', 'm**2')
+
+    return geo_df
 
 
 def geology_summary_table(geology_df: gpd.GeoDataFrame) -> str:
     """make html table for geology summary"""
     summary_df = geology_table(geology_df)
     summary_df.sort_values('area', ascending=False, inplace=True)
-    return render_table(summary_df)
+    return render_table(summary_df, layer_id='geology_summary')
+
+
+def ecoregion_table(ecoregion_df: gpd.GeoDataFrame) -> pd.DataFrame:
+    """make data frame for displaying ecoregion information in a table"""
+    layer_id = 'ecoregion_summary'  # For metadata namespacing
+
+    dissolved_gdf = ecoregion_df.dissolve(by='ecoregion_iv', aggfunc='first')
+    dissolved_gdf = dissolved_gdf.to_crs(ecoregion_df.estimate_utm_crs())
+
+    ecor_df = RSGeoDataFrame(pd.DataFrame({'ecoregion_iv': dissolved_gdf.index, 'area': dissolved_gdf.geometry.area}))
+
+    meta = RSFieldMeta()
+    meta.add_field_meta(name='area', layer_id=layer_id, friendly_name='Area', data_unit='m**2', display_unit='kilometer ** 2')
+    ecor_df['area'] = ensure_pint_column(ecor_df, 'area', 'm**2')
+
+    return ecor_df
+
+
+def ecoregion_summary_table(ecoregion_df: gpd.GeoDataFrame) -> str:
+    """make html table for ecoregion summary"""
+    summary_df = ecoregion_table(ecoregion_df)
+    summary_df.sort_values('area', ascending=False, inplace=True)
+    return render_table(summary_df, layer_id='ecoregion_summary')
+
+
+def ownership_table(ownership_df: pd.DataFrame) -> pd.DataFrame:
+    """make data frame for displaying ownership information in a table"""
+    layer_id = 'ownership_summary'  # For metadata namespacing
+
+    dissolved_gdf = ownership_df.dissolve(by='ownership_desc', aggfunc='first')
+    dissolved_gdf = dissolved_gdf.to_crs(ownership_df.estimate_utm_crs())
+
+    meta = RSFieldMeta()
+    meta.add_field_meta(name='area', layer_id=layer_id, friendly_name='Area', data_unit='m**2', display_unit='kilometer ** 2')
+    geo_df = RSGeoDataFrame(pd.DataFrame({'ownership_desc': dissolved_gdf.index, 'area': dissolved_gdf.geometry.area}))
+    geo_df['area'] = ensure_pint_column(geo_df, 'area', 'm**2')
+
+    return geo_df
+
+
+def ownership_summary_table(ownership_df: pd.DataFrame) -> str:
+    """make html table for ownership summary"""
+    summary_df = ownership_table(ownership_df)
+    summary_df.sort_values('area', ascending=False, inplace=True)
+    return render_table(summary_df, layer_id='ownership_summary')

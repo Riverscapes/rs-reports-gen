@@ -19,7 +19,7 @@ from rsxml.util import safe_makedirs
 from reports.rpt_watershed_context import __version__ as report_version
 from reports.rpt_watershed_context.dataprep import define_fields, get_aggregated_data, get_ecoregion_data, get_geology_data, get_intersecting_hucs, get_ownership_data, get_states, register_context_fields
 from reports.rpt_watershed_context.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
-from reports.rpt_watershed_context.figures import geology_summary_table, hydrography_table, hypsometry_fig, ownership_summary_table, statistics, waterbody_summary_table
+from reports.rpt_watershed_context.figures import ecoregion_summary_table, geology_summary_table, hydrography_table, hypsometry_fig, ownership_summary_table, statistics, waterbody_summary_table
 
 # Repo imports
 from util.athena.athena import athena_unload_to_dataframe
@@ -85,7 +85,7 @@ def make_report(
     """
     log = Logger('make report')
 
-    figures: dict[str, go.Figure] = {'map': make_aoi_outline_map(aoi_gdf), 'hysometry': hypsometry_fig(hucs_df)}
+    figures: dict[str, go.Figure] = {'map': make_aoi_outline_map(aoi_gdf), 'hypsometry': hypsometry_fig(hucs_df)}
     tables: dict[str, str] = {}
 
     if error_message is None:
@@ -94,6 +94,7 @@ def make_report(
             "ownership": ownership_summary_table(ownership_df),
             "hydrography": hydrography_table(aggregate_data_df),
             "geology": geology_summary_table(geology_df),
+            "ecoregions": ecoregion_summary_table(ecoregion_df),
         }
 
     report = RSReport(
