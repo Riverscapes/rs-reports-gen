@@ -1,7 +1,7 @@
 """Figure generation for Stream Names Report"""
 
 from pathlib import Path
-
+from rsxml import Logger
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -31,7 +31,8 @@ def word_cloud(indf: pd.DataFrame, output_dir: Path, frequency_field: str):
     Returns:
         str: HTML <img> tag pointing at the generated SVG (relative filename)
     """
-    print('WORD CLOUD')
+    log = Logger('Word_Cloud')
+    log.info("Generating word cloud")
     # print(indf)  # debug only
 
     # 1. Prepare aggregated / unit-baked data

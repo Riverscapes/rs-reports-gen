@@ -593,6 +593,7 @@ figure.float-left, figure.float-right,
   padding: 0;
 }
 
+
 .metric {
   display: flex;
   flex-direction: column;
@@ -610,6 +611,13 @@ figure.float-left, figure.float-right,
 .metric:hover {
   box-shadow: var(--elev-6);
   transform: translateY(-2px);
+}
+
+@media print {
+  .metric {
+    box-shadow: none;
+    transform: none;
+  } 
 }
 
 .metric dt,
@@ -828,15 +836,16 @@ canvas {
   color: #fff;
   font-weight: 600;
   margin: 0 0 var(--space-2);
-  font-size: clamp(1rem, 0.6vw + 0.95rem, 1.2rem);
+  font-size: clamp(1rem, 0.6vw + 0.95rem, 1.5rem);
   border-bottom: none;
 }
 
 .footer-links {
+  padding: 0;
+}
+
+.footer-links li{
   list-style: none;
-  padding-left: var(--space-2);
-  display: grid;
-  gap: var(--space-1);
 }
 
 .footer-links a {

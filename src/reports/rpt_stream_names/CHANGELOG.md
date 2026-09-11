@@ -1,5 +1,9 @@
 # Riverscapes Stream Names Report
 
+## Version 0.4.3
+
+* User-guess prompt now uses the standard info callout widget
+
 ## Version 0.4.2
 
 * new statistics section

@@ -22,50 +22,15 @@ table.dataframe thead th + th {
 
 /*
 USER GUESS CALLOUT
-Subtle, secondary emphasis so it does not compete with primary result cards.
+Uses the standard info callout widget (util/html/widgets.py); this wrapper
+only handles the float layout beside the intro paragraph.
 */
 #user-guess {
 	margin: 0.5rem 0 1.25rem;
 }
 
-#user-guess .sidebar {
-	background: #f7fafc;
-	border: 1px solid #d7e3ef;
-	border-radius: 8px;
-	color: #2c3e50;
-	font-size: 0.96rem;
-	line-height: 1.45;
-	padding: 0.85rem 1rem;
-}
-
-#user-guess .sidebar p {
-	margin: 0.2rem 0;
-}
-
-#user-guess .sidebar::before {
-	content: "?";
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.1rem;
-	height: 1.1rem;
-	margin-right: 0.5rem;
-	border: 1px solid #c6d7e7;
-	border-radius: 999px;
-	color: #56728d;
-	font-size: 0.75rem;
-	font-weight: 600;
-	vertical-align: text-top;
-}
-
-#user-guess .user-guess {
-	display: block;
-	margin: 0.4rem 0;
-	padding: 0.1rem 0.35rem;
-	border-radius: 4px;
-	background: #edf4fb;
-	color: #1f3f5b;
-	font-weight: 600;
+#user-guess .rs-callout {
+	margin: 0;
 }
 
 #highlight-cards {
@@ -79,7 +44,7 @@ Subtle, secondary emphasis so it does not compete with primary result cards.
 @media (min-width: 700px) {
 	#user-guess {
 		float: right;
-		width: min(34ch, 34%);
+		width: min(40ch, 40%);
 		margin: 0 0 1rem 1rem;
 	}
 }
