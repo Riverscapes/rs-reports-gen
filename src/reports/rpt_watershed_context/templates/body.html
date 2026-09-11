@@ -6,8 +6,7 @@
 
 <section>
   <div class="section-context">
-    <p>The Watershed Report summarizes key characteristics and metrics of the watershed within a specific area of
-      interest.</p>
+    <p>The Watershed Context Report summarizes key information about the watershed.</p>
   </div>
   {% if error_message %}
   <div class="error-message">
@@ -66,6 +65,20 @@
   </figure>
 </section>
 
+<section id="ecoregions">
+  <h2>Ecoregions</h2>
+  <figure class="report-figure">
+    {{ tables['ecoregions']|safe }}
+  </figure>
+</section>
+
+<section id="geology">
+  <h2>Geology</h2>
+  <figure class="report-figure">
+    {{ tables['geology']|safe }}
+  </figure>
+</section>
+
 <section id="climate">
   <h2>Climate - PRISM Mean Annual Precipitation</h2>
   <p>Data are derived from <a href="https://prism.oregonstate.edu/normals/">PRISM 30 year normal precipitation</a>
@@ -79,6 +92,9 @@
   <h2>Morphometric Analyses</h2>
   <h3>Basin Elevation</h3>
   {{ render_metric_grid(cards, ["min_demminimum", "max_demmaximum", "total_relief", "mean_elevation"]) }}
+  <figure class="report-figure">
+    {{ figures['hypsometry']|safe }}
+  </figure>
   <h3>Slope Analyses</h3>
   {{ render_metric_grid(cards, ["mean_slope", "min_slopeminimum", "max_slopemaximum"]) }}
   <h3>Drainage Densities</h3>
