@@ -1,6 +1,7 @@
 import html
 from collections import defaultdict
 
+import geopandas as gpd
 import pandas as pd
 import pint
 import pint_pandas
@@ -408,3 +409,19 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
         template="plotly_white",
     )
     return fig
+
+
+def geology_table(geology_df: gpd.GeoDataFrame) -> pd.DataFrame:
+    """make data frame for displaying geology information in a table"""
+
+    dissolved_gdf = geology_df.dissolve(by='unit_name', aggfunc='first')
+    dissolved_gdf = dissolved_gdf.to_crs(geology_df.estimate_utm_crs())
+
+    return pd.DataFrame({'unit_name': dissolved_gdf.index, 'rock_type': dissolved_gdf['rock_type'], 'area': dissolved_gdf.geometry.area})
+
+
+def geology_summary_table(geology_df: gpd.GeoDataFrame) -> str:
+    """make html table for geology summary"""
+    summary_df = geology_table(geology_df)
+    summary_df.sort_values('area', ascending=False, inplace=True)
+    return render_table(summary_df)

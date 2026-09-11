@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import geopandas as gpd
@@ -18,7 +19,7 @@ from rsxml.util import safe_makedirs
 from reports.rpt_watershed_context import __version__ as report_version
 from reports.rpt_watershed_context.dataprep import define_fields, get_aggregated_data, get_ecoregion_data, get_geology_data, get_intersecting_hucs, get_ownership_data, get_states, register_context_fields
 from reports.rpt_watershed_context.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
-from reports.rpt_watershed_context.figures import hydrography_table, hypsometry_fig, ownership_summary_table, statistics, waterbody_summary_table
+from reports.rpt_watershed_context.figures import geology_summary_table, hydrography_table, hypsometry_fig, ownership_summary_table, statistics, waterbody_summary_table
 
 # Repo imports
 from util.athena.athena import athena_unload_to_dataframe
@@ -92,6 +93,7 @@ def make_report(
             "waterbodies": waterbody_summary_table(aggregate_data_df),
             "ownership": ownership_summary_table(ownership_df),
             "hydrography": hydrography_table(aggregate_data_df),
+            "geology": geology_summary_table(geology_df),
         }
 
     report = RSReport(
@@ -158,16 +160,18 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
         make_report(aoi_gdf, df_aggregatedata, df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, error_message="No results found for selection.")
     else:
         # although it doesn't make much difference with these quick queries, parallelizing is good practice
-        # with ThreadPoolExecutor(max_workers=2) as executor:
-        #     future_owners = executor.submit(get_ownership_data, huc_condition)
-        #     future_states = executor.submit(get_states, huc_condition)
-        #     df_owners = future_owners.result()
-        #     df_states = future_states.result()
-        df_states = get_states(huc_condition)
-        df_owners = get_ownership_data(aoi_gdf)
-        df_geology = get_geology_data(aoi_gdf)
-        df_ecoregion = get_ecoregion_data(aoi_gdf)
-        df_hucs = load_huc_data(huc_list)
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            future_owners = executor.submit(get_ownership_data, aoi_gdf)
+            future_states = executor.submit(get_states, huc_condition)
+            future_geology = executor.submit(get_geology_data, aoi_gdf)
+            future_ecoregion = executor.submit(get_ecoregion_data, aoi_gdf)
+            future_hucs = executor.submit(load_huc_data, huc_list)
+
+            df_owners = future_owners.result()
+            df_states = future_states.result()
+            df_geology = future_geology.result()
+            df_ecoregion = future_ecoregion.result()
+            df_hucs = future_hucs.result()
 
         # apply_units must run first so statistics() receives Pint-typed columns.
         # build_named_values then converts derived stats back to SI data_unit for Excel.
