@@ -11,10 +11,26 @@ import geopandas as gpd
 import pandas as pd
 from rsxml import Logger
 
-from util.athena import get_field_metadata, query_to_dataframe
+from util.athena import aoi_query_to_dataframe, get_field_metadata, query_to_dataframe
+from util.athena.athena import get_aoi_geom_sql_expression
 from util.pandas import RSFieldMeta
+from util.rs_geo_helpers import prepare_gdf_for_athena
 
 LAYER_ID = 'rpt_watershed_summary'
+
+
+def get_intersecting_hucs(aoi_gdf: gpd.GeoDataFrame) -> list[str]:
+    """Query wbdhu10_cleaned for the HUC10 codes that intersect the AOI polygon."""
+    log = Logger("Get intersecting HUCs")
+    query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
+    if not simplification_results.success:
+        raise ValueError("Unable to simplify input geometry sufficiently to intersect with HUC10 boundaries.")
+
+    query_str = "SELECT huc10 FROM input_geom, wbdhu10_cleaned WHERE {prefilter_condition} AND {intersects_condition}"
+    df = aoi_query_to_dataframe(query_str, geometry_field_expression='ST_GeomFromBinary(geometry)', geom_bbox_field='geometry_bbox', aoi_gdf=query_gdf)
+    huc_list = sorted(df['huc10'].dropna().unique().tolist()) if not df.empty else []
+    log.info(f"Found {len(huc_list)} intersecting HUC10(s).")
+    return huc_list
 
 
 def define_fields(unit_system: str = "SI") -> None:
@@ -58,12 +74,75 @@ def register_context_fields() -> None:
 
 
 def get_ownership_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Query and return ownership summary data (unnested from the ownership field)."""
+    log = Logger("Get ownership data")
+    query_str = f"""
+SELECT lu_blm_o.edomvd AS ownership_desc, ST_AsBinary(ST_GeomFromBinary(geom_wkb)) AS geom
+FROM ext_rpt.us_blm_sma_ownership
+         LEFT JOIN lu_blm_ownership lu_blm_o ON upper(ext_rpt.us_blm_sma_ownership.admin_agency_code) = upper(lu_blm_o.edomv)
+WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {get_aoi_geom_sql_expression(aoi_gdf)})
+"""
+    df = query_to_dataframe(query_str, "ownership")
+    if df.empty:
+        log.info("No ownership polygons intersect the AOI.")
+        return gpd.GeoDataFrame(columns=["ownership_desc", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
 
-    return gdf
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom"]), geometry=gpd.GeoSeries.from_wkb(df["geom"]), crs=aoi_gdf.crs)
+    return gpd.clip(gdf, aoi_gdf)
 
 
 def get_geology_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    return gdf
+    """Query geology polygons intersecting the AOI and clip them to its extent.
+
+    Returns a GeoDataFrame of geology polygons (rock_type, unit_name, geometry) clipped
+    to the boundary of aoi_gdf. The table has no bounding-box column, so no prefilter
+    condition is available and ST_Intersects is applied directly.
+    """
+    log = Logger("Get geology data for AOI")
+
+    aoi_sql_geom = get_aoi_geom_sql_expression(aoi_gdf)
+    if aoi_sql_geom is None:
+        raise ValueError("AOI geometry exceeds Athena query size limit. Simplify the AOI and try again.")
+
+    query_str = f"""
+SELECT major1 AS rock_type, unit_name, ST_AsBinary(ST_GeomFromBinary(geom_wkb)) AS geom
+FROM ext_rpt.us_sgmc_geology
+WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
+"""
+    df = query_to_dataframe(query_str, "geology")
+    if df.empty:
+        log.info("No geology polygons intersect the AOI.")
+        return gpd.GeoDataFrame(columns=["rock_type", "unit_name", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
+
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom"]), geometry=gpd.GeoSeries.from_wkb(df["geom"]), crs=aoi_gdf.crs)
+    return gpd.clip(gdf, aoi_gdf)
+
+
+def get_ecoregion_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Query ecoregion polygons intersecting the AOI and clip them to its extent.
+
+    Returns a GeoDataFrame of ecoregion polygons (ecoregion_iv, ecoregion_iii, geometry) clipped
+    to the boundary of aoi_gdf. The table has no bounding-box column, so no prefilter
+    condition is available and ST_Intersects is applied directly.
+    """
+    log = Logger("Get ecoregion data for AOI")
+
+    aoi_sql_geom = get_aoi_geom_sql_expression(aoi_gdf)
+    if aoi_sql_geom is None:
+        raise ValueError("AOI geometry exceeds Athena query size limit. Simplify the AOI and try again.")
+
+    query_str = f"""
+SELECT us_l4name AS ecoregion_iv, us_l3name AS ecoregion_iii, ST_AsBinary(ST_GeomFromBinary(geom_wkb)) AS geom
+FROM ext_rpt.us_ecoregions
+WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
+"""
+    df = query_to_dataframe(query_str, "ecoregions")
+    if df.empty:
+        log.info("No ecoregion polygons intersect the AOI.")
+        return gpd.GeoDataFrame(columns=["ecoregion_iv", "ecoregion_iii", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
+
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom"]), geometry=gpd.GeoSeries.from_wkb(df["geom"]), crs=aoi_gdf.crs)
+    return gpd.clip(gdf, aoi_gdf)
 
 
 def get_states(huc_condition: str) -> pd.DataFrame:
