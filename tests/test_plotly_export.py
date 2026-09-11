@@ -1,6 +1,7 @@
 """Tests for the Plotly figure export pipeline (kaleido, error handling)."""
 
 import importlib
+import re
 from pathlib import Path
 
 import plotly.graph_objects as go
@@ -244,3 +245,27 @@ class TestMapGeoFallback:
         assert frag == '<img src="map.svg">'
         out = (tmp_path / "map.svg").read_text(encoding="utf-8")
         assert "Figure unavailable" in out  # degraded to placeholder
+
+
+class TestInteractiveModeBar:
+    """Interactive embeds show the mode bar only on map (MapLibre) figures.
+
+    Charts (bar/line/pie/histogram) are presentation figures: the zoom/pan/
+    download button row is hidden, but hover tooltips still work. Maps keep
+    the full mode bar so users can still zoom/pan the basemap.
+    """
+
+    def _map_fig(self):
+        import plotly.graph_objects as go
+
+        fig = go.Figure()
+        fig.add_trace(go.Scattermap(lon=[-116.5], lat=[44.5], mode="markers"))
+        return fig
+
+    def test_chart_hides_mode_bar(self, tmp_path):
+        frag = export_figure(_tiny_fig(), tmp_path, "chart", "interactive")
+        assert re.search(r'"displayModeBar"\s*:\s*false', frag), frag[:300]
+
+    def test_map_keeps_mode_bar(self, tmp_path):
+        frag = export_figure(self._map_fig(), tmp_path, "map", "interactive")
+        assert re.search(r'"displayModeBar"\s*:\s*true', frag), frag[:300]
