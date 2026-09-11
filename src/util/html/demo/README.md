@@ -53,10 +53,8 @@ env var → `chrome`/`chromium`/`msedge` on `PATH` → standard macOS app paths
 → Linux/Windows install dirs → Playwright-managed Chromium. Set
 `CHROME_PATH` to pin a specific binary (e.g. `chrome-headless-shell` in CI).
 
-If no browser is found the build **falls back to WeasyPrint** and logs a
-warning. WeasyPrint does not implement CSS Grid, so grid-based layouts stack
-vertically in the PDF instead of matching the HTML — the fallback exists
-only so PDF generation never hard-fails.
+If no browser is found, PDF generation **fails** with a message pointing at
+`CHROME_PATH` — Chrome is the only supported PDF engine.
 
 **Proportional print scaling.** A Letter page only has ~797px of content
 width, but the web design is 66rem (1056px) wide. Laid out at full font
@@ -80,7 +78,11 @@ Useful env vars:
 - `CHROME_NO_SANDBOX=1` — add `--no-sandbox` for restricted sandboxes/
   containers (also applied automatically when running as root, e.g. inside
   Docker, or when `/.dockerenv`/`/run/.containerenv` exists).
-- `engine="weasyprint"` on `make_pdf_from_html(...)` forces the old engine.
+- `RS_PDF_TIMEOUT_S` — wall-clock seconds before Chrome print-to-PDF aborts
+  (default 120). Also settable per run with `--pdf-timeout`.
+- `RS_PDF_DEBUG=1` — on failure, keep Chrome's verbose log plus the exact
+  injected HTML source next to the PDF and add `--enable-logging` so a hang
+  or crash can be inspected. Also settable per run with `--pdf-debug`.
 
 ### Docker / headless Linux
 
@@ -308,14 +310,24 @@ uv run python scripts/upload_demo.py --stage PRODUCTION --skip-build
 
 - **`Static render failed (need kaleido + Chrome)`** — the SVG/PNG export of
   figures needs Chrome. Run once: `uv run kaleido get_chrome`.
-- **PDF rendered with WeasyPrint engine (warning log)** — no Chrome binary was
-  found; grid layouts will stack. Install Chrome, or point `CHROME_PATH` at
-  any Chromium-family executable (`google-chrome`, `chromium`, `msedge`, …).
+- **`No Chrome/Chromium/Edge binary found`** — PDF export needs a browser.
+  Install Chrome, or point `CHROME_PATH` at any Chromium-family executable
+  (`google-chrome`, `chromium`, `msedge`, …).
+- **`Chrome print-to-PDF timed out after 120s`** — the PDF file never
+  appeared within budget. The usual culprit is network: the shell pulls
+  Pico/fonts/plotly.js from CDNs and map SVGs can still reference remote
+  tiles, so Chrome waits on unreachable resources without ever printing.
+  Re-run with `RS_PDF_DEBUG=1` (keeps Chrome's verbose log + the exact
+  injected HTML next to the PDF), raise the budget with `RS_PDF_TIMEOUT_S=300`
+  or `--pdf-timeout 300`, and confirm `CHROME_NO_SANDBOX=1` in restricted
+  containers. The error message itself includes the Chrome binary/version
+  and the tail of Chrome's stderr.
+  Note: headless Chrome sometimes writes the PDF and then *keeps running*
+  instead of exiting; the engine treats "PDF written and stable" as success
+  and terminates Chrome at that point, so a finished render no longer costs
+  you the full timeout.
 - **Chrome PDF hangs / `sandbox initialization failed`** — the print-to-PDF
   runs in a restricted sandbox or container. Set `CHROME_NO_SANDBOX=1`.
-- **`WeasyPrint could not import some external libraries`** — only relevant when
-  the WeasyPrint fallback runs; it needs the native `pango` + `gobject` libs
-  (`brew install pango`). With a Chrome binary installed this path is unused.
 - **PDF fonts look wrong** — the webfonts (Karla/Roboto/JetBrains Mono) are
   fetched from Google Fonts at render time. Run once with a network
   connection so the browser caches them locally.

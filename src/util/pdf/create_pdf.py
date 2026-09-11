@@ -1,37 +1,23 @@
 """PDF generation from rendered report HTML.
 
-Two engines are available:
-
-* **Chrome/Chromium ``--headless`` print-to-PDF** (default when a browser
-  binary is found). This is a real browser engine, so the PDF is laid out by
-  the *same* CSS engine that renders the HTML on screen: CSS Grid, Flexbox,
-  ``calc()`` with custom properties, webfonts, ``@media print`` — everything
-  behaves identically. This is the only way the PDF can look exactly like the
-  static HTML report for every section and control.
-
-* **WeasyPrint** (fallback). Kept for environments with no browser binary on
-  PATH/standard install locations. Note that WeasyPrint does **not** implement
-  CSS Grid, so grid-based layouts (Pico's ``.grid``, ``.metric-grid``, …)
-  stack vertically instead of rendering side-by-side.
+PDFs are rendered with **Chrome/Chromium/Edge ``--headless`` print-to-PDF** —
+the only supported PDF engine. This is a real browser engine, so the PDF is
+laid out by the *same* CSS engine that renders the HTML on screen: CSS Grid,
+Flexbox, ``calc()`` with custom properties, webfonts, ``@media print`` —
+everything behaves identically. This is the only way the PDF can look exactly
+like the static HTML report for every section and control.
 """
 
 from __future__ import annotations
-
-import logging
+import shlex
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Sequence
 from pathlib import Path
-
-try:  # pragma: no cover - environment-dependent
-    import weasyprint
-except (OSError, ImportError):  # missing native libs (pango/gobject)
-    weasyprint = None
-
-logger = logging.getLogger(__name__)
 
 #: Console logger consistent with the rest of the pipeline (rsxml).
 from rsxml import Logger as _RsxmlLogger  # noqa: E402
@@ -179,6 +165,51 @@ def _chrome_version(binary: str) -> str | None:
         return None
 
 
+def _pdf_state(pdf_path: Path) -> str:
+    """Describe the (possibly partial) output PDF for error messages."""
+    if not pdf_path.is_file():
+        return "not created"
+    size = pdf_path.stat().st_size
+    return "created but empty" if size == 0 else f"created ({size:,} bytes)"
+
+
+def _chrome_failure_message(
+    headline: str,
+    *,
+    chrome: str,
+    chrome_version: str | None,
+    html_path: str | os.PathLike[str],
+    input_url: str,
+    pdf_path: str | os.PathLike[str],
+    stderr: str,
+    stdout: str,
+) -> str:
+    """Build a diagnosis-friendly RuntimeError message for a Chrome failure.
+
+    Includes the binary/version actually used, the exact input/output paths,
+    the partial output state and Chrome's own stderr/stdout, plus pointers to
+    the knobs that usually fix a hang.
+    """
+    hints = [
+        "• Raise the budget: RS_PDF_TIMEOUT_S=300 (or pass timeout_s=300 / --pdf-timeout 300).",
+        "• Diagnose: RS_PDF_DEBUG=1 (or --pdf-debug) keeps Chrome's verbose log and the injected HTML source next to the PDF.",
+        "• Restricted container/CI: CHROME_NO_SANDBOX=1 usually fixes renderer startup failures.",
+        "• Unreachable CDN resources (Pico/fonts/plotly.js/map tiles) are the most common hang cause — Chrome waits on them while rendering.",
+    ]
+    body = (
+        f"{headline}.\n"
+        f"Binary: {chrome} ({chrome_version or 'version unknown'})\n"
+        f"Input: {html_path} ({input_url})\n"
+        f"Output: {pdf_path} ({_pdf_state(Path(pdf_path))})\n"
+    )
+    if stderr.strip():
+        body += f"Chrome stderr (tail, 4000 chars max):\n{stderr.strip()[-4000:]}\n"
+    if stdout.strip():
+        body += f"Chrome stdout (tail, 4000 chars max):\n{stdout.strip()[-4000:]}\n"
+    body += "Debugging pointers:\n" + "\n".join(hints)
+    return body
+
+
 def _make_pdf_with_chrome(
     html_path: str | os.PathLike[str],
     pdf_path: str | os.PathLike[str],
@@ -188,6 +219,7 @@ def _make_pdf_with_chrome(
     zoom: float = 1.0,
     extra_styles: Sequence[object] | None = None,
     timeout_s: int = 120,
+    debug: bool = False,
 ) -> str:
     """Render ``html_path`` to ``pdf_path`` with headless Chrome print-to-PDF.
 
@@ -196,6 +228,7 @@ def _make_pdf_with_chrome(
     injected into ``<head>``, so relative resources (``figures/…``) resolve
     exactly as they do in the browser. Returns ``pdf_path``.
     """
+    _log.debug(f"Creating PDF from HTML: {html_path} -> {pdf_path}")
     html_path = Path(html_path).resolve()
     pdf_path = Path(pdf_path).resolve()
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -210,9 +243,8 @@ def _make_pdf_with_chrome(
         elif isinstance(style, os.PathLike):
             injected.append(Path(style).read_text(encoding="utf-8"))
         else:
-            logger.warning(
-                "Chrome PDF engine: skipping extra style of type %s (pass CSS as a string or path; WeasyPrint CSS objects are engine-specific).",
-                type(style).__name__,
+            _log.warning(
+                f"Chrome PDF engine: skipping extra style of type {type(style).__name__} (pass CSS as a string or file path)."
             )
 
     if injected:
@@ -244,8 +276,19 @@ def _make_pdf_with_chrome(
         "--no-pdf-header-footer",
         f"--print-to-pdf={pdf_path}",
         f"--user-data-dir={profile_dir}",
-        f"--virtual-time-budget={int(timeout_s * 1000)}",
+        # Virtual time only needs to cover fonts/layout settling, not the
+        # wall-clock deadline — a runaway budget keeps the process alive far
+        # past the point where the PDF is already written.
+        f"--virtual-time-budget={min(timeout_s, 30) * 1000}",
     ]
+    if debug:
+        # Verbose Chrome logging so a hang/crash can be diagnosed; the log
+        # lands next to the PDF and the temp artifacts are kept (see finally).
+        cmd += [
+            "--enable-logging=stderr",
+            "--v=1",
+            f"--log-file={pdf_path.with_suffix('.chrome-debug.log')}",
+        ]
     if (
         (hasattr(os, "geteuid") and os.geteuid() == 0)  # root (CI/docker)
         or _running_in_container()  # Docker/Podman without userns sandbox
@@ -253,51 +296,93 @@ def _make_pdf_with_chrome(
     ):
         cmd.append("--no-sandbox")
     cmd.append(input_url)
+    _log.debug(f"Chrome print-to-PDF command: {' '.join(shlex.quote(arg) for arg in cmd)}")
 
+    chrome_version = _chrome_version(chrome)
+    _log.info(
+        f"Chrome PDF render: {chrome} ({chrome_version or 'version unknown'}) -> {pdf_path} (wall-clock budget {timeout_s}s)"
+    )
+
+    failure_kwargs = {
+        "chrome": chrome,
+        "chrome_version": chrome_version,
+        "html_path": html_path,
+        "input_url": input_url,
+        "pdf_path": pdf_path,
+    }
+
+    # Headless Chrome writes the PDF as soon as the page is printable and
+    # then keeps running until its virtual-time budget expires — sometimes
+    # far longer than the render itself took. So the success signal is the
+    # PDF file appearing and stabilizing, not the process exiting. Once the
+    # file looks complete we stop waiting on Chrome and terminate it.
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    timed_out = False
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s + 30)
-    except subprocess.TimeoutExpired as err:  # pragma: no cover - hang guard
-        raise RuntimeError(f"Chrome print-to-PDF timed out after {timeout_s}s: {err}") from err
+        deadline = time.monotonic() + timeout_s
+        last_size = -1
+        stable_at = 0.0
+        while True:
+            if pdf_path.is_file():
+                size = pdf_path.stat().st_size
+                if size == last_size:
+                    if size > 0 and time.monotonic() - stable_at >= 0.5:
+                        break  # PDF complete and stable
+                else:
+                    last_size = size
+                    stable_at = time.monotonic()
+            if proc.poll() is not None:
+                break  # Chrome exited on its own
+            if time.monotonic() >= deadline:
+                timed_out = True
+                break
+            time.sleep(0.2)
     finally:
-        shutil.rmtree(profile_dir, ignore_errors=True)
-        if tmp_html is not None:  # pragma: no cover - tidy
-            tmp_html.unlink(missing_ok=True)
+        if proc.poll() is None:  # job done (or deadlined) but Chrome still alive
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:  # pragma: no cover - stuck child
+                proc.kill()
+                proc.wait(timeout=5)
+        if debug:
+            leftovers = [str(pdf_path.with_suffix(".chrome-debug.log"))]
+            if tmp_html is not None:
+                leftovers.append(str(tmp_html))
+            leftovers.append(profile_dir)
+            _log.warning(f"RS_PDF_DEBUG: kept for inspection: {', '.join(leftovers)}")
+        else:
+            shutil.rmtree(profile_dir, ignore_errors=True)
+            if tmp_html is not None:  # pragma: no cover - tidy
+                tmp_html.unlink(missing_ok=True)
 
-    if result.returncode != 0 or not pdf_path.is_file() or pdf_path.stat().st_size == 0:
-        detail = (result.stderr or result.stdout or "").strip()[-800:]
-        raise RuntimeError(f"Chrome print-to-PDF failed (exit {result.returncode}): {detail or 'no output'}")
+    stdout = proc.stdout.read() if proc.stdout else ""
+    stderr = proc.stderr.read() if proc.stderr else ""
 
-    version = _chrome_version(chrome)
-    logger.info("PDF written with Chrome engine (%s): %s", version or chrome, pdf_path)
-    _log.info(f"PDF rendered with Chrome engine ({version or chrome})")
-    return str(pdf_path)
+    if timed_out:
+        detail = _chrome_failure_message(
+            f"Chrome print-to-PDF timed out after {timeout_s}s (no PDF produced)",
+            **failure_kwargs,
+            stderr=stderr,
+            stdout=stdout,
+        )
+        _log.error(detail)
+        _log.error(f"Chrome print-to-PDF timed out after {timeout_s}s. Output {_pdf_state(pdf_path)}.")
+        raise RuntimeError(detail)
 
+    if not pdf_path.is_file() or pdf_path.stat().st_size == 0:
+        detail = _chrome_failure_message(
+            f"Chrome print-to-PDF failed (exit {proc.returncode})",
+            **failure_kwargs,
+            stderr=stderr,
+            stdout=stdout,
+        )
+        _log.error(detail)
+        _log.error(f"Chrome print-to-PDF failed (exit {proc.returncode}). Output {_pdf_state(pdf_path)}.")
+        raise RuntimeError(detail)
 
-def _make_pdf_with_weasyprint(
-    html_path: str | os.PathLike[str],
-    pdf_path: str | os.PathLike[str],
-    page_margin: str,
-    zoom: float,
-    extra_styles: Sequence[object] | None,
-) -> str:
-    """Original WeasyPrint render path (unchanged behavior)."""
-    if weasyprint is None:
-        raise RuntimeError("WeasyPrint is not importable (missing pango/gobject native libs?). Install a Chrome/Chromium binary for PDF generation instead.")
-    margin_css = weasyprint.CSS(
-        string=(f"@page {{ margin: {page_margin}; }} body {{ margin: 0 !important; padding: 0 !important; }}"),
-        media_type="print",
-    )
-    stylesheets = [margin_css]
-    if extra_styles:
-        stylesheets.extend(extra_styles)
-    weasyprint.HTML(filename=str(html_path), base_url=str(Path(html_path).parent)).write_pdf(
-        str(pdf_path),
-        stylesheets=stylesheets,
-        zoom=zoom,
-        presentational_hints=True,
-    )
-    logger.info("PDF written with WeasyPrint engine: %s", pdf_path)
-    _log.info("PDF rendered with WeasyPrint engine")
+    _log.info(f"PDF written with Chrome engine ({chrome_version or chrome}): {pdf_path}")
+    _log.info(f"PDF rendered with Chrome engine ({chrome_version or chrome})")
     return str(pdf_path)
 
 
@@ -307,9 +392,10 @@ def make_pdf_from_html(
     page_margin: str = "0.1in",
     zoom: float = 1.0,
     extra_styles: Sequence[object] | None = None,
-    engine: str = "auto",
+    timeout_s: int | None = None,
+    debug: bool = False,
 ) -> str:
-    """Generate a PDF from an HTML file.
+    """Generate a PDF from an HTML file with headless Chrome print-to-PDF.
 
     Args:
         html_path: Path to the source HTML document.
@@ -317,45 +403,40 @@ def make_pdf_from_html(
             ``.pdf`` extension.
         page_margin: CSS margin value injected into the ``@page`` rule.
         zoom: Zoom factor (1.0 = 100%).
-        extra_styles: Extra CSS to apply. For the Chrome engine these must be
-            CSS strings or file paths (WeasyPrint CSS objects are ignored with
-            a warning); the WeasyPrint engine accepts WeasyPrint CSS objects.
-        engine: One of ``"auto"`` (default: Chrome when available, otherwise
-            WeasyPrint), ``"chrome"`` (Chrome, raising if unavailable or on
-            failure) or ``"weasyprint"`` (always WeasyPrint).
+        extra_styles: Extra CSS to apply. These must be CSS strings or file
+            paths (other objects are ignored with a warning).
+        timeout_s: Wall-clock budget (seconds) before Chrome print-to-PDF is
+            aborted. Defaults to the ``RS_PDF_TIMEOUT_S`` env var, or 120.
+        debug: When True, keep Chrome's verbose log and the injected-source
+            copy next to the PDF and add ``--enable-logging`` so a hang or
+            crash can be inspected. Also enabled by ``RS_PDF_DEBUG=1``.
 
     Returns:
         Path to the generated PDF file.
+
+    Raises:
+        RuntimeError: If no Chrome/Chromium/Edge binary can be found, or if
+            the Chrome print-to-PDF run fails or times out.
     """
     pdf_path_final = pdf_path if pdf_path else os.path.splitext(html_path)[0] + ".pdf"
 
-    if engine == "weasyprint":
-        return _make_pdf_with_weasyprint(html_path, pdf_path_final, page_margin, zoom, extra_styles)
-
-    if engine not in ("auto", "chrome"):
-        raise ValueError(f"Unknown PDF engine: {engine!r} (expected 'auto', 'chrome' or 'weasyprint')")
-
     chrome = find_chrome()
-    if chrome is None and engine == "chrome":
-        raise RuntimeError("No Chrome/Chromium/Edge binary found for engine='chrome'. Set CHROME_PATH or install a browser (or use engine='weasyprint').")
-
-    if chrome is None:  # pragma: no cover - machines with browsers won't hit this
-        logger.warning("No Chrome/Chromium/Edge binary found — falling back to WeasyPrint. WeasyPrint does not support CSS Grid, so grid layouts will stack instead of matching the HTML. Set CHROME_PATH to enable the Chrome engine.")
-        _log.warning("No Chrome/Chromium/Edge binary found — using WeasyPrint fallback (no CSS Grid: grid layouts will stack, not match the HTML). Set CHROME_PATH to enable the Chrome engine.")
-        return _make_pdf_with_weasyprint(html_path, pdf_path_final, page_margin, zoom, extra_styles)
-
-    try:
-        return _make_pdf_with_chrome(
-            html_path,
-            pdf_path_final,
-            chrome,
-            page_margin=page_margin,
-            zoom=zoom,
-            extra_styles=extra_styles,
+    if chrome is None:
+        raise RuntimeError(
+            "No Chrome/Chromium/Edge binary found for PDF export. Set CHROME_PATH or install a browser."
         )
-    except Exception as err:  # noqa: BLE001 - engine failure, try the fallback
-        if engine == "chrome":
-            raise
-        logger.warning("Chrome PDF render failed (%s) — falling back to WeasyPrint.", err)
-        _log.warning(f"Chrome PDF render failed ({err}) — falling back to WeasyPrint.")
-        return _make_pdf_with_weasyprint(html_path, pdf_path_final, page_margin, zoom, extra_styles)
+
+    if timeout_s is None:
+        timeout_s = int(os.environ.get("RS_PDF_TIMEOUT_S", "120"))
+    debug = debug or os.environ.get("RS_PDF_DEBUG") == "1"
+
+    return _make_pdf_with_chrome(
+        html_path,
+        pdf_path_final,
+        chrome,
+        page_margin=page_margin,
+        zoom=zoom,
+        extra_styles=extra_styles,
+        timeout_s=timeout_s,
+        debug=debug,
+    )

@@ -123,10 +123,11 @@ def launch_report(entry: ReportEntry, extra_args: list[str]) -> int:
 
     if hasattr(module, "main") and callable(module.main):
         try:
-            result = module.main()
-            # If main returns an int, use it as exit code
-            if isinstance(result, int):
-                return result
+            rerun = True
+            while rerun:
+                result = module.main()
+                # Now add a questionary input Y/n to decide if we want to rerun with the same parameters
+                rerun = questionary.confirm("Do you want to rerun the report with the same parameters?", default=False).ask()
             return 0
         except SystemExit as exc:
             # Handle sys.exit() calls in the report
