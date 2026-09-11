@@ -6,6 +6,8 @@ from termcolor import colored
 
 from util.prompt import get_include_pdf, get_unit_system
 
+EXAMPLE_DIR = Path(__file__).resolve().parent / "examples"
+
 
 def main():
     """The purpose of this function is to return an array of arguments that will satisfy the
@@ -20,7 +22,7 @@ def main():
             INCLUDE_PDF - whether to include a PDF version of the report (optional, default is True)
 
         Report-specific variables:
-            WS_HUCS - HUC or HUCs (comma separated) to process
+            WS_AOI_GEOJSON - path to the input polygon file (geojson/shapefile) defining the AOI
             WS_REPORT_NAME - name for the report (optional)
 
     """
@@ -39,28 +41,31 @@ def main():
     # Ask for whether or not to include PDF. Default to NO
     include_pdf = get_include_pdf()
 
-    hucs = os.environ.get("WS_HUCS")
-    if not hucs:
-        hucs = questionary.text(message="HUC or comma separated list of HUCs to report on (HUC10 or bigger)", default="").ask()
-        if hucs is None or len(hucs) == 0:
-            print("\nNo HUC provided. Exiting.\n")
+    # ── AOI polygon ───────────────────────────────────────────────────
+    aoi_env = os.environ.get("WS_AOI_GEOJSON")
+    if aoi_env:
+        aoi_path = Path(aoi_env)
+        if not aoi_path.exists():
+            raise RuntimeError(colored(f"\nThe WS_AOI_GEOJSON environment variable is set to '{aoi_env}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
+    else:
+        choices = sorted(p.name for p in EXAMPLE_DIR.glob("*.geojson")) if EXAMPLE_DIR.exists() and EXAMPLE_DIR.is_dir() else []
+        selected_file = questionary.select("Select a geojson file to use as the AOI:", choices=choices).ask()
+        if selected_file is None:
+            print("\nNo geojson file selected. Exiting.\n")
             return None
+        aoi_path = (EXAMPLE_DIR / selected_file).resolve()
 
     # ── Report name ───────────────────────────────────────────────────
-    report_name = os.environ.get("RWS_REPORT_NAME")
+    report_name = os.environ.get("WS_REPORT_NAME")
     if not report_name:
-        # build a report name from the HUCs provided
-        huc_list2 = hucs.split(",", 2)
-        report_name = 'HUC ' + huc_list2[0][:10]
-        if len(huc_list2) > 1:
-            report_name += " and others"
+        report_name = aoi_path.stem.replace(' ', '_')
 
     # Create a clean, combined folder name for the report output
     report_folder_name = f"{report_name[:50].replace(' ', '_')}_{unit_system}"
 
     args = [
         Path(data_root) / "rpt-watershed-context" / report_folder_name,
-        hucs,
+        aoi_path,
         report_name,
         "--unit_system",
         unit_system,

@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import geopandas as gpd
@@ -16,24 +15,52 @@ from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
 # Report type imports
-from reports.rpt_watershed_summary import __version__ as report_version
-from reports.rpt_watershed_summary.dataprep import define_fields, get_aggregated_data, get_ownership_data, get_states, register_context_fields
-from reports.rpt_watershed_summary.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
-from reports.rpt_watershed_summary.figures import hydrography_table, ownership_summary_table, statistics, waterbody_summary_table
+from reports.rpt_watershed_context import __version__ as report_version
+from reports.rpt_watershed_context.dataprep import define_fields, get_aggregated_data, get_ecoregion_data, get_geology_data, get_intersecting_hucs, get_ownership_data, get_states, register_context_fields
+from reports.rpt_watershed_context.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
+from reports.rpt_watershed_context.figures import hydrography_table, hypsometry_fig, ownership_summary_table, statistics, waterbody_summary_table
 
 # Repo imports
+from util.athena.athena import athena_unload_to_dataframe
 from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 
 
+def load_huc_data(hucs: list[str]) -> pd.DataFrame:
+    """Queries rscontext_huc10 for all the huc10 watersheds that intersect the aoi
+    * this could be a spatial query but we already have the huc12 from data_gdf so this is much faster
+    * FUTURE ENHANCEMENT - take the aoi and join with huc geometries to produce some statistics about the amount of intersection between them
+    * FUTURE ENHANCEMENT: check if we got data for all the hucs we were looking for
+    """
+    log = Logger("Load HUC data")
+
+    if not hucs or len(hucs) == 0:
+        log.error("No hucs provided to load_huc_data")
+        return pd.DataFrame()  # return empty dataframe
+
+    # Basic input sanitation: ensure all hucs are strings, length 10, digits only, and unique
+    clean_hucs = {h for h in hucs if isinstance(h, str) and len(h) == 10 and h.isdigit()}
+    if not clean_hucs or (len(clean_hucs) != len(hucs)):
+        log.error("No hucs, duplicate huc or unexpected value in huc list")
+
+    # Prepare SQL-safe quoted list
+    huc_sql = "(" + ",".join([f"'{h}'" for h in clean_hucs]) + ")"
+    sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
+
+    df = athena_unload_to_dataframe(sql_str)
+    return df
+
+
 def make_report(
     aoi_gdf: gpd.GeoDataFrame,
     aggregate_data_df: pd.DataFrame,
-    ownership_df: gpd.GeoDataFrame,
+    ownership_df: pd.DataFrame,
     geology_df: gpd.GeoDataFrame,
+    ecoregion_df: gpd.GeoDataFrame,
     states_df: pd.DataFrame,
+    hucs_df: gpd.GeoDataFrame,
     report_dir: Path,
     report_name: str,
     stats: dict | None = None,
@@ -57,8 +84,7 @@ def make_report(
     """
     log = Logger('make report')
 
-    figures: dict[str, go.Figure] = {}
-    figures['map'] = make_aoi_outline_map(aoi_gdf)  # Assuming you have a function to generate the map of polygons
+    figures: dict[str, go.Figure] = {'map': make_aoi_outline_map(aoi_gdf), 'hysometry': hypsometry_fig(hucs_df)}
     tables: dict[str, str] = {}
 
     if error_message is None:
@@ -107,7 +133,7 @@ def make_report(
         log.info(f'PDF: {pdf_path}')
 
 
-def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, include_pdf: bool = True, unit_system: str = "SI"):
+def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path, include_pdf: bool = True, unit_system: str = "SI"):
     """Orcestratest the report generation process:
     * get the data
     * make the report
@@ -116,22 +142,32 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
     log = Logger('Make report orchestrator')
     log.info("Report orchestration begun")
     meta = RSFieldMeta()
-    huc_condition = parse_hucs(hucs, 'huc', 10)
+
+    aoi_gdf = gpd.read_file(aoi_path)
+    huc_list = get_intersecting_hucs(aoi_gdf)
+    if not huc_list:
+        raise ValueError("No HUC10 watersheds intersect the supplied AOI.")
+    huc_condition = parse_hucs(','.join(huc_list), 'huc', 10)
     log.debug(f"huc condition: {huc_condition}")
 
     define_fields(unit_system)
     df_aggregatedata = get_aggregated_data(huc_condition)
 
     if df_aggregatedata.empty:
-        # we send 3 empty dataframes and error_message
-        make_report(df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, error_message="No results found for selection.")
+        # we send empty dataframes and error_message
+        make_report(aoi_gdf, df_aggregatedata, df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, error_message="No results found for selection.")
     else:
         # although it doesn't make much difference with these quick queries, parallelizing is good practice
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_owners = executor.submit(get_ownership_data, huc_condition)
-            future_states = executor.submit(get_states, huc_condition)
-            df_owners = future_owners.result()
-            df_states = future_states.result()
+        # with ThreadPoolExecutor(max_workers=2) as executor:
+        #     future_owners = executor.submit(get_ownership_data, huc_condition)
+        #     future_states = executor.submit(get_states, huc_condition)
+        #     df_owners = future_owners.result()
+        #     df_states = future_states.result()
+        df_states = get_states(huc_condition)
+        df_owners = get_ownership_data(aoi_gdf)
+        df_geology = get_geology_data(aoi_gdf)
+        df_ecoregion = get_ecoregion_data(aoi_gdf)
+        df_hucs = load_huc_data(huc_list)
 
         # apply_units must run first so statistics() receives Pint-typed columns.
         # build_named_values then converts derived stats back to SI data_unit for Excel.
@@ -143,15 +179,14 @@ def make_report_orchestrator(report_name: str, report_dir: Path, hucs: str, incl
 
         # Build string values for the registered fields
         state_abbrevs = ', '.join(sorted(df_states['state_abbrev'].dropna().str.strip().unique()))
-        huc_list = [h.strip() for h in hucs.split(',') if h.strip()]
-        huc_codes_str = ', '.join(sorted(huc_list))
+        huc_codes_str = ', '.join(huc_list)
         extra_named_values: dict[str, NamedValue] = {
             'state_abbreviations': NamedValue(value=state_abbrevs),
             'huc_codes': NamedValue(value=huc_codes_str),
         }
         named_values = build_named_values(df_aggregatedata, stats, extra=extra_named_values)
 
-        make_report(df_aggregatedata, df_owners, df_states, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
+        make_report(aoi_gdf, df_aggregatedata, df_owners, df_geology, df_ecoregion, df_states, df_hucs, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
         safe_makedirs(str(report_dir / 'data'))
         # Export the data to Excel (simple dumb export)
         RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')
@@ -205,7 +240,7 @@ def main():
     """Main function to parse arguments and generate the report"""
     parser = argparse.ArgumentParser()
     parser.add_argument('output_path', help='Nonexistent folder to store the outputs (will be created)', type=Path)
-    parser.add_argument('huc_list', help='comma separated list of huc codes', type=str)
+    parser.add_argument('aoi_path', help='Path to a polygon file (e.g. geojson/shapefile) defining the area of interest', type=Path)
     parser.add_argument('report_name', help='name for the report (usually description of the area selected)')
     parser.add_argument('--include_pdf', help='Include a pdf version of the report', action='store_true', default=False)
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
@@ -221,7 +256,7 @@ def main():
     log.setup(log_path=log_path, log_level=logging.DEBUG)
     log.title('rs-rpt-watershed-summary')
 
-    make_report_orchestrator(args.report_name, output_path, args.huc_list, args.include_pdf, args.unit_system)
+    make_report_orchestrator(args.report_name, output_path, args.aoi_path, args.include_pdf, args.unit_system)
 
 
 if __name__ == "__main__":
