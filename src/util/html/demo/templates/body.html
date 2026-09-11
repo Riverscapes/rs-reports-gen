@@ -22,15 +22,25 @@
    It is built from every <section id="..."> whose first heading is an h1/h2. #}
 {{ toc }}
 
-<div class="page-break-before" aria-hidden="true"></div>
+<p><em>NOTE: Table of Contents is built dynamically and it is optional. You insert it with liquid tags:</em></p>
+
+<pre class="demo-snippet"><code>{% raw %}
+{{ toc }}{% endraw %}</code>
+</pre>
 
 <!-- TYPOGRAPHY ========================================================= -->
 <section id="typography">
+
   <h2>Typography &amp; Inline Elements</h2>
   <div class="section-context">
     <p>Heading hierarchy, body copy, lists, links, code and icons. These should never
       need report-specific CSS.</p>
   </div>
+  <h1>H1 headings (NEVER USE IN REPORT BODY)</h1>
+  <p>Don't use these. They are reserved for the main page title.</p>
+
+  <h2>Headings (h2)</h2>
+  <p>These are used for major sections within the report.</p>
 
   <h3>Headings (h3)</h3>
   <h4>Sub-heading (h4)</h4>
