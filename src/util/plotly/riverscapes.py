@@ -60,7 +60,7 @@ def _build_template() -> dict:
         "linecolor": MUTED_BORDER,
         "automargin": True,
         "tickfont": {"color": METRIC_NUMBER},
-        "title": {"font": {"color": METRIC_NUMBER}},
+        "title": {"font": {"color": METRIC_NUMBER}, "standoff": 16},
     }
     return {
         "layout": {
