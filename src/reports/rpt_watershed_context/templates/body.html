@@ -103,20 +103,19 @@
   </section>
   <section id="morphometrics">
     <h3>Morphometrics</h3>
+    <h4>Elevation</h4>
     {{ render_metric_grid(cards, ["min_demminimum", "max_demmaximum", "total_relief", "mean_elevation"]) }}
 
     <figure class="report-figure">
       {{ figures['hypsometry']|safe }}
     </figure>
-
+    <h4>Slope</h4>
     {{ render_metric_grid(cards, ["mean_slope", "min_slopeminimum", "max_slopemaximum"]) }}
 
-    <figure class="report-figure">
-      {{ figures['slope_histogram']|safe }}
-    </figure>
-
+    <h4>Drainage Density</h4>
     {{ render_metric_grid(cards, ["drainage_density_perennial", "drainage_density_non_perennial", "drainage_density_all"]) }}
-    
+
+    <h4>Basin Morphometrics</h4>
     {{ render_metric_grid(cards, ["circularityratio","elongationratio","formfactor","reliefratio"]) }}
   </section>
 </section>
