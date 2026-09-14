@@ -43,6 +43,8 @@ def define_fields(unit_system: str = "SI"):
 
     # Here's where we can set any preferred units that differ from the data unit
     meta.set_display_unit('centerline_length', 'kilometer')
+    # Change the wording for Primary Channel Gradient
+    meta.set_friendly_name('prim_channel_gradient', 'Channel Slope')
 
     return
 
