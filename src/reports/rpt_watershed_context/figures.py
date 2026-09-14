@@ -253,6 +253,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     ecor_table = ecoregion_table(ecoregion_data_df)
     ecor_table.sort_values(by='area', ascending=False, inplace=True)
     ecoregion = ', '.join(ecor_table['ecoregion_iv'].astype(str))
+    primary_ecoregion = ecor_table.iloc[0]['ecoregion_iv']
     ecoregion_area = ecor_table.iloc[0]['area']
     ecoregion_frac = ecoregion_area / ecor_table['area'].sum()
     number_ecorgions = len(ecor_table)
@@ -288,7 +289,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
         'owner_area': owner_area,
         'owner_frac': owner_frac,
         'ecoregion': ecoregion,
-        'primary_ecoregion': ecoregion[0] if ecoregion else None,
+        'primary_ecoregion': primary_ecoregion,
         'ecoregion_area': ecoregion_area,
         'ecoregion_frac': ecoregion_frac,
         'number_ecoregions': number_ecorgions,
