@@ -115,12 +115,16 @@ hydrography_col_map = {
 }
 
 
-def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
+def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_df: gpd.GeoDataFrame, owner_data_df: gpd.GeoDataFrame, ecoregion_data_df: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     """
     named, non-tabular statistics.
 
     Args:
-        df (DataFrame): the result of the aggregate query (should have just one row)
+        aggregate_data_df (DataFrame): the result of the aggregate query (should have just one row)
+        hucs_df (DataFrame): the HUC data related to the watershed context
+        geo_data_df (GeoDataFrame): the geology data related to the watershed context
+        owner_data_df (GeoDataFrame): the ownership data related to the watershed context
+        ecoregion_data_df (GeoDataFrame): the ecoregion data related to the watershed context
 
     Returns:
         dictionary of stats (pint Quantities) -- selected items (known to be Pint quantities) from the supplied aggregate_data_df plus some derived ones
@@ -229,6 +233,41 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
 
     else:
         singlehucstats = {}
+
+    geol_table = geology_table(geo_data_df)
+    geol_table.sort_values(by='area', ascending=False, inplace=True)
+    geol_unit = geol_table.iloc[0]['unit_name']
+    geol_type = geol_table.iloc[0]['primary_rock_type']
+    geol_area = geol_table.iloc[0]['area']
+    geol_frac = geol_area / geol_table['area'].sum()
+    meta.add_field_meta(name='geol_frac', friendly_name='Dominant Geology Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
+
+    owner_table = ownership_table(owner_data_df)
+    owner_table.sort_values(by='area', ascending=False, inplace=True)
+    owner = owner_table.iloc[0]['ownership_desc']
+    owner_area = owner_table.iloc[0]['area']
+    owner_frac = owner_area / owner_table['area'].sum()
+    meta.add_field_meta(name='owner_frac', friendly_name='Dominant Ownership Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
+    meta.add_field_meta(name='owner_area', friendly_name='Dominant Ownership Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'metric' else 'acre', preferred_format='{:.2f}')
+
+    ecor_table = ecoregion_table(ecoregion_data_df)
+    ecor_table.sort_values(by='area', ascending=False, inplace=True)
+    ecoregion = ', '.join(ecor_table['ecoregion_iv'].astype(str))
+    ecoregion_area = ecor_table.iloc[0]['area']
+    ecoregion_frac = ecoregion_area / ecor_table['area'].sum()
+    number_ecorgions = len(ecor_table)
+    meta.add_field_meta(name='ecoregion_frac', friendly_name='Dominant Ecoregion Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
+    meta.add_field_meta(name='ecoregion_area', friendly_name='Dominant Ecoregion Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'metric' else 'acre', preferred_format='{:.2f}')
+
+    lc_table = land_cover_table(hucs_df)
+    lc_table.sort_values(by='cell_count', ascending=False, inplace=True)
+    dominant_veg_types = ', '.join(lc_table.iloc[0:3]['vegetation_type'].astype(str))
+    dominant_veg = lc_table.iloc[0]['vegetation_type']
+    dominant_veg_area = lc_table.iloc[0]['cell_count']
+    dominant_veg_frac = dominant_veg_area / lc_table['cell_count'].sum()
+    meta.add_field_meta(name='dominant_veg_frac', friendly_name='Dominant Vegetation Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
+    # meta.add_field_meta(name='dominant_veg_area', friendly_name='Dominant Vegetation Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'metric' else 'acre', preferred_format='{:.2f}')
+
     stats = {
         **rpt_stats,
         **singlehucstats,
@@ -241,6 +280,22 @@ def statistics(aggregate_data_df: pd.DataFrame) -> dict[str, pint.Quantity]:
         'drainage_density_all': drainage_density_all,
         'drainage_density_perennial': drainage_density_perennial,
         'drainage_density_non_perennial': drainage_density_non_perennial,
+        'geol_unit': geol_unit,
+        'geol_type': geol_type,
+        'geol_area': geol_area,
+        'geol_frac': geol_frac,
+        'owner': owner,
+        'owner_area': owner_area,
+        'owner_frac': owner_frac,
+        'ecoregion': ecoregion,
+        'primary_ecoregion': ecoregion[0] if ecoregion else None,
+        'ecoregion_area': ecoregion_area,
+        'ecoregion_frac': ecoregion_frac,
+        'number_ecoregions': number_ecorgions,
+        'dominant_veg_types': dominant_veg_types,
+        'dominant_veg': dominant_veg,
+        'dominant_veg_area': dominant_veg_area,
+        'dominant_veg_frac': dominant_veg_frac,
     }
 
     return stats
@@ -313,17 +368,18 @@ def create_hydrography_summary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd
 
 def hydrography_table(df: pd.DataFrame) -> str:
     """make html table for hydrography, appending totals via footer and footnote when needed"""
+    layer_id = 'hydrography_summary'
     body_df, footer_df, footnote = create_hydrography_summary_table(df)
     meta = RSFieldMeta()
     body_rdf = RSGeoDataFrame(body_df)
-    body_rdf, _ = meta.apply_units(body_rdf)
+    body_rdf, _ = meta.apply_units(body_rdf, layer_id=layer_id)
 
     if footer_df is not None:
         footer_rdf = RSGeoDataFrame(footer_df)
-        footer_rdf, _ = meta.apply_units(footer_rdf)
+        footer_rdf, _ = meta.apply_units(footer_rdf, layer_id=layer_id)
         body_rdf.set_footer(footer_rdf)
 
-    table_html = render_table(body_rdf, footer=body_rdf._footer)
+    table_html = render_table(body_rdf, footer=body_rdf._footer, layer_id=layer_id)
     if not footnote:
         return table_html
 
@@ -333,17 +389,18 @@ def hydrography_table(df: pd.DataFrame) -> str:
 
 def waterbody_summary_table(df: pd.DataFrame) -> str:
     """make html table for waterbodies with totals rendered via footer"""
+    layer_id = 'waterbodies_summary'
     body_df, footer_df = create_waterbody_summary_table(df)
     meta = RSFieldMeta()
     body_rdf = RSGeoDataFrame(body_df)
-    body_rdf, _ = meta.apply_units(body_rdf)
+    body_rdf, _ = meta.apply_units(body_rdf, layer_id=layer_id)
 
     if footer_df is not None:
         footer_rdf = RSGeoDataFrame(footer_df)
-        footer_rdf, _ = meta.apply_units(footer_rdf)
+        footer_rdf, _ = meta.apply_units(footer_rdf, layer_id=layer_id)
         body_rdf.set_footer(footer_rdf)
 
-    return render_table(body_rdf, footer=body_rdf._footer)
+    return render_table(body_rdf, footer=body_rdf._footer, layer_id=layer_id)
 
 
 def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
@@ -386,20 +443,21 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
     Plot hypsometry as a bar chart: total_cell_count vs. bin.
     """
     df = hypsometry_data(huc_df)
+    tot_cells = df['total_cell_count'].sum()
     print('HYPSOMETRY DATA')
     print(df)  # debug only
 
     fig = go.Figure(
         go.Bar(
-            x=df['total_cell_count'],
+            x=df['total_cell_count'] / tot_cells,
             y=df['bin'],
             orientation='h',
             marker_color='steelblue',
         )
     )
     fig.update_layout(
-        title="Hypsometry: Total Cell Count by Elevation",
-        xaxis_title="Total Cell Count",
+        title="Hypsometry",
+        xaxis_title="Fraction of Total Area",
         yaxis_title="Elevation (m)",
         template="plotly_white",
     )
@@ -462,10 +520,10 @@ def ownership_table(ownership_df: pd.DataFrame) -> pd.DataFrame:
 
     meta = RSFieldMeta()
     meta.add_field_meta(name='area', layer_id=layer_id, friendly_name='Area', data_unit='m**2', display_unit='kilometer ** 2')
-    geo_df = RSGeoDataFrame(pd.DataFrame({'ownership_desc': dissolved_gdf.index, 'area': dissolved_gdf.geometry.area}))
-    geo_df['area'] = ensure_pint_column(geo_df, 'area', 'm**2')
+    owner_df = RSGeoDataFrame(pd.DataFrame({'ownership_desc': dissolved_gdf.index, 'area': dissolved_gdf.geometry.area}))
+    owner_df['area'] = ensure_pint_column(owner_df, 'area', 'm**2')
 
-    return geo_df
+    return owner_df
 
 
 def ownership_summary_table(ownership_df: pd.DataFrame) -> str:
@@ -473,3 +531,22 @@ def ownership_summary_table(ownership_df: pd.DataFrame) -> str:
     summary_df = ownership_table(ownership_df)
     summary_df.sort_values('area', ascending=False, inplace=True)
     return render_table(summary_df, layer_id='ownership_summary')
+
+
+def land_cover_table(hucs_df: pd.DataFrame) -> pd.DataFrame:
+    """make data frame for displaying land cover information in a table"""
+
+    evt_df = pd.read_csv('https://raw.githubusercontent.com/Riverscapes/riverscapes-tools/refs/heads/master/packages/rcat/database/data/VegetationTypes.csv')
+    lookup = {row['VegetationID']: row['Physiognomy'] for _, row in evt_df.iterrows()}
+
+    aggregated_data = {}
+    for i in range(len(hucs_df['existing_veg_bins'])):
+        for x in hucs_df['existing_veg_bins'][i]['bins']:
+            if x['category'] not in aggregated_data:
+                aggregated_data[x['category']] = 0
+            aggregated_data[x['category']] += x['cell_count']
+
+    transformed_data = {lookup[int(k)]: v for k, v in aggregated_data.items()}
+
+    land_cover_df = pd.DataFrame(list(transformed_data.items()), columns=['vegetation_type', 'cell_count'])
+    return land_cover_df
