@@ -38,7 +38,20 @@ from util.plotly.riverscapes import apply_riverscapes_theme  # noqa: F401  # sid
 # Each rule applies to a set of columns, above a total threshold (in base_unit), to an SI/imperial display unit.
 _UNIT_OVERRIDE_RULES = [
     {"columns": {"stream_length", "centerline_length"}, "base_unit": "meter", "threshold": 10_000, "si_unit": "kilometer", "imperial_unit": "mile"},
-    {"columns": {"segment_area", "waterbody_extent", "ag_segment_area", "dev_segment_area"}, "base_unit": "meter ** 2", "threshold": 100_000, "si_unit": "hectare", "imperial_unit": "acre"},
+    {
+        "columns": {
+            "segment_area",
+            "waterbody_extent",
+            "ag_segment_area",
+            "dev_segment_area",
+            "road_segment_area",
+            "rail_segment_area",
+        },
+        "base_unit": "meter ** 2",
+        "threshold": 100_000,
+        "si_unit": "hectare",
+        "imperial_unit": "acre",
+    },
 ]
 
 
@@ -292,6 +305,10 @@ def _apply_unit_override(meta: RSFieldMeta, agg_data: pd.DataFrame, value_col: s
 def _restore_unit_override(meta: RSFieldMeta, override) -> None:
     """Undo an override applied by _apply_unit_override, if any."""
     if override is None:
+        return
+    if isinstance(override, list):
+        for item in override:
+            _restore_unit_override(meta, item)
         return
     value_col, layer_id, original_display_unit = override
     meta.set_display_unit(value_col, original_display_unit, layer_id=layer_id)
@@ -1180,6 +1197,7 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
 
 def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     """riverscape area by road and rail density bins"""
+    meta = RSFieldMeta()
     bins, labels, _colours = get_bins_info("road_density")
     # Example: horizontal grouped bar chart for road and rail density
     chart_data = df[['road_dens', 'rail_dens', 'segment_area']].copy()
@@ -1198,13 +1216,55 @@ def dens_road_rail(df: pd.DataFrame) -> go.Figure:
     # Merge for grouped bar chart
     agg_data = pd.merge(road_data, rail_data, on='bin', how='outer')
 
-    baked_header_lookup = RSFieldMeta().get_headers_dict(agg_data)
-    baked_agg_data, baked_headers = RSFieldMeta().bake_units(agg_data)  # Plot bar char
+    # Ensure derived columns inherit segment_area metadata so unit conversion/labels work.
+    layer_id = meta._resolve_layer_context(df, None)  # noqa: SLF001 - same layer resolution behavior as bake_units
+    value_cols = ['road_segment_area', 'rail_segment_area']
+    segment_area_meta = meta.get_field_meta('segment_area', layer_id)
+    for derived_col in value_cols:
+        if meta.get_field_meta(derived_col, layer_id) is None:
+            meta.duplicate_meta(
+                'segment_area',
+                derived_col,
+                orig_layer_id=layer_id,
+                new_layer_id=layer_id,
+                new_friendly='Riverscape Area',
+            )
+        derived_meta = meta.get_field_meta(derived_col, layer_id)
+        if derived_meta is not None and derived_meta.data_unit is None and segment_area_meta is not None and segment_area_meta.data_unit is not None:
+            meta.set_data_unit(derived_col, segment_area_meta.data_unit, layer_id=layer_id)
+
+    # For this chart we always present riverscape area in larger units.
+    # Keep both plotted value columns on the same display unit so the shared axis is coherent.
+    target_display_unit = 'hectare' if meta.unit_system == 'SI' else 'acre'
+    target_display_unit_text = f"{ureg.Unit(target_display_unit):~P}"
+
+    if layer_id:
+        agg_data.attrs['layer_id'] = layer_id
+
+    overrides: list = []
+    for value_col in value_cols:
+        fm = meta.get_field_meta(value_col, layer_id)
+        if fm is None:
+            raise ValueError(f"Missing metadata for '{value_col}' in dens_road_rail")
+        overrides.append((value_col, layer_id, fm.display_unit))
+        meta.set_display_unit(value_col, target_display_unit, layer_id=layer_id)
+
+    try:
+        baked_agg_data, _baked_headers = meta.bake_units(agg_data)  # Plot bar chart
+    finally:
+        _restore_unit_override(meta, overrides)
 
     fig = go.Figure()
     fig.add_trace(go.Bar(y=baked_agg_data['bin'], x=baked_agg_data['road_segment_area'], name='Road Density', orientation='h'))
     fig.add_trace(go.Bar(y=baked_agg_data['bin'], x=baked_agg_data['rail_segment_area'], name='Rail Density', orientation='h'))
-    fig.update_layout(barmode='group', title='Riverscape Area by Road and Rail Density', margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=400, yaxis_title='Density', xaxis_title='Total Riverscape Area')
+    fig.update_layout(
+        barmode='group',
+        title='Riverscape Area by Road and Rail Density',
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        height=400,
+        yaxis_title='Density',
+        xaxis_title=f'Total Riverscape Area ({target_display_unit_text})',
+    )
     fig.update_xaxes(tickformat=",")
     return fig
 

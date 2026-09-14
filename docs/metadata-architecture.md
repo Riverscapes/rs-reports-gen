@@ -133,6 +133,10 @@ Longer term:
 - Move toward DataFrame-local metadata payloads (attrs) containing both field metadata and applied units.
 - Reduce dependence on global singleton state for downstream consumers.
 
+Implementation planning artifact:
+
+- Runtime unit-resolution draft (API signatures, precedence rules, and examples): [runtime-unit-resolution-plan.md](runtime-unit-resolution-plan.md)
+
 Reference design note:
 
 - [.github/prompts/plan-pbiSemanticModelAutomation.prompt.md](../.github/prompts/plan-pbiSemanticModelAutomation.prompt.md)
