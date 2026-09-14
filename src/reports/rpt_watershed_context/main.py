@@ -48,7 +48,7 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
 
     # Prepare SQL-safe quoted list
     huc_sql = "(" + ",".join([f"'{h}'" for h in clean_hucs]) + ")"
-    sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
+    sql_str = f"SELECT huc, project_id, hucname, hucareasqkm, dem_bins, existing_veg_bins FROM rs_context_huc10 WHERE huc IN {huc_sql}"
 
     df = athena_unload_to_dataframe(sql_str)
     return df
@@ -177,7 +177,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
         # apply_units must run first so statistics() receives Pint-typed columns.
         # build_named_values then converts derived stats back to SI data_unit for Excel.
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
-        stats = statistics(df_aggregatedata)
+        stats = statistics(df_aggregatedata, df_hucs, df_geology, df_owners, df_ecoregion)
         df_owners, _ = meta.apply_units(df_owners)
 
         register_context_fields()
