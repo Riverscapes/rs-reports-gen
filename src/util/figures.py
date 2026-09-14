@@ -1116,7 +1116,7 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
 
 
 def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
-    """example of figure with two measures"""
+    """example of figure with two measures: Agriculture and Developed proportions"""
     # load shared bins
     bins, labels, _colours = get_bins_info("lf_agriculture_prop")
 
@@ -1171,7 +1171,7 @@ def prop_ag_dev(chart_data: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         title='Agriculture and Development Proportion',
         barmode='group',
-        xaxis_title=baked_header_lookup.get('bin', 'Land Use Intensity'),
+        # xaxis_title=baked_header_lookup.get('bin', 'Land Use Intensity'), # not wanted
         yaxis_title=baked_header_lookup.get('ag_segment_area', 'Riverscape Area'),
         margin={"r": 0, "t": 40, "l": 0, "b": 0},
     )
