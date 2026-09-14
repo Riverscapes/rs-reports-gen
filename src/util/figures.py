@@ -173,6 +173,7 @@ def bar_total_x_by_ybins(
         fig.update_layout(barmode='stack')
 
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, showlegend=show_legend)
+    fig.update_xaxes(type='category')  # otherwise plotly may try use a continuous axis which is not right
     return fig
 
 
@@ -590,7 +591,6 @@ def bar_group_x_by_y(df: pd.DataFrame, total_col: str, group_by_cols: list[str],
         fig_params["title"] = f"Total {meta.get_friendly_name(total_col, layer_id=layer_id)} by {', '.join(group_names)}"
     if len(group_by_cols) == 2 and "color" not in fig_params:
         fig_params["color"] = group_by_cols[1]
-
     bar_fig = px.bar(baked_chart_data, y=group_by_cols[0], x=total_col, labels=baked_header_lookup, **fig_params)
     bar_fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     bar_fig.update_xaxes(tickformat=",")
