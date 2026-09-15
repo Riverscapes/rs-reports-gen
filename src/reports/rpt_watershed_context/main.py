@@ -19,7 +19,17 @@ from rsxml.util import safe_makedirs
 from reports.rpt_watershed_context import __version__ as report_version
 from reports.rpt_watershed_context.dataprep import define_fields, get_aggregated_data, get_ecoregion_data, get_geology_data, get_intersecting_hucs, get_ownership_data, get_states, register_context_fields
 from reports.rpt_watershed_context.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
-from reports.rpt_watershed_context.figures import ecoregion_summary_table, geology_summary_table, hydrography_table, hypsometry_fig, ownership_summary_table, statistics, waterbody_summary_table
+from reports.rpt_watershed_context.figures import (
+    ecoregion_summary_table,
+    geology_summary_table,
+    hydrography_table,
+    hypsometry_fig,
+    landcover_summary_table,
+    ownership_summary_table,
+    statistics,
+    waterbody_summary_table,
+    watershed_area_by_category,
+)
 
 # Repo imports
 from util.athena.athena import athena_unload_to_dataframe
@@ -85,7 +95,13 @@ def make_report(
     """
     log = Logger('make report')
 
-    figures: dict[str, go.Figure] = {'map': make_aoi_outline_map(aoi_gdf), 'hypsometry': hypsometry_fig(hucs_df)}
+    figures: dict[str, go.Figure] = {
+        'map': make_aoi_outline_map(aoi_gdf),
+        'hypsometry': hypsometry_fig(hucs_df),
+        'watershed_area_by_owner': watershed_area_by_category(ownership_df, category='ownership'),
+        'watershed_area_by_ecoregion': watershed_area_by_category(ecoregion_df, category='ecoregion'),
+        'watershed_area_by_landcover': watershed_area_by_category(hucs_df, category='landcover'),
+    }
     tables: dict[str, str] = {}
 
     if error_message is None:
@@ -95,6 +111,7 @@ def make_report(
             "hydrography": hydrography_table(aggregate_data_df),
             "geology": geology_summary_table(geology_df),
             "ecoregions": ecoregion_summary_table(ecoregion_df),
+            "landcover": landcover_summary_table(hucs_df),
         }
 
     report = RSReport(
@@ -178,7 +195,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
         # build_named_values then converts derived stats back to SI data_unit for Excel.
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
         stats = statistics(df_aggregatedata, df_hucs, df_geology, df_owners, df_ecoregion)
-        df_owners, _ = meta.apply_units(df_owners)
+        # df_owners, _ = meta.apply_units(df_owners)
 
         register_context_fields()
 

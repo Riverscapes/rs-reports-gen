@@ -5,6 +5,7 @@ import geopandas as gpd
 import pandas as pd
 import pint
 import pint_pandas
+import plotly.express as px
 import plotly.graph_objects as go
 from rsxml import Logger
 
@@ -173,6 +174,20 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
         layer_id=layer_id,
         data_unit=mean_precip_cell_value.units,
     )
+    meta.add_field_meta(
+        name="min_precipminimum",
+        friendly_name="Minimum Annual Precipitation",
+        description="Minimum of the 30-year Average Annual Precipitation across the selected area",
+        layer_id=layer_id,
+        data_unit=rpt_stats['min_precipminimum'].units,
+    )
+    meta.add_field_meta(
+        name="max_precipmaximum",
+        friendly_name="Maximum Annual Precipitation",
+        description="Maximum of the 30-year Average Annual Precipitation across the selected area",
+        layer_id=layer_id,
+        data_unit=rpt_stats['max_precipmaximum'].units,
+    )
     mean_elevation = rpt_stats['sum_demsum'] / rpt_stats['sum_demcount']
     meta.add_field_meta(name='mean_elevation', friendly_name='Mean Elevation', description='Mean elevation across the selected area', layer_id=layer_id, data_unit=mean_elevation.units)
     mean_slope = rpt_stats['sum_slopesum'] / rpt_stats['sum_slopecount']
@@ -189,6 +204,34 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     )
     relief_ratio = total_relief.to("km") / rpt_stats['sum_catchmentlength'].to("km")
     meta.set_preferred_format('reliefratio', '{:.2f}', layer_id='rs_context_huc10')  # already defined in rs_context_huc10; just ensure format is set
+    meta.add_field_meta(
+        name='min_demminimum',
+        friendly_name='Minimum Elevation',
+        description='Minimum elevation across the selected area',
+        layer_id=layer_id,
+        data_unit=rpt_stats['min_demminimum'].units,
+    )
+    meta.add_field_meta(
+        name='max_demmaximum',
+        friendly_name='Maximum Elevation',
+        description='Maximum elevation across the selected area',
+        layer_id=layer_id,
+        data_unit=rpt_stats['max_demmaximum'].units,
+    )
+    meta.add_field_meta(
+        name="min_slopeminimum",
+        friendly_name="Minimum Slope",
+        description="Minimum slope across the selected area",
+        layer_id=layer_id,
+        data_unit=rpt_stats['min_slopeminimum'].units,
+    )
+    meta.add_field_meta(
+        name="max_slopemaximum",
+        friendly_name="Maximum Slope",
+        description="Maximum slope across the selected area",
+        layer_id=layer_id,
+        data_unit=rpt_stats['max_slopemaximum'].units,
+    )
 
     # drainage densities are total flowline length divided by total catchment area.
     # these are found as metrics in individual hucs but we re-calculate for aggregates.
@@ -486,6 +529,13 @@ def geology_summary_table(geology_df: gpd.GeoDataFrame) -> str:
     """make html table for geology summary"""
     summary_df = geology_table(geology_df)
     summary_df.sort_values('area', ascending=False, inplace=True)
+    total_area = summary_df['area'].sum()
+    if getattr(total_area, 'magnitude', total_area) == 0:
+        percent_series = pd.Series([0] * len(summary_df), index=summary_df.index).astype('pint[percent]')
+    else:
+        percent_series = (summary_df['area'] / pd.Series([total_area] * len(summary_df), index=summary_df.index)).fillna(0).astype('pint[percent]')
+    summary_df['% of Total Area'] = percent_series
+    RSFieldMeta().add_field_meta(name='% of Total Area', friendly_name='% of Total Area', layer_id='geology_summary', data_unit='percent')
     return render_table(summary_df, layer_id='geology_summary')
 
 
@@ -500,6 +550,7 @@ def ecoregion_table(ecoregion_df: gpd.GeoDataFrame) -> pd.DataFrame:
 
     meta = RSFieldMeta()
     meta.add_field_meta(name='area', layer_id=layer_id, friendly_name='Area', data_unit='m**2', display_unit='kilometer ** 2')
+    meta.add_field_meta(name='ecoregion_iv', layer_id=layer_id, friendly_name='EPA Level IV Ecoregion', data_unit=None)
     ecor_df['area'] = ensure_pint_column(ecor_df, 'area', 'm**2')
 
     return ecor_df
@@ -509,6 +560,13 @@ def ecoregion_summary_table(ecoregion_df: gpd.GeoDataFrame) -> str:
     """make html table for ecoregion summary"""
     summary_df = ecoregion_table(ecoregion_df)
     summary_df.sort_values('area', ascending=False, inplace=True)
+    total_area = summary_df['area'].sum()
+    if getattr(total_area, 'magnitude', total_area) == 0:
+        percent_series = pd.Series([0] * len(summary_df), index=summary_df.index).astype('pint[percent]')
+    else:
+        percent_series = (summary_df['area'] / pd.Series([total_area] * len(summary_df), index=summary_df.index)).fillna(0).astype('pint[percent]')
+    summary_df['% of Total Area'] = percent_series
+    RSFieldMeta().add_field_meta(name='% of Total Area', friendly_name='% of Total Area', layer_id='ecoregion_summary', data_unit='percent')
     return render_table(summary_df, layer_id='ecoregion_summary')
 
 
@@ -521,6 +579,7 @@ def ownership_table(ownership_df: pd.DataFrame) -> pd.DataFrame:
 
     meta = RSFieldMeta()
     meta.add_field_meta(name='area', layer_id=layer_id, friendly_name='Area', data_unit='m**2', display_unit='kilometer ** 2')
+    meta.add_field_meta(name='ownership_desc', layer_id=layer_id, friendly_name='Ownership', data_unit=None)
     owner_df = RSGeoDataFrame(pd.DataFrame({'ownership_desc': dissolved_gdf.index, 'area': dissolved_gdf.geometry.area}))
     owner_df['area'] = ensure_pint_column(owner_df, 'area', 'm**2')
 
@@ -531,11 +590,19 @@ def ownership_summary_table(ownership_df: pd.DataFrame) -> str:
     """make html table for ownership summary"""
     summary_df = ownership_table(ownership_df)
     summary_df.sort_values('area', ascending=False, inplace=True)
+    total_area = summary_df['area'].sum()
+    if getattr(total_area, 'magnitude', total_area) == 0:
+        percent_series = pd.Series([0] * len(summary_df), index=summary_df.index).astype('pint[percent]')
+    else:
+        percent_series = (summary_df['area'] / pd.Series([total_area] * len(summary_df), index=summary_df.index)).fillna(0).astype('pint[percent]')
+    summary_df['% of Total Area'] = percent_series
+    RSFieldMeta().add_field_meta(name='% of Total Area', friendly_name='% of Total Area', layer_id='ownership_summary', data_unit='percent')
     return render_table(summary_df, layer_id='ownership_summary')
 
 
 def land_cover_table(hucs_df: pd.DataFrame) -> pd.DataFrame:
     """make data frame for displaying land cover information in a table"""
+    layer_id = 'landcover_summary'
 
     evt_df = pd.read_csv('https://raw.githubusercontent.com/Riverscapes/riverscapes-tools/refs/heads/master/packages/rcat/database/data/VegetationTypes.csv')
     lookup = {row['VegetationID']: row['Physiognomy'] for _, row in evt_df.iterrows()}
@@ -549,5 +616,71 @@ def land_cover_table(hucs_df: pd.DataFrame) -> pd.DataFrame:
 
     transformed_data = {lookup[int(k)]: v for k, v in aggregated_data.items()}
 
-    land_cover_df = pd.DataFrame(list(transformed_data.items()), columns=['vegetation_type', 'cell_count'])
+    meta = RSFieldMeta()
+    meta.add_field_meta(name='vegetation_type', layer_id=layer_id, friendly_name='Vegetation Type')
+
+    land_cover_df = RSGeoDataFrame(pd.DataFrame(list(transformed_data.items()), columns=['vegetation_type', 'cell_count']))
     return land_cover_df
+
+
+def landcover_summary_table(hucs_df: pd.DataFrame) -> str:
+    """make html table for land cover summary"""
+    summary_df = land_cover_table(hucs_df)
+    summary_df.sort_values('cell_count', ascending=False, inplace=True)
+    total_cells = summary_df['cell_count'].sum()
+    if total_cells == 0:
+        percent_series = pd.Series([0] * len(summary_df), index=summary_df.index).astype('pint[percent]')
+    else:
+        percent_series = (summary_df['cell_count'] / pd.Series([total_cells] * len(summary_df), index=summary_df.index) * 100).fillna(0).astype('pint[percent]')
+    summary_df['% of Total Area'] = percent_series
+    RSFieldMeta().add_field_meta(name='% of Total Area', friendly_name='% of Total Area', layer_id='landcover_summary', data_unit='percent')
+    return render_table(summary_df, layer_id='landcover_summary')
+
+
+def watershed_area_by_category(gdf: pd.DataFrame, category: str) -> go.Figure:
+    """Create pie chart of total segment area by owner"""
+    if category not in ('ownership', 'ecoregion', 'landcover'):
+        raise ValueError(f"Invalid category: {category}. Must be one of 'ownership', 'ecoregion', 'landcover'.")
+
+    if category == 'ownership':
+        chart_data = ownership_table(gdf)
+        layer_id = 'ownership_summary'
+        field = 'ownership_desc'
+    elif category == 'ecoregion':
+        chart_data = ecoregion_table(gdf)
+        layer_id = 'ecoregion_summary'
+        field = 'ecoregion_iv'
+    elif category == 'landcover':
+        chart_data = land_cover_table(gdf)
+        layer_id = 'landcover_summary'
+        field = 'vegetation_type'
+
+    meta = RSFieldMeta()
+    baked_header_lookup = meta.get_headers_dict(chart_data, layer_id=layer_id)
+    baked_chart_data, baked_headers = meta.bake_units(chart_data, layer_id=layer_id)
+
+    total_name = meta.get_friendly_name('area', layer_id=layer_id)
+    group_name = baked_header_lookup.get(field, meta.get_friendly_name(field, layer_id=layer_id))
+    title = f"Total {total_name} by {group_name}"
+
+    fig = px.pie(
+        baked_chart_data,
+        names=field,
+        values="area" if "area" in baked_chart_data.columns else "cell_count",
+        color=field,
+        labels=baked_header_lookup,  # legend/axis labels use your nice names
+        title=title,
+        # color_discrete_map=DEFAULT_OWNER_COLOR_MAP,
+    )
+
+    # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
+    fig.update_traces(
+        textinfo="percent",
+        hovertemplate=f"<b>{baked_header_lookup.get('area', 'area')} for {baked_header_lookup.get(field, 'Category')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
+        # Use :,.1f or :,.2f if you want decimals.
+    )
+
+    # Prevent legend/hover name truncation
+    fig.update_layout(hoverlabel=dict(namelength=-1))
+
+    return fig
