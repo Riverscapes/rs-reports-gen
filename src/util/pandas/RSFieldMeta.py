@@ -1132,7 +1132,7 @@ class RSFieldMeta:
             self._log.warning(f"Unable to convert unit '{in_qty.units}' to '{sys_units}': {exc}")
             return in_qty
 
-    def bake_units(self, df: pd.DataFrame, header_units: bool = True) -> tuple[pd.DataFrame, list[str]]:
+    def bake_units(self, df: pd.DataFrame, header_units: bool = True, layer_id: str | None = None) -> tuple[pd.DataFrame, list[str]]:
         """Apply units to a DataFrame based on the metadata. Returns a copy of the dataframe and the corresponding headers.
 
         Args:
@@ -1143,7 +1143,7 @@ class RSFieldMeta:
 
         Issue: Since the return df has different headers from the original, it loses the connection to the metadata (will not be able to get description)
         """
-        layer_id = self._resolve_layer_context(df, None)
+        layer_id = self._resolve_layer_context(df, layer_id)
         # First apply the units
         df_baked, _ = self.apply_units(df, layer_id=layer_id)
         # Now get the headers
