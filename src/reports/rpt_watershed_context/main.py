@@ -223,7 +223,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
         # rebuild template one time or when data schema changes (e.g. new column added to query)
         # make_template(named_values)
         # Inject the data into smart Excel template (SI units; stats include derived metrics)
-        render_excel(named_values, df_owners, report_dir / 'report.xlsx')
+        # render_excel(named_values, df_owners, report_dir / 'report.xlsx') # broken
 
 
 def parse_hucs(hucs: str, field_identifier='huc10', field_length: int = 10) -> str:
