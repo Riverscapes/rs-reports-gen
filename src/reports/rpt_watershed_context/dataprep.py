@@ -14,20 +14,17 @@ from rsxml import Logger
 from util.athena import aoi_query_to_dataframe, get_field_metadata, query_to_dataframe
 from util.athena.athena import get_aoi_geom_sql_expression
 from util.pandas import RSFieldMeta
-from util.rs_geo_helpers import prepare_gdf_for_athena
 
 LAYER_ID = 'rpt_watershed_summary'
 
 
 def get_intersecting_hucs(aoi_gdf: gpd.GeoDataFrame) -> list[str]:
-    """Query wbdhu10_cleaned for the HUC10 codes that intersect the AOI polygon."""
+    """Query wbdhu10_cleaned for the HUC10 codes that intersect the AOI polygon.
+    Assumes gdf has been reduced in size to fit within a query as wkb"""
     log = Logger("Get intersecting HUCs")
-    query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
-    if not simplification_results.success:
-        raise ValueError("Unable to simplify input geometry sufficiently to intersect with HUC10 boundaries.")
 
     query_str = "SELECT huc10 FROM input_geom, wbdhu10_cleaned WHERE {prefilter_condition} AND {intersects_condition}"
-    df = aoi_query_to_dataframe(query_str, geometry_field_expression='ST_GeomFromBinary(geometry)', geom_bbox_field='geometry_bbox', aoi_gdf=query_gdf)
+    df = aoi_query_to_dataframe(query_str, geometry_field_expression='ST_GeomFromBinary(geometry)', geom_bbox_field='geometry_bbox', aoi_gdf=aoi_gdf)
     huc_list = sorted(df['huc10'].dropna().unique().tolist()) if not df.empty else []
     log.info(f"Found {len(huc_list)} intersecting HUC10(s).")
     return huc_list
