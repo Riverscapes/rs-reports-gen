@@ -1081,6 +1081,7 @@ def make_rs_area_by_owner(gdf) -> go.Figure:
     fig.update_traces(
         textinfo="percent",
         hovertemplate=f"<b>{baked_header_lookup.get('segment_area', 'segment_area')} for {baked_header_lookup.get('ownership_desc', 'Ownership')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
+        automargin=True,
         # Use :,.1f or :,.2f if you want decimals.
     )
 
