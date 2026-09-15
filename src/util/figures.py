@@ -1021,74 +1021,77 @@ def get_zoom_and_center(gdf: gpd.GeoDataFrame, geom_field_nm: str) -> tuple[floa
     return (zoom, center)
 
 
+def pie_from_summary(
+    summary_df: pd.DataFrame,
+    *,
+    name_col: str,
+    value_col: str,
+    layer_id: str | None = None,
+    title: str | None = None,
+    color_discrete_map: dict[str, str] | None = None,
+) -> go.Figure:
+    """Build a pie chart from an already-aggregated summary table.
+
+    Args:
+        summary_df: containing columns for name and value
+        name_col: name of the column with the label
+        value_col: name of the column with the data that should add to 100%
+        layer_id: optional metadata disambuiguator
+        title: chart title override (if not provided, will be built from value and name col meta)
+        color_discrete_map - mapping of label (from name_col) to colors (RGB hex)
+    """
+    meta = RSFieldMeta()
+
+    baked_header_lookup = meta.get_headers_dict(summary_df, layer_id=layer_id)
+    baked_summary_df, _ = meta.bake_units(summary_df.copy(), layer_id=layer_id)
+
+    total_name = baked_header_lookup.get(value_col, meta.get_friendly_name(value_col, layer_id=layer_id))
+    group_name = baked_header_lookup.get(name_col, meta.get_friendly_name(name_col, layer_id=layer_id))
+    resolved_title = title or f"Total {total_name} by {group_name}"
+
+    color_kwargs = {}
+    if color_discrete_map:
+        color_kwargs["color_discrete_map"] = color_discrete_map
+
+    fig = px.pie(
+        baked_summary_df,
+        names=name_col,
+        values=value_col,
+        color=name_col,
+        labels=baked_header_lookup,
+        title=resolved_title,
+        **color_kwargs,
+    )
+
+    fig.update_traces(
+        textinfo="percent",
+        hovertemplate=f"<b>{total_name} for {group_name} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
+        automargin=True,
+    )
+    fig.update_layout(hoverlabel=dict(namelength=-1))
+    return fig
+
+
 def make_rs_area_by_featcode(gdf) -> go.Figure:
     """Create pie chart of total segment area by NHD feature code type"""
     chart_data = gdf.groupby('fcode_desc', as_index=False)['segment_area'].sum()
-
-    meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(chart_data)
-    baked_chart_data, baked_headers = meta.bake_units(chart_data)
-
-    total_name = baked_header_lookup.get('segment_area', meta.get_friendly_name('segment_area'))
-    group_name = baked_header_lookup.get('fcode_desc', meta.get_friendly_name('fcode_desc'))
-    title = f"Total {total_name} by {group_name}"
-
-    fig = px.pie(
-        baked_chart_data,
-        names="fcode_desc",
-        values="segment_area",
-        labels=baked_header_lookup,  # legend/axis labels use your nice names
-        title=title,
+    return pie_from_summary(
+        chart_data,
+        name_col="fcode_desc",
+        value_col="segment_area",
         color_discrete_map=DEFAULT_FCODE_COLOR_MAP,
     )
-
-    # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
-    fig.update_traces(
-        textinfo="percent",
-        hovertemplate=f"<b>{baked_header_lookup.get('segment_area', 'segment_area')} for {baked_header_lookup.get('fcode_desc', 'fcode_desc Code')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
-        # Use :,.1f or :,.2f if you want decimals.
-    )
-
-    # Prevent legend/hover name truncation
-    fig.update_layout(hoverlabel=dict(namelength=-1))
-
-    return fig
 
 
 def make_rs_area_by_owner(gdf) -> go.Figure:
     """Create pie chart of total segment area by owner"""
     chart_data = gdf.groupby('ownership_desc', as_index=False)['segment_area'].sum()
-
-    meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(chart_data)
-    baked_chart_data, baked_headers = meta.bake_units(chart_data)
-
-    total_name = meta.get_friendly_name('segment_area')
-    group_name = baked_header_lookup.get('ownership_desc', meta.get_friendly_name('ownership_desc'))
-    title = f"Total {total_name} by {group_name}"
-
-    fig = px.pie(
-        baked_chart_data,
-        names="ownership_desc",
-        values="segment_area",
-        color="ownership_desc",
-        labels=baked_header_lookup,  # legend/axis labels use your nice names
-        title=title,
+    return pie_from_summary(
+        chart_data,
+        name_col="ownership_desc",
+        value_col="segment_area",
         color_discrete_map=DEFAULT_OWNER_COLOR_MAP,
     )
-
-    # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
-    fig.update_traces(
-        textinfo="percent",
-        hovertemplate=f"<b>{baked_header_lookup.get('segment_area', 'segment_area')} for {baked_header_lookup.get('ownership_desc', 'Ownership')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
-        automargin=True,
-        # Use :,.1f or :,.2f if you want decimals.
-    )
-
-    # Prevent legend/hover name truncation
-    fig.update_layout(hoverlabel=dict(namelength=-1))
-
-    return fig
 
 
 def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
