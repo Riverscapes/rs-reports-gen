@@ -36,16 +36,16 @@
   <h2>Watershed Summary</h2>
   <div class="section-context">
     <p>
-      The total watershed area is {{ cards['sum_hucareasqkm']['value'] }} across {{ cards['number_ecoregions']['value'] }} 
+      The total watershed area for the selected area of interest is {{ cards['aoi_area']['value'] }} across {{ cards['number_ecoregions']['value'] }} 
       EPA level IV ecoregions ({{ cards['ecoregion']['value'] }}). 
       The {{ cards['primary_ecoregion']['value'] }} ecoregion makes up the largest fraction ({{ cards['ecoregion_area']['value'] }}). 
-      Land cover is predominantly {{ cards['dominant_veg_types']['value'] }} with {{ cards['dominant_veg']['value'] }} 
+      Land cover* is predominantly {{ cards['dominant_veg_types']['value'] }} with {{ cards['dominant_veg']['value'] }} 
       making up {{ cards['dominant_veg_frac']['value'] }} of the watershed. 
-      Elevations across the HUC10 watersheds intersecting the area range from {{ cards['min_demminimum']['value'] }} to {{ cards['max_demmaximum']['value'] }} 
+      Elevations* across the HUC10 watersheds intersecting the area range from {{ cards['min_demminimum']['value'] }} to {{ cards['max_demmaximum']['value'] }} 
       ({{ cards['total_relief']['value'] }} of relief) with a mean of {{ cards['mean_elevation']['value'] }}. 
-      Basin slopes range from {{ cards['min_slopeminimum']['value'] }} to {{ cards['max_slopemaximum']['value'] }} 
+      Basin slopes* range from {{ cards['min_slopeminimum']['value'] }} to {{ cards['max_slopemaximum']['value'] }} 
       with an average of {{ cards['mean_slope']['value'] }}. 
-      The basin receives {{ cards['min_precipminimum']['value'] }} to {{ cards['max_precipmaximum']['value'] }} of annual precipitation 
+      The basin receives {{ cards['min_precipminimum']['value'] }} to {{ cards['max_precipmaximum']['value'] }} of annual precipitation*
       with a basin-wide mean annual precipitation of {{ cards['mean_precip_cell_value']['value'] }}. 
       The underlying geology is primarily {{ cards['geol_type']['value'] }} ({{ cards['geol_frac']['value'] }}) from the {{ cards['geol_unit']['value'] }} unit. 
       The largest land owner in the basin is {{ cards['owner']['value'] }}, which owns/administers {{ cards['owner_area']['value'] }} ({{ cards['owner_frac']['value'] }}).
@@ -54,6 +54,7 @@
 
     </p>
   </div>
+  {{ widgets['callouts']|safe }}
 </section>
 
 <section id="supporting-info">  
@@ -63,7 +64,7 @@
   </div>
   <section id="basic-watershed-information">
     <h3>Basic Watershed Information</h3>
-    {{ render_metric_grid(cards, ["sum_hucareasqkm","countdistinct_huc","sum_flowlinelengthallkm"]) }}
+    {{ render_metric_grid(cards, ["sum_hucareasqkm", "aoi_area", "countdistinct_huc","sum_flowlinelengthallkm"]) }}
     The selected watersheds are found within:
     <ul>
       {% for state in states %}
