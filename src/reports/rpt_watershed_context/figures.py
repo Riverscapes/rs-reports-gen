@@ -5,10 +5,11 @@ import geopandas as gpd
 import pandas as pd
 import pint
 import pint_pandas
-import plotly.express as px
 import plotly.graph_objects as go
 from rsxml import Logger
 
+from util.color import DEFAULT_OWNER_COLOR_MAP
+from util.figures import pie_from_summary
 from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 
@@ -561,7 +562,7 @@ def geology_summary_table(geology_df: gpd.GeoDataFrame) -> str:
     return render_table(summary_df, layer_id='geology_summary')
 
 
-def ecoregion_table(ecoregion_df: gpd.GeoDataFrame) -> pd.DataFrame:
+def ecoregion_table(ecoregion_df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """make data frame for displaying ecoregion information in a table"""
     layer_id = 'ecoregion_summary'  # For metadata namespacing
 
@@ -659,50 +660,14 @@ def landcover_summary_table(hucs_df: pd.DataFrame) -> str:
     return render_table(summary_df, layer_id='landcover_summary')
 
 
-def watershed_area_by_category(gdf: pd.DataFrame, category: str) -> go.Figure:
-    """Create pie chart of total segment area by owner"""
+def watershed_area_by_category(gdf: pd.DataFrame | gpd.GeoDataFrame, category: str) -> go.Figure:
+    """Create a category pie chart for ownership, ecoregion, or land cover."""
     if category not in ('ownership', 'ecoregion', 'landcover'):
         raise ValueError(f"Invalid category: {category}. Must be one of 'ownership', 'ecoregion', 'landcover'.")
 
     if category == 'ownership':
-        chart_data = ownership_table(gdf)
-        layer_id = 'ownership_summary'
-        field = 'ownership_desc'
-    elif category == 'ecoregion':
-        chart_data = ecoregion_table(gdf)
-        layer_id = 'ecoregion_summary'
-        field = 'ecoregion_iv'
-    elif category == 'landcover':
-        chart_data = land_cover_table(gdf)
-        layer_id = 'landcover_summary'
-        field = 'vegetation_type'
-
-    meta = RSFieldMeta()
-    baked_header_lookup = meta.get_headers_dict(chart_data, layer_id=layer_id)
-    baked_chart_data, baked_headers = meta.bake_units(chart_data, layer_id=layer_id)
-
-    total_name = meta.get_friendly_name('area', layer_id=layer_id)
-    group_name = baked_header_lookup.get(field, meta.get_friendly_name(field, layer_id=layer_id))
-    title = f"Total {total_name} by {group_name}"
-
-    fig = px.pie(
-        baked_chart_data,
-        names=field,
-        values="area" if "area" in baked_chart_data.columns else "cell_count",
-        color=field,
-        labels=baked_header_lookup,  # legend/axis labels use your nice names
-        title=title,
-        # color_discrete_map=DEFAULT_OWNER_COLOR_MAP,
-    )
-
-    # Keep percent on slices; tooltip shows ONLY absolute with thousands commas
-    fig.update_traces(
-        textinfo="percent",
-        hovertemplate=f"<b>{baked_header_lookup.get('area', 'area')} for {baked_header_lookup.get(field, 'Category')} = %{{label}}</b>:<br>%{{value:,.0f}}<extra></extra>",
-        # Use :,.1f or :,.2f if you want decimals.
-    )
-
-    # Prevent legend/hover name truncation
-    fig.update_layout(hoverlabel=dict(namelength=-1))
-
-    return fig
+        return pie_from_summary(ownership_table(gdf), name_col='ownership_desc', value_col='area', layer_id='ownership_summary', color_discrete_map=DEFAULT_OWNER_COLOR_MAP)
+    if category == 'ecoregion':
+        return pie_from_summary(ecoregion_table(gdf), name_col='ecoregion_iv', value_col='area', layer_id='ecoregion_summary')
+    if category == 'landcover':
+        return pie_from_summary(land_cover_table(gdf), name_col='vegetation_type', value_col='cell_count', layer_id='landcover_summary')
