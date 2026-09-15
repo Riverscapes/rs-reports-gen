@@ -63,11 +63,11 @@ def build_named_values(
     result: dict[str, NamedValue] = {}
 
     for column in df_aggregatedata.columns:
-        fm = meta.get_field_meta(column)
+        fm = meta.get_field_meta(column, layer_id='rs_context_huc10')
         friendly = fm.friendly_name if fm else ''
         description = fm.description if fm else ''
         raw_val = df_aggregatedata[column].iloc[0]
-        data_qty = _to_data_unit(raw_val, column)
+        data_qty = _to_data_unit(raw_val, column, layer_id='rs_context_huc10')
         unit_str = str(data_qty.units) if data_qty is not None else ''
         scalar_val = data_qty.magnitude if data_qty is not None else (raw_val.magnitude if hasattr(raw_val, 'magnitude') else raw_val)
         result[column] = NamedValue(value=scalar_val, unit_str=unit_str, friendly_name=friendly, description=description)
@@ -75,10 +75,10 @@ def build_named_values(
     for stat_name, qty in stats_dict.items():
         if stat_name in result:
             continue
-        fm = meta.get_field_meta(stat_name)
+        fm = meta.get_field_meta(stat_name, layer_id='aggregate_stats')
         friendly = fm.friendly_name if fm else stat_name.replace('_', ' ').title()
         description = fm.description if fm else ''
-        data_qty = _to_data_unit(qty, stat_name)
+        data_qty = _to_data_unit(qty, stat_name, layer_id='aggregate_stats')
         unit_str = str(data_qty.units) if data_qty is not None else ''
         scalar_val = data_qty.magnitude if data_qty is not None else (qty.magnitude if hasattr(qty, 'magnitude') else qty)
         result[stat_name] = NamedValue(value=scalar_val, unit_str=unit_str, friendly_name=friendly, description=description)
@@ -242,7 +242,7 @@ def render_excel(named_values: dict[str, NamedValue], df_owners: pd.DataFrame, o
 # ================================== PRIVATE HELPER FUNCTIONS =================
 
 
-def _to_data_unit(value, field_name: str) -> 'pint.Quantity | None':
+def _to_data_unit(value, field_name: str, layer_id: str | None = None) -> 'pint.Quantity | None':
     """Convert a Pint Quantity to SI (source) units for writing to the Excel template.
 
     The Excel template stores values in SI units and applies its own conversion
@@ -269,7 +269,7 @@ def _to_data_unit(value, field_name: str) -> 'pint.Quantity | None':
             pass
     # Step 2: fallback to declared data_unit
     meta = RSFieldMeta()
-    fm = meta.get_field_meta(field_name)
+    fm = meta.get_field_meta(field_name, layer_id=layer_id)
     if fm is None or not fm.data_unit:
         return None
     try:
