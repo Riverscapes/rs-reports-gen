@@ -173,6 +173,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
         description='Total area of the HUC10s that intersect the selected area',
         layer_id=layer_id,
         data_unit=rpt_stats['sum_hucareasqkm'].units,
+        preferred_format="{:,.0f}",
     )
     meta.add_field_meta(name='countdistinct_huc', friendly_name='Number of HUC10s', description='Count of distinct HUC10s that intersect the selected area', layer_id=layer_id, data_unit=rpt_stats['countdistinct_huc'].units)
     meta.add_field_meta(
@@ -181,6 +182,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
         description='Total length of all streams within the selected area',
         layer_id=layer_id,
         data_unit=rpt_stats['sum_flowlinelengthallkm'].units,
+        preferred_format="{:,.0f}",
     )
     mean_precip_cell_value = rpt_stats['sum_precipsum'] / rpt_stats['sum_precipcount']
     meta.add_field_meta(
@@ -297,7 +299,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     gdf_proj = geo_data_df.to_crs(utm_crs)
     aoi_area_unit = 'km ** 2' if meta.unit_system == 'SI' else 'acre'
     aoi_area = pint.Quantity(gdf_proj['geometry'].area.sum(), 'm ** 2').to(aoi_area_unit)
-    meta.add_field_meta(name='aoi_area', friendly_name='AOI Area', layer_id=layer_id, data_unit=aoi_area_unit, preferred_format='{:.2f}')
+    meta.add_field_meta(name='aoi_area', friendly_name='AOI Area', layer_id=layer_id, data_unit=aoi_area_unit, preferred_format='{:,.1f}')
 
     geol_table = geology_table(geo_data_df)
     geol_table.sort_values(by='area', ascending=False, inplace=True)
@@ -312,8 +314,8 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     owner = owner_table.iloc[0]['ownership_desc']
     owner_area = owner_table.iloc[0]['area']
     owner_frac = owner_area / owner_table['area'].sum()
-    meta.add_field_meta(name='owner_frac', friendly_name='Dominant Ownership Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
-    meta.add_field_meta(name='owner_area', friendly_name='Dominant Ownership Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'SI' else 'acre', preferred_format='{:.2f}')
+    meta.add_field_meta(name='owner_frac', friendly_name='Dominant Ownership Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:,.%}')
+    meta.add_field_meta(name='owner_area', friendly_name='Dominant Ownership Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'SI' else 'acre', preferred_format='{:,.1f}')
 
     ecor_table = ecoregion_table(ecoregion_data_df)
     ecor_table.sort_values(by='area', ascending=False, inplace=True)
@@ -323,7 +325,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     ecoregion_frac = ecoregion_area / ecor_table['area'].sum()
     number_ecorgions = len(ecor_table)
     meta.add_field_meta(name='ecoregion_frac', friendly_name='Dominant Ecoregion Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
-    meta.add_field_meta(name='ecoregion_area', friendly_name='Dominant Ecoregion Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'SI' else 'acre', preferred_format='{:.2f}')
+    meta.add_field_meta(name='ecoregion_area', friendly_name='Dominant Ecoregion Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'SI' else 'acre', preferred_format='{:,.1f}')
 
     lc_table = land_cover_table(hucs_df)
     lc_table.sort_values(by='cell_count', ascending=False, inplace=True)
