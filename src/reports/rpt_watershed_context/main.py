@@ -38,6 +38,7 @@ from util.html import RSReport
 from util.html.widgets import Callout, render_callout
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
+from util.rs_geo_helpers import prepare_gdf_for_athena
 
 
 def load_huc_data(hucs: list[str]) -> pd.DataFrame:
@@ -176,7 +177,10 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
     meta = RSFieldMeta()
 
     aoi_gdf = gpd.read_file(aoi_path)
-    huc_list = get_intersecting_hucs(aoi_gdf)
+    query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
+    if not simplification_results.success:
+        raise ValueError("Unable to simplify input geometry sufficiently to intersect with HUC10 boundaries.")
+    huc_list = get_intersecting_hucs(query_gdf)
     if not huc_list:
         raise ValueError("No HUC10 watersheds intersect the supplied AOI.")
     huc_condition = parse_hucs(','.join(huc_list), 'huc', 10)
@@ -187,14 +191,14 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
 
     if df_aggregatedata.empty:
         # we send empty dataframes and error_message
-        make_report(aoi_gdf, df_aggregatedata, df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, error_message="No results found for selection.")
+        make_report(aoi_gdf, df_aggregatedata, df_aggregatedata, df_aggregatedata, df_aggregatedata, df_aggregatedata, df_aggregatedata, report_dir, report_name, error_message="No results found for selection.")
     else:
         # although it doesn't make much difference with these quick queries, parallelizing is good practice
         with ThreadPoolExecutor(max_workers=5) as executor:
-            future_owners = executor.submit(get_ownership_data, aoi_gdf)
+            future_owners = executor.submit(get_ownership_data, query_gdf)
             future_states = executor.submit(get_states, huc_condition)
-            future_geology = executor.submit(get_geology_data, aoi_gdf)
-            future_ecoregion = executor.submit(get_ecoregion_data, aoi_gdf)
+            future_geology = executor.submit(get_geology_data, query_gdf)
+            future_ecoregion = executor.submit(get_ecoregion_data, query_gdf)
             future_hucs = executor.submit(load_huc_data, huc_list)
 
             df_owners = future_owners.result()
@@ -220,7 +224,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
         }
         named_values = build_named_values(df_aggregatedata, stats, extra=extra_named_values)
 
-        make_report(aoi_gdf, df_aggregatedata, df_owners, df_geology, df_ecoregion, df_states, df_hucs, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
+        make_report(query_gdf, df_aggregatedata, df_owners, df_geology, df_ecoregion, df_states, df_hucs, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
         safe_makedirs(str(report_dir / 'data'))
         # Export the data to Excel (simple dumb export)
         RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')
