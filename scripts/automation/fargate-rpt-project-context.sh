@@ -52,7 +52,7 @@ try() {
     return 1
   fi
 
-  echo "======================  Running rpt-rivers-need-space ======================="
+  echo "======================  Running rpt-project-context ======================="
   python -m reports.rpt_project_context.main \
     "$OUTPUTS_DIR" \
     "$INPUTS_DIR/input.geojson" \
