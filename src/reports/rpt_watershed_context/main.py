@@ -128,8 +128,12 @@ def make_report(
         report.add_figure(name, fig)
 
     widgets = {
-        "callouts": "".join(
-            render_callout(c) for c in [Callout("* These values are pre-calculated at the HUC10 scale, and represent valuescalculated across the HUC10 watersheds that intersect the AOI for this report", kind="note", title="HUC disclaimer")]
+        "callouts": render_callout(
+            Callout(
+                "* These values are pre-calculated at the HUC10 scale, and represent values calculated across the HUC10 watersheds that intersect the AOI for this report",
+                kind="note",
+                title="HUC disclaimer",
+            )
         )
     }
 
