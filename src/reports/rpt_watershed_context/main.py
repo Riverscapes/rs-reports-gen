@@ -35,6 +35,7 @@ from reports.rpt_watershed_context.figures import (
 from util.athena.athena import athena_unload_to_dataframe
 from util.figures import make_aoi_outline_map, metric_cards
 from util.html import RSReport
+from util.html.widgets import Callout, render_callout
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 from util.pdf import make_pdf_from_html
 
@@ -126,6 +127,12 @@ def make_report(
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
+    widgets = {
+        "callouts": "".join(
+            render_callout(c) for c in [Callout("* These values are pre-calculated at the HUC10 scale, and represent valuescalculated across the HUC10 watersheds that intersect the AOI for this report", kind="note", title="HUC disclaimer")]
+        )
+    }
+
     if error_message:
         report.add_html_elements('error_message', {'text': error_message})
 
@@ -133,8 +140,9 @@ def make_report(
         report.add_html_elements('tables', tables)
         report.add_html_elements('states', states_df['state_name'].tolist())
         effective_stats: dict[str, object] = stats if stats is not None else statistics(aggregate_data_df)  # type: ignore[assignment]
-        cards = metric_cards(effective_stats)
+        cards = metric_cards(effective_stats, layer_id='aggregate_stats')
         report.add_html_elements('cards', cards)
+        report.add_html_elements('widgets', widgets)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
     static_path = None
