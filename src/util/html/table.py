@@ -109,6 +109,10 @@ def render_table(
 
     Returns:
         str: An HTML fragment: ``<style>…</style><div class="rs-table-wrap">…``
+
+    Possible future enhancements:
+      * add unit_fmt parameter to pass through to override default in get_headers
+      * add table attribute/class passthrough if need per-table HTML tuning
     """
     if df is None or len(df) == 0:
         return _render_empty(empty_message, escape)
@@ -172,6 +176,8 @@ def prepare_table_data(
         tuple: ``(columns, rows, footer_rows)`` where ``columns`` is a list of
         ``{'label': str, 'classes': str}`` dicts, ``rows`` is a list of
         row cell-string lists, and ``footer_rows`` is the same shape or None.
+
+    Possible enhancement: add unit_fmt parameter to pass to get_headers allowing override of default.
     """
     meta = RSFieldMeta()
 

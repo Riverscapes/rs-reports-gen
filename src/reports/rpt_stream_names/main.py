@@ -93,9 +93,10 @@ def define_fields(unit_system: str = "SI") -> None:
     meta.add_field_meta(
         name="level_path_count",
         friendly_name="Distinct Systems",
-        data_unit=None,
+        data_unit="count",
         dtype="INTEGER",
         description="Number of distinct level paths with this stream name.",
+        preferred_format="{:,.0f}",
     )
     meta.add_field_meta(
         name="stream_name",
@@ -366,11 +367,9 @@ def make_report(
                 kind="info",
                 title=f"Your guess: {normalized_guess}" if normalized_guess else None,
                 content=(
-                    "Before you ran this report, that was your pick for the most common stream or river "
-                    "name. Was your guess one of the winners? Do you see it in the rankings or word clouds?"
+                    "Before you ran this report, that was your pick for the most common stream or river name. Was your guess one of the winners? Do you see it in the rankings or word clouds?"
                     if normalized_guess
-                    else "With these results, are you surprised by which stream or river names are most "
-                    "common?"
+                    else "With these results, are you surprised by which stream or river names are most common?"
                 ),
             )
         ),

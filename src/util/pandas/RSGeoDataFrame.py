@@ -121,8 +121,8 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
         self.log.info(f"Excel export complete. See it here: {output_path}")
 
     def to_html(self, *args, include_units=True, use_friendly=True, unit_fmt=" ({unit})", include_columns: list[str] | None = None, exclude_columns: list[str] | None = None, layer_id: str | None = None, **kwargs):
-        """Render the DataFrame as HTML with friendly column headings.
-
+        """DEPRECATED Render the DataFrame as HTML with friendly column headings.
+        Deprecated: Use render_table in html/table.py instead.
         Args:
             include_units(bool): Append unit text for columns that have units.
             use_friendly(bool): Replace raw column names with friendly names when available.
@@ -132,7 +132,7 @@ class RSGeoDataFrame(gpd.GeoDataFrame):
             layer_id(str | None): Optional layer (aka table) identifier to resolve metadata ambiguity.
             **kwargs: Forwarded to: meth: `pandas.DataFrame.to_html`.
         """
-
+        self.log.warning("to_html is deprecated - use render_table instead.")
         # Start with a copy of the DataFrame. This is ideally a unitted Dataframe if possible
         # If we are including units, we need to apply them first
         # Filter columns if needed. First inclusively then exclusively
