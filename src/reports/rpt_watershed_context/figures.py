@@ -228,6 +228,12 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
         new_name='reliefratio',
         new_preferred_format='{:.2f}',
     )  # already defined in rs_context_huc10; just ensure format is set
+    meta.duplicate_meta(
+        orig_name='sum_flowlinefeaturecount',
+        orig_layer_id='rs_context_huc10',
+        new_layer_id='aggregate_stats',
+        new_name='sum_flowlinefeaturecount',
+    )
     meta.add_field_meta(
         name='min_demminimum',
         friendly_name='Minimum Elevation',
