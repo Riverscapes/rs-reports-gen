@@ -221,7 +221,13 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
         preferred_format=source_meta.preferred_format if source_meta else None,
     )
     relief_ratio = total_relief.to("km") / rpt_stats['sum_catchmentlength'].to("km")
-    meta.set_preferred_format('reliefratio', '{:.2f}', layer_id='rs_context_huc10')  # already defined in rs_context_huc10; just ensure format is set
+    meta.duplicate_meta(
+        orig_name='reliefratio',
+        orig_layer_id='rs_context_huc10',
+        new_layer_id='aggregate_stats',
+        new_name='reliefratio',
+        new_preferred_format='{:.2f}',
+    )  # already defined in rs_context_huc10; just ensure format is set
     meta.add_field_meta(
         name='min_demminimum',
         friendly_name='Minimum Elevation',
