@@ -181,10 +181,10 @@ def generate_igo_report(
         )
     }
     if len(source_projects_df) <= html_row_limit:
-        footer_message = f'Showing all {len(source_projects_df)} projects.'
+        footer_message = f'Showing all {len(source_projects_df)} source projects.'
     else:
-        footer_message = f'Showing first {html_row_limit} source projects.'
-    messages = {'source_projects_caption': f'{footer_message} Full source-project export available at <a href="source_projects.csv">source_projects.csv</a>.'}
+        footer_message = f'Showing first {html_row_limit} out of {len(source_projects_df)} source projects.'
+    messages = {'source_projects_caption': f'{footer_message} Full list of projects available in <pre>source_projects.csv</pre> included as part of the package.'}
 
     report = RSReport(
         report_name=project_name,
