@@ -15,23 +15,23 @@ from jinja2 import Template  # or maybe use util.html RSReport instead
 from rsxml import Logger, dotenv
 from rsxml.util import safe_makedirs
 
-# Local imports
-from util import prepare_gdf_for_athena
-from util.athena import aoi_query_to_local_parquet, get_field_metadata
-from util.html import RSReport
-from util.html.table import render_table
-from util.pdf import make_pdf_from_html
-
-from .__version__ import __version__
-from .dataprep import (
+from reports.rpt_igo_project import __version__ as report_version
+from reports.rpt_igo_project.dataprep import (
     build_highlight_cards,
     build_source_project_table,
     compute_summary_statistics,
     define_fields,
     load_igo_report_data,
 )
-from .figures import build_igo_figures
-from .rawrme_to_igos_project import create_gpkg_igos_from_parquet, create_igos_project
+from reports.rpt_igo_project.figures import build_igo_figures
+from reports.rpt_igo_project.rawrme_to_igos_project import create_gpkg_igos_from_parquet, create_igos_project
+
+# Local imports
+from util import prepare_gdf_for_athena
+from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.html import RSReport
+from util.html.table import render_table
+from util.pdf import make_pdf_from_html
 
 THEME_TO_TABLE = {
     'Beaver': 'dgo_beaver',
@@ -121,7 +121,7 @@ def generate_readme(project_dir: Path):
     template_path = src_dir / 'templates' / 'template_readme.md'
     with template_path.open(encoding='utf-8') as f:
         template = Template(f.read())
-    context = {"report_version": __version__}
+    context = {"report_version": report_version}
     readme_contents = template.render(context)
     with (project_dir / 'README.md').open('w', encoding='utf-8') as f:
         f.write(readme_contents)
@@ -190,7 +190,7 @@ def generate_igo_report(
         report_name=project_name,
         report_type='Custom Riverscapes Metrics Dataset',
         report_dir=project_dir,
-        report_version=__version__,
+        report_version=report_version,
         body_template_path=str(Path(__file__).resolve().parent / 'templates' / 'body.html'),
         css_paths=[str(Path(__file__).resolve().parent / 'templates' / 'report.css')],
     )
@@ -362,7 +362,7 @@ def main():
     log_path = output_path / 'report.log'
     log.setup(log_path=log_path, log_level=logging.DEBUG)  # NOTE in future, parameterize level and reduce log size in prod
     log.title('rpt-igo-project')
-    log.info(f"Version: {__version__}")
+    log.info(f"Version: {report_version}")
 
     try:
         get_and_process_aoi(
