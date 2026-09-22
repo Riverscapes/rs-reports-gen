@@ -17,7 +17,7 @@ def main() -> list[str] | None:
         For all reports:
             DATA_ROOT - Path to the outputs folder. A subfolder rpt-riverscapes-inventory will be created if it does not exist (REQUIRED)
             UNIT_SYSTEM - unit system to use: "SI" or "imperial" (optional, default is "SI")
-            INCLUDE_PDF - if 1 or true, adds --include-pdf FLAG TO include static html and PDF versions of the report (default is False)
+            INCLUDE_PDF - if 1 or true, adds --include_pdf FLAG TO include static html and PDF versions of the report (default is False)
 
         Report-specific variables:
             RSI_AOI_GEOJSON - path to the input geojson file for rpt-riverscapes-inventory (optional)

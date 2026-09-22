@@ -274,7 +274,7 @@ def main() -> None:
     parser.add_argument("output_path", type=Path, help="Folder to store the report outputs")
     parser.add_argument("path_to_shape", type=str, help="Path to the AOI GeoJSON, shapefile, or other vector input")
     parser.add_argument("report_name", help="Name for the report area")
-    parser.add_argument("--include-pdf", action="store_true", help="Include static HTML and PDF outputs")
+    parser.add_argument("--include_pdf", action="store_true", help="Include static HTML and PDF outputs")
     parser.add_argument('--unit_system', help='Unit system to use: SI or imperial', type=str, default='SI')
     parser.add_argument('--use-parquet', dest='parquet_path', type=Path, default=None, help='Use an existing Parquet file or directory instead of running the Athena AOI query')
     parser.add_argument('--keep-parquet', action='store_true', help='Keep the downloaded AOI Parquet files instead of deleting the pq folder')
