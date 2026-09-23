@@ -1,5 +1,8 @@
 """Check report version drift across repos.
 
+Prints findings; makes no changes.
+Doesn't really matter as I don't think the version in the ts file is displayed or used for anything, but the mapping between reports could be useful.
+
 Usage:
     uv run python .\\scripts\\devtools\\check_report_version_drift.py
 
@@ -17,9 +20,13 @@ TS_REPORTDEFS = Path(__file__).parent.parent.parent.parent / 'rs-reports-monorep
 
 # Explicit aliases for cases where report package names and UI ids intentionally differ.
 PY_TO_TS_ID_ALIASES = {
-    'rpt_igo_project': 'igo-scraper',
+    'rpt_downstream_geomorphic': 'rpt-downstream-geomorphic-styles',
+    'rpt_igo_project': 'custom-rs-metrics',
+    'rpt_inventory_of_resources': 'inventory-of-resources',
+    'rpt_project_context': 'q-project-context',
     'rpt_rivers_need_space': 'rivers-need-space',
     'rpt_riverscapes_inventory': 'riverscapes-inventory',
+    'rpt_watershed_context': 'q-watershed-context',
     'rpt_watershed_summary': 'rpt-watershed',
 }
 
@@ -60,25 +67,34 @@ def has_alias_mapping(pyid: str) -> bool:
     return pyid in PY_TO_TS_ID_ALIASES
 
 
-def check_versions(py_versions: dict[str, str], ts_versions: dict[str, str]) -> list[tuple[str | None, str | None, str | None]]:
-    """Compare versions and return mismatches and unmapped report ids."""
-    drift: list[tuple[str | None, str | None, str | None]] = []
+def check_versions(py_versions: dict[str, str], ts_versions: dict[str, str]) -> tuple[list[tuple[str, str, str, str, str]], bool]:
+    """Compare versions and return tabular rows plus whether drift exists."""
+    rows: list[tuple[str, str, str, str, str]] = []
+    has_drift = False
     matched_ts_ids: set[str] = set()
 
-    for pyid, pyver in py_versions.items():
+    for pyid in sorted(py_versions):
+        pyver = py_versions[pyid]
         tsid = report_pkg_to_ts_id(pyid)
         if tsid not in ts_versions:
-            drift.append((pyid, pyver, None))
+            rows.append(('PY_ONLY', pyid, pyver, tsid, ''))
+            has_drift = True
             continue
         matched_ts_ids.add(tsid)
-        if ts_versions[tsid] != pyver:
-            drift.append((pyid, pyver, ts_versions[tsid]))
+        tsver = ts_versions[tsid]
+        if tsver != pyver:
+            rows.append(('DRIFT', pyid, pyver, tsid, tsver))
+            has_drift = True
+        else:
+            rows.append(('MATCH', pyid, pyver, tsid, tsver))
 
-    for tsid, tsver in ts_versions.items():
+    for tsid in sorted(ts_versions):
+        tsver = ts_versions[tsid]
         if tsid not in matched_ts_ids:
-            drift.append((None, None, f'{tsid}:{tsver}'))
+            rows.append(('TS_ONLY', '', '', tsid, tsver))
+            has_drift = True
 
-    return drift
+    return rows, has_drift
 
 
 def main() -> int:
@@ -90,21 +106,21 @@ def main() -> int:
 
     py_versions = get_python_versions()
     ts_versions = get_ts_versions()
-    drift = check_versions(py_versions, ts_versions)
+    rows, has_drift = check_versions(py_versions, ts_versions)
 
-    if not drift:
-        print('All report versions are in sync.')
-        return 0
+    print('status\tpython_pkg                      \tpython_ver\tts_id                           \tts_ver\tnote')
+    for status, pyid, pyver, tsid, tsver in rows:
+        note = ''
+        if pyid:
+            note = 'alias-map' if has_alias_mapping(pyid) else 'default-map'
+        print(f'{status}\t{str(pyid + ' ' * 31)[:32]}\t     {pyver}\t{str(tsid + ' ' * 31)[:32]}\t{tsver}\t{note}')
 
-    print('Version drift detected:')
-    for pyid, pyver, tsver in drift:
-        if pyid is None:
-            print(f'  TS-only report id (no Python mapping): {tsver}')
-            continue
-        tsid = report_pkg_to_ts_id(pyid)
-        mapping_note = f' [alias -> {tsid}]' if has_alias_mapping(pyid) else f' [mapped -> {tsid}]'
-        print(f'  {pyid}: Python={pyver}  TypeScript={tsver}{mapping_note}')
-    return 1
+    if has_drift:
+        print('\nVersion drift detected. See DRIFT/PY_ONLY/TS_ONLY rows above.')
+        return 1
+
+    print('\nAll report versions are in sync.')
+    return 0
 
 
 if __name__ == '__main__':
