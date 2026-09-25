@@ -26,10 +26,11 @@ from reports.rpt_inventory_of_resources.dataprep import (
     streams_by_order_cards,
     streams_by_slope_cards,
     streams_by_type_cards,
+    streams_by_valley_confinement_cards,
 )
 from util import prepare_gdf_for_athena
 from util.athena import athena_unload_to_dataframe, get_field_metadata
-from util.figures import bar_total_x_by_ybins, horizontal_split_bar_chart, make_aoi_outline_map, project_id_list, split_bar_chart_by_bins
+from util.figures import bar_total_x_by_ybins, horizontal_split_bar_chart, make_aoi_outline_map, project_id_list
 from util.html import RSReport
 from util.html.progress import render_progress_cards
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq, ureg
@@ -121,12 +122,13 @@ def make_report(
         "streams_by_type": horizontal_split_bar_chart(data_df, "fcode_binary", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         "streams_by_order": horizontal_split_bar_chart(data_df, "stream_order", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         # "channel_slope_perennial": split_bar_chart_by_bins(data_perennial, "prim_channel_gradient", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
-        "channel_slope_perennial": bar_total_x_by_ybins(data_perennial, 'stream_length', ['prim_channel_gradient']),
+        "channel_slope_perennial": bar_total_x_by_ybins(data_perennial, 'stream_length', ['prim_channel_gradient'], show_legend=False),
         # "channel_slope_non_perennial": split_bar_chart_by_bins(data_non_perennial, "prim_channel_gradient", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
-        "channel_slope_non_perennial": bar_total_x_by_ybins(data_non_perennial, 'stream_length', ['prim_channel_gradient']),
-        "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "channel_slope_non_perennial": bar_total_x_by_ybins(data_non_perennial, 'stream_length', ['prim_channel_gradient'], show_legend=False),
+        # "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
+        "streams_by_valley_confinement": bar_total_x_by_ybins(data_df, 'stream_length', ['confinement_ratio'], show_legend=False),
         "waterbodies": horizontal_split_bar_chart(data_df, "waterbody_type_desc", "waterbody_extent", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
-        "prop_riparian": bar_total_x_by_ybins(data_df, 'segment_area', ['lf_riparian_prop']),
+        "prop_riparian": bar_total_x_by_ybins(data_df, 'segment_area', ['lf_riparian_prop'], show_legend=False),
     }
     tables = {name: _table_html(summary) for name, summary in summaries.items()}
     prog_cards = {
@@ -134,6 +136,7 @@ def make_report(
         "stream_order": render_progress_cards(streams_by_order_cards(data_df)),
         "perennial_slope": render_progress_cards(streams_by_slope_cards(data_perennial)),
         "non_perennial_slope": render_progress_cards(streams_by_slope_cards(data_non_perennial)),
+        "valley_confinement": render_progress_cards(streams_by_valley_confinement_cards(data_df)),
     }
     appendices = {
         "project_ids": project_id_list(data_df),
