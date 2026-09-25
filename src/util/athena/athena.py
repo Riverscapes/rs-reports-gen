@@ -291,7 +291,7 @@ def prepare_aoi_query(
         prefilter_condition=prefilter_condition,
         intersects_condition=intersects_condition,
     )
-    log.info(f"Query is \n{prepared_query}")
+    # log.debug(f"Query is \n{prepared_query}") # our execute functions also output the Query string, so this is usually redundant (and voluminous)
     return prepared_query
 
 
@@ -560,6 +560,7 @@ def aoi_query_to_dataframe(
     aoi_gdf: gpd.GeoDataFrame,
     *,
     geom_bbox_columns: tuple[str, str, str, str] | None = None,
+    querylabel: str = "aoi_query",
 ) -> pd.DataFrame:
     """Execute a spatial AOI query against Athena and return the results as a DataFrame.
 
@@ -604,7 +605,7 @@ def aoi_query_to_dataframe(
         aoi_gdf,
         geom_bbox_columns=geom_bbox_columns,
     )
-    df = query_to_dataframe(prepared_query, 'aoi_query')
+    df = query_to_dataframe(prepared_query, querylabel)
     return df
 
 

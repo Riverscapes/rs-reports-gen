@@ -97,26 +97,22 @@ def get_geology_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Query geology polygons intersecting the AOI and clip them to its extent.
 
     Returns a GeoDataFrame of geology polygons (rock_type, unit_name, geometry) clipped
-    to the boundary of aoi_gdf. The table has no bounding-box column, so no prefilter
-    condition is available and ST_Intersects is applied directly.
+    to the boundary of aoi_gdf.
     """
     log = Logger("Get geology data for AOI")
 
-    aoi_sql_geom = get_aoi_geom_sql_expression(aoi_gdf)
-    if aoi_sql_geom is None:
-        raise ValueError("AOI geometry exceeds Athena query size limit. Simplify the AOI and try again.")
-
-    query_str = f"""
-SELECT major1 AS rock_type, unit_name, ST_AsBinary(ST_GeomFromBinary(geom_wkb)) AS geom
-FROM ext_rpt.us_sgmc_geology
-WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
+    query_str = """
+SELECT major1 AS rock_type, unit_name, geom_wkb
+FROM input_geom, ext_rpt.us_sgmc_geology
+WHERE {prefilter_condition} AND {intersects_condition}
 """
-    df = query_to_dataframe(query_str, "geology")
+    df = aoi_query_to_dataframe(query_str, geometry_field_expression="ST_GeomFromBinary(geom_wkb)", geom_bbox_field=None, aoi_gdf=aoi_gdf, querylabel="geology")
+
     if df.empty:
         log.info("No geology polygons intersect the AOI.")
         return gpd.GeoDataFrame(columns=["rock_type", "unit_name", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
 
-    gdf = gpd.GeoDataFrame(df.drop(columns=["geom"]), geometry=gpd.GeoSeries.from_wkb(df["geom"]), crs=aoi_gdf.crs)
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom_wkb"]), geometry=gpd.GeoSeries.from_wkb(df["geom_wkb"]), crs=aoi_gdf.crs)
     return gpd.clip(gdf, aoi_gdf)
 
 
