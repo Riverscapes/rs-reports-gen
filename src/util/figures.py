@@ -95,6 +95,7 @@ def bar_total_x_by_ybins(
     color_discrete_map: dict[str, str] | None = None,
     fig_params: dict | None = None,
     show_legend: bool = True,
+    remove_x_ticklabels: bool = False,
 ) -> go.Figure:
     """
     Uses bins.json to lookup the bins
@@ -187,6 +188,10 @@ def bar_total_x_by_ybins(
 
     fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, showlegend=show_legend)
     fig.update_xaxes(type='category')  # otherwise plotly may try use a continuous axis which is not right
+
+    if remove_x_ticklabels:
+        fig.update_xaxes(showticklabels=False)
+
     return fig
 
 

@@ -33,6 +33,7 @@ from util.athena import athena_unload_to_dataframe, get_field_metadata
 from util.figures import bar_total_x_by_ybins, horizontal_split_bar_chart, make_aoi_outline_map, project_id_list
 from util.html import RSReport
 from util.html.progress import render_progress_cards
+from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame, load_gdf_from_pq, ureg
 from util.pdf import make_pdf_from_html
 
@@ -70,7 +71,7 @@ def _table_html(summary_df: pd.DataFrame, top_n: int = 20) -> str:
         if pd.notna(ratio):
             display_df.at[row_index, "BLM Managment"] = f"{float(ratio) * 100:,.2f}%"
 
-    return display_df.to_html(index=False, classes="dataframe", border=0)
+    return render_table(display_df)
 
 
 def define_fields(unit_system: str = "SI"):
@@ -126,7 +127,7 @@ def make_report(
         # "channel_slope_non_perennial": split_bar_chart_by_bins(data_non_perennial, "prim_channel_gradient", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         "channel_slope_non_perennial": bar_total_x_by_ybins(data_non_perennial, 'stream_length', ['prim_channel_gradient'], show_legend=False),
         # "streams_by_valley_confinement": split_bar_chart_by_bins(data_df, "confinement_ratio", "stream_length", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
-        "streams_by_valley_confinement": bar_total_x_by_ybins(data_df, 'stream_length', ['confinement_ratio'], show_legend=False),
+        "streams_by_valley_confinement": bar_total_x_by_ybins(data_df, 'stream_length', ['confinement_ratio'], remove_x_ticklabels=True),
         "waterbodies": horizontal_split_bar_chart(data_df, "waterbody_type_desc", "waterbody_extent", "ownership_binary", color_discrete_map={"BLM Managed": "#1f77b4", "Non-BLM": "#797979"}),
         "prop_riparian": bar_total_x_by_ybins(data_df, 'segment_area', ['lf_riparian_prop'], show_legend=False),
     }
