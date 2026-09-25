@@ -8,6 +8,9 @@ import geopandas as gpd
 import pandas as pd
 
 from util.athena import aoi_query_to_local_parquet
+from util.binning import get_bins_info
+from util.html.progress import ProgressCard, ProgressGroup
+from util.pandas import RSFieldMeta
 
 INVENTORY_FIELDS = "segment_area, centerline_length, watershed_id, ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, waterbody_type, waterbody_type_desc, waterbody_extent, prim_channel_gradient, valleybottom_gradient, fcode, fcode_desc, confinement_ratio, constriction_ratio, lf_riparian, lf_riparian_prop, lf_agriculture, lf_developed, rme_project_id, rme_project_name"
 
@@ -146,3 +149,99 @@ def build_metric_cards(data_df: pd.DataFrame) -> dict[str, dict[str, str]]:
         "stream_names": {"title": "Named Streams", "value": f"{named_stream_count:,}", "details": "Distinct non-empty stream names"},
         "drainage_area": {"title": "Median Drainage Area", "value": "Not available" if pd.isna(median_drainage) else f"{median_drainage:,.2f}", "details": "Reported drainage-area value per inventory record"},
     }
+
+
+def streams_by_type_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+
+    if RSFieldMeta().unit_system == "imperial":
+        length_label = 'mile'
+        display_label = 'MI'
+    else:
+        length_label = 'km'
+        display_label = 'KM'
+
+    perennial = data_df[data_df['fcode'].isin([46006, 55800])]
+    non_perennial = data_df[~data_df['fcode'].isin([46006, 55800])]
+    total_perennial = perennial['stream_length'].sum().to(length_label)
+    total_non_perennial = non_perennial['stream_length'].sum().to(length_label)
+    blm_perennial = perennial[perennial['ownership'] == 'BLM']['stream_length'].sum().to(length_label)
+    non_blm_perennial = perennial[perennial['ownership'] != 'BLM']['stream_length'].sum().to(length_label)
+    blm_non_perennial = non_perennial[non_perennial['ownership'] == 'BLM']['stream_length'].sum().to(length_label)
+    non_blm_non_perennial = non_perennial[non_perennial['ownership'] != 'BLM']['stream_length'].sum().to(length_label)
+
+    return [
+        ProgressCard(
+            "Perennial",
+            total=f'{int(total_perennial.m)} {display_label}',
+            groups=[
+                ProgressGroup("BLM", f"{int(blm_perennial.m)} / {int(total_perennial.m)} {display_label}", numerator=blm_perennial.m, denominator=total_perennial.m, color="indigo"),
+                ProgressGroup("Non-BLM", f"{int(non_blm_perennial.m)} / {int(total_perennial.m)} {display_label}", numerator=non_blm_perennial.m, denominator=total_perennial.m, color="gray"),
+            ],
+        ),
+        ProgressCard(
+            "Non-Perennial",
+            total=f'{int(total_non_perennial.m)} {display_label}',
+            groups=[
+                ProgressGroup("BLM", f"{int(blm_non_perennial.m)} / {int(total_non_perennial.m)} {display_label}", numerator=blm_non_perennial.m, denominator=total_non_perennial.m, color="indigo"),
+                ProgressGroup("Non-BLM", f"{int(non_blm_non_perennial.m)} / {int(total_non_perennial.m)} {display_label}", numerator=non_blm_non_perennial.m, denominator=total_non_perennial.m, color="gray"),
+            ],
+        ),
+    ]
+
+
+def streams_by_order_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+
+    if RSFieldMeta().unit_system == "imperial":
+        length_label = 'mile'
+        display_label = 'MI'
+    else:
+        length_label = 'km'
+        display_label = 'KM'
+
+    order_groups = data_df.groupby('stream_order')
+    cards = []
+    for order, group in order_groups:
+        total_length = group['stream_length'].sum().to(length_label)
+        blm_length = group[group['ownership'] == 'BLM']['stream_length'].sum().to(length_label)
+
+        cards.append(
+            ProgressCard(
+                f"Order {order}",
+                total=f'{int(total_length.m)} {display_label}',
+                groups=[
+                    ProgressGroup("BLM", f"{int(blm_length.m)} / {int(total_length.m)} {display_label}", numerator=blm_length.m, denominator=total_length.m, color="indigo"),
+                ],
+            )
+        )
+
+    return cards
+
+
+def streams_by_slope_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+    if RSFieldMeta().unit_system == "imperial":
+        length_label = 'mile'
+        display_label = 'MI'
+    else:
+        length_label = 'km'
+        display_label = 'KM'
+
+    edges, labels, colours = get_bins_info('prim_channel_gradient')
+
+    cards = []
+    for i, (edge_start, edge_end) in enumerate(zip(edges[:-1], edges[1:])):
+        slope = f"{edge_start} - {edge_end}"
+        group = data_df[(data_df['prim_channel_gradient'] >= edge_start) & (data_df['prim_channel_gradient'] < edge_end)]
+        total_length = group['stream_length'].sum().to(length_label)
+        blm_length = group[group['ownership'] == 'BLM']['stream_length'].sum().to(length_label)
+
+        cards.append(
+            ProgressCard(
+                f"Slope {slope}",
+                total=f'{int(total_length.m)} {display_label}',
+                groups=[
+                    ProgressGroup("BLM", f"{int(blm_length.m)} / {int(total_length.m)} {display_label}", numerator=blm_length.m, denominator=total_length.m, color="indigo"),
+                ],
+            )
+        )
+
+    return cards

@@ -61,7 +61,8 @@
         <div class="section-context">
             <p><i>Why this is useful</i>: Stream types dictate the hydrologic regime and types of riparian vegetation that can be supported</p>
         </div>
-        <figure class="report-figure">{{ figures['streams_by_type']|safe }}</figure>
+        <!-- <figure class="report-figure">{{ figures['streams_by_type']|safe }}</figure> -->
+        <figure class="report-figure">{{ progress_cards['stream_lengths']|safe }}</figure>
         
         <h4>Streams by Strahler Stream Order</h4>
         <div class="section-context">
@@ -70,6 +71,7 @@
             </p>
         </div>
         <figure class="report-figure">{{ figures['streams_by_order']|safe }}</figure>
+        <figure class="report-figure">{{ progress_cards['stream_order']|safe }}</figure>
     
         <!-- conceptual fig of slope and valley morphology -->
 
@@ -80,6 +82,8 @@
             </p>
         </div>
         <figure class="report-figure">{{ figures['channel_slope_perennial']|safe }}</figure>
+        <h4>Breakdown by BLM Ownership</h4>
+        <figure class="report-figure">{{ progress_cards['perennial_slope']|safe }}</figure>
 
         <h4>Channel Slope: Non-Perennial Streams</h4>
         <div class="section-context">
@@ -88,6 +92,8 @@
             </p>
         </div>
         <figure class="report-figure">{{ figures['channel_slope_non_perennial']|safe }}</figure>
+        <h4>Breakdown by BLM Ownership</h4>
+        <figure class="report-figure">{{ progress_cards['non_perennial_slope']|safe }}</figure>
 
         <!-- conceptual fig of confinement/constriction -->
 
