@@ -245,3 +245,33 @@ def streams_by_slope_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
         )
 
     return cards
+
+
+def streams_by_valley_confinement_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+    if RSFieldMeta().unit_system == "imperial":
+        length_label = 'mile'
+        display_label = 'MI'
+    else:
+        length_label = 'km'
+        display_label = 'KM'
+
+    edges, labels, colours = get_bins_info('confinement_ratio')
+
+    cards = []
+    for i, (edge_start, edge_end) in enumerate(zip(edges[:-1], edges[1:])):
+        confinement = f"{edge_start} - {edge_end}"
+        group = data_df[(data_df['confinement_ratio'] >= edge_start) & (data_df['confinement_ratio'] < edge_end)]
+        total_length = group['stream_length'].sum().to(length_label)
+        blm_length = group[group['ownership'] == 'BLM']['stream_length'].sum().to(length_label)
+
+        cards.append(
+            ProgressCard(
+                f"Confinement {confinement}",
+                total=f'{int(total_length.m)} {display_label}',
+                groups=[
+                    ProgressGroup("BLM", f"{int(blm_length.m)} / {int(total_length.m)} {display_label}", numerator=blm_length.m, denominator=total_length.m, color="indigo"),
+                ],
+            )
+        )
+
+    return cards
