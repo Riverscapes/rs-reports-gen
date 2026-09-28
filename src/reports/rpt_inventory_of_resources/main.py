@@ -28,6 +28,7 @@ from reports.rpt_inventory_of_resources.dataprep import (
     streams_by_slope_cards,
     streams_by_type_cards,
     streams_by_valley_confinement_cards,
+    wetlands_cards,
 )
 from util import prepare_gdf_for_athena
 from util.athena import athena_unload_to_dataframe, get_field_metadata
@@ -90,8 +91,7 @@ def define_fields(unit_system: str = "SI"):
 def make_report(
     data_df: pd.DataFrame,
     aoi_gdf: gpd.GeoDataFrame,
-    nwi_riparian_gdf: gpd.GeoDataFrame,
-    nwi_wetlands_gdf: gpd.GeoDataFrame,
+    nwi_gdf: gpd.GeoDataFrame,
     huc_df: pd.DataFrame,
     report_dir: Path,
     report_name: str,
@@ -103,8 +103,7 @@ def make_report(
     Args:
             data_df: Normalized raw inventory data.
             aoi_gdf: Source area of interest for the overview map.
-            nwi_riparian_gdf: NWI riparian wetland polygons intersecting the AOI.
-            nwi_wetlands_gdf: NWI wetland polygons intersecting the AOI.
+            nwi_gdf: NWI wetland polygons intersecting the AOI.
             huc_df: HUC (Hydrologic Unit Code) data for the AOI.
             report_dir: Directory containing report outputs.
             report_name: User-facing area name.
@@ -144,6 +143,7 @@ def make_report(
         "perennial_slope": render_progress_cards(streams_by_slope_cards(data_perennial)),
         "non_perennial_slope": render_progress_cards(streams_by_slope_cards(data_non_perennial)),
         "valley_confinement": render_progress_cards(streams_by_valley_confinement_cards(data_df)),
+        "lotic_lentic": render_progress_cards(wetlands_cards(nwi_gdf)),
     }
     appendices = {
         "project_ids": project_id_list(data_df),
@@ -278,8 +278,9 @@ def make_report_orchestrator(
     huc_data_df = load_huc_data(unique_huc10)
     nwi_riparian_gdf = get_nwi_data(aoi_gdf, table='riparian')
     nwi_wetlands_gdf = get_nwi_data(aoi_gdf, table='wetlands')
+    nwi_gdf = pd.concat([nwi_riparian_gdf, nwi_wetlands_gdf], ignore_index=True)
 
-    make_report(data_gdf, aoi_gdf, huc_data_df, nwi_riparian_gdf, nwi_wetlands_gdf, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)
+    make_report(data_gdf, aoi_gdf, huc_data_df, nwi_gdf, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)
 
     if not keep_parquet:
         try:
