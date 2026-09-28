@@ -15,6 +15,29 @@ from util.html.progress import ProgressCard, ProgressGroup
 from util.pandas import RSFieldMeta
 
 INVENTORY_FIELDS = "segment_area, centerline_length, watershed_id, ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, waterbody_type, waterbody_type_desc, waterbody_extent, prim_channel_gradient, valleybottom_gradient, fcode, fcode_desc, confinement_ratio, constriction_ratio, lf_riparian, lf_riparian_prop, lf_agriculture, lf_developed, rme_project_id, rme_project_name"
+HYDRO_REGIMES = {
+    "A": "Temporarily Flooded",
+    "B": "Seasonally Saturated",
+    "C": "Seasonally Flooded",
+    "D": "Continuously Saturated",
+    "E": "Seasonally Flooded / Saturated",
+    "F": "Semipermanently Flooded",
+    "G": "Intermittently Exposed",
+    "H": "Permanently Flooded",
+    "J": "Intermittently Flooded",
+    "K": "Artificially Flooded",
+    "L": "Subtidal",
+    "M": "Irregularly Exposed",
+    "N": "Regularly Flooded",
+    "P": "Irregularly Flooded",
+    "Q": "Regularly Flooded-Fresh Tidal",
+    "R": "Seasonally Flooded-Fresh Tidal",
+    "S": "Temporarily Flooded- Fresh Tidal",
+    "T": "Semipermanently Flooded-Fresh Tidal",
+    "V": "Permanently Flooded-Fresh Tidal",
+}
+
+MODIFIERS = {"b": "Beaver", "d": "Partly Drained/Ditched", "f": "Farmed", "m": "Managed", "h": "Diked/Impounded", "r": "Artificial Substrate", "s": "Spoil", "x": "Excavated"}
 
 
 def data_for_aoi_to_parquet(aoi_gdf: gpd.GeoDataFrame, parquet_path: str) -> None:
@@ -51,11 +74,6 @@ def get_nwi_data(aoi_gdf: gpd.GeoDataFrame, table='riparian') -> gpd.GeoDataFram
     if table == 'riparian':
         query_str = """
 SELECT nwi.attribute, nwi.wetland_type,
-       CASE
-           WHEN sma.geom_wkb IS NULL THEN nwi.acres
-           ELSE nwi.acres * ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb)))
-                / NULLIF(ST_Area(ST_GeomFromBinary(nwi.geom_wkb)), 0)
-       END AS acres,
        sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
        ST_AsBinary(
            CASE
@@ -74,11 +92,6 @@ WHERE {prefilter_condition} AND {intersects_condition}
     else:
         query_str = """
 SELECT nwi.attribute, nwi.wetland_type,
-       CASE
-           WHEN sma.geom_wkb IS NULL THEN nwi.acres
-           ELSE nwi.acres * ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb)))
-                / NULLIF(ST_Area(ST_GeomFromBinary(nwi.geom_wkb)), 0)
-       END AS acres,
        sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
        ST_AsBinary(
            CASE
@@ -102,9 +115,14 @@ WHERE {prefilter_condition} AND {intersects_condition}
 
     if df.empty:
         log.info("No NWI riparian polygons intersect the AOI.")
-        return gpd.GeoDataFrame(columns=["attribute", "wetland_type", "acres", "ownership", "ownership_desc", "geometry", "type"], geometry="geometry", crs=aoi_gdf.crs)
+        empty_gdf = gpd.GeoDataFrame(columns=["attribute", "wetland_type", "ownership", "ownership_desc", "geometry", "type"], geometry="geometry", crs=aoi_gdf.crs)
+        empty_gdf["area"] = pd.Series(dtype="pint[meter ** 2]")
+        return empty_gdf
 
     gdf = gpd.GeoDataFrame(df.drop(columns=["geom_wkb"]), geometry=gpd.GeoSeries.from_wkb(df["geom_wkb"]), crs=aoi_gdf.crs)
+    area_crs = gdf.estimate_utm_crs()
+    area_m2 = gdf.to_crs(area_crs).geometry.area
+    gdf["area"] = area_m2.astype("pint[meter ** 2]")
     return gpd.clip(gdf, aoi_gdf)
 
 
@@ -366,13 +384,13 @@ def wetlands_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
     cards.append(
         ProgressCard(
             "Lentic Wetlands",
-            total=f'{int(lentic["acres"].sum().to(area_label).m)} {display_label}',
+            total=f'{int(lentic["area"].sum().to(area_label).m)} {display_label}',
             groups=[
                 ProgressGroup(
                     "BLM",
-                    f"{int(blm_lentic['acres'].sum().to(area_label).m)} / {int(lentic['acres'].sum().to(area_label).m)} {display_label}",
-                    numerator=blm_lentic['acres'].sum().to(area_label).m,
-                    denominator=lentic['acres'].sum().to(area_label).m,
+                    f"{int(blm_lentic['area'].sum().to(area_label).m)} / {int(lentic['area'].sum().to(area_label).m)} {display_label}",
+                    numerator=blm_lentic['area'].sum().to(area_label).m,
+                    denominator=lentic['area'].sum().to(area_label).m,
                     color="green",
                 ),
             ],
@@ -381,17 +399,52 @@ def wetlands_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
     cards.append(
         ProgressCard(
             "Lotic Wetlands",
-            total=f'{int(lotic["acres"].sum().to(area_label).m)} {display_label}',
+            total=f'{int(lotic["area"].sum().to(area_label).m)} {display_label}',
             groups=[
                 ProgressGroup(
                     "BLM",
-                    f"{int(blm_lotic['acres'].sum().to(area_label).m)} / {int(lotic['acres'].sum().to(area_label).m)} {display_label}",
-                    numerator=blm_lotic['acres'].sum().to(area_label).m,
-                    denominator=lotic['acres'].sum().to(area_label).m,
+                    f"{int(blm_lotic['area'].sum().to(area_label).m)} / {int(lotic['area'].sum().to(area_label).m)} {display_label}",
+                    numerator=blm_lotic['area'].sum().to(area_label).m,
+                    denominator=lotic['area'].sum().to(area_label).m,
                     color="green",
                 ),
             ],
         )
     )
+
+    return cards
+
+
+def cowardin_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+    if RSFieldMeta().unit_system == "imperial":
+        area_label = 'acre'
+        display_label = 'AC'
+    else:
+        area_label = 'hectare'
+        display_label = 'HA'
+
+    cards = []
+    for cowardin_class in data_df['wetland_type'].unique():
+        class_group = data_df[data_df['wetland_type'] == cowardin_class]
+        blm_class_group = class_group[class_group['ownership'] == 'BLM']
+
+        total_area = class_group['area'].sum().to(area_label)
+        blm_area = blm_class_group['area'].sum().to(area_label)
+
+        cards.append(
+            ProgressCard(
+                f"{cowardin_class}",
+                total=f'{int(total_area.m)} {display_label}',
+                groups=[
+                    ProgressGroup(
+                        "BLM",
+                        f"{int(blm_area.m)} / {int(total_area.m)} {display_label}",
+                        numerator=blm_area.m,
+                        denominator=total_area.m,
+                        color="green",
+                    ),
+                ],
+            )
+        )
 
     return cards
