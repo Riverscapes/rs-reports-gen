@@ -6,8 +6,10 @@ Created by copilot.
 
 import geopandas as gpd
 import pandas as pd
+from rsxml import Logger
 
 from util.athena import aoi_query_to_local_parquet
+from util.athena.athena import aoi_query_to_dataframe
 from util.binning import get_bins_info
 from util.html.progress import ProgressCard, ProgressGroup
 from util.pandas import RSFieldMeta
@@ -34,6 +36,48 @@ WHERE {{prefilter_condition}} AND {{intersects_condition}}
         aoi_gdf=aoi_gdf,
         local_path=parquet_path,
     )
+
+
+def get_nwi_data(aoi_gdf: gpd.GeoDataFrame, table='riparian') -> gpd.GeoDataFrame:
+    """Query NWI polygons from the specified table, annotate ownership, and clip them to the AOI.
+
+    Returns a GeoDataFrame of NWI riparian wetland polygons (attribute, wetland_type, acres, ownership,
+    ownership_desc, geometry) clipped to the boundary of aoi_gdf. Polygons crossing ownership boundaries are
+    split at those boundaries, with acres prorated to each piece; polygons without a matching ownership record
+    are retained with null ownership attributes.
+    """
+    log = Logger("Get NWI riparian data for AOI")
+
+    query_str = """
+SELECT nwi.attribute, nwi.wetland_type,
+       CASE
+           WHEN sma.geom_wkb IS NULL THEN nwi.acres
+           ELSE nwi.acres * ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb)))
+                / NULLIF(ST_Area(ST_GeomFromBinary(nwi.geom_wkb)), 0)
+       END AS acres,
+       sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
+       ST_AsBinary(
+           CASE
+               WHEN sma.geom_wkb IS NULL THEN ST_GeomFromBinary(nwi.geom_wkb)
+               ELSE ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
+           END
+       ) AS geom_wkb
+FROM input_geom, ext_rpt.us_fws_nwi_{table} nwi
+LEFT JOIN ext_rpt.us_blm_sma_ownership sma
+    ON ST_Intersects(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
+    AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
+LEFT JOIN lu_blm_ownership lu_blm_o
+    ON upper(sma.admin_agency_code) = upper(lu_blm_o.edomv)
+WHERE {prefilter_condition} AND {intersects_condition}
+"""
+    df = aoi_query_to_dataframe(query_str, geometry_field_expression="ST_GeomFromBinary(nwi.geom_wkb)", geom_bbox_field=None, aoi_gdf=aoi_gdf, querylabel="nwi riparian")
+
+    if df.empty:
+        log.info("No NWI riparian polygons intersect the AOI.")
+        return gpd.GeoDataFrame(columns=["attribute", "wetland_type", "acres", "ownership", "ownership_desc", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
+
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom_wkb"]), geometry=gpd.GeoSeries.from_wkb(df["geom_wkb"]), crs=aoi_gdf.crs)
+    return gpd.clip(gdf, aoi_gdf)
 
 
 def summarize_by_length(data_df: pd.DataFrame, group_columns: list[str]) -> pd.DataFrame:
