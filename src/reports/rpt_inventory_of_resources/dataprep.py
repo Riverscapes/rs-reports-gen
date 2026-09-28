@@ -48,7 +48,8 @@ def get_nwi_data(aoi_gdf: gpd.GeoDataFrame, table='riparian') -> gpd.GeoDataFram
     """
     log = Logger("Get NWI riparian data for AOI")
 
-    query_str = """
+    if table == 'riparian':
+        query_str = """
 SELECT nwi.attribute, nwi.wetland_type,
        CASE
            WHEN sma.geom_wkb IS NULL THEN nwi.acres
@@ -62,7 +63,30 @@ SELECT nwi.attribute, nwi.wetland_type,
                ELSE ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
            END
        ) AS geom_wkb
-FROM input_geom, ext_rpt.us_fws_nwi_{table} nwi
+FROM input_geom, ext_rpt.us_fws_nwi_riparian nwi
+LEFT JOIN ext_rpt.us_blm_sma_ownership sma
+    ON ST_Intersects(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
+    AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
+LEFT JOIN lu_blm_ownership lu_blm_o
+    ON upper(sma.admin_agency_code) = upper(lu_blm_o.edomv)
+WHERE {prefilter_condition} AND {intersects_condition}
+"""
+    else:
+        query_str = """
+SELECT nwi.attribute, nwi.wetland_type,
+       CASE
+           WHEN sma.geom_wkb IS NULL THEN nwi.acres
+           ELSE nwi.acres * ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb)))
+                / NULLIF(ST_Area(ST_GeomFromBinary(nwi.geom_wkb)), 0)
+       END AS acres,
+       sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
+       ST_AsBinary(
+           CASE
+               WHEN sma.geom_wkb IS NULL THEN ST_GeomFromBinary(nwi.geom_wkb)
+               ELSE ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
+           END
+       ) AS geom_wkb
+FROM input_geom, ext_rpt.us_fws_nwi_wetlands nwi
 LEFT JOIN ext_rpt.us_blm_sma_ownership sma
     ON ST_Intersects(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
     AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
@@ -71,10 +95,14 @@ LEFT JOIN lu_blm_ownership lu_blm_o
 WHERE {prefilter_condition} AND {intersects_condition}
 """
     df = aoi_query_to_dataframe(query_str, geometry_field_expression="ST_GeomFromBinary(nwi.geom_wkb)", geom_bbox_field=None, aoi_gdf=aoi_gdf, querylabel="nwi riparian")
+    if table == 'riparian':
+        df["type"] = "lotic"
+    else:
+        df["type"] = "lentic"
 
     if df.empty:
         log.info("No NWI riparian polygons intersect the AOI.")
-        return gpd.GeoDataFrame(columns=["attribute", "wetland_type", "acres", "ownership", "ownership_desc", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
+        return gpd.GeoDataFrame(columns=["attribute", "wetland_type", "acres", "ownership", "ownership_desc", "geometry", "type"], geometry="geometry", crs=aoi_gdf.crs)
 
     gdf = gpd.GeoDataFrame(df.drop(columns=["geom_wkb"]), geometry=gpd.GeoSeries.from_wkb(df["geom_wkb"]), crs=aoi_gdf.crs)
     return gpd.clip(gdf, aoi_gdf)
@@ -317,5 +345,53 @@ def streams_by_valley_confinement_cards(data_df: pd.DataFrame) -> list[ProgressC
                 ],
             )
         )
+
+    return cards
+
+
+def wetlands_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+    if RSFieldMeta().unit_system == "imperial":
+        area_label = 'acre'
+        display_label = 'AC'
+    else:
+        area_label = 'hectare'
+        display_label = 'HA'
+
+    lentic = data_df[data_df['type'] == 'lentic']
+    lotic = data_df[data_df['type'] == 'lotic']
+    blm_lentic = lentic[lentic['ownership'] == 'BLM']
+    blm_lotic = lotic[lotic['ownership'] == 'BLM']
+
+    cards = []
+    cards.append(
+        ProgressCard(
+            "Lentic Wetlands",
+            total=f'{int(lentic["acres"].sum().to(area_label).m)} {display_label}',
+            groups=[
+                ProgressGroup(
+                    "BLM",
+                    f"{int(blm_lentic['acres'].sum().to(area_label).m)} / {int(lentic['acres'].sum().to(area_label).m)} {display_label}",
+                    numerator=blm_lentic['acres'].sum().to(area_label).m,
+                    denominator=lentic['acres'].sum().to(area_label).m,
+                    color="green",
+                ),
+            ],
+        )
+    )
+    cards.append(
+        ProgressCard(
+            "Lotic Wetlands",
+            total=f'{int(lotic["acres"].sum().to(area_label).m)} {display_label}',
+            groups=[
+                ProgressGroup(
+                    "BLM",
+                    f"{int(blm_lotic['acres'].sum().to(area_label).m)} / {int(lotic['acres'].sum().to(area_label).m)} {display_label}",
+                    numerator=blm_lotic['acres'].sum().to(area_label).m,
+                    denominator=lotic['acres'].sum().to(area_label).m,
+                    color="green",
+                ),
+            ],
+        )
+    )
 
     return cards
