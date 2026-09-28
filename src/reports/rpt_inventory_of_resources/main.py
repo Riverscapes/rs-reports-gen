@@ -22,6 +22,7 @@ from reports.rpt_inventory_of_resources import __version__ as report_version
 from reports.rpt_inventory_of_resources.dataprep import (
     build_metric_cards,
     build_report_summaries,
+    cowardin_cards,
     data_for_aoi_to_parquet,
     get_nwi_data,
     streams_by_order_cards,
@@ -144,6 +145,7 @@ def make_report(
         "non_perennial_slope": render_progress_cards(streams_by_slope_cards(data_non_perennial)),
         "valley_confinement": render_progress_cards(streams_by_valley_confinement_cards(data_df)),
         "lotic_lentic": render_progress_cards(wetlands_cards(nwi_gdf)),
+        "cowardin": render_progress_cards(cowardin_cards(nwi_gdf)),
     }
     appendices = {
         "project_ids": project_id_list(data_df),
@@ -280,7 +282,7 @@ def make_report_orchestrator(
     nwi_wetlands_gdf = get_nwi_data(aoi_gdf, table='wetlands')
     nwi_gdf = pd.concat([nwi_riparian_gdf, nwi_wetlands_gdf], ignore_index=True)
 
-    make_report(data_gdf, aoi_gdf, huc_data_df, nwi_gdf, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)
+    make_report(data_gdf, aoi_gdf, nwi_gdf, huc_data_df, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)
 
     if not keep_parquet:
         try:
