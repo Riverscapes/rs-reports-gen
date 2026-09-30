@@ -50,7 +50,7 @@ def get_nwi_data(aoi_gdf: gpd.GeoDataFrame, table='riparian') -> gpd.GeoDataFram
 
     if table == 'riparian':
         query_str = """
-SELECT nwi.attribute, nwi.wetland_type, def.modifier1_name AS modifier1_name,
+SELECT nwi.attribute, nwi.wetland_type, def.water_regime_name as water_regime_name, def.modifier1_name AS modifier1_name,
        sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
        ST_AsBinary(
            CASE
@@ -64,13 +64,13 @@ LEFT JOIN ext_rpt.us_blm_sma_ownership sma
     AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
 LEFT JOIN lu_blm_ownership lu_blm_o
     ON upper(sma.admin_agency_code) = upper(lu_blm_o.edomv)
-LEFT JOIN lu_blm_modifier1 def
-    ON nwi.attribute = def.modifier1
+LEFT JOIN ext_raw.us_fws_nwi_code_definitions def
+    ON nwi.attribute = def.attribute
 WHERE {prefilter_condition} AND {intersects_condition}
 """
     else:
         query_str = """
-SELECT nwi.attribute, nwi.wetland_type,
+SELECT nwi.attribute, nwi.wetland_type, def.water_regime_name as water_regime_name, def.modifier1_name AS modifier1_name,
        sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
        ST_AsBinary(
            CASE
@@ -84,6 +84,8 @@ LEFT JOIN ext_rpt.us_blm_sma_ownership sma
     AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
 LEFT JOIN lu_blm_ownership lu_blm_o
     ON upper(sma.admin_agency_code) = upper(lu_blm_o.edomv)
+LEFT JOIN ext_raw.us_fws_nwi_code_definitions def
+    ON nwi.attribute = def.attribute
 WHERE {prefilter_condition} AND {intersects_condition}
 """
     df = aoi_query_to_dataframe(query_str, geometry_field_expression="ST_GeomFromBinary(nwi.geom_wkb)", geom_bbox_field=None, aoi_gdf=aoi_gdf, querylabel="nwi riparian")
@@ -94,7 +96,7 @@ WHERE {prefilter_condition} AND {intersects_condition}
 
     if df.empty:
         log.info("No NWI riparian polygons intersect the AOI.")
-        empty_gdf = gpd.GeoDataFrame(columns=["attribute", "wetland_type", "ownership", "ownership_desc", "geometry", "type"], geometry="geometry", crs=aoi_gdf.crs)
+        empty_gdf = gpd.GeoDataFrame(columns=["attribute", "wetland_type", "water_regime_name", "modifier1_name", "ownership", "ownership_desc", "geometry", "type"], geometry="geometry", crs=aoi_gdf.crs)
         empty_gdf["area"] = pd.Series(dtype="pint[meter ** 2]")
         return empty_gdf
 
@@ -429,6 +431,45 @@ def cowardin_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
     return cards
 
 
+def hydrologic_regime_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+    if RSFieldMeta().unit_system == "imperial":
+        area_label = 'acre'
+        display_label = 'AC'
+    else:
+        area_label = 'hectare'
+        display_label = 'HA'
+
+    cards = []
+    for regime in data_df['water_regime_name'].unique():
+        if regime is None:
+            continue
+        if pd.isnull(regime):
+            continue
+        regime_group = data_df[data_df['water_regime_name'] == regime]
+        blm_regime_group = regime_group[regime_group['ownership'] == 'BLM']
+
+        total_area = regime_group['area'].sum().to(area_label)
+        blm_area = blm_regime_group['area'].sum().to(area_label)
+
+        cards.append(
+            ProgressCard(
+                f"{regime}",
+                total=f'{int(total_area.m)} {display_label}',
+                groups=[
+                    ProgressGroup(
+                        "BLM",
+                        f"{int(blm_area.m)} / {int(total_area.m)} {display_label}",
+                        numerator=blm_area.m,
+                        denominator=total_area.m,
+                        color="darkcyan",
+                    ),
+                ],
+            )
+        )
+
+    return cards
+
+
 def nwi_modifier_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
     if RSFieldMeta().unit_system == "imperial":
         area_label = 'acre'
@@ -440,6 +481,8 @@ def nwi_modifier_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
     cards = []
     for modifier in data_df['modifier1_name'].unique():
         if modifier is None:
+            continue
+        if pd.isnull(modifier):
             continue
         modifier_group = data_df[data_df['modifier1_name'] == modifier]
         blm_modifier_group = modifier_group[modifier_group['ownership'] == 'BLM']
@@ -457,7 +500,7 @@ def nwi_modifier_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
                         f"{int(blm_area.m)} / {int(total_area.m)} {display_label}",
                         numerator=blm_area.m,
                         denominator=total_area.m,
-                        color="yellow",
+                        color="goldenrod",
                     ),
                 ],
             )
