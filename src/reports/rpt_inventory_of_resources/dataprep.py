@@ -15,29 +15,6 @@ from util.html.progress import ProgressCard, ProgressGroup
 from util.pandas import RSFieldMeta
 
 INVENTORY_FIELDS = "segment_area, centerline_length, watershed_id, ownership, ownership_desc, drainage_area, stream_name, stream_order, stream_length, waterbody_type, waterbody_type_desc, waterbody_extent, prim_channel_gradient, valleybottom_gradient, fcode, fcode_desc, confinement_ratio, constriction_ratio, lf_riparian, lf_riparian_prop, lf_agriculture, lf_developed, rme_project_id, rme_project_name"
-HYDRO_REGIMES = {
-    "A": "Temporarily Flooded",
-    "B": "Seasonally Saturated",
-    "C": "Seasonally Flooded",
-    "D": "Continuously Saturated",
-    "E": "Seasonally Flooded / Saturated",
-    "F": "Semipermanently Flooded",
-    "G": "Intermittently Exposed",
-    "H": "Permanently Flooded",
-    "J": "Intermittently Flooded",
-    "K": "Artificially Flooded",
-    "L": "Subtidal",
-    "M": "Irregularly Exposed",
-    "N": "Regularly Flooded",
-    "P": "Irregularly Flooded",
-    "Q": "Regularly Flooded-Fresh Tidal",
-    "R": "Seasonally Flooded-Fresh Tidal",
-    "S": "Temporarily Flooded- Fresh Tidal",
-    "T": "Semipermanently Flooded-Fresh Tidal",
-    "V": "Permanently Flooded-Fresh Tidal",
-}
-
-MODIFIERS = {"b": "Beaver", "d": "Partly Drained/Ditched", "f": "Farmed", "m": "Managed", "h": "Diked/Impounded", "r": "Artificial Substrate", "s": "Spoil", "x": "Excavated"}
 
 
 def data_for_aoi_to_parquet(aoi_gdf: gpd.GeoDataFrame, parquet_path: str) -> None:
@@ -64,7 +41,7 @@ WHERE {{prefilter_condition}} AND {{intersects_condition}}
 def get_nwi_data(aoi_gdf: gpd.GeoDataFrame, table='riparian') -> gpd.GeoDataFrame:
     """Query NWI polygons from the specified table, annotate ownership, and clip them to the AOI.
 
-    Returns a GeoDataFrame of NWI riparian wetland polygons (attribute, wetland_type, acres, ownership,
+    Returns a GeoDataFrame of NWI riparian wetland polygons (attribute, wetland_type, modifier1_name, acres, ownership,
     ownership_desc, geometry) clipped to the boundary of aoi_gdf. Polygons crossing ownership boundaries are
     split at those boundaries, with acres prorated to each piece; polygons without a matching ownership record
     are retained with null ownership attributes.
@@ -73,7 +50,7 @@ def get_nwi_data(aoi_gdf: gpd.GeoDataFrame, table='riparian') -> gpd.GeoDataFram
 
     if table == 'riparian':
         query_str = """
-SELECT nwi.attribute, nwi.wetland_type,
+SELECT nwi.attribute, nwi.wetland_type, def.modifier1_name AS modifier1_name,
        sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
        ST_AsBinary(
            CASE
@@ -87,6 +64,8 @@ LEFT JOIN ext_rpt.us_blm_sma_ownership sma
     AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
 LEFT JOIN lu_blm_ownership lu_blm_o
     ON upper(sma.admin_agency_code) = upper(lu_blm_o.edomv)
+LEFT JOIN lu_blm_modifier1 def
+    ON nwi.attribute = def.modifier1
 WHERE {prefilter_condition} AND {intersects_condition}
 """
     else:
@@ -442,6 +421,43 @@ def cowardin_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
                         numerator=blm_area.m,
                         denominator=total_area.m,
                         color="green",
+                    ),
+                ],
+            )
+        )
+
+    return cards
+
+
+def nwi_modifier_cards(data_df: pd.DataFrame) -> list[ProgressCard]:
+    if RSFieldMeta().unit_system == "imperial":
+        area_label = 'acre'
+        display_label = 'AC'
+    else:
+        area_label = 'hectare'
+        display_label = 'HA'
+
+    cards = []
+    for modifier in data_df['modifier1_name'].unique():
+        if modifier is None:
+            continue
+        modifier_group = data_df[data_df['modifier1_name'] == modifier]
+        blm_modifier_group = modifier_group[modifier_group['ownership'] == 'BLM']
+
+        total_area = modifier_group['area'].sum().to(area_label)
+        blm_area = blm_modifier_group['area'].sum().to(area_label)
+
+        cards.append(
+            ProgressCard(
+                f"{modifier}",
+                total=f'{int(total_area.m)} {display_label}',
+                groups=[
+                    ProgressGroup(
+                        "BLM",
+                        f"{int(blm_area.m)} / {int(total_area.m)} {display_label}",
+                        numerator=blm_area.m,
+                        denominator=total_area.m,
+                        color="yellow",
                     ),
                 ],
             )
