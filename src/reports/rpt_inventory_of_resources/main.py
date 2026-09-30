@@ -25,6 +25,7 @@ from reports.rpt_inventory_of_resources.dataprep import (
     cowardin_cards,
     data_for_aoi_to_parquet,
     get_nwi_data,
+    hydrologic_regime_cards,
     nwi_modifier_cards,
     streams_by_order_cards,
     streams_by_slope_cards,
@@ -147,6 +148,7 @@ def make_report(
         "valley_confinement": render_progress_cards(streams_by_valley_confinement_cards(data_df)),
         "lotic_lentic": render_progress_cards(wetlands_cards(nwi_gdf)),
         "cowardin": render_progress_cards(cowardin_cards(nwi_gdf)),
+        "hydrologic_regime": render_progress_cards(hydrologic_regime_cards(nwi_gdf)),
         "nwi_modifier": render_progress_cards(nwi_modifier_cards(nwi_gdf)),
     }
     appendices = {
