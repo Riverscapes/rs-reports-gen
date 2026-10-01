@@ -267,6 +267,13 @@ def make_report_orchestrator(
     data_gdf = load_gdf_from_pq(parquet_data_source, geometry_col='dgo_polygon_geom')
     data_gdf.to_csv(csv_path, index=False)
 
+    if query_gdf is None:
+        query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
+        if not simplification_results.success:
+            raise ValueError("Unable to simplify input geometry sufficiently to insert into an Athena query")
+        if simplification_results.simplified:
+            log.warning(f"Input geometry simplified with tolerance {simplification_results.tolerance_m} metres for the Athena query.")
+
     # Ensure metadata is loaded before applying units
     try:
         meta_future.result()
@@ -282,8 +289,8 @@ def make_report_orchestrator(
 
     unique_huc10 = data_gdf['watershed_id'].astype(str).unique().tolist()
     huc_data_df = load_huc_data(unique_huc10)
-    nwi_riparian_gdf = get_nwi_data(aoi_gdf, table='riparian')
-    nwi_wetlands_gdf = get_nwi_data(aoi_gdf, table='wetlands')
+    nwi_riparian_gdf = get_nwi_data(query_gdf, table='riparian')
+    nwi_wetlands_gdf = get_nwi_data(query_gdf, table='wetlands')
     nwi_gdf = pd.concat([nwi_riparian_gdf, nwi_wetlands_gdf], ignore_index=True)
 
     make_report(data_gdf, aoi_gdf, nwi_gdf, huc_data_df, report_dir, report_name, include_static=include_pdf, include_pdf=include_pdf)

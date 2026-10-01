@@ -71,7 +71,7 @@
             </p>
         </div>
         <figure class="report-figure">{{ figures['streams_by_order']|safe }}</figure>
-        <figure class="report-figure">{{ progress_cards['stream_order']|safe }}</figure>
+        <!-- <figure class="report-figure">{{ progress_cards['stream_order']|safe }}</figure> -->
     
         <!-- conceptual fig of slope and valley morphology -->
 
@@ -118,7 +118,7 @@
             </p>
         </div>
         <figure class="report-figure">{{ progress_cards['lotic_lentic']|safe }}</figure>
-         <figure class="report-figure">{{ figures['prop_riparian']|safe }}</figure>
+        <!-- <figure class="report-figure">{{ figures['prop_riparian']|safe }}</figure> -->
 
         <h4>Cowardin Riparian-Wetland Classes</h4>
         <div class="section-context">
@@ -135,7 +135,9 @@
                 identify key drivers of riverscape health.
             </p>
         </div>
+        <h4>Hydrologic Regime</h4>
         <figure class="report-figure">{{ progress_cards['hydrologic_regime']|safe }}</figure>
+        <h4>Special Modifiers</h4>
         <figure class="report-figure">{{ progress_cards['nwi_modifier']|safe }}</figure>
         
     </section>
@@ -146,7 +148,8 @@
         <h4>Waterbodies</h4>
         <div class="section-context">
             <p>*These are waterbodies that occur within riverscapes, and does not currently include waterbodies outside of the
-                riverscape network (e.g., ponds that are not connected to streams).
+                riverscape network (e.g., ponds that are not connected to streams). If mapped by NWI, they are included in that 
+                data above.
             </p>
         </div>
 
