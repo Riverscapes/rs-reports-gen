@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
 
-import questionary
 from termcolor import colored
 
 from util.prompt import get_include_pdf, get_unit_system
+from util.report_entrypoint import prompt_geojson
 
 EXAMPLE_DIR = Path(__file__).resolve().parent / "examples"
 
@@ -42,18 +42,7 @@ def main():
     include_pdf = get_include_pdf()
 
     # ── AOI polygon ───────────────────────────────────────────────────
-    aoi_env = os.environ.get("WS_AOI_GEOJSON")
-    if aoi_env:
-        aoi_path = Path(aoi_env)
-        if not aoi_path.exists():
-            raise RuntimeError(colored(f"\nThe WS_AOI_GEOJSON environment variable is set to '{aoi_env}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        choices = sorted(p.name for p in EXAMPLE_DIR.glob("*.geojson")) if EXAMPLE_DIR.exists() and EXAMPLE_DIR.is_dir() else []
-        selected_file = questionary.select("Select a geojson file to use as the AOI:", choices=choices).ask()
-        if selected_file is None:
-            print("\nNo geojson file selected. Exiting.\n")
-            return None
-        aoi_path = (EXAMPLE_DIR / selected_file).resolve()
+    aoi_path = prompt_geojson(env_var="WS_AOI_GEOJSON", example_dir=EXAMPLE_DIR)
 
     # ── Report name ───────────────────────────────────────────────────
     report_name = os.environ.get("WS_REPORT_NAME")

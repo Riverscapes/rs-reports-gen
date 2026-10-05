@@ -4,17 +4,15 @@ Verifies environment variables, and prompts for AOI, etc.
 """
 
 import os
-from pathlib import Path
 
 import questionary
 from termcolor import colored
 
 from util.prompt import get_env_or_confirm, is_truthy
 from util.report_entrypoint import (
+    prompt_geojson,
     prompt_parquet,
 )
-
-EXAMPLE_DIR = Path(__file__).resolve().parent / "example"
 
 
 def main() -> list[str] | None:
@@ -54,20 +52,7 @@ def main() -> list[str] | None:
         )
 
     # ── AOI geojson ───────────────────────────────────────────────────
-    # IF we have everything we need from environment variables then we can skip the prompts
-    aoi_env = os.environ.get("IGO_AOI_GEOJSON")
-    if aoi_env:
-        geojson_file = Path(aoi_env)
-        if not geojson_file.exists():
-            raise RuntimeError(colored(f"\nThe IGO_AOI_GEOJSON environment variable is set to '{aoi_env}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        # If not set we need to ask for it. We choose from a list of preset shapes in the example folder
-        choices = sorted(p.name for p in EXAMPLE_DIR.glob("*.geojson")) if EXAMPLE_DIR.exists() and EXAMPLE_DIR.is_dir() else []
-        selected_file = questionary.select("Select a geojson file to use as the AOI:", choices=choices).ask()
-        if selected_file is None:
-            print("\nNo geojson file selected. Exiting.\n")
-            return None
-        geojson_file = (EXAMPLE_DIR / selected_file).resolve()
+    geojson_file = prompt_geojson(env_var="IGO_AOI_GEOJSON")
 
     # ── Report name ───────────────────────────────────────────────────
     report_name = os.environ.get("IGO_REPORT_NAME")
