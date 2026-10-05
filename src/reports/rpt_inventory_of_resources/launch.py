@@ -5,6 +5,7 @@ import questionary
 from termcolor import colored
 
 from util.prompt import is_truthy
+from util.report_entrypoint import prompt_geojson
 
 
 def main() -> list[str] | None:
@@ -32,25 +33,8 @@ def main() -> list[str] | None:
         raise RuntimeError(colored("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n", "red"))
     data_root = Path(data_root)
 
-    # IF we have everything we need from environment variables then we can skip the prompts
     # ── AOI geojson ───────────────────────────────────────────────────
-    rns_aoi_geojson = os.environ.get("RNS_AOI_GEOJSON")
-    if rns_aoi_geojson:
-        geojson_file = Path(rns_aoi_geojson)
-        if not geojson_file.exists():
-            raise RuntimeError(colored(f"\nThe RNS_AOI_GEOJSON environment variable is set to '{rns_aoi_geojson}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        # If it's not set we need to ask for it. We choose from a list of preset shapes in the code example folder
-        example_dir = Path(__file__).parent / "example"
-        choices = sorted(p.name for p in example_dir.glob("*.geojson")) if example_dir.exists() and example_dir.is_dir() else []
-        selected_geojson = questionary.select(
-            message="Select a geojson file to use as the AOI",
-            choices=choices,
-        ).ask()
-        if selected_geojson is None:
-            print("\nNo geojson file selected. Exiting.\n")
-            exit(0)
-        geojson_file = example_dir / selected_geojson
+    geojson_file = prompt_geojson(env_var="RNS_AOI_GEOJSON")
 
     # ── Optional Parquet override ─────────────────────────────────────
     parquet_path = os.environ.get("RNS_PARQUET_PATH")

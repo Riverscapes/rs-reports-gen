@@ -181,34 +181,71 @@ def require_data_root() -> str:
     return data_root
 
 
-def prompt_geojson(env_var: str = "RSI_AOI_GEOJSON") -> Path:
-    """Resolve an AOI geojson path from *env_var* or prompt from ``example/`` folder.
+def prompt_geojson(
+    env_var: str = "RSI_AOI_GEOJSON",
+    example_dir: Path | None = None,
+    example_glob: str = "*.geojson",
+) -> Path:
+    """Resolve an AOI path from *env_var*, examples, or a manual file path.
+
+    Users can pick a file from the report's example folder or provide a path
+    anywhere on disk.
 
     Copilot-generated function.
     """
+    import inspect
+
     import questionary
     from termcolor import colored
 
-    env_val = os.environ.get(env_var)
+    def _clean_path(raw: str | None) -> str:
+        return raw.strip().strip('"').strip("'") if raw else ""
+
+    env_val = _clean_path(os.environ.get(env_var))
     if env_val:
-        p = Path(env_val)
+        p = Path(env_val).expanduser()
         if not p.exists():
             raise RuntimeError(colored(f"\n{env_var} is set to '{env_val}' but that file does not exist.\n", "red"))
-        return p
+        return p.resolve()
 
-    # Fall back to choosing from the report's example/ folder.
-    # The caller's module lives next to the example/ directory, so we walk
-    # the stack to find it.  Alternatively the caller can pass example_dir.
-    import inspect
+    # Fall back to choosing from the caller's example folder (example/ or examples/).
+    if example_dir is None:
+        caller_file = Path(inspect.stack()[1].filename)
+        candidate_dirs = [caller_file.parent / "example", caller_file.parent / "examples"]
+        example_dir = next((d for d in candidate_dirs if d.exists() and d.is_dir()), candidate_dirs[0])
 
-    caller_file = Path(inspect.stack()[1].filename)
-    example_dir = caller_file.parent / "example"
-    choices = sorted(p.name for p in example_dir.glob("*.geojson"))
-    if not choices:
-        raise RuntimeError(colored(f"\nNo example geojson files found in {example_dir}.\n", "red"))
+    choices = sorted(p.name for p in example_dir.glob(example_glob)) if example_dir.exists() and example_dir.is_dir() else []
+    manual_option = "Enter a file path outside repo examples"
 
-    selected = questionary.select(message="Select a geojson file to use as the AOI", choices=choices).ask()
-    return (example_dir / selected).resolve()
+    if choices:
+        selection = questionary.select(
+            message="Select an AOI file or choose manual path entry",
+            choices=choices + [manual_option],
+        ).ask()
+        if selection is None:
+            raise RuntimeError(colored("\nNo AOI file selected.\n", "yellow"))
+        if selection != manual_option:
+            return (example_dir / selection).resolve()
+
+    while True:
+        raw = questionary.text(
+            message=f"Enter AOI file path ({example_glob})",
+            default="",
+        ).ask()
+        if raw is None:
+            raise RuntimeError(colored("\nNo AOI file path entered.\n", "yellow"))
+
+        candidate_text = _clean_path(raw)
+        if not candidate_text:
+            print(colored("Please enter a file path.", "yellow"))
+            continue
+
+        candidate = Path(candidate_text).expanduser()
+        if not candidate.exists():
+            print(colored(f"File does not exist: {candidate}", "red"))
+            continue
+
+        return candidate.resolve()
 
 
 def prompt_parquet(env_var: str = "RSI_PARQUET_PATH") -> str:
