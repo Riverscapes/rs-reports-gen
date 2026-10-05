@@ -1,5 +1,9 @@
 # Version History
 
+## 0.1.8 2026-October
+
+* if "Include polygon geometries in dataset" is selected the parquet output will be include headers for geoparquet
+
 ## 0.1.7 2026-April
 
 * bug fixes in unit handling
