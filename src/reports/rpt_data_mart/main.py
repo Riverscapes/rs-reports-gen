@@ -178,21 +178,23 @@ def _strip_pint_types(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _export_parquet(df: pd.DataFrame, output_path: Path) -> Path:
+def _export_parquet(df: pd.DataFrame | gpd.GeoDataFrame, output_path: Path) -> Path:
     """Strip Pint types, fix null-typed columns, and write a DataFrame to Parquet.
+    If a gdf is provided, writes to Geoparquet.
 
     All-null columns keep Arrow's ``null`` type which Power BI cannot map to a
     .NET DataColumn type, causing a crash on refresh.  Cast them to ``str``
     (becomes Arrow ``string``) so PBI always sees a valid type.
-
-    Copilot-generated function.
+    TODO: Check if this is having side effect of turning null values into the literal string "nan" or "None".
+    Copilot-generated function. Reviewed & Enhanced by LSG.
     """
+    log = Logger("Export")
     df = _strip_pint_types(df)
     for col in list(df.columns):
         if df[col].isna().all():
             df[col] = df[col].astype(str)
     df.to_parquet(output_path, index=False)
-    Logger("Export").info(f"Parquet written to {output_path} ({len(df)} rows, {len(df.columns)} cols)")
+    log.info(f"Parquet written to {output_path} ({len(df)} rows, {len(df.columns)} cols)")
     return output_path
 
 
@@ -424,7 +426,7 @@ def export_data_mart(
     # DGO: calculated cols → units → bins
     # DGO: metadata is normalized to the single layer id "dgo" in define_fields.
     dgo_staging = Path(parquet_override / "dgo") if parquet_override else staging_dir / "dgo"
-    dgo_df = load_gdf_from_pq(dgo_staging)
+    dgo_df = load_gdf_from_pq(dgo_staging, geometry_col='dgo_geom' if include_geometry else None)
     dgo_df.attrs["layer_id"] = "dgo"
     dgo_df = add_calculated_rme_cols(dgo_df)
     dgo_df, dgo_applied_units = meta.apply_units(dgo_df)
