@@ -198,11 +198,6 @@ def _export_parquet(df: pd.DataFrame | gpd.GeoDataFrame, output_path: Path) -> P
     return output_path
 
 
-def _export_geopackage(gdf: gpd.GeoDataFrame, output_path: Path):
-    gdf = _strip_pint_types(gdf)
-    gdf.to_file(output_path, driver="gpkg")
-
-
 def _cleanup_staging(staging_path: Path) -> None:
     """Remove a staging directory if it exists.
 
@@ -438,8 +433,6 @@ def export_data_mart(
     dgo_df = apply_all_bins(dgo_df)
     log.info(f"DGO enriched: {len(dgo_df)} rows, {len(dgo_df.columns)} cols")
     _export_parquet(dgo_df, exports_dir / "dgo.parquet")
-    if include_geometry:
-        _export_geopackage(gpd.GeoDataFrame(dgo_df), exports_dir / "dgo.gpkg")
     all_tables["dgo"] = TableEntry(df=dgo_df, applied_units=dgo_applied_units)
 
     # HUC: dtype coercion + unit conversion
