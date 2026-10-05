@@ -5,6 +5,7 @@ import questionary
 from termcolor import colored
 
 from util.prompt import get_include_pdf, get_unit_system, is_truthy
+from util.report_entrypoint import prompt_geojson
 
 
 def main() -> list[str] | None:
@@ -31,27 +32,7 @@ def main() -> list[str] | None:
         raise RuntimeError(colored("\nDATA_ROOT environment variable is not set. Please set it in your .env file\n\n  e.g. DATA_ROOT=/Users/Shared/RiverscapesData\n", "red"))
     data_root = os.environ.get("DATA_ROOT")
 
-    # IF we have everything we need from environment variables then we can skip the prompts
-    env_aoi_geojson = os.environ.get("RDYN_AOI_GEOJSON")
-    if env_aoi_geojson:
-        geojson_file = Path(env_aoi_geojson)
-        if not geojson_file.exists():
-            raise RuntimeError(colored(f"\nThe RDYN_AOI_GEOJSON environment variable is set to '{os.environ.get('RDYN_AOI_GEOJSON')}' but that file does not exist. Please fix or unset the variable to choose manually.\n", "red"))
-    else:
-        # If it's not set we need to ask for it. We choose from a list of preset shapes in the code example folder
-        base_dir = Path(__file__).parent
-        example_dir = base_dir / "example"
-        choices = sorted(p.name for p in example_dir.glob("*.geojson")) if example_dir.exists() and example_dir.is_dir() else []
-        if not choices:
-            raise RuntimeError(colored(f"\nNo example geojson files found in {example_dir}. Check this folder or set RDYN_AOI_GEOJSON instead.\n", "red"))
-        selected = questionary.select(
-            message="Select a geojson file to use as the AOI",
-            choices=choices,
-        ).ask()
-        if selected is None:
-            print("\nNo geojson file selected. Exiting.\n")
-            return None
-        geojson_file = (example_dir / selected).resolve()
+    geojson_file = prompt_geojson(env_var="RDYN_AOI_GEOJSON")
 
     # ── Unit system ───────────────────────────────────────────────────
     unit_system = get_unit_system()
