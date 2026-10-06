@@ -50,14 +50,13 @@ def _query_whole_level_path(level_path: str):
     query_str = f"""WITH rme AS (
     SELECT
         rme.*,
-        rme_seg.node_id,
-        rme_seg.final_seg_dist,
-        rme_seg.is_interhuc_lp,
-        rme_seg.repair_status
-    FROM rs_rpt.rpt_rme_intersections rme -- should be 1:1 relationship
-    JOIN rs_raw.rme_corrected_seg_dist_huc2 rme_seg ON
+        coalesce(rme_seg.final_seg_dist, rme.seg_distance) as final_seg_dist,
+        coalesce(rme_seg.is_interhuc_lp, false) as is_interhuc_lp,
+        coalesce(rme_seg.repair_status, 'not attempted') as repair_status
+    FROM rs_rpt.rpt_rme_intersections rme
+    LEFT JOIN rs_raw.rme_corrected_seg_dist_huc2 rme_seg ON
         rme.huc2 = rme_seg.huc2 AND
-        rme_seg.node_id = CONCAT(CAST (lat_key AS VARCHAR),'_', CAST (lon_key AS VARCHAR))
+        rme_seg.node_id = rme.node_id
     )
     select {PROFILE_FIELDS}, final_seg_dist as seg_distance, is_interhuc_lp, repair_status
     from rme
