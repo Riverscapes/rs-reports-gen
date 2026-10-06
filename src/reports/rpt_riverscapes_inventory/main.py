@@ -373,7 +373,7 @@ def make_report_orchestrator(
                 "lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, "
                 "fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
             )
-            query_str = f"SELECT {fields_we_need} FROM input_geom, rpt_rme_pq WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+            query_str = f"SELECT {fields_we_need} FROM input_geom, rs_rpt.rme_datamart_base_vw WHERE {{prefilter_condition}} AND {{intersects_condition}}"
 
             aoi_query_to_local_parquet(
                 query_str,
