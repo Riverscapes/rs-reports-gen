@@ -11,7 +11,6 @@ from .athena import (
     athena_select_to_dict,
     athena_unload_to_dataframe,
     athena_unload_to_dict,
-    get_data_for_aoi,
     get_field_metadata,
     get_field_metadata_lakehouse_ref,
     query_to_dataframe,
@@ -37,6 +36,5 @@ __all__ = [
     "athena_select_to_dataframe",
     "athena_unload_to_dict",
     "athena_unload_to_dataframe",
-    "get_data_for_aoi",
     "run_aoi_athena_query",
 ]
