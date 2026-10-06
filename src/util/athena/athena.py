@@ -947,24 +947,6 @@ def compare_wkb_wkt(gdf: gpd.GeoDataFrame):
 # =============================================================
 
 
-def get_data_for_aoi(s3_bucket: str | None, gdf: gpd.GeoDataFrame, output_path: str):
-    """given aoi in gdf format (assume 4326), run SELECTion from raw_rme_pq
-    side effect: populate output_path (local path) with the data csv file
-    TO DO -  fix we're not using s3_bucket because it's better to let the downstream function decide where to put it
-    """
-    log = Logger('Run AOI query on Athena')
-    # TODO improve from this temporary approach --
-    #  should use report-type specific CTAS (or view if it's just a select without calcs) and report-specific UNLOAD statement
-    #  parameterize the fields it's bad practice to load everything
-    fields_str = "level_path, seg_distance, centerline_length, segment_area, fcode, fcode_desc, longitude, latitude, ownership, ownership_desc, state, county, drainage_area, stream_name, stream_order, stream_length, huc12, rel_flow_length, channel_area, integrated_width, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, hect_vb_per_km, channel_width, lf_agriculture_prop, lf_agriculture, lf_developed_prop, lf_developed, lf_riparian_prop, lf_riparian, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, develop, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, confinement_ratio, brat_capacity,brat_hist_capacity, riparian_veg_departure, riparian_condition, rme_project_id, rme_project_name"
-    s3_csv_path = run_aoi_athena_query(gdf, None, fields_str=fields_str, source_table="rpt_rme_pq")
-    if s3_csv_path is None:
-        log.error("Didn't get a result from Athena")
-        raise NotImplementedError
-    get_s3_file(s3_csv_path, output_path)
-    return
-
-
 def generate_sql_where_clause_for_bounds(gdf: gpd.GeoDataFrame) -> str:
     """
     DEPRECATED -
