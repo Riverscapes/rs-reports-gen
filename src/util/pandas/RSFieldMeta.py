@@ -950,7 +950,7 @@ class RSFieldMeta:
         Args:
             name (str): The column name to get the header for.
             include_units (bool, optional): Whether to include units in the header name. Defaults to True.
-            unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})".
+            unit_fmt (str, optional): The format string to use for units. Defaults to " ({unit})". {unit} will be calculated using pint ~P. If this evaluates to zero-length string it will be ommitted.
             layer_id (str | None, optional): The specific layer context. Defaults to None.
 
         Returns:
@@ -961,7 +961,7 @@ class RSFieldMeta:
 
         if include_units:
             preferred_unit = self.get_field_unit(name, layer_id=layer_id)
-            if preferred_unit:
+            if preferred_unit and len(f"{preferred_unit:~P}"):
                 unit_text = unit_fmt.format(unit=f"{preferred_unit:~P}")
                 header_text = f"{header_text}{unit_text}"
 

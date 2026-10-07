@@ -52,7 +52,7 @@ def _query_whole_level_path(level_path: str):
         rme.*,
         coalesce(rme_seg.final_seg_dist, rme.seg_distance) as final_seg_dist,
         coalesce(rme_seg.is_interhuc_lp, false) as is_interhuc_lp,
-        coalesce(rme_seg.repair_status, 'not attempted') as repair_status
+        CASE WHEN rme_seg.node_id is null THEN 'not attempted' ELSE rme_seg.repair_status END as repair_status
     FROM rs_rpt.rpt_rme_intersections rme
     LEFT JOIN rs_raw.rme_corrected_seg_dist_huc2 rme_seg ON
         rme.huc2 = rme_seg.huc2 AND
