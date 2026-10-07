@@ -6,6 +6,7 @@ Copilot-generated module.
 import pandas as pd
 
 from reports.rpt_downstream_geomorphic.figures import build_profile_figures
+from util.pandas import RSFieldMeta
 
 
 def _sample_profile_df() -> pd.DataFrame:
@@ -56,3 +57,33 @@ def test_build_profile_figures_generates_expected_keys() -> None:
 
     assert set(figures.keys()) == expected_keys
     assert len(figures) == len(expected_keys)
+
+
+def test_seg_distance_axis_label_uses_metadata_units_after_conversion() -> None:
+    """The x-axis should include seg_distance units from metadata after conversion.
+
+    Copilot-generated function.
+    """
+    layer_id = "test_downstream_geomorphic_profile"
+    meta = RSFieldMeta()
+    meta.add_field_meta(
+        name="seg_distance",
+        layer_id=layer_id,
+        friendly_name="Segment Distance",
+        data_unit="meter",
+        display_unit="kilometer",
+        display_unit_imperial="mile",
+        dtype="FLOAT",
+    )
+    meta.unit_system = "imperial"
+
+    df = _sample_profile_df()
+    df.attrs["layer_id"] = layer_id
+    df_with_units, _applied = meta.apply_units(df, layer_id=layer_id)
+    df_with_units.attrs["layer_id"] = layer_id
+
+    figures = build_profile_figures(df_with_units)
+
+    axis_title = str(figures["profile_1001"].layout.xaxis.title.text)
+    assert "Segment Distance" in axis_title
+    assert "mi" in axis_title

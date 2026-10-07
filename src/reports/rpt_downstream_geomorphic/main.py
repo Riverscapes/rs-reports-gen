@@ -66,6 +66,9 @@ def define_fields(unit_system: str = "SI", load_from_parquet: bool = False, meta
 
     fm.field_meta = registry_field_meta
     fm.unit_system = unit_system
+    fm.set_data_unit("seg_distance", "meter", RPT_RME_LAYER_ID)
+    fm.set_display_unit("seg_distance", "kilometer", RPT_RME_LAYER_ID)
+    fm.set_display_unit_imperial("seg_distance", "mile", RPT_RME_LAYER_ID)
     fm.set_display_unit("centerline_length", "kilometer", RPT_RME_LAYER_ID)
 
 
