@@ -260,6 +260,9 @@ def prepare_profile_data(df: pd.DataFrame) -> pd.DataFrame:
     log = Logger("PrepProfile")
     layer_id = str(df.attrs.get("layer_id", RPT_RME_LAYER_ID))
 
+    # Keep distance as floating numeric so Pint conversion and plotting are stable.
+    df["seg_distance"] = pd.to_numeric(df["seg_distance"], errors="coerce").astype("Float64")
+
     df = df.sort_values(["level_path", "seg_distance"])
 
     # Drop rows with no distance (can't chart them)
