@@ -128,7 +128,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         ),
         DatasetQuery(
             name="pastures",
-            query_template=(f"SELECT {pastures_fields} FROM input_geom, ext_rpt.blm_natl_grazing_pasture_polygons WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            query_template=(f"SELECT {pastures_fields} FROM input_geom, ext_rpt.us_blm_natl_grazing_pasture_polygons WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(geometry)",
             geom_bbox_field="geometry_bbox",
         ),
