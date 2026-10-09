@@ -22,7 +22,7 @@ load_dotenv()
 # List of reports to test: (script_name, example_input_dir, expected_outputs)
 REPORTS = [
     {
-        "name": "IGO Project",
+        "name": "IGO Project aka custom riverscapes metrics dataset",
         "module": "reports.rpt_igo_project.main",
         "example_dir": "src/reports/rpt_igo_project/example",
         "expected_files": ["README.md", "column_metadata.csv", "project.rs.xml", "outputs/riverscape_metrics.gpkg"],
@@ -92,6 +92,20 @@ REPORTS = [
         "example_dir": "src/reports/rpt_pbr_explorer/example",
         "expected_files": ["report.html", "data/pbr_projects.gpkg", "data/column_metadata.csv"],
         "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_pbr_explorer_test", "--unit_system", "imperial"],
+    },
+    {
+        "name": "Inventory of Resources",
+        "module": "reports.rpt_inventory_of_resources.main",
+        "example_dir": "src/reports/rpt_inventory_of_resources/example",
+        "expected_files": ["report.html", "data/data.csv"],
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_inventory_of_resources_test"],
+    },
+    {
+        "name": "Watershed Context",
+        "module": "reports.rpt_watershed_context.main",
+        "example_dir": "src/reports/rpt_watershed_context/examples",
+        "expected_files": ["report.html", "report.log"],
+        "construct_args": lambda module, inp, out: [sys.executable, "-m", module, str(out), str(inp), "rpt_watershed_context_test"],
     },
     # Add more reports or configurations as needed
 ]
