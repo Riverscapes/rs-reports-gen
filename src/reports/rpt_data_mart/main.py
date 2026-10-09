@@ -59,7 +59,8 @@ class DatasetQuery:
     name: str
     query_template: str
     geometry_field_expression: str
-    geom_bbox_field: str
+    geom_bbox_field: str | None
+    geom_bbox_columns: tuple[str, str, str, str] | None = None
 
 
 def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]:
@@ -96,7 +97,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
     # HUC10 watershed boundary + RS Context metadata.
     huc_fields = "huc10.huc10 AS huc, huc10.name as hucname, huc10.areasqkm as hucareasqkm, rscontext.project_id, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
 
-    pastures_fields = "rs_row_id, allot_no, allot_name, past_no, past_name, admin_st, adm_ofc_cd, adm_unit_cd, st_allot_past, st_allot_past_name, st_allot_past_multi"
+    pastures_fields = "rs_reports_rowid as rs_row_id, allotment_number as allot_no, allotment_name as allot_name, pasture_number as past_no, pasture_name as past_name, admin_state as admin_st, admin_office_code as adm_ofc_cd, admin_unit_code as adm_unit_cd, state_allotment_pasture as st_allot_past, rs_reports_rowname as st_allot_past_name"
     pastures_nm_fields = "pasture_id, pasture_name, pasture_latitude, pasture_longitude"
 
     if include_geometry:
@@ -129,8 +130,9 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         DatasetQuery(
             name="pastures",
             query_template=(f"SELECT {pastures_fields} FROM input_geom, ext_rpt.us_blm_natl_grazing_pasture_polygons WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
-            geometry_field_expression="ST_GeomFromBinary(geometry)",
-            geom_bbox_field="geometry_bbox",
+            geometry_field_expression="ST_GeomFromBinary(geom_wkb)",
+            geom_bbox_field=None,
+            geom_bbox_columns=("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax"),
         ),
         DatasetQuery(
             name="pastures_nm_bootheel",
@@ -161,6 +163,7 @@ def _query_dataset(
         dataset.query_template,
         geometry_field_expression=dataset.geometry_field_expression,
         geom_bbox_field=dataset.geom_bbox_field,
+        geom_bbox_columns=dataset.geom_bbox_columns,
         aoi_gdf=query_gdf,
         local_path=staging_path,
     )
