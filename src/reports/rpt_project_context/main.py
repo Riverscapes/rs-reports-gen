@@ -17,7 +17,7 @@ from reports.rpt_project_context import __version__ as report_version
 from reports.rpt_project_context.dataprep import get_parquet_data
 from reports.rpt_project_context.figures import statistics
 from util import prepare_gdf_for_athena
-from util.athena import get_field_metadata
+from util.athena import get_field_metadata_lakehouse_ref
 from util.figures import (
     bar_group_x_by_y,
     bar_total_x_by_ybins,
@@ -38,7 +38,7 @@ from util.pdf import make_pdf_from_html
 def define_fields(unit_system: str = "SI"):
     """Set up the fields and units for this report"""
     meta = RSFieldMeta()  # Instantiate the Borg singleton. We can reference it with this object or RSFieldMeta()
-    meta.field_meta = get_field_metadata(authority='data-exchange-scripts', tool_schema_name='*', layer_id="raw_rme,rpt_rme")  # Set the field metadata for the report
+    meta.field_meta = get_field_metadata_lakehouse_ref(lakehouse_ref='rs_rpt.rme_datamart_base_vw')  # Set the field metadata for the report
     meta.unit_system = unit_system  # Set the unit system for the report
 
     # Here's where we can set any preferred units that differ from the data unit
