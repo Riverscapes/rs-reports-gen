@@ -13,6 +13,8 @@ from util.figures import pie_from_summary
 from util.html.table import render_table
 from util.pandas import RSFieldMeta, RSGeoDataFrame
 
+ureg = pint.get_application_registry()
+
 # 1. Define a mapping of "Row Label" -> (Area Column, Count Column)
 # should all be in the same units!
 waterbody_col_map = {
@@ -326,7 +328,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     owner = owner_table.iloc[0]['ownership_desc']
     owner_area = owner_table.iloc[0]['area']
     owner_frac = owner_area / owner_table['area'].sum()
-    meta.add_field_meta(name='owner_frac', friendly_name='Dominant Ownership Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:,.%}')
+    meta.add_field_meta(name='owner_frac', friendly_name='Dominant Ownership Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
     meta.add_field_meta(name='owner_area', friendly_name='Dominant Ownership Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'SI' else 'acre', preferred_format='{:,.1f}')
 
     ecor_table = ecoregion_table(ecoregion_data_df)
@@ -522,8 +524,12 @@ def hypsometry_data(huc_df: pd.DataFrame, bin_size: int = 100) -> pd.DataFrame:
 def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
     """
     Plot hypsometry as a bar chart: total_cell_count vs. bin.
+    Elevations are in meters, converted to feet if the unit system is imperial.
     """
     df = hypsometry_data(huc_df)
+    is_imperial = RSFieldMeta().unit_system == 'imperial'
+    if is_imperial:
+        df['bin'] = (df['bin'].to_numpy(dtype=float) * ureg.meter).to('foot').magnitude
     tot_cells = df['total_cell_count'].sum()
     print('HYPSOMETRY DATA')
     print(df)  # debug only
@@ -539,7 +545,7 @@ def hypsometry_fig(huc_df: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         title="Hypsometry",
         xaxis_title="Fraction of Total Area",
-        yaxis_title="Elevation (m)",
+        yaxis_title="Elevation (ft)" if is_imperial else "Elevation (m)",
         template="plotly_white",
     )
     return fig
@@ -647,16 +653,16 @@ def land_cover_table(hucs_df: pd.DataFrame) -> pd.DataFrame:
     aggregated_data = {}
     for i in range(len(hucs_df['existing_veg_bins'])):
         for x in hucs_df['existing_veg_bins'][i]['bins']:
-            if x['category'] not in aggregated_data:
-                aggregated_data[x['category']] = 0
-            aggregated_data[x['category']] += x['cell_count']
+            if lookup[int(x['category'])] not in aggregated_data:
+                aggregated_data[lookup[int(x['category'])]] = 0
+            aggregated_data[lookup[int(x['category'])]] += x['cell_count']
 
-    transformed_data = {lookup[int(k)]: v for k, v in aggregated_data.items()}
+    # transformed_data = {lookup[int(k)]: v for k, v in aggregated_data.items()}
 
     meta = RSFieldMeta()
     meta.add_field_meta(name='vegetation_type', layer_id=layer_id, friendly_name='Vegetation Type')
 
-    land_cover_df = RSGeoDataFrame(pd.DataFrame(list(transformed_data.items()), columns=['vegetation_type', 'cell_count']))
+    land_cover_df = RSGeoDataFrame(pd.DataFrame(list(aggregated_data.items()), columns=['vegetation_type', 'cell_count']))
     return land_cover_df
 
 
