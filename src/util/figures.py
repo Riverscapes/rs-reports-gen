@@ -37,7 +37,7 @@ from util.plotly.riverscapes import apply_riverscapes_theme  # noqa: F401  # sid
 # Rules for switching a value column's display unit once its aggregated total gets large.
 # Each rule applies to a set of columns, above a total threshold (in base_unit), to an SI/imperial display unit.
 _UNIT_OVERRIDE_RULES = [
-    {"columns": {"stream_length", "centerline_length"}, "base_unit": "meter", "threshold": 10_000, "si_unit": "kilometer", "imperial_unit": "mile"},
+    {"columns": {"stream_length", "centerline_length"}, "base_unit": "meter", "threshold": 1_000, "si_unit": "kilometer", "imperial_unit": "mile"},
     {
         "columns": {
             "segment_area",
@@ -1091,12 +1091,7 @@ def make_rs_area_by_featcode(gdf) -> go.Figure:
 def make_rs_area_by_owner(gdf) -> go.Figure:
     """Create pie chart of total segment area by owner"""
     chart_data = gdf.groupby('ownership_desc', as_index=False)['segment_area'].sum()
-    return pie_from_summary(
-        chart_data,
-        name_col="ownership_desc",
-        value_col="segment_area",
-        color_discrete_map=DEFAULT_OWNER_COLOR_MAP,
-    )
+    return pie_from_summary(chart_data, name_col="ownership_desc", value_col="segment_area", color_discrete_map=DEFAULT_OWNER_COLOR_MAP, title="Riverscape Area by Ownership")
 
 
 def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
@@ -1124,8 +1119,12 @@ def common_statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     # A: we don't reapply units based on metadata - we get the units from the Quantity instead
     # It's confusing to have units in metadata and in the dataframe that diverge. A diagram of the flow would be helpful.
     RSFieldMeta().add_field_meta(name='total_segment_area', friendly_name='Total Riverscape Area', data_unit='kilometer ** 2', dtype='REAL', description='Sum of the riverscape area for all DGOs captured in the report.')
-    RSFieldMeta().add_field_meta(name='total_centerline_length', friendly_name='Total Riverscape Length', data_unit='kilometer', dtype='REAL', description='Sum of the riverscape centerline lengths for all DGOs captured in the report.')
-    RSFieldMeta().add_field_meta(name='total_stream_length', friendly_name='Total Stream Length', data_unit='kilometer', dtype='REAL', description='Total length of all channel flow lines for all DGOs captured in the report.')
+    RSFieldMeta().add_field_meta(
+        name='total_centerline_length', friendly_name='Total Riverscape Length', data_unit='kilometer', dtype='REAL', description='Sum of the riverscape centerline lengths for all DGOs captured in the report.', preferred_format='{:.1f}'
+    )
+    RSFieldMeta().add_field_meta(
+        name='total_stream_length', friendly_name='Total Stream Length', data_unit='kilometer', dtype='REAL', description='Total length of all channel flow lines for all DGOs captured in the report.', preferred_format='{:.1f}'
+    )
     RSFieldMeta().add_field_meta(name='integrated_valley_bottom_width', friendly_name='Integrated Valley Bottom Width', data_unit='m', dtype='REAL', description='Total riverscape area divided by total riverscape length.')
 
     # Compose result dictionary
