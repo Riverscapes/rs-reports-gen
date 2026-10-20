@@ -77,7 +77,7 @@
     </div>
 
     <div class="grid">
-        <div>The DGO polygons are intersected with land ownership polygons. Which ever ownership category makes up the majority
+        <div>The DGO polygons are intersected with land ownership polygons. Whichever ownership category makes up the majority
             of the area within the DGO is attributed to that polygon. This chart and table present the fraction of the total riverscape area 
             that each ownership category makes up following this methodology.
         </div>
@@ -93,7 +93,7 @@
     <div class="grid">
         <div>
             For each NHD segment of the primary stream that intersects the DGO polygon, the length and FCode classification are recorded.
-            The FCode classification with the longest associated length as assigned to the DGO (typically there is only one, as most of the
+            The FCode classification with the longest associated length is assigned to the DGO (typically there is only one, as most of the
             time streams don't alternate between perennial and intermittent over short distances).
         </div>
             {{ render_figure ('flow_bar', 'Flow Type') }}
@@ -177,7 +177,7 @@
         layer (road, railroad, canal) is intersected prior to reaching the channel, all pixels along that path are classified as
         inaccessible and given a value of 0. If the path reaches the channel withough intersecting an infrastructure layer,
         all pixels along that path are classified as accessible and given a value of 1. The average of the 0s and 1s is calculated
-        within each DGO to determine the overall floodplain accessibility.
+        within each DGO to determine the proportion of the DGO that is accessible to the channel.
     </p>
     </div>
     <div class="report-figure">

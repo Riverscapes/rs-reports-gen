@@ -194,7 +194,7 @@ def statistics(gdf: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
         'inaccessible_fldpln_ratio': inaccessible_fldpln_ratio,
         'owner_area': df.groupby("ownership_desc")["segment_area"].sum().max(),
         'ownership_desc': df.groupby("ownership_desc")["segment_area"].sum().idxmax(),
-        'perennial_classification': df.groupby("perennial_classification")["segment_area"].sum().idxmax(),
+        'perennial_classification': df.groupby("perennial_classification")["segment_area"].sum().idxmax().lower(),
         'stream_name': df.groupby("stream_name")["segment_area"].sum().idxmax(),
         'drainage_area': df['drainage_area'].max(),
         'stream_order': df['stream_order'].max(),
