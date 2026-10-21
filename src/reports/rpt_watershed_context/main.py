@@ -140,7 +140,7 @@ def make_report(
         widgets = {
             "callouts": render_callout(
                 Callout(
-                    f"* These values are pre-calculated at the HUC10 scale, and represent values calculated across the {cards['countdistinct_huc']['value']} HUC10 watersheds that intersect the AOI for this report",
+                    f"* These metrics are pre-calculated at the HUC10 scale; the values here, therefore, represent values calculated across the {cards['countdistinct_huc']['value']} HUC10 watersheds that intersect the AOI for this report",
                     kind="note",
                     title="HUC disclaimer",
                 )
