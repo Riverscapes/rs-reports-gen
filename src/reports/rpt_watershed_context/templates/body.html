@@ -38,26 +38,31 @@
 </section>
 
 <section id="basin-summary">
-  <h2>Watershed Summary</h2>
+  <h2>Watershed Summary for the Input <b>Area of Interest</b></h2>
   <div class="section-context">
-    <p>
-      The total watershed area for the selected area of interest is {{ cards['aoi_area']['value'] }} across {{ cards['number_ecoregions']['value'] }} 
-      EPA level IV ecoregions ({{ cards['ecoregion']['value'] }}). 
-      The {{ cards['primary_ecoregion']['value'] }} ecoregion makes up the largest fraction ({{ cards['ecoregion_area']['value'] }}). 
-      Land cover<sup>*</sup> is predominantly {{ cards['dominant_veg_types']['value'] }} with {{ cards['dominant_veg']['value'] }} 
-      making up {{ cards['dominant_veg_frac']['value'] }} of the watershed. 
-      Elevations<sup>*</sup> across the HUC10 watersheds intersecting the area range from {{ cards['min_demminimum']['value'] }} to {{ cards['max_demmaximum']['value'] }} 
-      ({{ cards['total_relief']['value'] }} of relief) with a mean of {{ cards['mean_elevation']['value'] }}. 
-      Basin slopes<sup>*</sup> range from {{ cards['min_slopeminimum']['value'] }} to {{ cards['max_slopemaximum']['value'] }} 
-      with an average of {{ cards['mean_slope']['value'] }}. 
-      The basin receives {{ cards['min_precipminimum']['value'] }} to {{ cards['max_precipmaximum']['value'] }} of annual precipitation<sup>*</sup>
-      with a basin-wide mean annual precipitation of {{ cards['mean_precip_cell_value']['value'] }}. 
-      The underlying geology is primarily {{ cards['geol_type']['value'] }} ({{ cards['geol_frac']['value'] }}) from the {{ cards['geol_unit']['value'] }} unit. 
-      The largest land owner in the basin is {{ cards['owner']['value'] }}, which owns/administers {{ cards['owner_area']['value'] }} ({{ cards['owner_frac']['value'] }}).
-      The watershed contains {{ cards['sum_flowlinelengthallkm']['value'] }} of streams, {{ cards['sum_flowlinelengthperennialkm']['value'] }} of which are perennial,
-      with drainage densities of {{ cards['drainage_density_all']['value'] }} and {{ cards['drainage_density_perennial']['value'] }} respectively.
+    <ul>
+      <li>The total <a href="#basic-watershed-information">watershed area</a> for the selected area of interest is {{ cards['aoi_area']['value'] }}.
+      <li>This area spans {{ cards['number_ecoregions']['value'] }} <a href="#ecoregions">EPA level IV ecoregions</a> ({{ cards['ecoregion']['value'] }}).
+      The {{ cards['primary_ecoregion']['value'] }} ecoregion makes up the largest fraction ({{ cards['ecoregion_area']['value'] }}).</li>
+      <li>The underlying <a href="#geology">geology</a> is primarily {{ cards['geol_type']['value'] }} ({{ cards['geol_frac']['value'] }}) from the {{ cards['geol_unit']['value'] }} unit.</li>
+      <li>The largest <a href="#ownership">land owner</a> in the basin is {{ cards['owner']['value'] }}, which owns/administers {{ cards['owner_area']['value'] }} ({{ cards['owner_frac']['value'] }}).</li>
+      <li>The watershed contains <a href="#hydrography">{{ cards['sum_flowlinelengthallkm']['value'] }}</a> of streams, {{ cards['sum_flowlinelengthperennialkm']['value'] }} of which are perennial,
+      with <a href="#morphometrics">drainage densities</a> of {{ cards['drainage_density_all']['value'] }} and {{ cards['drainage_density_perennial']['value'] }} respectively.</li>
+    </ul>
+  </div>
 
-    </p>
+  <h2>Watershed Characteristics for the <b>HUC10 Watersheds</b> Intersecting the Input Area of Interest<sup>*</sup></h2>
+  <div class="section-context">
+    <ul>
+      <li><a href="#landcover">Land cover</a> is predominantly {{ cards['dominant_veg_types']['value'] }} with {{ cards['dominant_veg']['value'] }} 
+      making up {{ cards['dominant_veg_frac']['value'] }} of the watershed.</li>
+      <li><a href="#morphometrics">Elevations</a> across the HUC10 watersheds intersecting the area range from {{ cards['min_demminimum']['value'] }} to {{ cards['max_demmaximum']['value'] }} 
+      ({{ cards['total_relief']['value'] }} of relief) with a mean of {{ cards['mean_elevation']['value'] }}.</li>
+      <li>Basin <a href="#morphometrics">slopes</a> range from {{ cards['min_slopeminimum']['value'] }} to {{ cards['max_slopemaximum']['value'] }} 
+      with an average of {{ cards['mean_slope']['value'] }}.</li>
+      <li>The basin receives {{ cards['min_precipminimum']['value'] }} to {{ cards['max_precipmaximum']['value'] }} of <a href="#climate">annual precipitation</a>
+      with a basin-wide mean annual precipitation of {{ cards['mean_precip_cell_value']['value'] }}.</li>
+    </ul>
   </div>
   {{ widgets['callouts']|safe }}
 </section>
