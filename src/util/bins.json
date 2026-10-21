@@ -179,5 +179,17 @@
     ["hsl(80, 100%, 50%)","Intermittent Stream / River"],
     ["hsl(0, 100%, 45%)","Perennial Stream / River"]
   ]
- }
+ },
+ "planform_sinuosity":{
+  "source": "https://github.com/Riverscapes/RiverscapesXML/blob/master/Symbology/web/Shared/plan_sin_rme3.json",
+  "edges": [0, 1.1, 1.25, 1.5, 2, 5, 100],
+  "legend": [
+    ["rgb(241, 238, 246)", "1 - 1.1"],
+    ["rgb(212, 185, 218)", "1.1 - 1.25"],
+    ["rgb(201, 148, 199)", "1.25 - 1.5"],
+    ["rgb(223, 101, 176)", "1.5 - 2"],
+    ["rgb(221, 28, 119)", "2 - 5"],
+    ["rgb(152, 0, 67)", "> 5"]
+  ]
+}
 }
