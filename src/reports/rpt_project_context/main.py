@@ -94,6 +94,7 @@ def make_report(
         "flow_bar": bar_group_x_by_y(gdf, 'stream_length', ['perennial_classification']),  # , fig_params={"color": "fcode_desc", "color_discrete_map": DEFAULT_FCODE_COLOR_MAP}),
         "slope_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['prim_channel_gradient'], show_legend=False),
         "confinement_ratio_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['confinement_ratio'], show_legend=False),
+        "sinuosity_bar": bar_total_x_by_ybins(gdf, 'stream_length', ['planform_sinuosity'], show_legend=False),
         "low_lying_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['low_lying_ratio'], show_legend=False),
         "elevated_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['elevated_ratio'], show_legend=False),
         "prop_riparian_bin_bar": bar_total_x_by_ybins(gdf, 'segment_area', ['lf_riparian_prop'], show_legend=False),
