@@ -128,16 +128,6 @@ def make_report(
     for name, fig in figures.items():
         report.add_figure(name, fig)
 
-    widgets = {
-        "callouts": render_callout(
-            Callout(
-                "* These values are pre-calculated at the HUC10 scale, and represent values calculated across the HUC10 watersheds that intersect the AOI for this report",
-                kind="note",
-                title="HUC disclaimer",
-            )
-        )
-    }
-
     if error_message:
         report.add_html_elements('error_message', {'text': error_message})
 
@@ -147,6 +137,15 @@ def make_report(
         effective_stats: dict[str, object] = stats if stats is not None else statistics(aggregate_data_df)  # type: ignore[assignment]
         cards = metric_cards(effective_stats, layer_id='aggregate_stats')
         report.add_html_elements('cards', cards)
+        widgets = {
+            "callouts": render_callout(
+                Callout(
+                    f"* These values are pre-calculated at the HUC10 scale, and represent values calculated across the {cards['countdistinct_huc']['value']} HUC10 watersheds that intersect the AOI for this report",
+                    kind="note",
+                    title="HUC disclaimer",
+                )
+            )
+        }
         report.add_html_elements('widgets', widgets)
 
     interactive_path = report.render(fig_mode="interactive", suffix="")
