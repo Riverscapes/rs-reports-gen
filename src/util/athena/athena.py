@@ -402,7 +402,7 @@ ORDER BY authority, layer_name, column_index, name
     return df
 
 
-def query_to_local_parquet(query: str, local_path: Path) -> None:
+def query_to_local_parquet(query: str, local_path: Path, querylabel: str = "") -> None:
     """
     Runs an Athena UNLOAD query and downloads the resulting Parquet files
     to a local directory.
@@ -410,6 +410,7 @@ def query_to_local_parquet(query: str, local_path: Path) -> None:
     log = Logger("Athena UNLOAD to Local Parquet")
     s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
 
+    log.debug(f"Query {querylabel}:\n{query}")
     log.info(f"Executing UNLOAD to {s3_output}...")
     # This runs the query and saves the output to a new "folder" in S3
     wr.athena.unload(
@@ -617,6 +618,7 @@ def aoi_query_to_local_parquet(
     local_path: Path,
     *,
     geom_bbox_columns: tuple[str, str, str, str] | None = None,
+    querylabel: str = "aoi_query",
 ) -> None:
     """Execute a spatial AOI query against Athena and save the results as Parquet files locally.
 
@@ -667,6 +669,8 @@ def aoi_query_to_local_parquet(
             Created automatically if it does not exist.
         geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
             order ``(xmin, ymin, xmax, ymax)``.
+        querylabel: Optional label for log messages, useful when running
+            multiple Athena queries in parallel.
     """
     log = Logger("AOI Query to Local PQ")
 
@@ -679,7 +683,7 @@ def aoi_query_to_local_parquet(
     )
 
     # 4. Execute the unload to local Parquet files
-    query_to_local_parquet(fullquerystr, local_path)
+    query_to_local_parquet(fullquerystr, local_path, querylabel)
     log.info(f"Successfully unloaded data for AOI to {local_path}")
 
 
