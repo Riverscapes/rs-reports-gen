@@ -143,6 +143,32 @@ WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
     return gpd.clip(gdf, aoi_gdf)
 
 
+def get_nhd_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Query NHD flowlinefeatures intersecting the AOI and clip them to its extent.
+
+    Returns a GeoDataFrame of NHD features clipped
+    to the boundary of aoi_gdf.
+    """
+    log = Logger("Get NHD data for AOI")
+
+    aoi_sql_geom = get_aoi_geom_sql_expression(aoi_gdf)
+    if aoi_sql_geom is None:
+        raise ValueError("AOI geometry exceeds Athena query size limit. Simplify the AOI and try again.")
+
+    query_str = f"""
+SELECT gnis_name, levelpathi, nhdplusid, lengthkm, fcode,  ST_AsBinary(ST_GeomFromBinary(geom_wkb)) AS geom
+FROM ext_rpt.us_usgs_nhdplushr_network_flowline
+WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
+"""
+    df = query_to_dataframe(query_str, "nhd")
+    if df.empty:
+        log.info("No NHD features intersect the AOI.")
+        return gpd.GeoDataFrame(columns=["gnis_name", "levelpathi", "nhdplusid", "lengthkm", "fcode", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
+
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom"]), geometry=gpd.GeoSeries.from_wkb(df["geom"]), crs=aoi_gdf.crs)
+    return gpd.clip(gdf, aoi_gdf)
+
+
 def get_states(huc_condition: str) -> pd.DataFrame:
     """Query and return distinct states (name + two-letter abbreviation) for the selection."""
     query_str = f"""

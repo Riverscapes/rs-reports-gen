@@ -17,7 +17,7 @@ from rsxml.util import safe_makedirs
 
 # Report type imports
 from reports.rpt_watershed_context import __version__ as report_version
-from reports.rpt_watershed_context.dataprep import define_fields, get_aggregated_data, get_ecoregion_data, get_geology_data, get_intersecting_hucs, get_ownership_data, get_states, register_context_fields
+from reports.rpt_watershed_context.dataprep import define_fields, get_aggregated_data, get_ecoregion_data, get_geology_data, get_intersecting_hucs, get_nhd_data, get_ownership_data, get_states, register_context_fields
 from reports.rpt_watershed_context.excel import NamedValue, build_named_values, make_template, render_excel  # noqa: F401
 from reports.rpt_watershed_context.figures import (
     ecoregion_summary_table,
@@ -69,6 +69,7 @@ def load_huc_data(hucs: list[str]) -> pd.DataFrame:
 def make_report(
     aoi_gdf: gpd.GeoDataFrame,
     aggregate_data_df: pd.DataFrame,
+    nhd_df: gpd.GeoDataFrame,
     ownership_df: pd.DataFrame,
     geology_df: gpd.GeoDataFrame,
     ecoregion_df: gpd.GeoDataFrame,
@@ -85,7 +86,10 @@ def make_report(
     Generates HTML report(s) in report_dir.
     Args:
         aggregate_data_df: The main data dataframe for the report.
+        nhd_df: Hydrography summary dataframe.
         ownership_df: Ownership summary dataframe.
+        geology_df: Geology summary dataframe.
+        ecoregion_df: Ecoregion summary dataframe.
         states_df: States dataframe.
         report_dir (Path): The directory where the report will be saved.
         report_name (str): The name of the report.
@@ -199,17 +203,19 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
             future_geology = executor.submit(get_geology_data, query_gdf)
             future_ecoregion = executor.submit(get_ecoregion_data, query_gdf)
             future_hucs = executor.submit(load_huc_data, huc_list)
+            future_nhd = executor.submit(get_nhd_data, query_gdf)
 
             df_owners = future_owners.result()
             df_states = future_states.result()
             df_geology = future_geology.result()
             df_ecoregion = future_ecoregion.result()
             df_hucs = future_hucs.result()
+            df_nhd = future_nhd.result()
 
         # apply_units must run first so statistics() receives Pint-typed columns.
         # build_named_values then converts derived stats back to SI data_unit for Excel.
         df_aggregatedata, _ = meta.apply_units(df_aggregatedata)
-        stats = statistics(df_aggregatedata, df_hucs, df_geology, df_owners, df_ecoregion)
+        stats = statistics(df_aggregatedata, df_nhd, df_hucs, df_geology, df_owners, df_ecoregion)
         # df_owners, _ = meta.apply_units(df_owners)
 
         register_context_fields()
@@ -223,7 +229,7 @@ def make_report_orchestrator(report_name: str, report_dir: Path, aoi_path: Path,
         }
         named_values = build_named_values(df_aggregatedata, stats, extra=extra_named_values)
 
-        make_report(query_gdf, df_aggregatedata, df_owners, df_geology, df_ecoregion, df_states, df_hucs, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
+        make_report(query_gdf, df_aggregatedata, df_nhd, df_owners, df_geology, df_ecoregion, df_states, df_hucs, report_dir, report_name, stats=stats, include_static=include_pdf, include_pdf=include_pdf)
         safe_makedirs(str(report_dir / 'data'))
         # Export the data to Excel (simple dumb export)
         RSGeoDataFrame(df_aggregatedata).export_excel(report_dir / 'data' / 'data.xlsx')

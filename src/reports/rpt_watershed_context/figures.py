@@ -119,12 +119,13 @@ hydrography_col_map = {
 }
 
 
-def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_df: gpd.GeoDataFrame, owner_data_df: gpd.GeoDataFrame, ecoregion_data_df: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
+def statistics(aggregate_data_df: pd.DataFrame, nhd_df: gpd.GeoDataFrame, hucs_df: pd.DataFrame, geo_data_df: gpd.GeoDataFrame, owner_data_df: gpd.GeoDataFrame, ecoregion_data_df: gpd.GeoDataFrame) -> dict[str, pint.Quantity]:
     """
     named, non-tabular statistics.
 
     Args:
         aggregate_data_df (DataFrame): the result of the aggregate query (should have just one row)
+        nhd_df (GeoDataFrame): the NHD data related to the watershed context
         hucs_df (DataFrame): the HUC data related to the watershed context
         geo_data_df (GeoDataFrame): the geology data related to the watershed context
         owner_data_df (GeoDataFrame): the ownership data related to the watershed context
@@ -313,7 +314,7 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     gdf_proj = geo_data_df.to_crs(utm_crs)
     aoi_area_unit = 'km ** 2' if meta.unit_system == 'SI' else 'acre'
     aoi_area = pint.Quantity(gdf_proj['geometry'].area.sum(), 'm ** 2').to(aoi_area_unit)
-    meta.add_field_meta(name='aoi_area', friendly_name='AOI Area', layer_id=layer_id, data_unit=aoi_area_unit, preferred_format='{:,.1f}')
+    meta.add_field_meta(name='aoi_area', friendly_name='Input Watershed Area', description='The area of the watershed polygon used as an input to this report', layer_id=layer_id, data_unit=aoi_area_unit, preferred_format='{:,.1f}')
 
     geol_table = geology_table(geo_data_df)
     geol_table.sort_values(by='area', ascending=False, inplace=True)
@@ -350,6 +351,53 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
     meta.add_field_meta(name='dominant_veg_frac', friendly_name='Dominant Vegetation Fraction', layer_id=layer_id, data_unit='unitless', preferred_format='{:.2%}')
     # meta.add_field_meta(name='dominant_veg_area', friendly_name='Dominant Vegetation Area', layer_id=layer_id, data_unit='hectare' if meta.unit_system == 'SI' else 'acre', preferred_format='{:.2f}')
 
+    nhd_proj = nhd_df.to_crs(utm_crs)
+    aoi_stream_length = pint.Quantity(nhd_proj['geometry'].length.sum(), 'm') if not nhd_proj.empty else 0
+    aoi_perennial_length = pint.Quantity(nhd_proj.loc[nhd_proj['fcode'].isin([46006, 55800]), 'geometry'].length.sum(), 'm') if not nhd_proj.empty else 0
+    aoi_drainage_density_all = aoi_stream_length.to('km') / aoi_area.to('km ** 2')
+    aoi_drainage_density_perennial = aoi_perennial_length.to('km') / aoi_area.to('km ** 2')
+    aoi_drainage_density_non_perennial = (aoi_stream_length - aoi_perennial_length).to('km') / aoi_area.to('km ** 2')
+    meta.add_field_meta(
+        name='aoi_stream_length',
+        friendly_name='Total Stream Length',
+        description='Total length of all streams within the input watershed',
+        layer_id=layer_id,
+        data_unit='km' if meta.unit_system == 'SI' else 'mile',
+        preferred_format='{:,.1f}',
+    )
+    meta.add_field_meta(
+        name='aoi_perennial_length',
+        friendly_name='Perennial Stream Length',
+        description='Total length of perennial streams within the input watershed',
+        layer_id=layer_id,
+        data_unit='km' if meta.unit_system == 'SI' else 'mile',
+        preferred_format='{:,.1f}',
+    )
+    meta.add_field_meta(
+        name='aoi_drainage_density_all',
+        friendly_name='Drainage Density (All Streams)',
+        description='Total length of All Streams, divided by the input watershed area',
+        layer_id=layer_id,
+        data_unit=aoi_drainage_density_all.units,
+        preferred_format='{:,.2f}',
+    )
+    meta.add_field_meta(
+        name='aoi_drainage_density_perennial',
+        friendly_name='Drainage Density (Perennial Streams)',
+        description='Total length of Perennial Streams, divided by the input watershed area',
+        layer_id=layer_id,
+        data_unit=aoi_drainage_density_perennial.units,
+        preferred_format='{:,.2f}',
+    )
+    meta.add_field_meta(
+        name='aoi_drainage_density_non_perennial',
+        friendly_name='Drainage Density (Non-Perennial Streams)',
+        description='Total length of Non-Perennial Streams, divided by the input watershed area',
+        layer_id=layer_id,
+        data_unit=aoi_drainage_density_non_perennial.units,
+        preferred_format='{:,.2f}',
+    )
+
     stats = {
         **rpt_stats,
         **singlehucstats,
@@ -379,6 +427,11 @@ def statistics(aggregate_data_df: pd.DataFrame, hucs_df: pd.DataFrame, geo_data_
         'dominant_veg': dominant_veg,
         'dominant_veg_area': dominant_veg_area,
         'dominant_veg_frac': dominant_veg_frac,
+        'aoi_stream_length': aoi_stream_length,
+        'aoi_perennial_length': aoi_perennial_length,
+        'aoi_drainage_density_all': aoi_drainage_density_all,
+        'aoi_drainage_density_perennial': aoi_drainage_density_perennial,
+        'aoi_drainage_density_non_perennial': aoi_drainage_density_non_perennial,
     }
 
     return stats
