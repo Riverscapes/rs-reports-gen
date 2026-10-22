@@ -46,8 +46,8 @@
       The {{ cards['primary_ecoregion']['value'] }} ecoregion makes up the largest fraction ({{ cards['ecoregion_area']['value'] }}).</li>
       <li>The underlying <a href="#geology">geology</a> is primarily {{ cards['geol_type']['value'] }} ({{ cards['geol_frac']['value'] }}) from the {{ cards['geol_unit']['value'] }} unit.</li>
       <li>The largest <a href="#ownership">land owner</a> in the basin is {{ cards['owner']['value'] }}, which owns/administers {{ cards['owner_area']['value'] }} ({{ cards['owner_frac']['value'] }}).</li>
-      <li>The watershed contains <a href="#hydrography">{{ cards['sum_flowlinelengthallkm']['value'] }}</a> of streams, {{ cards['sum_flowlinelengthperennialkm']['value'] }} of which are perennial,
-      with <a href="#morphometrics">drainage densities</a> of {{ cards['drainage_density_all']['value'] }} and {{ cards['drainage_density_perennial']['value'] }} respectively.</li>
+      <li>The watershed contains <a href="#hydrography">{{ cards['aoi_stream_length']['value'] }}</a> of streams, {{ cards['aoi_perennial_length']['value'] }} of which are perennial,
+      with <a href="#morphometrics">drainage densities</a> of {{ cards['aoi_drainage_density_all']['value'] }} and {{ cards['aoi_drainage_density_perennial']['value'] }} respectively.</li>
     </ul>
   </div>
 
@@ -62,6 +62,8 @@
       with an average of {{ cards['mean_slope']['value'] }}.</li>
       <li>The basin receives {{ cards['min_precipminimum']['value'] }} to {{ cards['max_precipmaximum']['value'] }} of <a href="#climate">annual precipitation</a>
       with a basin-wide mean annual precipitation of {{ cards['mean_precip_cell_value']['value'] }}.</li>
+      <li>The HUC10 watershed(s) contain {{ cards['sum_flowlinelengthallkm']['value'] }} of <a href="#hydrography">streams</a>, {{ cards['sum_flowlinelengthperennialkm']['value'] }} of which are perennial,
+      with drainage densities of {{ cards['drainage_density_all']['value'] }} and {{ cards['drainage_density_perennial']['value'] }} respectively.</li>
     </ul>
   </div>
   {{ widgets['callouts']|safe }}
@@ -74,7 +76,7 @@
   </div>
   <section id="basic-watershed-information">
     <h3>Basic Watershed Information</h3>
-    {{ render_metric_grid(cards, ["sum_hucareasqkm", "aoi_area", "countdistinct_huc","sum_flowlinelengthallkm"]) }}
+    {{ render_metric_grid(cards, ["sum_hucareasqkm", "aoi_area", "countdistinct_huc","aoi_stream_length"]) }}
     The selected watersheds are found within:
     <ul>
       {% for state in states %}
@@ -153,7 +155,7 @@
     {{ render_metric_grid(cards, ["mean_slope", "min_slopeminimum", "max_slopemaximum"]) }}
 
     <h4>Drainage Density</h4>
-    {{ render_metric_grid(cards, ["drainage_density_perennial", "drainage_density_non_perennial", "drainage_density_all"]) }}
+    {{ render_metric_grid(cards, ["aoi_drainage_density_perennial", "aoi_drainage_density_non_perennial", "aoi_drainage_density_all"]) }}
 
     <h4>Basin Morphometrics</h4>
     {{ render_metric_grid(cards, ["circularityratio","elongationratio","formfactor","reliefratio"]) }}
