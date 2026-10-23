@@ -74,17 +74,12 @@ def get_ownership_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Query and return ownership summary data (unnested from the ownership field)."""
     log = Logger("Get ownership data")
 
-    aoi_sql_geom = get_aoi_geom_sql_expression(aoi_gdf)
-    if aoi_sql_geom is None:
-        raise ValueError("AOI geometry exceeds Athena query size limit. Simplify the AOI and try again.")
-
-    query_str = f"""
-SELECT lu_blm_o.edomvd AS ownership_desc, ST_AsBinary(ST_GeomFromBinary(ext_rpt.us_blm_sma_ownership.geom_wkb)) AS geom
-FROM ext_rpt.us_blm_sma_ownership
-         LEFT JOIN lu_blm_ownership lu_blm_o ON upper(ext_rpt.us_blm_sma_ownership.admin_agency_code) = upper(lu_blm_o.edomv)
-WHERE ST_Intersects(ST_GeomFromBinary(geom_wkb), {aoi_sql_geom})
+    query_str = """
+SELECT ownership_desc, ST_AsBinary(ST_GeomFromBinary(sma.geom_wkb)) AS geom
+FROM input_geom, ext_rpt.us_blm_sma_ownership_enriched sma
+WHERE {prefilter_condition} AND {intersects_condition}
 """
-    df = query_to_dataframe(query_str, "ownership")
+    df = aoi_query_to_dataframe(query_str, geometry_field_expression="ST_GeomFromBinary(geom_wkb)", geom_bbox_field=None, aoi_gdf=aoi_gdf, geom_bbox_columns=('bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax'), querylabel="ownership")
     if df.empty:
         log.info("No ownership polygons intersect the AOI.")
         return gpd.GeoDataFrame(columns=["ownership_desc", "geometry"], geometry="geometry", crs=aoi_gdf.crs)
