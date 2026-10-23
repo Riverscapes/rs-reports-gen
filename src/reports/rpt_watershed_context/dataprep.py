@@ -75,7 +75,7 @@ def get_ownership_data(aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     log = Logger("Get ownership data")
 
     query_str = """
-SELECT ownership_desc, ST_AsBinary(ST_GeomFromBinary(sma.geom_wkb)) AS geom
+SELECT ownership_description as ownership_desc, ST_AsBinary(ST_GeomFromBinary(sma.geom_wkb)) AS geom
 FROM input_geom, ext_rpt.us_blm_sma_ownership_enriched sma
 WHERE {prefilter_condition} AND {intersects_condition}
 """
