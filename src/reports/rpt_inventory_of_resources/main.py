@@ -76,7 +76,7 @@ def _table_html(summary_df: pd.DataFrame, top_n: int = 20) -> str:
         if pd.notna(ratio):
             display_df.at[row_index, "BLM Managment"] = f"{float(ratio) * 100:,.2f}%"
 
-    return render_table(display_df)
+    return render_table(display_df, use_friendly=True, include_units=False)
 
 
 def define_fields(unit_system: str = "SI"):
@@ -87,6 +87,11 @@ def define_fields(unit_system: str = "SI"):
 
     # Here's where we can set any preferred units that differ from the data unit
     meta.set_display_unit('centerline_length', 'kilometer')
+
+    # Inventory summary table columns are display strings but should keep numeric alignment.
+    meta.add_field_meta(name='Total Inventory', friendly_name='Total Inventory', dtype='REAL')
+    meta.add_field_meta(name='Total BLM', friendly_name='Total BLM', dtype='REAL')
+    meta.add_field_meta(name='BLM Managment', friendly_name='BLM Management', dtype='REAL')
 
     return
 
