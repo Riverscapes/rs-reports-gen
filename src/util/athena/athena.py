@@ -592,8 +592,8 @@ def aoi_query_to_dataframe(
             e.g. ``'dgo_geom_bbox'``. Can be ``None`` when ``geom_bbox_columns`` is
             provided.
         aoi_gdf: GeoDataFrame representing the Area of Interest.
-        geom_bbox_columns: Optional 4-item tuple naming flat bbox columns in the
-            order ``(xmin, ymin, xmax, ymax)``. If not provided, defaults bbox_xmin etc are assumed.
+        geom_bbox_columns: Optional 4-item tuple naming flat bbox columns ``(xmin, ymin, xmax, ymax)``.
+            If not provided, defaults bbox_xmin etc are assumed.
 
     Returns:
         pandas.DataFrame: Query results.  Returns an empty DataFrame if the query

@@ -48,47 +48,33 @@ def get_nwi_data(aoi_gdf: gpd.GeoDataFrame, table='riparian') -> gpd.GeoDataFram
     """
     log = Logger("Get NWI riparian data for AOI")
 
-    if table == 'riparian':
-        query_str = """
+    nwi_table = 'ext_rpt.us_fws_nwi_riparian' if table == 'riparian' else 'ext_rpt.us_fws_nwi_wetlands'
+    query_str = f"""
 SELECT nwi.attribute, nwi.wetland_type, def.water_regime_name as water_regime_name, def.modifier1_name AS modifier1_name,
-       sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
+       sma.admin_agency_code AS ownership,
+       COALESCE(sma.admin_agency_description, sma.admin_dept_description) AS ownership_desc,
        ST_AsBinary(
            CASE
                WHEN sma.geom_wkb IS NULL THEN ST_GeomFromBinary(nwi.geom_wkb)
                ELSE ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
            END
        ) AS geom_wkb
-FROM input_geom, ext_rpt.us_fws_nwi_riparian nwi
-LEFT JOIN ext_rpt.us_blm_sma_ownership sma
+FROM input_geom, {nwi_table} nwi
+LEFT JOIN ext_rpt.us_blm_sma_ownership_enriched sma
     ON ST_Intersects(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
     AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
-LEFT JOIN lu_blm_ownership lu_blm_o
-    ON upper(sma.admin_agency_code) = upper(lu_blm_o.edomv)
 LEFT JOIN ext_raw.us_fws_nwi_code_definitions def
     ON nwi.attribute = def.attribute
-WHERE {prefilter_condition} AND {intersects_condition}
+WHERE {{prefilter_condition}} AND {{intersects_condition}}
 """
-    else:
-        query_str = """
-SELECT nwi.attribute, nwi.wetland_type, def.water_regime_name as water_regime_name, def.modifier1_name AS modifier1_name,
-       sma.admin_agency_code AS ownership, lu_blm_o.edomvd AS ownership_desc,
-       ST_AsBinary(
-           CASE
-               WHEN sma.geom_wkb IS NULL THEN ST_GeomFromBinary(nwi.geom_wkb)
-               ELSE ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
-           END
-       ) AS geom_wkb
-FROM input_geom, ext_rpt.us_fws_nwi_wetlands nwi
-LEFT JOIN ext_rpt.us_blm_sma_ownership sma
-    ON ST_Intersects(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))
-    AND ST_Area(ST_Intersection(ST_GeomFromBinary(nwi.geom_wkb), ST_GeomFromBinary(sma.geom_wkb))) > 0
-LEFT JOIN lu_blm_ownership lu_blm_o
-    ON upper(sma.admin_agency_code) = upper(lu_blm_o.edomv)
-LEFT JOIN ext_raw.us_fws_nwi_code_definitions def
-    ON nwi.attribute = def.attribute
-WHERE {prefilter_condition} AND {intersects_condition}
-"""
-    df = aoi_query_to_dataframe(query_str, geometry_field_expression="ST_GeomFromBinary(nwi.geom_wkb)", geom_bbox_field=None, aoi_gdf=aoi_gdf, querylabel="nwi riparian")
+    df = aoi_query_to_dataframe(
+        query_str,
+        geometry_field_expression="ST_GeomFromBinary(nwi.geom_wkb)",
+        geom_bbox_field=None,
+        geom_bbox_columns=('nwi.bbox_xmin', 'nwi.bbox_ymin', 'nwi.bbox_xmax', 'nwi.bbox_ymax'),
+        aoi_gdf=aoi_gdf,
+        querylabel=f"nwi {table}",
+    )
     if table == 'riparian':
         df["type"] = "lotic"
     else:
@@ -101,10 +87,11 @@ WHERE {prefilter_condition} AND {intersects_condition}
         return empty_gdf
 
     gdf = gpd.GeoDataFrame(df.drop(columns=["geom_wkb"]), geometry=gpd.GeoSeries.from_wkb(df["geom_wkb"]), crs=aoi_gdf.crs)
+    gdf = gpd.clip(gdf, aoi_gdf)
     area_crs = gdf.estimate_utm_crs()
     area_m2 = gdf.to_crs(area_crs).geometry.area
     gdf["area"] = area_m2.astype("pint[meter ** 2]")
-    return gpd.clip(gdf, aoi_gdf)
+    return gdf
 
 
 def summarize_by_length(data_df: pd.DataFrame, group_columns: list[str]) -> pd.DataFrame:
