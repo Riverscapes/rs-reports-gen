@@ -91,19 +91,25 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
         "road_dist, rail_dist, div_dist, canal_dist, infra_dist, "
         "fldpln_access, access_fldpln_extent, "
         "brat_capacity, brat_hist_capacity, brat_risk, brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, "
-        "rme_project_id, rme_version, rme_project_name, pasture_rs_row_id, pasture_nm_pasture_id "
+        "rme_project_id, rme_version, rme_project_name, pasture_rs_row_id, pasture_nm_pasture_id, us_blm_natl_wild_horse_burro_herd_mgmt_area_polygons_rs_rowid "
     )
 
     # HUC10 watershed boundary + RS Context metadata.
     huc_fields = "huc10.huc10 AS huc, huc10.name as hucname, huc10.areasqkm as hucareasqkm, rscontext.project_id, dem_bins, 100 * (ST_AREA(ST_INTERSECTION(huc10.geom, input_geom.geom)) / ST_AREA(huc10.geom)) AS percent_intersection"
 
-    pastures_fields = "rs_reports_rowid as rs_row_id, allotment_number as allot_no, allotment_name as allot_name, pasture_number as past_no, pasture_name as past_name, admin_state as admin_st, admin_office_code as adm_ofc_cd, admin_unit_code as adm_unit_cd, state_allotment_pasture as st_allot_past, rs_reports_rowname as st_allot_past_name"
+    pastures_fields = (
+        "rs_reports_rowid as rs_row_id, allotment_number as allot_no, allotment_name as allot_name, pasture_number as past_no, pasture_name as past_name, admin_state as admin_st, admin_office_code as adm_ofc_cd, "
+        "admin_unit_code as adm_unit_cd, state_allotment_pasture as st_allot_past, rs_reports_rowname as st_allot_past_name"
+    )
     pastures_nm_fields = "pasture_id, pasture_name, pasture_latitude, pasture_longitude"
+    horse_burro_fields = "rs_reports_rowid, rs_reports_rowname, hma_id, hma_name, admin_state, admin_unit_code, administrative_agency, herd_type"
 
     if include_geometry:
         dgo_fields += ", dgo_geom"
         # TODO (ENHANCEMENT): add geometry for other tables
         # huc_fields += ", huc10.geom" # [ERROR] [Setup] NOT_SUPPORTED: Unsupported Hive type: Geometry
+        pastures_fields = "geom_wkb," + pastures_fields
+        horse_burro_fields = "geom_wkb, " + horse_burro_fields
 
     return [
         DatasetQuery(
@@ -139,6 +145,13 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
             query_template=f"SELECT {pastures_nm_fields} FROM input_geom, rs_raw.blm_natl_grazing_pasture_polygons_nm_bootheel_snapshot_20260402 WHERE {{prefilter_condition}} AND {{intersects_condition}}",
             geometry_field_expression="ST_GeomFromBinary(geometry)",
             geom_bbox_field="geometry_bbox",
+        ),
+        DatasetQuery(
+            name="blm_natl_wild_horse_burro_herd_mgmt_area_polygons",
+            query_template=(f"SELECT {horse_burro_fields} FROM input_geom, ext_rpt.us_blm_natl_wild_horse_burro_herd_mgmt_area_polygons WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            geometry_field_expression="ST_GeomFromBinary(geom_wkb)",
+            geom_bbox_field=None,
+            geom_bbox_columns=("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax"),
         ),
     ]
 
@@ -218,6 +231,7 @@ def define_fields(unit_system: str = "SI") -> None:
     """Set up the fields and units for this export.
 
     Copilot-generated function.
+    TODO: use get_field_metadata_lakehouse_ref , get metadata for horse & burro layer
     """
     meta = RSFieldMeta()
     registry_field_meta = get_field_metadata(
@@ -460,7 +474,7 @@ def export_data_mart(
 
     # Pastures: dtype coercion (currently no unit-bearing columns)
     pastures_staging = Path(parquet_override / "pastures") if parquet_override else staging_dir / "pastures"
-    pastures_df = load_gdf_from_pq(pastures_staging)
+    pastures_df = load_gdf_from_pq(pastures_staging, geometry_col='geom_wkb' if include_geometry else None)
     pastures_df.attrs["layer_id"] = "blm-natl-grazing-pasture-polygons"
     pastures_df, pastures_applied_units = meta.apply_units(pastures_df)
     log.info(f"Pastures loaded: {len(pastures_df)} rows, {len(pastures_df.columns)} cols")
