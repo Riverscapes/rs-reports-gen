@@ -110,6 +110,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import awswrangler as wr
@@ -119,6 +120,9 @@ import pandas as pd
 from rsxml import Logger
 
 from util import round_down, round_up
+
+if TYPE_CHECKING:
+    from awswrangler.typing import AthenaCacheSettings
 
 # buffer, in decimal degrees, on centroids to capture DGO.
 # value of 0.47 is based on an analysis of distance between centroid and corners of bounding boxes of raw_rme 2025-09-08
@@ -132,6 +136,10 @@ ATHENA_WORKGROUP = "primary"
 # NEVER let this drift: every Athena/S3 call in this module must go through get_boto3_session().
 AWS_REGION = "us-west-2"
 DEFAULT_FLAT_BBOX_COLUMNS = ("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax")
+ATHENA_CACHE_SETTINGS: "AthenaCacheSettings" = {
+    "max_cache_seconds": 7200,
+    "max_cache_query_inspections": 50,
+}
 
 _boto3_session: boto3.Session | None = None
 
@@ -447,6 +455,8 @@ def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQuer
     """Execute Athena query and return structured status plus DataFrame payload.
 
     Distinguishes successful empty results from execution errors.
+    Uses awswrangler Athena query caching to avoid repeated execution of identical
+    statements over short intervals.
 
     Created by copilot.
     """
@@ -467,6 +477,7 @@ def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQuer
             ctas_approach=False,
             unload_approach=True,  # only PARQUET format is supported with this option
             s3_output=s3_output,
+            athena_cache_settings=ATHENA_CACHE_SETTINGS,
             boto3_session=get_boto3_session(),
         )
         log.debug(f"Query {querylabel} to dataframe completed.")
