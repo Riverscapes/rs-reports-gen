@@ -481,6 +481,15 @@ def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQuer
             boto3_session=get_boto3_session(),
         )
         log.debug(f"Query {querylabel} to dataframe completed.")
+
+        query_metadata = getattr(df, "query_metadata", {}) or {}
+        stats = query_metadata.get("Statistics", {}) if isinstance(query_metadata, dict) else {}
+        reuse_info = stats.get("ResultReuseInformation", {}) if isinstance(stats, dict) else {}
+        reused_previous_result = reuse_info.get("ReusedPreviousResult")
+        data_scanned_bytes = stats.get("DataScannedInBytes")
+        execution_time_ms = stats.get("TotalExecutionTimeInMillis")
+        log.debug(f"Query {querylabel} Athena metadata: reused_previous_result={reused_previous_result}, execution_time_ms={execution_time_ms}, data_scanned_bytes={data_scanned_bytes}")
+
         if df.empty:
             return DataFrameQueryResult(
                 status=QueryStatus.EMPTY,
