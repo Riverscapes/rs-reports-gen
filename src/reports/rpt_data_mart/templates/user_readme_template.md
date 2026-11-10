@@ -33,6 +33,7 @@ Additional Data
 - `nid.parquet`: National Inventory Dams search results for the area of interest
 - `pastures.parquet`: From the BLM National Pastures dataset
 - `pastures_nm_bootheel.parquet`: From April update to Pastures prepared for NM Bootheel
+- `blm_natl_wild_horse_burro_herd_mgmt_area_polygons.parquet`: BLM wild horse and burro herd management areas.
 - `vegetation_cover.parquet`: (Optional) Vegetation cover timeseries extracted via Climate Engine.
 
 ## How to use this data

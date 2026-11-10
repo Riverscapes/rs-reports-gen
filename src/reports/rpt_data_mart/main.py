@@ -32,7 +32,7 @@ from reports.rpt_data_mart import __version__ as report_version
 from reports.rpt_data_mart.dataprep import add_calculated_rme_cols, unnest_dem_bins
 from reports.rpt_riverscapes_inventory.dataprep import get_nid_data  # TODO no-cross-report imports - move nid stuff to util
 from util import prepare_gdf_for_athena
-from util.athena import aoi_query_to_local_parquet, get_field_metadata
+from util.athena import aoi_query_to_local_parquet, get_field_metadata, get_field_metadata_lakehouse_ref
 from util.attains_assessment import query_attains_assessments
 from util.climate_engine_connections import (
     enrich_vegetation_cover_df,
@@ -43,6 +43,8 @@ from util.pandas import RSFieldMeta, load_gdf_from_pq, ureg
 from util.rme.rme_common_dataprep import apply_all_bins
 
 PBI_MODEL_NAME = "Riverscapes Data Mart Report"
+HORSE_BURRO_DATASET_NAME = "blm_natl_wild_horse_burro_herd_mgmt_area_polygons"
+HORSE_BURRO_LAKEHOUSE_REF = "ext_rpt.us_blm_natl_wild_horse_burro_herd_mgmt_area_polygons"
 
 # ---------------------------------------------------------------------------
 # Dataset query configuration
@@ -147,8 +149,8 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
             geom_bbox_field="geometry_bbox",
         ),
         DatasetQuery(
-            name="blm_natl_wild_horse_burro_herd_mgmt_area_polygons",
-            query_template=(f"SELECT {horse_burro_fields} FROM input_geom, ext_rpt.us_blm_natl_wild_horse_burro_herd_mgmt_area_polygons WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
+            name=HORSE_BURRO_DATASET_NAME,
+            query_template=(f"SELECT {horse_burro_fields} FROM input_geom, {HORSE_BURRO_LAKEHOUSE_REF} WHERE {{prefilter_condition}} AND {{intersects_condition}}"),
             geometry_field_expression="ST_GeomFromBinary(geom_wkb)",
             geom_bbox_field=None,
             geom_bbox_columns=("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax"),
@@ -231,7 +233,6 @@ def define_fields(unit_system: str = "SI") -> None:
     """Set up the fields and units for this export.
 
     Copilot-generated function.
-    TODO: use get_field_metadata_lakehouse_ref , get metadata for horse & burro layer
     """
     meta = RSFieldMeta()
     registry_field_meta = get_field_metadata(
@@ -239,6 +240,10 @@ def define_fields(unit_system: str = "SI") -> None:
         tool_schema_name="*",
         layer_id="raw_rme,rpt_rme,rs_context_huc10,blm-natl-grazing-pasture-polygons,blm-natl-grazing-pasture-polygons-nm-bootheel,usace-nid",
     )
+    horse_burro_field_meta = get_field_metadata_lakehouse_ref(HORSE_BURRO_LAKEHOUSE_REF).copy()
+    horse_burro_field_meta["layer_id"] = HORSE_BURRO_DATASET_NAME
+    registry_field_meta = pd.concat([registry_field_meta, horse_burro_field_meta], ignore_index=True)
+
     # Consolidate RME source layers under the Data Mart table layer id.
     registry_field_meta.loc[registry_field_meta["layer_id"].isin(["raw_rme", "rpt_rme"]), "layer_id"] = "dgo"
 
@@ -489,6 +494,15 @@ def export_data_mart(
     log.info(f"Pastures loaded: {len(pastures_nm_bootheel_df)} rows, {len(pastures_nm_bootheel_df.columns)} cols")
     _export_parquet(pastures_nm_bootheel_df, exports_dir / "pastures_nm_bootheel.parquet")
     all_tables["pastures_nm_bootheel"] = TableEntry(df=pastures_nm_bootheel_df, applied_units=pastures_nm_bootheel_applied_units)
+
+    # BLM wild horse and burro herd management areas
+    horse_burro_staging = Path(parquet_override / HORSE_BURRO_DATASET_NAME) if parquet_override else staging_dir / HORSE_BURRO_DATASET_NAME
+    horse_burro_df = load_gdf_from_pq(horse_burro_staging, geometry_col='geom_wkb' if include_geometry else None)
+    horse_burro_df.attrs["layer_id"] = HORSE_BURRO_DATASET_NAME
+    horse_burro_df, horse_burro_applied_units = meta.apply_units(horse_burro_df)
+    log.info(f"Wild horse and burro HMA loaded: {len(horse_burro_df)} rows, {len(horse_burro_df.columns)} cols")
+    _export_parquet(horse_burro_df, exports_dir / f"{HORSE_BURRO_DATASET_NAME}.parquet")
+    all_tables[HORSE_BURRO_DATASET_NAME] = TableEntry(df=horse_burro_df, applied_units=horse_burro_applied_units)
 
     # Climate Engine: vegetation cover timeseries
     if ce_veg_df is not None:

@@ -138,7 +138,7 @@ AWS_REGION = "us-west-2"
 DEFAULT_FLAT_BBOX_COLUMNS = ("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax")
 ATHENA_CACHE_SETTINGS: "AthenaCacheSettings" = {
     "max_cache_seconds": 7200,
-    "max_cache_query_inspections": 50,
+    "max_cache_query_inspections": 150,
 }
 
 _boto3_session: boto3.Session | None = None
@@ -346,7 +346,7 @@ SELECT lakehouse_ref, layer_id, layer_name, column_name as name, friendly_name, 
 FROM default.lakehouse_resolved_column_catalog
 WHERE {where_lakehouse}
 """
-    df = query_to_dataframe(query, "layer_definitions")
+    df = query_to_dataframe(query, "layer_definitions", unload_approach=False)
     if df.empty:
         raise RuntimeError("Failed to retrieve metadata from Athena.")
     return df
@@ -404,7 +404,7 @@ FROM layer_definitions_latest
 WHERE {where_authority} {and_schema_name} {and_layer_id} {and_col_name}
 ORDER BY authority, layer_name, column_index, name
 """
-    df = query_to_dataframe(query, "layer_definitions")
+    df = query_to_dataframe(query, "layer_definitions", unload_approach=False)
     if df.empty:
         raise RuntimeError("Failed to retrieve metadata from Athena.")
     return df
@@ -451,7 +451,12 @@ def query_to_local_parquet(query: str, local_path: Path, querylabel: str = "") -
     log.info(f"Download complete. Files are in {local_path}")
 
 
-def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQueryResult:
+def query_to_dataframe_result(
+    query: str,
+    querylabel: str = "",
+    *,
+    unload_approach: bool = True,
+) -> DataFrameQueryResult:
     """Execute Athena query and return structured status plus DataFrame payload.
 
     Distinguishes successful empty results from execution errors.
@@ -460,8 +465,8 @@ def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQuer
 
     Created by copilot.
     """
-    log = Logger("Athena unload query to DF")
-    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/'
+    log = Logger("Athena query to DF")
+    s3_output = f's3://{S3_ATHENA_BUCKET}/athena_unload/{uuid.uuid4()}/' if unload_approach else None
 
     query_bytes = len(query.encode('utf-8'))
     if query_bytes > 262144:
@@ -475,7 +480,7 @@ def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQuer
             query,
             database='default',
             ctas_approach=False,
-            unload_approach=True,  # only PARQUET format is supported with this option
+            unload_approach=unload_approach,
             s3_output=s3_output,
             athena_cache_settings=ATHENA_CACHE_SETTINGS,
             boto3_session=get_boto3_session(),
@@ -515,7 +520,12 @@ def query_to_dataframe_result(query: str, querylabel: str = "") -> DataFrameQuer
         return DataFrameQueryResult(status=QueryStatus.ERROR, message=error_text, error=e)
 
 
-def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
+def query_to_dataframe(
+    query: str,
+    querylabel: str = "",
+    *,
+    unload_approach: bool = True,
+) -> pd.DataFrame:
     """uses awswrangler to return a dataframe for a given query
     args:
         query : the query to execute
@@ -537,7 +547,7 @@ def query_to_dataframe(query: str, querylabel: str = "") -> pd.DataFrame:
     *   Does not support columns with undefined data types.
     *   data has to fit into RAM memory. do not use for results with millions of rows
     """
-    result = query_to_dataframe_result(query, querylabel)
+    result = query_to_dataframe_result(query, querylabel, unload_approach=unload_approach)
     if result.status == QueryStatus.ERROR:
         if isinstance(result.error, ValueError):
             # Keep legacy behavior for query-size validation failures.

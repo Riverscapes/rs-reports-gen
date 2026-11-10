@@ -131,6 +131,12 @@ class JoinDef:
 MODEL_JOINS: list[JoinDef] = [
     JoinDef(from_table="dgo", from_column="pasture_rs_row_id", to_table="pastures", to_column="rs_row_id"),
     JoinDef(from_table="dgo", from_column="pasture_nm_pasture_id", to_table="pastures_nm_bootheel", to_column="pasture_id"),
+    JoinDef(
+        from_table="dgo",
+        from_column="us_blm_natl_wild_horse_burro_herd_mgmt_area_polygons_rs_rowid",
+        to_table="blm_natl_wild_horse_burro_herd_mgmt_area_polygons",
+        to_column="rs_reports_rowid",
+    ),
     JoinDef(from_table="dgo", from_column="huc10", to_table="huc10_rscontext", to_column="huc"),
     JoinDef(from_table="nid", from_column="pasture_id", to_table="pastures_nm_bootheel", to_column="pasture_id"),
     JoinDef(from_table="nid", from_column="HUC10_Code", to_table="huc10_rscontext", to_column="huc"),
