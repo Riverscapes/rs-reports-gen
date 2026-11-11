@@ -108,8 +108,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
 
     if include_geometry:
         dgo_fields += ", dgo_geom"
-        # TODO (ENHANCEMENT): add geometry for other tables
-        # huc_fields += ", huc10.geom" # [ERROR] [Setup] NOT_SUPPORTED: Unsupported Hive type: Geometry
+        huc_fields += ", huc10.geometry"
         pastures_fields = "geom_wkb," + pastures_fields
         horse_burro_fields = "geom_wkb, " + horse_burro_fields
 
@@ -127,7 +126,7 @@ def _build_dataset_queries(include_geometry: bool = False) -> list[DatasetQuery]
                 f" SELECT {huc_fields}, "
                 "CASE WHEN rme_huc10s.huc10 IS NOT null THEN 1 ELSE 0 END AS has_rme "
                 "FROM input_geom, "
-                "(SELECT huc10, name, areasqkm, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
+                "(SELECT huc10, name, areasqkm, geometry, geometry_bbox, ST_GeomFromBinary(geometry) AS geom FROM wbdhu10_cleaned) huc10 "
                 "LEFT JOIN rs_context_huc10 rscontext ON huc10.huc10 = rscontext.huc "
                 "LEFT JOIN rme_huc10s ON huc10.huc10 = rme_huc10s.huc10 "
                 "WHERE {prefilter_condition} AND {intersects_condition}"
@@ -459,7 +458,7 @@ def export_data_mart(
 
     # HUC: dtype coercion + unit conversion
     huc_staging = Path(parquet_override / "huc10_rscontext") if parquet_override else staging_dir / "huc10_rscontext"
-    huc_df = load_gdf_from_pq(huc_staging)
+    huc_df = load_gdf_from_pq(huc_staging, geometry_col='geometry' if include_geometry else None)
     huc_df, dem_bins_df = unnest_dem_bins(huc_df)
     huc_df.attrs["layer_id"] = "rs_context_huc10"
     huc_df, huc_applied_units = meta.apply_units(huc_df)
@@ -559,6 +558,8 @@ def export_data_mart(
             'pasture_id',
             'HUC10_Code',
         ]
+        if include_geometry and "geometry" in nid_gdf.columns:
+            nid_display_cols.append("geometry")
 
         # add URL to USACE dam detail page before building cols_to_use
         # Create Hyperlink for NAME using NIDID

@@ -1,5 +1,10 @@
 # Version History
 
+## 0.1.9 2026-November
+
+* Includes BLM Wild Horse & Burro herd management areas (intersected with DGO, and as layer)
+* More of the auxiliary datasets are exported as proper GeoParquet (snappy compression) for better consumption in GIS systems
+
 ## 0.1.8 2026-October
 
 * if "Include polygon geometries in dataset" is selected the parquet output will be include headers for geoparquet

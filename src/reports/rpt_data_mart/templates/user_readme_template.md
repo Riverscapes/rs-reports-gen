@@ -25,12 +25,12 @@ Core Riverscapes Data
 
 - `dgo.parquet`: Riverscapes drainage network attributes and metrics, binned into standardized categories.
 - `huc10_dem_bins.parquet`: Watershed elevation bins
-- `huc10_rscontext.parquet`: Watershed boundary statistics and metadata.
+- `huc10_rscontext.parquet`: Watershed boundary statistics and metadata (exports watershed geometry when `--include-geometry` is enabled)
 
 Additional Data
 
 - `attains.parquet`: (Optional) EPA water quality assessments.
-- `nid.parquet`: National Inventory Dams search results for the area of interest
+- `nid.parquet`: National Inventory Dams search results for the area of interest (exports point geometry when `--include-geometry` is enabled)
 - `pastures.parquet`: From the BLM National Pastures dataset
 - `pastures_nm_bootheel.parquet`: From April update to Pastures prepared for NM Bootheel
 - `blm_natl_wild_horse_burro_herd_mgmt_area_polygons.parquet`: BLM wild horse and burro herd management areas.
