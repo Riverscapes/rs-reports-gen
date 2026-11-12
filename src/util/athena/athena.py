@@ -475,6 +475,7 @@ def query_to_dataframe_result(
         return DataFrameQueryResult(status=QueryStatus.ERROR, message=str(err), error=err)
 
     log.debug(f"Query {querylabel}:\n{query}")
+    client_start = time.perf_counter()
     try:
         df = wr.athena.read_sql_query(
             query,
@@ -489,11 +490,17 @@ def query_to_dataframe_result(
 
         query_metadata = getattr(df, "query_metadata", {}) or {}
         stats = query_metadata.get("Statistics", {}) if isinstance(query_metadata, dict) else {}
-        reuse_info = stats.get("ResultReuseInformation", {}) if isinstance(stats, dict) else {}
-        reused_previous_result = reuse_info.get("ReusedPreviousResult")
         data_scanned_bytes = stats.get("DataScannedInBytes")
         execution_time_ms = stats.get("TotalExecutionTimeInMillis")
-        log.debug(f"Query {querylabel} Athena metadata: reused_previous_result={reused_previous_result}, execution_time_ms={execution_time_ms}, data_scanned_bytes={data_scanned_bytes}")
+        query_execution_id = query_metadata.get("QueryExecutionId") if isinstance(query_metadata, dict) else None
+        client_elapsed_ms = round((time.perf_counter() - client_start) * 1000, 1)
+        log.debug(
+            f"Query {querylabel} Athena query stats: "
+            f"query_execution_id={query_execution_id}, "
+            f"client_elapsed_ms={client_elapsed_ms}, "
+            f"athena_execution_time_ms={execution_time_ms}, "
+            f"athena_data_scanned_bytes={data_scanned_bytes}"
+        )
 
         if df.empty:
             return DataFrameQueryResult(
