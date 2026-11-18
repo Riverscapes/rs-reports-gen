@@ -29,6 +29,7 @@
       "program": "${workspaceFolder}/scripts/report_launcher.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src"
       }

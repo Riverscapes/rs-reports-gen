@@ -23,7 +23,7 @@ This means that you can use any [Riverscapes Viewer](https://viewer.riverscapes.
 
 #### Tables
 
-All tables can be joined using the field `dgoid` -- which is exactly what we did with the views (see below).
+All `dgo_` tables can be joined using the field `dgoid` -- which is exactly what we did with the views (see below).
 
 * dgos - contains the point geometry of the IGO
 * dgo_beaver
@@ -32,6 +32,7 @@ All tables can be joined using the field `dgoid` -- which is exactly what we did
 * dgo_hydro
 * dgo_impacts
 * dgo_veg
+* huc10 - HUC10 watershed polygons intersecting the AOI, including source-project count and latest source-project attributes
 
 #### Views
 

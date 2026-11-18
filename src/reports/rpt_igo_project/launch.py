@@ -28,7 +28,7 @@ def main() -> list[str] | None:
     Environment variables that may be set, bypassing prompts:
         IGO_AOI_GEOJSON - path to the input geojson file for rpt-igo-project (optional)
         IGO_REPORT_NAME - name for the report (optional)
-        IGO_PARQUET_PATH - path to an existing Athena UNLOAD Parquet folder/file (optional)
+        IGO_PARQUET_PATH - path to an existing staged Athena folder (expects raw_rme/ and huc10/ subfolders) (optional)
         IGO_KEEP_PARQUET - set to '1' or 'true' to retain downloaded Parquet files (optional)
         IGO_UNIT_SYSTEM - unit system to use for report prep ('SI' or 'imperial') (optional)
         INCLUDE_PDF - set to '1' or 'true' to include static HTML + PDF outputs (optional)

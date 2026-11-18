@@ -6,6 +6,7 @@ import logging
 import shutil
 import sys
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # Third party imports
@@ -31,6 +32,7 @@ from util import prepare_gdf_for_athena
 from util.athena import aoi_query_to_local_parquet, get_field_metadata
 from util.html import RSReport
 from util.html.table import render_table
+from util.pandas import load_meta_from_file, save_meta_to_file
 from util.pdf import make_pdf_from_html
 
 THEME_TO_TABLE = {
@@ -125,6 +127,114 @@ def generate_readme(project_dir: Path):
     readme_contents = template.render(context)
     with (project_dir / 'README.md').open('w', encoding='utf-8') as f:
         f.write(readme_contents)
+
+
+def _fetch_layerdefs() -> pd.DataFrame:
+    """Retrieve raw_rme field metadata from Athena."""
+    return get_field_metadata(
+        column_names='*',
+        authority='data-exchange-scripts',
+        tool_schema_name='rme_to_athena',
+        layer_id='raw_rme',
+    )
+
+
+def _query_raw_rme_data(query_gdf: gpd.GeoDataFrame, output_path: Path) -> None:
+    """Run the raw_rme AOI query and stage parquet output."""
+    fields_we_need = (
+        "ST_AsBinary(ST_POINT(longitude, latitude)) AS geom, "
+        "dep.name AS source_project_name, dep.created_on_date AS source_project_created_on, "
+        "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, "
+        "stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, "
+        "tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, "
+        "hect_vb_per_km, channel_width, confinement_ratio, constriction_ratio, confining_margins, constricting_margins, lf_evt, lf_bps, lf_agriculture_prop, lf_agriculture, lf_conifer_prop, lf_conifer, lf_conifer_hardwood_prop, "
+        "lf_conifer_hardwood, lf_developed_prop, lf_developed, lf_exotic_herbaceous_prop, lf_exotic_herbaceous, lf_exotic_tree_shrub_prop, lf_exotic_tree_shrub, lf_grassland_prop, lf_grassland, lf_hardwood_prop, lf_hardwood, "
+        "lf_riparian_prop, lf_riparian, lf_shrubland_prop, lf_shrubland, lf_sparsely_vegetated_prop, lf_sparsely_vegetated, lf_hist_conifer_prop, lf_hist_conifer, lf_hist_conifer_hardwood_prop, lf_hist_conifer_hardwood, "
+        "lf_hist_grassland_prop, lf_hist_grassland, lf_hist_hardwood_prop, lf_hist_hardwood, lf_hist_hardwood_conifer_prop, lf_hist_hardwood_conifer, lf_hist_peatland_forest_prop, lf_hist_peatland_forest, "
+        "lf_hist_peatland_nonforest_prop, lf_hist_peatland_nonforest, lf_hist_riparian_prop, lf_hist_riparian, lf_hist_savanna_prop, lf_hist_savanna, lf_hist_shrubland_prop, lf_hist_shrubland, lf_hist_sparsely_vegetated_prop, "
+        "lf_hist_sparsely_vegetated, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, riparian_veg_departure, ag_conversion, develop, grass_shrub_conversion, conifer_encroachment, invasive_conversion, riparian_condition, "
+        "qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, "
+        "brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
+    )
+    query_str = f"SELECT {fields_we_need} FROM input_geom, raw_rme_pq2 LEFT JOIN default.data_exchange_projects dep ON raw_rme_pq2.rme_project_id = dep.project_id WHERE {{prefilter_condition}} AND {{intersects_condition}}"
+    aoi_query_to_local_parquet(query_str, 'ST_GeomFromBinary(dgo_geom)', 'dgo_geom_bbox', query_gdf, output_path, querylabel="igo_raw_rme")
+
+
+def _query_huc10_data(query_gdf: gpd.GeoDataFrame, output_path: Path) -> None:
+    """Run HUC10 AOI query and stage one row per HUC10 with latest source project info."""
+    # NOTE: `with input_geom as (...)` will be prepended to this querystring
+    query_str = """
+, rmeprojects AS (
+    SELECT DISTINCT
+        rme.watershed_id AS huc10,
+        rme.rme_project_id,
+        dep.name AS source_project_name,
+        dep.created_on_date AS source_project_created_on,
+        dep.updated_on_date AS source_project_updated_on,
+        dep.project_type_id,
+        dep.model_version,
+        dep.model_version_int
+    FROM default.raw_rme_pq2 rme
+    LEFT JOIN default.data_exchange_projects dep
+        ON rme.rme_project_id = dep.project_id
+),
+rmeprojects_ranked AS (
+    SELECT
+        huc10,
+        rme_project_id,
+        source_project_name,
+        source_project_created_on,
+        source_project_updated_on,
+        project_type_id,
+        model_version,
+        model_version_int,
+        COUNT(*) OVER (PARTITION BY huc10) AS source_rme_project_count,
+        ROW_NUMBER() OVER (
+            PARTITION BY huc10
+            ORDER BY
+                COALESCE(source_project_updated_on, source_project_created_on) DESC,
+                source_project_created_on DESC,
+                rme_project_id DESC
+        ) AS row_num
+    FROM rmeprojects
+)
+SELECT
+    allhu10.huc10,
+    allhu10.name AS huc_name,
+    allhu10.hutype,
+    lu_hutype.hutype_definition,
+    allhu10.humod,
+    allhu10.states,
+    COALESCE(rme.source_rme_project_count, 0) AS source_rme_project_count,
+    rme.rme_project_id,
+    rme.source_project_name,
+    rme.source_project_created_on,
+    rme.source_project_updated_on,
+    CASE
+        WHEN rme.rme_project_id IS NULL THEN NULL
+        ELSE 'https://data.riverscapes.net/rv/' || rme.rme_project_id
+    END AS source_project_url,
+    rme.project_type_id,
+    rme.model_version,
+    rme.model_version_int,
+    ST_AsBinary(ST_GeomFromBinary(allhu10.geometry)) AS geom
+FROM input_geom,
+    default.wbdhu10_cleaned allhu10
+LEFT JOIN default.lu_hutype
+    ON allhu10.hutype = lu_hutype.hutype_code
+LEFT JOIN rmeprojects_ranked rme
+    ON allhu10.huc10 = rme.huc10
+    AND rme.row_num = 1
+WHERE {prefilter_condition} AND {intersects_condition}
+"""
+    aoi_query_to_local_parquet(
+        query_str,
+        'ST_GeomFromBinary(allhu10.geometry)',
+        'allhu10.geometry_bbox',
+        query_gdf,
+        output_path,
+        querylabel="igo_huc10",
+    )
 
 
 def generate_igo_report(
@@ -235,7 +345,7 @@ def get_and_process_aoi(
         project_dir (Path): Directory for the project.
         project_name (str): Name of the project.
         log_path (str): Path to the log file.
-        parquet_override (Path or None): for running multiple times in developement/test can supply path to previously downloaded data and skip athena query
+        parquet_override (Path or None): for running multiple times in development/test can supply path to staged data and skip Athena queries (expects raw_rme/ and huc10/ subfolders)
         keep_parquet (bool, default False): keep parquet files, e.g. for debugging purposes
 
     Raises:
@@ -243,16 +353,31 @@ def get_and_process_aoi(
     """
     log = Logger('Get and Process AOI orchestrator')
     log.info("Report orchestration begun")
-
     aoi_gdf = gpd.read_file(path_to_shape)
 
+    staging_root = Path(parquet_override) if parquet_override else project_dir / "pq"
+    raw_rme_parquet_source = staging_root / "raw_rme"
+    huc10_parquet_source = staging_root / "huc10"
+    metadata_cache_path = staging_root / "registry_field_meta.parquet"
+
     if parquet_override:
-        parquet_data_source = Path(parquet_override)
-        if not parquet_data_source.exists():
-            raise FileNotFoundError(f"Parquet path '{parquet_data_source}' does not exist")
-        log.info(f"Using supplied Parquet data files at {parquet_data_source}")
+        if not staging_root.exists():
+            raise FileNotFoundError(f"Parquet path '{staging_root}' does not exist")
+        if not raw_rme_parquet_source.exists():
+            raise FileNotFoundError(f"Missing required raw_rme staged data at '{raw_rme_parquet_source}'")
+        if not huc10_parquet_source.exists():
+            raise FileNotFoundError(f"Missing required huc10 staged data at '{huc10_parquet_source}'")
+        log.info(f"Using supplied staged Athena data files at {staging_root}")
+        if metadata_cache_path.exists():
+            log.info(f"Loading metadata cache from {metadata_cache_path}")
+            layerdefs = load_meta_from_file(metadata_cache_path)
+        else:
+            log.warning(f"No metadata cache found at {metadata_cache_path}; fetching metadata from Athena")
+            layerdefs = _fetch_layerdefs()
     else:
-        parquet_data_source = project_dir / "pq"
+        safe_makedirs(str(staging_root))
+        safe_makedirs(str(raw_rme_parquet_source))
+        safe_makedirs(str(huc10_parquet_source))
         # use shape to query Athena
         query_gdf, simplification_results = prepare_gdf_for_athena(aoi_gdf)
         if not simplification_results.success:
@@ -262,39 +387,26 @@ def get_and_process_aoi(
                 f"""Input polygon was simplified using tolerance of {simplification_results.tolerance_m} metres for the purpose of intersecting with DGO geometries in the database. 
                 If you require a higher precision extract, please contact support@riverscapes.freshdesk.com."""
             )
-
-        log.info(f"Running AOI query and writing Parquet output to {parquet_data_source}")
-        fields_we_need = (
-            "ST_AsBinary(ST_POINT(longitude, latitude)) AS geom, "
-            "dep.name AS source_project_name, dep.created_on_date AS source_project_created_on, "
-            "rme_version, rme_version_int, rme_date_created_ts, level_path, seg_distance, centerline_length, segment_area, fcode, longitude, latitude, ownership, state, county, drainage_area, watershed_id, stream_name, "
-            "stream_order, headwater, stream_length, waterbody_type, waterbody_extent, ecoregion3, ecoregion4, elevation, geology, huc12, prim_channel_gradient, valleybottom_gradient, rel_flow_length, confluences, diffluences, "
-            "tributaries, tribs_per_km, planform_sinuosity, lowlying_area, elevated_area, channel_area, floodplain_area, integrated_width, active_channel_ratio, low_lying_ratio, elevated_ratio, floodplain_ratio, acres_vb_per_mile, "
-            "hect_vb_per_km, channel_width, confinement_ratio, constriction_ratio, confining_margins, constricting_margins, lf_evt, lf_bps, lf_agriculture_prop, lf_agriculture, lf_conifer_prop, lf_conifer, lf_conifer_hardwood_prop, "
-            "lf_conifer_hardwood, lf_developed_prop, lf_developed, lf_exotic_herbaceous_prop, lf_exotic_herbaceous, lf_exotic_tree_shrub_prop, lf_exotic_tree_shrub, lf_grassland_prop, lf_grassland, lf_hardwood_prop, lf_hardwood, "
-            "lf_riparian_prop, lf_riparian, lf_shrubland_prop, lf_shrubland, lf_sparsely_vegetated_prop, lf_sparsely_vegetated, lf_hist_conifer_prop, lf_hist_conifer, lf_hist_conifer_hardwood_prop, lf_hist_conifer_hardwood, "
-            "lf_hist_grassland_prop, lf_hist_grassland, lf_hist_hardwood_prop, lf_hist_hardwood, lf_hist_hardwood_conifer_prop, lf_hist_hardwood_conifer, lf_hist_peatland_forest_prop, lf_hist_peatland_forest, "
-            "lf_hist_peatland_nonforest_prop, lf_hist_peatland_nonforest, lf_hist_riparian_prop, lf_hist_riparian, lf_hist_savanna_prop, lf_hist_savanna, lf_hist_shrubland_prop, lf_hist_shrubland, lf_hist_sparsely_vegetated_prop, "
-            "lf_hist_sparsely_vegetated, ex_riparian, hist_riparian, prop_riparian, hist_prop_riparian, riparian_veg_departure, ag_conversion, develop, grass_shrub_conversion, conifer_encroachment, invasive_conversion, riparian_condition, "
-            "qlow, q2, splow, sphigh, road_len, road_dens, rail_len, rail_dens, land_use_intens, road_dist, rail_dist, div_dist, canal_dist, infra_dist, fldpln_access, access_fldpln_extent, brat_capacity, brat_hist_capacity, brat_risk, "
-            "brat_opportunity, brat_limitation, brat_complex_size, brat_hist_complex_size, dam_setting, rme_project_id"
-        )
-        query_str = f"SELECT {fields_we_need} FROM input_geom, raw_rme_pq2 LEFT JOIN default.data_exchange_projects dep ON raw_rme_pq2.rme_project_id = dep.project_id WHERE {{prefilter_condition}} AND {{intersects_condition}}"
-
-        aoi_query_to_local_parquet(query_str, 'ST_GeomFromBinary(dgo_geom)', 'dgo_geom_bbox', query_gdf, parquet_data_source)
-
-    # Retrieve layer metadata once and reuse for both package schema and report formatting
-    layerdefs = get_field_metadata(
-        column_names='*',
-        authority='data-exchange-scripts',
-        tool_schema_name='rme_to_athena',
-        layer_id='raw_rme',
-    )
+        log.info(f"Running AOI queries and writing staged Parquet output under {staging_root}")
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            layerdefs_future = executor.submit(_fetch_layerdefs)
+            raw_rme_future = executor.submit(_query_raw_rme_data, query_gdf, raw_rme_parquet_source)
+            huc10_future = executor.submit(_query_huc10_data, query_gdf, huc10_parquet_source)
+            raw_rme_future.result()
+            huc10_future.result()
+            layerdefs = layerdefs_future.result()
+        save_meta_to_file(layerdefs, metadata_cache_path)
 
     # Retrieve table definitions
     table_defs = get_igo_table_defs(layerdefs)
     # NOTE: only columns found in `table_defs` will be added, regardless of what is selected from Athena (in this case raw_rme_pq2);
-    gpkg_path, source_projects_df = create_gpkg_igos_from_parquet(project_dir, spatialite_path, parquet_data_source, table_defs)
+    gpkg_path, source_projects_df = create_gpkg_igos_from_parquet(
+        project_dir,
+        spatialite_path,
+        raw_rme_parquet_source,
+        huc10_parquet_source,
+        table_defs,
+    )
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
     # column_meta
     field_metadata_to_file(project_dir / 'column_metadata.csv', table_defs)
@@ -303,20 +415,20 @@ def get_and_process_aoi(
         project_dir,
         project_name,
         aoi_gdf,
-        parquet_data_source,
+        raw_rme_parquet_source,
         layerdefs,
         source_project_list_df=source_projects_df,
         unit_system=unit_system,
         include_pdf=include_pdf,
     )
 
-    if not keep_parquet:
+    if not parquet_override and not keep_parquet:
         try:
-            if parquet_data_source.exists():
-                shutil.rmtree(parquet_data_source)
-                log.info(f"Deleted Parquet staging folder {parquet_data_source}")
+            if staging_root.exists():
+                shutil.rmtree(staging_root)
+                log.info(f"Deleted Parquet staging folder {staging_root}")
         except Exception as cleanup_err:
-            log.warning(f"Failed to delete Parquet folder {parquet_data_source}: {cleanup_err}")
+            log.warning(f"Failed to delete Parquet folder {staging_root}: {cleanup_err}")
 
     log.info(f'IGO project created successfully in {project_dir}.')
 
@@ -336,7 +448,7 @@ def main():
         dest='parquet_path',
         type=Path,
         default=None,
-        help='Use an existing Parquet file or directory instead of running the Athena AOI query',
+        help='Use an existing staged Parquet directory (expects raw_rme/ and huc10/ subfolders) instead of running Athena AOI queries',
     )
     parser.add_argument(
         '--keep-parquet',

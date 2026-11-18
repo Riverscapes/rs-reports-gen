@@ -310,6 +310,36 @@ def populate_tables_from_parquet(
     return pd.DataFrame(source_project_rows, columns=['project_id', 'project_name', 'created_on', 'project_url'])
 
 
+def append_huc10_layer_to_gpkg(gpkg_path: Path, huc10_parquet_path: str | Path, layer_name: str = "huc10") -> None:
+    """Append HUC10 polygons from staged parquet to an existing GeoPackage."""
+    log = Logger('Append HUC10 layer')
+    huc10_files = get_parquet_files(huc10_parquet_path)
+    if not huc10_files:
+        raise FileNotFoundError(f"No HUC10 Parquet files found in {huc10_parquet_path}")
+
+    huc10_dfs = [pq.ParquetFile(parquet_file).read().to_pandas() for parquet_file in huc10_files]
+    huc10_df = pd.concat(huc10_dfs, ignore_index=True) if len(huc10_dfs) > 1 else huc10_dfs[0]
+    if huc10_df.empty:
+        log.warning("HUC10 parquet data is empty; skipping huc10 layer append.")
+        return
+    if 'geom' not in huc10_df.columns:
+        raise ValueError("HUC10 parquet data is missing required 'geom' column")
+
+    if 'huc10' in huc10_df.columns:
+        duplicate_count = int(huc10_df['huc10'].duplicated().sum())
+        if duplicate_count > 0:
+            log.warning(f"HUC10 data has {duplicate_count} duplicate HUC10 code(s); keeping first row per HUC10.")
+            huc10_df = huc10_df.drop_duplicates(subset=['huc10'], keep='first').copy()
+
+    huc10_gdf = gpd.GeoDataFrame(
+        huc10_df.drop(columns=['geom']),
+        geometry=gpd.GeoSeries.from_wkb(huc10_df['geom']),
+        crs='EPSG:4326',
+    )
+    huc10_gdf.to_file(gpkg_path, driver='GPKG', layer=layer_name, mode='a')
+    log.info(f"Appended {len(huc10_gdf)} HUC10 polygon(s) to layer '{layer_name}' in {gpkg_path}")
+
+
 def add_geopackage_tables(conn: apsw.Connection):
     """
     Creates all required GeoPackage tables including spatial_ref_sys and also metadata tables: gpkg_contents and gpkg_geometry_columns
@@ -590,8 +620,14 @@ def populate_geopackage_metadata(conn: apsw.Connection, table_defs: pd.DataFrame
     log.info("GeoPackage data_columns table populated with metadata.")
 
 
-def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parquet_path: Path, table_defs: pd.DataFrame) -> tuple[Path, pd.DataFrame]:
-    """Create geopackage from parquet file and source-project list."""
+def create_gpkg_igos_from_parquet(
+    project_dir: Path,
+    spatialite_path: str,
+    parquet_path: Path,
+    huc10_parquet_path: Path,
+    table_defs: pd.DataFrame,
+) -> tuple[Path, pd.DataFrame]:
+    """Create geopackage from staged parquet and source-project list."""
     log = Logger('Create GPKG from Parquet')
 
     outputs_dir = project_dir / 'outputs'
@@ -614,20 +650,25 @@ def create_gpkg_igos_from_parquet(project_dir: Path, spatialite_path: str, parqu
         table_defs = table_defs[~missing_mask].copy()
 
     conn = create_geopackage(gpkg_path, table_defs, spatialite_path)
-    source_projects_df = populate_tables_from_parquet(parquet_path, conn, table_defs)
-    create_indexes(conn, table_defs)
-    create_views(conn, table_defs)
+    try:
+        source_projects_df = populate_tables_from_parquet(parquet_path, conn, table_defs)
+        create_indexes(conn, table_defs)
+        create_views(conn, table_defs)
 
-    # Document tables/views using geopackage schema extension
-    dgo_tables = table_defs['table_name'].unique()
+        # Document tables/views using geopackage schema extension
+        dgo_tables = table_defs['table_name'].unique()
 
-    view_aliases = [(f'vw_{t}_metrics', t) for t in dgo_tables if t != 'dgos']
-    # views are made by joining dgos with other tables so we'll add columns from the dgos
-    view_aliases += [(f'vw_{t}_metrics', 'dgos') for t in dgo_tables if t != 'dgos']
-    # vw_dgo_metrics combines everything together (and honestly I don't like it; it's too big, and unnecessary)
-    view_aliases += [('vw_dgo_metrics', t) for t in dgo_tables]
+        view_aliases = [(f'vw_{t}_metrics', t) for t in dgo_tables if t != 'dgos']
+        # views are made by joining dgos with other tables so we'll add columns from the dgos
+        view_aliases += [(f'vw_{t}_metrics', 'dgos') for t in dgo_tables if t != 'dgos']
+        # vw_dgo_metrics combines everything together (and honestly I don't like it; it's too big, and unnecessary)
+        view_aliases += [('vw_dgo_metrics', t) for t in dgo_tables]
 
-    populate_geopackage_metadata(conn, table_defs, view_aliases)
+        populate_geopackage_metadata(conn, table_defs, view_aliases)
+    finally:
+        conn.close()
+
+    append_huc10_layer_to_gpkg(gpkg_path, huc10_parquet_path)
     source_projects_df.to_csv(project_dir / 'source_projects.csv', index=False)
 
     return gpkg_path, source_projects_df
