@@ -32,7 +32,8 @@
       "envFile": "${workspaceFolder}/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src"
-      }
+      },
+      "subProcess": false
     },
     {
       "name": "⬇️ Download Report Inputs",

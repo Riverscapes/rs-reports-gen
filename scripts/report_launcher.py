@@ -11,7 +11,9 @@ will prompt for them interactively.
 from __future__ import annotations
 
 import logging
+import os
 import shlex
+import subprocess
 import sys
 import traceback
 from collections.abc import Iterable
@@ -107,6 +109,27 @@ def launch_report(entry: ReportEntry, extra_args: list[str]) -> int:
 
     module_path = entry.module_path
     src_path = str(SRC_ROOT)
+
+    if entry.name == "rpt_igo_project":
+        # Dev-only isolation path for IGO on Windows where in-process debug state
+        # can affect native DLL resolution for Spatialite.
+        wrapper_path = Path(__file__).resolve().parent / "run_igo_with_preload.py"
+        child_env = dict(os.environ)
+        for key in list(child_env):
+            key_upper = key.upper()
+            if key_upper.startswith("PYDEVD_") or key_upper.startswith("DEBUGPY_"):
+                child_env.pop(key, None)
+            elif "PYDEVD" in key_upper or "DEBUGPY" in key_upper:
+                child_env.pop(key, None)
+        child_env.pop("PYTHONPATH", None)
+        child_env["PYTHONNOUSERSITE"] = "1"
+        cmd = [sys.executable, "-I", str(wrapper_path), *extra_args]
+
+        print(f"Launching report: {entry.display_name}")
+        print(f"Module path: {entry.module_path}")
+        print(f"Arguments: {' '.join(shlex.quote(arg) for arg in cmd)}")
+        completed = subprocess.run(cmd, env=child_env, check=False)
+        return completed.returncode
 
     # Now run the main() function of the selected report module.
     sys.argv = [module_path] + extra_args
