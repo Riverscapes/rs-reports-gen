@@ -4,6 +4,10 @@
 
 Internal use only
 
+### Version 0.5.0 2026-11
+
+* add HUC10 as another layer in GeoPackage
+
 ### Version 0.4.1 2026-08
 
 * Allows report to be in user-selected unit system (SI or imperial)
