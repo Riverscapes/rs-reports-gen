@@ -7,6 +7,7 @@ Internal use only
 ### Version 0.5.0 2026-11
 
 * add HUC10 as another layer in GeoPackage
+* add HUC10 AOI overlap area and AOI/HUC10 coverage percentages to the `huc10` layer
 
 ### Version 0.4.1 2026-08
 

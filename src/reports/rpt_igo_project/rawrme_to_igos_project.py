@@ -162,6 +162,53 @@ def get_parquet_files(parquet_path: str | Path) -> list[Path]:
     return list_athena_unload_payload_files(parquet_path)
 
 
+def _add_huc10_aoi_overlap_metrics(huc10_gdf: gpd.GeoDataFrame, aoi_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Add AOI overlap area and coverage percentages to HUC10 polygons.
+
+    Created by copilot.
+    """
+    if huc10_gdf.crs is None:
+        raise ValueError("HUC10 data has no CRS; cannot compute overlap metrics.")
+    if aoi_gdf.crs is None:
+        raise ValueError("AOI has no CRS; cannot compute overlap metrics.")
+
+    huc10_metrics = huc10_gdf.copy()
+    huc10_metrics["geometry"] = huc10_metrics.geometry.make_valid()
+
+    aoi_aligned = aoi_gdf.to_crs(huc10_metrics.crs).copy()
+    aoi_aligned = aoi_aligned[aoi_aligned.geometry.notna()].copy()
+    if aoi_aligned.empty:
+        huc10_metrics["aoi_overlap_area_m2"] = 0.0
+        huc10_metrics["pct_huc10_covered_by_aoi"] = 0.0
+        huc10_metrics["pct_aoi_covered_by_huc10"] = 0.0
+        return huc10_metrics
+
+    aoi_aligned["geometry"] = aoi_aligned.geometry.make_valid()
+    area_crs = aoi_aligned.estimate_utm_crs() or "EPSG:5070"
+
+    huc10_area = huc10_metrics.to_crs(area_crs).copy()
+    aoi_area = aoi_aligned.to_crs(area_crs)
+    aoi_union_geom = aoi_area.geometry.union_all()
+    aoi_area_m2 = float(aoi_union_geom.area)
+
+    huc10_area_m2 = huc10_area.geometry.area
+    overlap_area_m2 = huc10_area.geometry.intersection(aoi_union_geom).area.fillna(0.0)
+
+    pct_huc10_covered = pd.Series(0.0, index=huc10_area.index)
+    valid_huc_area = huc10_area_m2 > 0
+    pct_huc10_covered.loc[valid_huc_area] = overlap_area_m2.loc[valid_huc_area] / huc10_area_m2.loc[valid_huc_area] * 100.0
+
+    if aoi_area_m2 > 0:
+        pct_aoi_covered = overlap_area_m2 / aoi_area_m2 * 100.0
+    else:
+        pct_aoi_covered = pd.Series(0.0, index=huc10_area.index)
+
+    huc10_metrics["aoi_overlap_area_m2"] = overlap_area_m2.astype(float)
+    huc10_metrics["pct_huc10_covered_by_aoi"] = pct_huc10_covered.astype(float)
+    huc10_metrics["pct_aoi_covered_by_huc10"] = pct_aoi_covered.astype(float)
+    return huc10_metrics
+
+
 def populate_tables_from_parquet(
     parquet_path: str | Path,
     conn: apsw.Connection,
@@ -310,8 +357,13 @@ def populate_tables_from_parquet(
     return pd.DataFrame(source_project_rows, columns=['project_id', 'project_name', 'created_on', 'project_url'])
 
 
-def append_huc10_layer_to_gpkg(gpkg_path: Path, huc10_parquet_path: str | Path, layer_name: str = "huc10") -> None:
-    """Append HUC10 polygons from staged parquet to an existing GeoPackage."""
+def append_huc10_layer_to_gpkg(
+    gpkg_path: Path,
+    huc10_parquet_path: str | Path,
+    aoi_gdf: gpd.GeoDataFrame,
+    layer_name: str = "huc10",
+) -> None:
+    """Append HUC10 polygons and AOI overlap metrics from staged parquet to a GeoPackage."""
     log = Logger('Append HUC10 layer')
     huc10_files = get_parquet_files(huc10_parquet_path)
     if not huc10_files:
@@ -336,6 +388,7 @@ def append_huc10_layer_to_gpkg(gpkg_path: Path, huc10_parquet_path: str | Path, 
         geometry=gpd.GeoSeries.from_wkb(huc10_df['geom']),
         crs='EPSG:4326',
     )
+    huc10_gdf = _add_huc10_aoi_overlap_metrics(huc10_gdf, aoi_gdf)
     huc10_gdf.to_file(gpkg_path, driver='GPKG', layer=layer_name, mode='a')
     log.info(f"Appended {len(huc10_gdf)} HUC10 polygon(s) to layer '{layer_name}' in {gpkg_path}")
 
@@ -625,6 +678,7 @@ def create_gpkg_igos_from_parquet(
     spatialite_path: str,
     parquet_path: Path,
     huc10_parquet_path: Path,
+    aoi_gdf: gpd.GeoDataFrame,
     table_defs: pd.DataFrame,
 ) -> tuple[Path, pd.DataFrame]:
     """Create geopackage from staged parquet and source-project list."""
@@ -668,7 +722,7 @@ def create_gpkg_igos_from_parquet(
     finally:
         conn.close()
 
-    append_huc10_layer_to_gpkg(gpkg_path, huc10_parquet_path)
+    append_huc10_layer_to_gpkg(gpkg_path, huc10_parquet_path, aoi_gdf)
     source_projects_df.to_csv(project_dir / 'source_projects.csv', index=False)
 
     return gpkg_path, source_projects_df

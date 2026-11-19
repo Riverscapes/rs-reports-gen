@@ -32,7 +32,7 @@ All `dgo_` tables can be joined using the field `dgoid` -- which is exactly what
 * dgo_hydro
 * dgo_impacts
 * dgo_veg
-* huc10 - HUC10 watershed polygons intersecting the AOI, including source-project count and latest source-project attributes
+* huc10 - HUC10 watershed polygons intersecting the AOI, including source-project count, latest source-project attributes, AOI overlap area, and AOI/HUC10 coverage percentages
 
 #### Views
 

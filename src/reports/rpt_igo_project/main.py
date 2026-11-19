@@ -405,6 +405,7 @@ def get_and_process_aoi(
         spatialite_path,
         raw_rme_parquet_source,
         huc10_parquet_source,
+        aoi_gdf,
         table_defs,
     )
     create_igos_project(project_dir, project_name, gpkg_path, log_path, aoi_gdf)
